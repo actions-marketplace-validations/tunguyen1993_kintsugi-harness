@@ -1,0 +1,53 @@
+name: "Kintsugi Harness — AI Agent Guardrail & Scar Scanner"
+description: "Scan pull requests and agent-authored commits against verified Golden Scars (AST + Regex) with optional SARIF 2.1.0 output."
+author: "Tu Nguyen"
+branding:
+  icon: "shield"
+  color: "yellow"
+
+inputs:
+  target:
+    description: "Directory or file path to scan"
+    required: false
+    default: "."
+  fail-on:
+    description: "Minimum severity that fails the check (CRITICAL, HIGH, MEDIUM, LOW)"
+    required: false
+    default: "HIGH"
+  sarif-output:
+    description: "Optional file path to write SARIF 2.1.0 report for GitHub Code Scanning"
+    required: false
+    default: ""
+  ledger:
+    description: "Optional custom path to .kintsugi/scars.json"
+    required: false
+    default: ".kintsugi/scars.json"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install kintsugi-harness
+      shell: bash
+      run: python -m pip install --no-cache-dir "${{ github.action_path }}"
+
+    - name: Run Kintsugi Deterministic Guard
+      shell: bash
+      env:
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_SARIF: ${{ inputs.sarif-output }}
+        INPUT_LEDGER: ${{ inputs.ledger }}
+      run: |
+        if [ ! -f "$INPUT_LEDGER" ]; then
+          kintsugi init --ledger "$INPUT_LEDGER" --no-compile
+        fi
+        if [ -n "$INPUT_SARIF" ]; then
+          kintsugi scan "$INPUT_TARGET" --ledger "$INPUT_LEDGER" --format sarif --output "$INPUT_SARIF" --fail-on "$INPUT_FAIL_ON"
+        else
+          kintsugi scan "$INPUT_TARGET" --ledger "$INPUT_LEDGER" --fail-on "$INPUT_FAIL_ON"
+        fi

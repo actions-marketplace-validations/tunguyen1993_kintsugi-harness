@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kintsugi-harness"
+version = "0.1.0"
+description = "Self-evolving failure-to-skill and deterministic PreToolUse AST/Regex guardrail compiler for Claude Code, Cursor, Codex, and MCP agents."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+authors = [
+  { name = "Tu Nguyen" }
+]
+keywords = [
+  "ai-agents",
+  "claude-code",
+  "mcp",
+  "agent-harness",
+  "agent-skills",
+  "guardrails",
+  "static-analysis",
+  "self-evolving-agents",
+  "cursor-rules",
+  "sarif"
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Security"
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4",
+  "pytest-cov>=4.1"
+]
+
+[project.scripts]
+kintsugi = "kintsugi.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tunguyen1993/kintsugi-harness"
+Repository = "https://github.com/tunguyen1993/kintsugi-harness"
+Issues = "https://github.com/tunguyen1993/kintsugi-harness/issues"
+Changelog = "https://github.com/tunguyen1993/kintsugi-harness/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
