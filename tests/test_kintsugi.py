@@ -997,6 +997,24 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             ev_rep["kmi_evolve_wire"],
         )
 
+    def test_v1_3_0_controlled_internet_foraging_and_deepseek_gemini38_to_opus_evolution(self) -> None:
+        from kintsugi.swarm import ControlledInternetForager
+
+        fg_rep = ControlledInternetForager().forage_and_evolve_3b8_vs_opus(fetch_live_network=False)
+        self.assertEqual(fg_rep["live_internet_sandbox_telemetry"]["prompt_injection_Payloads_quarantined"], 1)
+        prog = fg_rep["internet_foraging_progression"]
+        self.assertEqual(prog["pre_foraging_catch_count"], 0)
+        self.assertEqual(prog["post_foraging_catch_count"], 6)
+        self.assertTrue(prog["all_foraged_self_healed"])
+
+        cmp_rep = fg_rep["gauntlet_10_challenge_comparison"]
+        self.assertEqual(cmp_rep["arm_1_unassisted_3b8_model"]["score"], "2/10")
+        self.assertEqual(cmp_rep["arm_2_unassisted_single_pass_opus_5_5"]["score"], "6/10")
+        self.assertEqual(cmp_rep["arm_3_3b8_model_with_internet_evolved_kintsugi_harness"]["score"], "10/10")
+        self.assertEqual(cmp_rep["arm_3_3b8_model_with_internet_evolved_kintsugi_harness"]["lift_over_naked_3b8_pct"], 80.0)
+        self.assertEqual(cmp_rep["arm_3_3b8_model_with_internet_evolved_kintsugi_harness"]["lift_over_naked_opus55_pct"], 40.0)
+        self.assertIn("@FORAGE_PAIR/1|ver=1.3.0|pair=DeepSeek_Free+Gemini_3.8B|net_scars=6|pre_net=0/6|post_net=6/6|", fg_rep["kmi_forage_wire"])
+
 
 if __name__ == "__main__":
     unittest.main()

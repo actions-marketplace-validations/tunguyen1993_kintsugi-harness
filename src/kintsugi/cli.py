@@ -47,6 +47,7 @@ from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sa
 from kintsugi.swarm import (
     ClosedLoopEvolutionArena,
     ConsentGatedFreePoolManager,
+    ControlledInternetForager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
 )
@@ -271,6 +272,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--revoke-consent", action="store_true", help="Immediately revoke auto-provisioning consent and purge stored keys in .kintsugi/free_agent_pool.json")
     p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 6 High-Reasoning Council campaigns)")
     p_swm.add_argument("--evolution-proof", action="store_true", help="Run 5-Wave Closed-Loop Self-Learning & Self-Healing Proof (Epoch 0 Breach -> Scar Synthesis -> Autofix -> Epoch 5 Unseen Variant Immunity)")
+    p_swm.add_argument("--forage-internet", action="store_true", help="Release DeepSeek Free + Gemini 3.8B pair onto the controlled internet sandbox (OSV.dev, GitHub Advisories, ArXiv) and run the 3.8B-vs-Opus-5.5 Evolution Gauntlet")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     return parser
@@ -718,6 +720,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        if args.forage_internet:
+            fg_rep = ControlledInternetForager().forage_and_evolve_3b8_vs_opus(fetch_live_network=True)
+            if args.wire:
+                print(fg_rep["kmi_forage_wire"])
+                return 0
+            print(json.dumps(fg_rep, indent=2, ensure_ascii=False))
+            return 0
         if args.evolution_proof:
             ev_rep = ClosedLoopEvolutionArena().run_evolution_proof()
             if args.wire:
