@@ -1,7 +1,7 @@
 ---
 name: kintsugi-security
 description: "Focused security anti-patterns and verified code templates compiled by Kintsugi Harness."
-tags: ["ast", "authentication", "child_process", "claude-code", "command-injection", "cors", "credentials", "crypto", "database", "dlp"]
+tags: ["archive-extraction", "ast", "authentication", "child_process", "claude-code", "command-injection", "cors", "credentials", "crypto", "cve-2007-4559"]
 ---
 
 # kintsugi-security
@@ -148,4 +148,20 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)
 **Prefer (`✅ Verified Pattern`):**
 ```python
 app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)
+```
+
+### `KS-017` · [HIGH] Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559)
+- **Root cause:** tarfile.extractall() is called without a safety filter, so archive members containing paths such as ../target or absolute paths can write outside dest_dir.
+- **Why this matters:** The data extraction filter rejects members that escape the destination and restricts unsafe archive features. This requires a Python version that supports extraction filters; otherwise, validate each member path before extraction.
+
+**Avoid (`❌ Anti-Pattern`):**
+```python
+with tarfile.open(archive_path) as tar:
+    tar.extractall(path=dest_dir)
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```python
+with tarfile.open(archive_path) as tar:
+    tar.extractall(path=dest_dir, filter="data")
 ```
