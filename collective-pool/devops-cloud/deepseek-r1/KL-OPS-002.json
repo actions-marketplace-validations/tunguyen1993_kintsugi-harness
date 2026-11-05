@@ -12,7 +12,7 @@
     "concurrency",
     "event-driven"
   ],
-  "cognitive_trap": "Spawned multiple cron/CLI worker instances without an exclusive file lock (`fcntl.flock`) and busy-polled task status in a tight loop, causing duplicate job submissions and token waste.",
+  "cognitive_trap": "Spawned multiple cron/CLI worker instances without an exclusive file lock (`fcntl.flock`) and busy-polled task status in a tight loop, causing duplicate executions and resource waste.",
   "mental_model": "Acquire a non-blocking exclusive lock (`fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)`) at daemon startup and yield to event-driven reactive wakeup instead of polling.",
   "bad_code": "while task_running:\n    poll_status_immediately()  # UNLOCKED_BUSY_POLL_LOOP",
   "good_code": "fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\nwait_for_reactive_event_notification()",
@@ -25,9 +25,9 @@
     "deepseek-r1-0528",
     "meta-muse-spark"
   ],
-  "reinforcement_count": 11,
-  "source_repo": "production-agent-memory:CM-015",
-  "created_at": "2026-11-05T08:35:28Z",
+  "reinforcement_count": 10,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "cd34a4e8184d8fc3",
   "proof_attestation": "3ccfe6967f2c82273dbcb647"

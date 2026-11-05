@@ -1,6 +1,6 @@
 {
   "id": "KL-CAP-001",
-  "title": "Zero-Deposit Capital Guard: Reject any task, bounty, or investment requiring upfront bond or outbound wallet approval",
+  "title": "Zero-Advance-Fee Capital Guard: Reject any contract or opportunity requiring an upfront verification deposit",
   "domain": "finance-capital",
   "severity": "CRITICAL",
   "languages": [
@@ -14,11 +14,11 @@
     "anti-scam",
     "personal-finance"
   ],
-  "cognitive_trap": "Felt tempted by a high promised payout (`$500 reward`) to pay a 'small refundable verification deposit / claim bond' (`claim_bond_usd > 0`).",
-  "mental_model": "Legitimate income and bounty Counterparties deduct fees from gross payouts or pay inbound; any requirement to send upfront principal (`UPFRONT_DEPOSIT_REQUIRED` / `claim_bond > 0`) is an asymmetric principal-loss trap.",
-  "bad_code": "DECISION: APPROVE_ACTION(claim_bond_usd=25.0, action='SEND_UPFRONT_STAKING_DEPOSIT')",
-  "good_code": "DECISION: REJECT_ACTION(claim_bond_usd=0.0, policy='ZERO_DEPOSIT_RECEIVE_ONLY_GUARD')",
-  "regex_pattern": "SEND_UPFRONT_STAKING_DEPOSIT|claim_bond_usd=[1-9]\\d*",
+  "cognitive_trap": "Felt tempted by a high promised payout (`$500 return`) to pay a 'small refundable verification deposit or staking fee' (`upfront_fee_usd > 0`).",
+  "mental_model": "Legitimate commercial counterparties deduct service fees from gross settlements or pay inbound; any requirement to send upfront principal (`UPFRONT_DEPOSIT_REQUIRED` / `upfront_fee_usd > 0`) is an asymmetric principal-loss trap.",
+  "bad_code": "DECISION: APPROVE_ACTION(upfront_fee_usd=25.0, action='SEND_UPFRONT_STAKING_DEPOSIT')",
+  "good_code": "DECISION: REJECT_ACTION(upfront_fee_usd=0.0, policy='ZERO_ADVANCE_FEE_CAPITAL_GUARD')",
+  "regex_pattern": "SEND_UPFRONT_STAKING_DEPOSIT|upfront_fee_usd=[1-9]\\d*",
   "ast_rule": null,
   "synthesized_by_model": "deepseek-r1-0528",
   "model_family": "deepseek-r1",
@@ -28,10 +28,10 @@
     "gpt-6.1-terra-wm",
     "claude-opus-4"
   ],
-  "reinforcement_count": 21,
+  "reinforcement_count": 19,
   "source_repo": "local-episodic",
-  "created_at": "2026-11-05T08:02:26Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "life-and-business",
-  "structural_fingerprint": "da5797cf757a4a25",
-  "proof_attestation": "8173b2752b90b081e3e4be9f"
+  "structural_fingerprint": "f06db0089e2c4af6",
+  "proof_attestation": "e59bc1d74f81d1d32b8e2d54"
 }

@@ -25,9 +25,9 @@
     "claude-opus-4",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 14,
-  "source_repo": "production-agent-memory:CM-002-CM-018",
-  "created_at": "2026-11-05T08:35:28Z",
+  "reinforcement_count": 13,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "dcd6ad4d1925095d",
   "proof_attestation": "cc5fe50c4aee6f7237fb2634"

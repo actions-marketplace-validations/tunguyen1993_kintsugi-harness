@@ -26,9 +26,9 @@
     "gpt-6.1-terra-wm",
     "claude-opus-4"
   ],
-  "reinforcement_count": 13,
-  "source_repo": "neuro-symbolic-cortex:atom_005",
-  "created_at": "2026-11-05T08:35:28Z",
+  "reinforcement_count": 12,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "96303a99673c6db2",
   "proof_attestation": "c1010167adbc947f24c4e5e1"

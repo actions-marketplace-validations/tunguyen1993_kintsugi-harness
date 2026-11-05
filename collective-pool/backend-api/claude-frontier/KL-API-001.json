@@ -25,9 +25,9 @@
     "claude-opus-4",
     "deepseek-r1-0528"
   ],
-  "reinforcement_count": 17,
+  "reinforcement_count": 14,
   "source_repo": "local-episodic",
-  "created_at": "2026-11-05T07:46:51Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "c77fa3e87ef56343",
   "proof_attestation": "ff60acb693a4d3769fb7b21e"

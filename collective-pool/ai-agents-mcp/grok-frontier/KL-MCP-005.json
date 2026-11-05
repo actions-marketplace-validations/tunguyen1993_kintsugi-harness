@@ -25,9 +25,9 @@
     "grok-4.7",
     "deepseek-r1-0528"
   ],
-  "reinforcement_count": 12,
-  "source_repo": "production-agent-memory:CM-017",
-  "created_at": "2026-11-05T08:35:28Z",
+  "reinforcement_count": 11,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "582168db4ef55850",
   "proof_attestation": "3029b61cf00e6748e20a37ac"

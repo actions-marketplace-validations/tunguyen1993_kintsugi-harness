@@ -25,9 +25,9 @@
     "claude-opus-4",
     "qwen3.8-max"
   ],
-  "reinforcement_count": 10,
+  "reinforcement_count": 8,
   "source_repo": "github:anthropics/skills/xlsx",
-  "created_at": "2026-11-05T08:04:21Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "fb1f6d741ec5cde6",
   "proof_attestation": "12dda9cbe4484f9b22b4c9e5"

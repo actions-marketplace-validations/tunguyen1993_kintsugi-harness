@@ -27,9 +27,9 @@
     "grok-4.7",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 14,
-  "source_repo": "neuro-symbolic-cortex:atom_004",
-  "created_at": "2026-11-05T08:35:28Z",
+  "reinforcement_count": 13,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "96b8fb6aa99d93bb",
   "proof_attestation": "603b1776d1fd493f9cfef61d"

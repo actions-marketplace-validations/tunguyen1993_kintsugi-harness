@@ -25,9 +25,9 @@
     "qwen3.8-max",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 11,
+  "reinforcement_count": 8,
   "source_repo": "local-episodic",
-  "created_at": "2026-11-05T07:46:51Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "11f4a89f8b1e37a6",
   "proof_attestation": "8886d34b490721be7c7ed409"

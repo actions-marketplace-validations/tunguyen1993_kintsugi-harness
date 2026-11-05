@@ -147,8 +147,30 @@ LOW_TIER_DENY_PATTERNS = re.compile(
 )
 
 DLP_PRIVATE_PATTERN = re.compile(
-    r"(?:/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\\\Users\\\\|[a-zA-Z0-9._%+-]+@(?!([a-zA-Z0-9-]+\.)*example\.(?:com|org|net)\b)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|192\.168\.\d+\.\d+)",
+    r"(?:/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\\\Users\\\\|"
+    r"[a-zA-Z0-9._%+-]+@(?!([a-zA-Z0-9-]+\.)*example\.(?:com|org|net)\b)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|"
+    r"192\.168\.\d+\.\d+|0x[a-fA-F0-9]{40})",
+    re.IGNORECASE,
 )
+
+
+def _matches_local_dlp_denylist(text: str) -> bool:
+    """Check optional gitignored local denylist (.kintsugi/dlp_denylist.txt) without exposing private terms in public code."""
+    for candidate in (Path(".kintsugi/dlp_denylist.txt"), Path.home() / ".kintsugi" / "dlp_denylist.txt"):
+        if candidate.is_file():
+            try:
+                terms = [
+                    line.strip()
+                    for line in candidate.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if line.strip() and not line.strip().startswith("#")
+                ]
+                if terms:
+                    pat = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in terms) + r")\b", re.IGNORECASE)
+                    if pat.search(text):
+                        return True
+            except OSError:
+                continue
+    return False
 
 STOPWORDS: Set[str] = {
     "the", "and", "for", "with", "that", "this", "from", "into", "when", "without",
@@ -322,12 +344,15 @@ def verify_frontier_sync_gate(
             None,
         )
 
-    # Stage 2: DLP Sanitization Gate
-    combined_text = f"{lesson.title}\n{lesson.cognitive_trap}\n{lesson.mental_model}\n{lesson.bad_code}\n{lesson.good_code}"
-    if DLP_PRIVATE_PATTERN.search(combined_text):
+    # Stage 2: DLP Sanitization Gate (blocks private paths, emails, IPs, wallets, and local gitignored denylist terms)
+    combined_text = (
+        f"{lesson.title}\n{lesson.cognitive_trap}\n{lesson.mental_model}\n"
+        f"{lesson.bad_code}\n{lesson.good_code}\n{lesson.source_repo}"
+    )
+    if DLP_PRIVATE_PATTERN.search(combined_text) or _matches_local_dlp_denylist(combined_text):
         return (
             False,
-            "REJECTED_DLP_VIOLATION: Lesson contains private file paths, emails, or internal IP addresses.",
+            "REJECTED_DLP_VIOLATION: Lesson contains private file paths, emails, internal IPs, wallet addresses, or local DLP denylist terms.",
             None,
         )
 
@@ -1138,16 +1163,16 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
         # =========================================================================
         CognitiveLesson(
             id="KL-CAP-001",
-            title="Zero-Deposit Capital Guard: Reject any task, bounty, or investment requiring upfront bond or outbound wallet approval",
+            title="Zero-Advance-Fee Capital Guard: Reject any contract or opportunity requiring an upfront verification deposit",
             domain="finance-capital",
             severity=Severity.CRITICAL,
             languages=["decision", "markdown", "python"],
             tags=["capital-protection", "zero-deposit", "anti-scam", "personal-finance"],
-            cognitive_trap="Felt tempted by a high promised payout (`$500 reward`) to pay a 'small refundable verification deposit / claim bond' (`claim_bond_usd > 0`).",
-            mental_model="Legitimate income and bounty Counterparties deduct fees from gross payouts or pay inbound; any requirement to send upfront principal (`UPFRONT_DEPOSIT_REQUIRED` / `claim_bond > 0`) is an asymmetric principal-loss trap.",
-            bad_code="DECISION: APPROVE_ACTION(claim_bond_usd=25.0, action='SEND_UPFRONT_STAKING_DEPOSIT')",
-            good_code="DECISION: REJECT_ACTION(claim_bond_usd=0.0, policy='ZERO_DEPOSIT_RECEIVE_ONLY_GUARD')",
-            regex_pattern=r"SEND_UPFRONT_STAKING_DEPOSIT|claim_bond_usd=[1-9]\d*",
+            cognitive_trap="Felt tempted by a high promised payout (`$500 return`) to pay a 'small refundable verification deposit or staking fee' (`upfront_fee_usd > 0`).",
+            mental_model="Legitimate commercial counterparties deduct service fees from gross settlements or pay inbound; any requirement to send upfront principal (`UPFRONT_DEPOSIT_REQUIRED` / `upfront_fee_usd > 0`) is an asymmetric principal-loss trap.",
+            bad_code="DECISION: APPROVE_ACTION(upfront_fee_usd=25.0, action='SEND_UPFRONT_STAKING_DEPOSIT')",
+            good_code="DECISION: REJECT_ACTION(upfront_fee_usd=0.0, policy='ZERO_ADVANCE_FEE_CAPITAL_GUARD')",
+            regex_pattern=r"SEND_UPFRONT_STAKING_DEPOSIT|upfront_fee_usd=[1-9]\d*",
             synthesized_by_model="deepseek-r1-0528",
             endorsed_by_models=["deepseek-r1-0528", "gpt-6.1-terra-wm", "claude-opus-4"],
             reinforcement_count=19,
@@ -1409,7 +1434,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="gpt-6.1-terra-wm",
             endorsed_by_models=["gpt-6.1-terra-wm", "deepseek-r1-0528"],
             reinforcement_count=14,
-            source_repo="neuro-symbolic-cortex:atom_001",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-FIN-003",
@@ -1426,7 +1451,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="gpt-6.1-terra-wm",
             endorsed_by_models=["gpt-6.1-terra-wm", "deepseek-r1-0528"],
             reinforcement_count=16,
-            source_repo="neuro-symbolic-cortex:atom_002",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-FIN-004",
@@ -1443,7 +1468,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="deepseek-r1-0528",
             endorsed_by_models=["deepseek-r1-0528", "gpt-6.1-terra-wm"],
             reinforcement_count=15,
-            source_repo="neuro-symbolic-cortex:atom_003",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-ZTR-003",
@@ -1460,7 +1485,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="grok-4.7",
             endorsed_by_models=["grok-4.7", "gpt-6.1-terra-wm"],
             reinforcement_count=13,
-            source_repo="neuro-symbolic-cortex:atom_004",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-API-002",
@@ -1477,7 +1502,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="gpt-6.1-terra-wm",
             endorsed_by_models=["gpt-6.1-terra-wm", "claude-opus-4"],
             reinforcement_count=12,
-            source_repo="neuro-symbolic-cortex:atom_005",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-FIN-005",
@@ -1494,7 +1519,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="deepseek-r1-0528",
             endorsed_by_models=["deepseek-r1-0528", "claude-opus-4"],
             reinforcement_count=20,
-            source_repo="production-agent-memory:CM-001",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-MCP-005",
@@ -1511,7 +1536,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="grok-4.7",
             endorsed_by_models=["grok-4.7", "deepseek-r1-0528"],
             reinforcement_count=11,
-            source_repo="production-agent-memory:CM-017",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-API-003",
@@ -1528,7 +1553,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="claude-opus-4",
             endorsed_by_models=["claude-opus-4", "gpt-6.1-terra-wm"],
             reinforcement_count=13,
-            source_repo="production-agent-memory:CM-002-CM-018",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-OPS-002",
@@ -1537,7 +1562,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             severity=Severity.HIGH,
             languages=["python"],
             tags=["daemon", "flock", "concurrency", "event-driven"],
-            cognitive_trap="Spawned multiple cron/CLI worker instances without an exclusive file lock (`fcntl.flock`) and busy-polled task status in a tight loop, causing duplicate job submissions and token waste.",
+            cognitive_trap="Spawned multiple cron/CLI worker instances without an exclusive file lock (`fcntl.flock`) and busy-polled task status in a tight loop, causing duplicate executions and resource waste.",
             mental_model="Acquire a non-blocking exclusive lock (`fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)`) at daemon startup and yield to event-driven reactive wakeup instead of polling.",
             bad_code="while task_running:\n    poll_status_immediately()  # UNLOCKED_BUSY_POLL_LOOP",
             good_code="fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\nwait_for_reactive_event_notification()",
@@ -1545,7 +1570,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="deepseek-r1-0528",
             endorsed_by_models=["deepseek-r1-0528", "meta-muse-spark"],
             reinforcement_count=10,
-            source_repo="production-agent-memory:CM-015",
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-OPS-003",
@@ -1562,6 +1587,6 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="meta-muse-spark",
             endorsed_by_models=["meta-muse-spark", "grok-4.7"],
             reinforcement_count=12,
-            source_repo="production-agent-memory:CM-009-CM-016",
+            source_repo="local-episodic",
         ),
     ]

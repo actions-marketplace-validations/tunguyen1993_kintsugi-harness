@@ -27,9 +27,9 @@
     "claude-opus-4",
     "gemini-3.8-pro"
   ],
-  "reinforcement_count": 9,
+  "reinforcement_count": 7,
   "source_repo": "github:anthropics/skills/webapp-testing",
-  "created_at": "2026-11-05T08:02:26Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "9314fa92db2364ad",
   "proof_attestation": "69f4833812b39309275c773e"
