@@ -132,7 +132,8 @@ class SkillPackager:
         # 2. Category-specific specialized packs
         by_category: Dict[str, List[GoldenScar]] = defaultdict(list)
         for scar in self.scars:
-            by_category[scar.category.lower()].append(scar)
+            slug_cat = "".join(c if c.isalnum() else "-" for c in scar.category.lower()).strip("-") or "general"
+            by_category[slug_cat].append(scar)
 
         category_titles = {
             "security": (

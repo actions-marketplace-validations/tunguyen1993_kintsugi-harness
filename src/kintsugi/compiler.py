@@ -161,7 +161,8 @@ class SkillCompiler:
 
             by_cat: Dict[str, List[GoldenScar]] = defaultdict(list)
             for scar in self.scars:
-                by_cat[scar.category.lower()].append(scar)
+                slug_cat = re.sub(r"[^a-z0-9]+", "-", scar.category.lower()).strip("-") or "general"
+                by_cat[slug_cat].append(scar)
             for cat, cat_scars in sorted(by_cat.items()):
                 if len(cat_scars) < 2:
                     continue
