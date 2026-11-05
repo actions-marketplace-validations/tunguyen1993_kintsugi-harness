@@ -1,0 +1,17 @@
+{
+  "pack_id": "kintsugi-core-guard-free",
+  "name": "Kintsugi Core Guard \u2014 Free Open-Source Starter Pack",
+  "version": "1.2.0",
+  "tier": "Free ($0) \u2014 Open-Source Funnel (GitHub opensource branch)",
+  "price_usd": 0,
+  "license": "Apache-2.0",
+  "github_branch": "https://github.com/tunguyen1993/kintsugi-harness/tree/opensource/free-skill-pack",
+  "lesson_count": 0,
+  "lessons": [],
+  "upgrade_tiers": {
+    "finops_reliability_pro_usd": 15,
+    "zero_trust_mcp_security_pro_usd": 19,
+    "enterprise_complete_bundle_usd": 29,
+    "enterprise_regular_value_usd": 49
+  }
+}
