@@ -45,6 +45,7 @@ from kintsugi.packs import (
 )
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
 from kintsugi.swarm import (
+    AIProviderBenchmarkSuite,
     ClosedLoopEvolutionArena,
     ConsentGatedFreePoolManager,
     ControlledInternetForager,
@@ -273,6 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 6 High-Reasoning Council campaigns)")
     p_swm.add_argument("--evolution-proof", action="store_true", help="Run 5-Wave Closed-Loop Self-Learning & Self-Healing Proof (Epoch 0 Breach -> Scar Synthesis -> Autofix -> Epoch 5 Unseen Variant Immunity)")
     p_swm.add_argument("--forage-internet", action="store_true", help="Release DeepSeek Free + Gemini 3.8B pair onto the controlled internet sandbox (OSV.dev, GitHub Advisories, ArXiv) and run the 3.8B-vs-Opus-5.5 Evolution Gauntlet")
+    p_swm.add_argument("--provider-benchmarks", action="store_true", help="Run the 8-Facet Official AI Provider Benchmark Suite (SWE-bench Verified, LiveCodeBench, GPQA Diamond, AIME/MATH-500, CyberSecEval 3, TAU-bench/BFCL, SimpleQA/FACTS, IFEval)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     return parser
@@ -720,6 +722,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        if args.provider_benchmarks:
+            pb_rep = AIProviderBenchmarkSuite().run_all_provider_benchmarks(fetch_live_network=True)
+            print(json.dumps(pb_rep, indent=2, ensure_ascii=False))
+            return 0 if pb_rep["all_8_harnesses_executed_and_verified"] else 1
         if args.forage_internet:
             fg_rep = ControlledInternetForager().forage_and_evolve_3b8_vs_opus(fetch_live_network=True)
             if args.wire:

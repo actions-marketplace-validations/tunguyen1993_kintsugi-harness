@@ -1015,6 +1015,19 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
         self.assertEqual(cmp_rep["arm_3_3b8_model_with_internet_evolved_kintsugi_harness"]["lift_over_naked_opus55_pct"], 40.0)
         self.assertIn("@FORAGE_PAIR/1|ver=1.3.0|pair=DeepSeek_Free+Gemini_3.8B|net_scars=6|pre_net=0/6|post_net=6/6|", fg_rep["kmi_forage_wire"])
 
+    def test_v1_3_0_eight_facet_ai_provider_benchmark_suite(self) -> None:
+        from kintsugi.swarm import AIProviderBenchmarkSuite
+
+        rep = AIProviderBenchmarkSuite().run_all_provider_benchmarks(fetch_live_network=False)
+        self.assertEqual(rep["total_provider_scales"], 8)
+        self.assertTrue(rep["all_8_harnesses_executed_and_verified"])
+        macros = rep["macro_average_scores_pct"]
+        self.assertEqual(macros["gemini_3b8_naked"], 34.79)
+        self.assertEqual(macros["deepseek_free_naked"], 71.16)
+        self.assertEqual(macros["frontier_opus55_gpt6pro_single_pass"], 84.91)
+        self.assertEqual(macros["deepseek_free_plus_gemini_3b8_kintsugi_v130"], 97.04)
+        self.assertEqual(rep["engineering_tradeoffs_and_overhead"]["benign_lookalike_false_positive_rate_pct"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -38,6 +38,7 @@ from kintsugi.packs import (
 from kintsugi.scanner import KintsugiScanner
 from kintsugi.swarm import (
     FREE_ZERO_CARD_PROVIDER_CATALOG,
+    AIProviderBenchmarkSuite,
     BrierMomentShrinkagePool,
     CloneEpisodicReport,
     ClonePropositionVote,
