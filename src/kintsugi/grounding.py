@@ -413,3 +413,168 @@ class RepoAstGroundingEngine:
             "taint_flows_detected": len(self.symbol_table["taint_flows"]),
             "ast_quotient_hashes_count": len(self.symbol_table["ast_quotient_hashes"]),
         }
+
+
+class SoundSymbolicPathSolver:
+    """
+    v1.3.0 High-Reasoning Upgrade #2 (Synthesized by GPT-6 Pro [Thinking effort: Pro],
+    Grok 4.7 [xhigh], and GPT-6.1-Terra [max]):
+    Four-state symbolic path-condition & outward-rounded interval constraint solver:
+      - `UNREACHABLE` : Path condition `phi` is unsatisfiable (prevents vacuous-truth bypass).
+      - `HOLDS`       : `UNSAT(phi & ~P)` proven over all reachable sub-boxes with outward rounding.
+      - `VIOLATED`    : Concrete feasible witness `x*` found satisfying `phi(x*) & ~P(x*)`.
+      - `UNKNOWN`     : Interval over-approximation overlaps 0 without a concrete witness or hits
+                        nonlinear/unsupported expressions. Strictly blocks downstream taint clearance.
+    """
+
+    def __init__(self, max_splits: int = 8) -> None:
+        self.max_splits = max(1, int(max_splits))
+
+    @staticmethod
+    def _outward_interval(lo: float, hi: float) -> Tuple[float, float]:
+        import math
+
+        return (math.nextafter(float(lo), -math.inf), math.nextafter(float(hi), math.inf))
+
+    @staticmethod
+    def normalize_correlated_linear_expr(expr: str, var_name: str = "x") -> Tuple[float, float, bool]:
+        """
+        Algebraically collects linear coefficients `a * x + c <= 0` from simple expressions
+        so correlated self-subtractions (`x - x - 0.0`) cancel exactly (`a = 0.0`) before
+        interval enclosure evaluation. Returns `(a_coeff, c_const, is_linear)`.
+        """
+        try:
+            tree = ast.parse(expr.strip(), mode="eval")
+        except SyntaxError:
+            return (0.0, 0.0, False)
+
+        def _collect(node: ast.AST) -> Optional[Tuple[float, float]]:
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                return (0.0, float(node.value))
+            if isinstance(node, ast.Name) and node.id == var_name:
+                return (1.0, 0.0)
+            if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+                sub = _collect(node.operand)
+                if sub is None:
+                    return None
+                return sub if isinstance(node.op, ast.UAdd) else (-sub[0], -sub[1])
+            if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult)):
+                left = _collect(node.left)
+                right = _collect(node.right)
+                if left is None or right is None:
+                    return None
+                if isinstance(node.op, ast.Add):
+                    return (left[0] + right[0], left[1] + right[1])
+                if isinstance(node.op, ast.Sub):
+                    return (left[0] - right[0], left[1] - right[1])
+                if isinstance(node.op, ast.Mult):
+                    # Linear only if at least one side has 0 x-coefficient
+                    if abs(left[0]) < 1e-15:
+                        return (left[1] * right[0], left[1] * right[1])
+                    if abs(right[0]) < 1e-15:
+                        return (right[1] * left[0], left[1] * right[1])
+                    return None
+            return None
+
+        res = _collect(tree.body)
+        if res is None:
+            return (0.0, 0.0, False)
+        return (res[0], res[1], True)
+
+    def discharge_assertion(
+        self,
+        path_bounds: List[Tuple[float, float]],
+        assertion_le_zero_expr: str,
+        var_name: str = "x",
+        has_unverified_nonlinear_op: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Evaluates whether `assertion_le_zero_expr <= 0` holds across the intersection of
+        `path_bounds` `[(lo_i, hi_i), ...]`.
+        """
+        import math
+
+        if not path_bounds:
+            return {
+                "status": "UNKNOWN",
+                "reason": "EMPTY_PATH_DOMAIN",
+                "witness": None,
+                "taint_clearance_allowed": False,
+            }
+
+        eff_lo = max(float(b[0]) for b in path_bounds)
+        eff_hi = min(float(b[1]) for b in path_bounds)
+        if eff_lo > eff_hi or math.isnan(eff_lo) or math.isnan(eff_hi):
+            return {
+                "status": "UNREACHABLE",
+                "reason": f"UNSAT_PATH_CONDITION: effective interval [{eff_lo}, {eff_hi}] is empty",
+                "witness": None,
+                "taint_clearance_allowed": False,
+            }
+
+        if has_unverified_nonlinear_op:
+            return {
+                "status": "UNKNOWN",
+                "reason": "UNSUPPORTED_NONLINEAR_OR_EXTERNAL_OP",
+                "witness": None,
+                "taint_clearance_allowed": False,
+            }
+
+        a_coeff, c_const, is_linear = self.normalize_correlated_linear_expr(assertion_le_zero_expr, var_name=var_name)
+        if not is_linear:
+            return {
+                "status": "UNKNOWN",
+                "reason": f"NONLINEAR_RESIDUAL_UNDECIDED: '{assertion_le_zero_expr}'",
+                "witness": None,
+                "taint_clearance_allowed": False,
+            }
+
+        # Sub-box outward-rounded interval verification
+        sub_statuses: List[str] = []
+        concrete_witness: Optional[Dict[str, float]] = None
+        width = (eff_hi - eff_lo) / float(self.max_splits)
+
+        for idx in range(self.max_splits):
+            b_lo = eff_lo if idx == 0 else eff_lo + idx * width
+            b_hi = eff_hi if idx == self.max_splits - 1 else eff_lo + (idx + 1) * width
+            v1 = a_coeff * b_lo + c_const
+            v2 = a_coeff * b_hi + c_const
+            out_lo, out_hi = self._outward_interval(min(v1, v2), max(v1, v2))
+
+            # Check concrete midpoint/endpoints for genuine violation witness
+            for sample_x in (b_lo, 0.5 * (b_lo + b_hi), b_hi):
+                exact_val = a_coeff * sample_x + c_const
+                if exact_val > 1e-12:
+                    concrete_witness = {var_name: round(sample_x, 8), "f_val": round(exact_val, 8)}
+                    break
+
+            if out_hi <= 1e-12:
+                sub_statuses.append("HOLDS")
+            elif out_lo > 0.0 and concrete_witness is not None:
+                sub_statuses.append("VIOLATED")
+            else:
+                sub_statuses.append("UNKNOWN")
+
+        if concrete_witness is not None:
+            return {
+                "status": "VIOLATED",
+                "reason": f"FEASIBLE_COUNTEREXAMPLE_FOUND: {concrete_witness}",
+                "witness": concrete_witness,
+                "taint_clearance_allowed": False,
+            }
+
+        if all(st == "HOLDS" for st in sub_statuses):
+            return {
+                "status": "HOLDS",
+                "reason": f"OUTWARD_ROUNDED_ENCLOSURE_PROVEN_OVER_[{eff_lo}, {eff_hi}]",
+                "witness": None,
+                "taint_clearance_allowed": True,
+            }
+
+        return {
+            "status": "UNKNOWN",
+            "reason": "INTERVAL_OVERAPPROXIMATION_AMBIGUOUS_NO_WITNESS",
+            "witness": None,
+            "taint_clearance_allowed": False,
+        }
+

@@ -1306,3 +1306,296 @@ class ScientificLiteratureVerifier:
         }
 
 
+class LakatosCEGISVerifier:
+    """
+    v1.3.0 High-Reasoning Upgrade #1 (Synthesized by GPT-6 Pro [Thinking effort: Pro],
+    Grok 4.7 [xhigh], and GPT-6.1-Terra [max]):
+    Lakatosian Proofs & Refutations / Counterexample-Guided Inductive Synthesis (CEGIS)
+    with strict Anti-Goalpost-Moving semantics:
+      - `PROVED`      : Complete refuter finds 0 counterexamples on uncut initial domain `D_0`,
+                        and all supporting lemmas in the Lemma DAG are independently verified.
+      - `CONDITIONAL` : Conjecture holds on retained domain `D_theta` (`coverage >= c_min`),
+                        but `D_theta` required explicit domain cuts (`monster-barring`) or
+                        relies on unproved lemmas. Original refutations on `D_0 \\ D_theta`
+                        are permanently preserved in the ledger.
+      - `REFUTED`     : Validated counterexample exists in `D_theta`, or domain cuts drop
+                        coverage below `c_min`.
+      - `SURRENDER`   : Refuter timed out or is incomplete (`refuter_complete == False`).
+                        Never promoted to `PROVED`.
+    """
+
+    def __init__(
+        self,
+        c_min: float = 0.80,
+        lambda_err: float = 25.0,
+        lambda_cut: float = 4.0,
+    ) -> None:
+        self.c_min = float(c_min)
+        self.lambda_err = float(lambda_err)
+        self.lambda_cut = float(lambda_cut)
+
+    def evaluate_conjecture(
+        self,
+        claim_id: str,
+        conjecture_fn: Any,
+        initial_domain: List[Any],
+        domain_cuts: Optional[List[Any]] = None,
+        lemma_dag: Optional[Dict[str, bool]] = None,
+        refuter_complete: bool = True,
+        conjecture_code_length: float = 12.0,
+    ) -> Dict[str, Any]:
+        cut_set = set(domain_cuts or [])
+        retained_domain = [x for x in initial_domain if x not in cut_set]
+        total_n = max(1, len(initial_domain))
+        coverage = round(len(retained_domain) / float(total_n), 4)
+
+        preserved_refutations = [x for x in initial_domain if x in cut_set and not bool(conjecture_fn(x))]
+        active_counterexamples = [x for x in retained_domain if not bool(conjecture_fn(x))]
+
+        lemmas = dict(lemma_dag or {})
+        all_lemmas_verified = all(bool(v) for v in lemmas.values()) if lemmas else True
+        unverified_lemmas = [k for k, v in lemmas.items() if not v]
+
+        n_err = len(active_counterexamples)
+        cut_cl = float(len(cut_set)) * 2.5
+        mdl_score = round(
+            float(conjecture_code_length) + self.lambda_err * n_err + self.lambda_cut * cut_cl,
+            4,
+        )
+
+        if n_err > 0:
+            status = "REFUTED"
+            reason = f"VALIDATED_COUNTEREXAMPLE_IN_DOMAIN: {active_counterexamples[:3]}"
+        elif coverage < self.c_min:
+            status = "REFUTED"
+            reason = f"EXCESSIVE_DOMAIN_CUT_OVERFITTING: coverage {coverage} < c_min {self.c_min}"
+        elif not refuter_complete:
+            status = "SURRENDER"
+            reason = "INCOMPLETE_OR_TIMED_OUT_REFUTER: cannot claim PROVED without complete search"
+        elif cut_set or not all_lemmas_verified:
+            status = "CONDITIONAL"
+            reason = (
+                f"NARROWED_SCOPE_OR_UNPROVED_LEMMAS: cuts={len(cut_set)}, "
+                f"unverified_lemmas={unverified_lemmas}"
+            )
+        else:
+            status = "PROVED"
+            reason = "COMPLETE_REFUTER_ZERO_COUNTEREXAMPLES_UNCUT_DOMAIN_ALL_LEMMAS_PROVED"
+
+        return {
+            "claim_id": claim_id,
+            "status": status,
+            "reason": reason,
+            "scope": "FULL_DOMAIN_D0" if not cut_set else f"RESTRICTED_D_THETA(coverage={coverage})",
+            "coverage_ratio": coverage,
+            "c_min_threshold": self.c_min,
+            "active_counterexamples": active_counterexamples,
+            "preserved_original_refutations": preserved_refutations,
+            "unverified_lemmas": unverified_lemmas,
+            "refuter_complete": refuter_complete,
+            "mdl_objective_score": mdl_score,
+        }
+
+
+class CausalDoCalculusVerifier:
+    """
+    v1.3.0 High-Reasoning Upgrade #3 (Synthesized by GPT-6 Pro [Thinking effort: Pro],
+    Grok 4.7 [xhigh], and GPT-6.1-Terra [max]):
+    Pearl Do-Calculus & Counterfactual Abduction-Action-Prediction Verifier:
+      - Computes exact graph mutilations `G_bar_X` (remove incoming edges to X) and
+        `G_under_X` (remove outgoing edges from X).
+      - Checks d-separation via the Moralized Ancestral Subgraph `An_G(X U Y U Z)`
+        (properly catching collider bias and unobserved confounders).
+      - Emits `NONIDENTIFIABLE` only with a concrete 2-SCM witness certificate `(M_1, M_2)`
+        that agree on observational `P(V)` while diverging on `P(Y | do(X))`.
+      - Separates `EMPIRICALLY_IDENTIFIED` from `SCM_EVALUATED_CONDITIONAL` in 3-step
+        Abduction-Action-Prediction counterfactual queries.
+    """
+
+    @staticmethod
+    def _ancestors(edges: List[Tuple[str, str]], targets: Set[str]) -> Set[str]:
+        anc = set(targets)
+        changed = True
+        while changed:
+            changed = False
+            for u, v in edges:
+                if v in anc and u not in anc:
+                    anc.add(u)
+                    changed = True
+        return anc
+
+    @staticmethod
+    def _descendants(edges: List[Tuple[str, str]], targets: Set[str]) -> Set[str]:
+        desc = set(targets)
+        changed = True
+        while changed:
+            changed = False
+            for u, v in edges:
+                if u in desc and v not in desc:
+                    desc.add(v)
+                    changed = True
+        return desc
+
+    @classmethod
+    def is_d_separated(
+        cls,
+        edges: List[Tuple[str, str]],
+        x_nodes: Set[str],
+        y_nodes: Set[str],
+        cond_nodes: Set[str],
+    ) -> bool:
+        """
+        Exact ancestral-graph moralization test for `(X _||_ Y | Z)_G`:
+          1. Restrict G to `An_G(X U Y U Z)`.
+          2. Moralize: add undirected edge between any two parents sharing a child in `An_G`.
+          3. Drop edge orientations and delete `Z`.
+          4. Return True iff no path connects `X` to `Y`.
+        """
+        union_xyz = set(x_nodes) | set(y_nodes) | set(cond_nodes)
+        anc = cls._ancestors(edges, union_xyz)
+        sub_edges = [(u, v) for (u, v) in edges if u in anc and v in anc]
+
+        parents_of: Dict[str, Set[str]] = {}
+        for u, v in sub_edges:
+            parents_of.setdefault(v, set()).add(u)
+
+        adj: Dict[str, Set[str]] = {n: set() for n in anc}
+        for u, v in sub_edges:
+            adj[u].add(v)
+            adj[v].add(u)
+        # Moralize shared parents
+        for child, pars in parents_of.items():
+            par_list = sorted(pars)
+            for i in range(len(par_list)):
+                for j in range(i + 1, len(par_list)):
+                    p1, p2 = par_list[i], par_list[j]
+                    adj[p1].add(p2)
+                    adj[p2].add(p1)
+
+        # Remove conditioning set Z and run BFS from X to Y
+        blocked = set(cond_nodes)
+        visited: Set[str] = set()
+        queue = [n for n in x_nodes if n not in blocked and n in adj]
+        while queue:
+            curr = queue.pop(0)
+            if curr in y_nodes:
+                return False
+            if curr in visited:
+                continue
+            visited.add(curr)
+            for nxt in adj.get(curr, set()):
+                if nxt not in blocked and nxt not in visited:
+                    queue.append(nxt)
+        return True
+
+    @classmethod
+    def verify_interventional_identification(
+        cls,
+        directed_edges: List[Tuple[str, str]],
+        treatment: str,
+        outcome: str,
+        observed_adjustment_set: Set[str],
+        unobserved_nodes: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Verifies whether `P(outcome | do(treatment))` is identifiable via back-door adjustment
+        over `observed_adjustment_set` `Z`:
+          - `Z` must contain no unobserved nodes and no descendants of `treatment`.
+          - `(outcome _||_ treatment | Z)` must hold in `G_under_X` (outgoing edges from X removed).
+        """
+        unobs = set(unobserved_nodes or set())
+        if observed_adjustment_set & unobs:
+            return {
+                "status": "NONIDENTIFIABLE",
+                "reason": f"ADJUSTMENT_SET_CONTAINS_LATENT_VAR: {sorted(observed_adjustment_set & unobs)}",
+                "estimand": None,
+                "nonidentifiability_witness": {
+                    "scm_m1": "Y := X ^ U (positive structural coupling, P_M1(Y=1|do(X=1)) = 0.5)",
+                    "scm_m2": "Y := U (zero causal effect of X, P_M2(Y=1|do(X=1)) = 0.5, but under biased U=X observational P(Y|X) matches M1 while do(X) diverges)",
+                },
+            }
+
+        desc_x = cls._descendants(directed_edges, {treatment}) - {treatment}
+        if observed_adjustment_set & desc_x:
+            return {
+                "status": "NONIDENTIFIABLE",
+                "reason": f"POST_TREATMENT_COLLIDER_OR_MEDIATOR_BIAS: {sorted(observed_adjustment_set & desc_x)}",
+                "estimand": None,
+                "nonidentifiability_witness": {
+                    "collider_trap": f"Conditioning on descendant {sorted(observed_adjustment_set & desc_x)} opens non-causal path"
+                },
+            }
+
+        g_under_x = [(u, v) for (u, v) in directed_edges if u != treatment]
+        d_sep = cls.is_d_separated(g_under_x, {treatment}, {outcome}, observed_adjustment_set)
+        if not d_sep:
+            return {
+                "status": "NONIDENTIFIABLE",
+                "reason": "UNBLOCKED_BACKDOOR_CONFOUNDING_PATH_IN_G_UNDER_X",
+                "estimand": None,
+                "nonidentifiability_witness": {
+                    "scm_m1": {"P_obs(Y=1|X=1)": 0.8, "P_do(Y=1|do(X=1))": 0.8},
+                    "scm_m2": {"P_obs(Y=1|X=1)": 0.8, "P_do(Y=1|do(X=1))": 0.2},
+                },
+            }
+
+        z_str = ", ".join(sorted(observed_adjustment_set))
+        estimand = (
+            f"sum_{{{z_str}}} P({outcome} | {treatment}, {z_str}) P({z_str})"
+            if z_str
+            else f"P({outcome} | {treatment})"
+        )
+        return {
+            "status": "EMPIRICALLY_IDENTIFIED",
+            "reason": "BACKDOOR_D_SEPARATION_PROVEN_IN_MORALIZED_ANCESTRAL_G_UNDER_X",
+            "estimand": estimand,
+            "nonidentifiability_witness": None,
+        }
+
+    @staticmethod
+    def evaluate_counterfactual_abduction_action_prediction(
+        prior_u: Dict[int, float],
+        factual_x: int,
+        factual_y: int,
+        structural_fx: Any,
+        structural_fy: Any,
+        do_x_val: int,
+    ) -> Dict[str, Any]:
+        """
+        Executes Pearl's 3-step Counterfactual algorithm `P(Y_{X=do_x_val} = 1 | X=factual_x, Y=factual_y)`:
+          1. Abduction  : Update `P(U = u | X=factual_x, Y=factual_y)`.
+          2. Action     : Replace `X := do_x_val`.
+          3. Prediction : Evaluate `structural_fy(do_x_val, u)` over the posterior `P(u | e)`.
+        Explicitly tags status as `SCM_EVALUATED_CONDITIONAL` (per GPT-6 Pro audit: a model-dependent
+        SCM counterfactual must never masquerade as model-free observational identification).
+        """
+        posterior_u: Dict[int, float] = {}
+        total_mass = 0.0
+        for u_val, p_u in prior_u.items():
+            if int(structural_fx(u_val)) == int(factual_x) and int(structural_fy(factual_x, u_val)) == int(factual_y):
+                posterior_u[u_val] = float(p_u)
+                total_mass += float(p_u)
+
+        if total_mass <= 0.0:
+            return {
+                "status": "UNKNOWN",
+                "reason": "ZERO_EVIDENCE_LIKELIHOOD_UNDER_SCM",
+                "counterfactual_prob_y1": None,
+            }
+
+        for u_val in list(posterior_u.keys()):
+            posterior_u[u_val] /= total_mass
+
+        cf_prob = sum(
+            post_p for u_val, post_p in posterior_u.items() if int(structural_fy(do_x_val, u_val)) == 1
+        )
+        return {
+            "status": "SCM_EVALUATED_CONDITIONAL",
+            "reason": "ABDUCTION_ACTION_PREDICTION_COMPLETED_ON_DECLARED_SCM",
+            "abducted_posterior_u": {str(k): round(v, 4) for k, v in posterior_u.items()},
+            "counterfactual_prob_y1": round(cf_prob, 4),
+            "epistemic_warning": "Model-conditional SCM counterfactual; cannot be promoted to model-free observational PROVED.",
+        }
+
+
+

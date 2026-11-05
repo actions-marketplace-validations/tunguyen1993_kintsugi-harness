@@ -1,6 +1,6 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
 from kintsugi.autofix import run_autofix
@@ -18,13 +18,15 @@ from kintsugi.council import EvolutionCouncil
 from kintsugi.foresight import (
     AnalogicalTransferEngine,
     AutopoieticSynthesizer,
+    CausalDoCalculusVerifier,
     CausalForesightEngine,
     CounterfactualDreamSimulator,
     DisjointScarHoldoutVerifier,
+    LakatosCEGISVerifier,
     MetacognitiveSelfModel,
     ScientificLiteratureVerifier,
 )
-from kintsugi.grounding import RepoAstGroundingEngine
+from kintsugi.grounding import RepoAstGroundingEngine, SoundSymbolicPathSolver
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, GoldenScar, ScanFinding, ScanReport, Severity
 from kintsugi.packs import (
@@ -36,11 +38,14 @@ from kintsugi.packs import (
 from kintsugi.scanner import KintsugiScanner
 from kintsugi.swarm import (
     FREE_ZERO_CARD_PROVIDER_CATALOG,
+    BrierMomentShrinkagePool,
     CloneEpisodicReport,
     ClonePropositionVote,
     ConsentGatedFreePoolManager,
     PlaybookStep,
+    RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
+    enforce_kl_high_001_promotion_guard,
 )
 
 __all__ = [
@@ -68,4 +73,10 @@ __all__ = [
     "ConsentGatedFreePoolManager",
     "PlaybookStep",
     "ShadowCloneSwarmOrchestrator",
+    "SoundSymbolicPathSolver",
+    "LakatosCEGISVerifier",
+    "CausalDoCalculusVerifier",
+    "BrierMomentShrinkagePool",
+    "RedBlueAdversarialArena",
+    "enforce_kl_high_001_promotion_guard",
 ]

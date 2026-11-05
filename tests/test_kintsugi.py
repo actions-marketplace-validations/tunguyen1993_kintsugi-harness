@@ -441,7 +441,7 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
 
     def test_real_life_domains_and_38_seed_frontier_lessons_pass_verification(self) -> None:
         seeds = get_seed_frontier_lessons()
-        self.assertEqual(len(seeds), 40)
+        self.assertEqual(len(seeds), 41)
         pillars = {s.domain_pillar for s in seeds}
         self.assertEqual(pillars, {"engineering", "life-and-business"})
         for lesson in seeds:
@@ -873,6 +873,106 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertEqual(info["pack_id"], "kintsugi-pro-test-pack")
             self.assertEqual(info["newly_unlocked_scars"], 1)
             self.assertIn("/kintsugi-audit", info["slash_commands"])
+
+    def test_v1_3_0_high_reasoning_and_red_blue_adversarial_arena(self) -> None:
+        from kintsugi.foresight import CausalDoCalculusVerifier, LakatosCEGISVerifier
+        from kintsugi.grounding import SoundSymbolicPathSolver
+        from kintsugi.swarm import (
+            BrierMomentShrinkagePool,
+            RedBlueAdversarialArena,
+            enforce_kl_high_001_promotion_guard,
+        )
+
+        # 1. Lakatos CEGIS Verifier: Monster-barring domain cut MUST return CONDITIONAL, never PROVED
+        cegis = LakatosCEGISVerifier(c_min=0.80)
+        res_monster = cegis.evaluate_conjecture(
+            claim_id="CLM-TEST-1",
+            conjecture_fn=lambda x: x >= 0,
+            initial_domain=[-2, -1, 0, 1, 2, 3, 4, 5, 6, 7],
+            domain_cuts=[-2, -1],
+            lemma_dag={"lemma_nonneg": True},
+            refuter_complete=True,
+        )
+        self.assertEqual(res_monster["status"], "CONDITIONAL")
+        self.assertEqual(len(res_monster["preserved_original_refutations"]), 2)
+
+        # 2. Sound Symbolic Path Solver: Correlated x - x -> 0 HOLDS; vacuous -> UNREACHABLE; nonlinear -> UNKNOWN
+        solver = SoundSymbolicPathSolver(max_splits=8)
+        res_corr = solver.discharge_assertion(
+            path_bounds=[(0.0, 1.0)],
+            assertion_le_zero_expr="x - x",
+        )
+        self.assertEqual(res_corr["status"], "HOLDS")
+        self.assertTrue(res_corr["taint_clearance_allowed"])
+
+        res_vac = solver.discharge_assertion(
+            path_bounds=[(5.0, 10.0), (-3.0, 1.0)],
+            assertion_le_zero_expr="x - 100.0",
+        )
+        self.assertEqual(res_vac["status"], "UNREACHABLE")
+        self.assertFalse(res_vac["taint_clearance_allowed"])
+
+        res_nonlin = solver.discharge_assertion(
+            path_bounds=[(0.0, 10.0)],
+            assertion_le_zero_expr="x * x - 5.0",
+        )
+        self.assertEqual(res_nonlin["status"], "UNKNOWN")
+        self.assertFalse(res_nonlin["taint_clearance_allowed"])
+
+        # 3. Causal Do-Calculus Verifier: Confounded collider -> NONIDENTIFIABLE with 2-SCM witness
+        res_conf = CausalDoCalculusVerifier.verify_interventional_identification(
+            directed_edges=[("U", "X"), ("U", "Y"), ("X", "Y"), ("X", "C"), ("Y", "C")],
+            treatment="X",
+            outcome="Y",
+            observed_adjustment_set=set(),
+            unobserved_nodes={"U"},
+        )
+        self.assertEqual(res_conf["status"], "NONIDENTIFIABLE")
+        self.assertIsNotNone(res_conf["nonidentifiability_witness"])
+
+        # 4. Brier Moment Shrinkage Pool: Uncentered second-moment shrinkage + abstention penalty 0.25
+        brier_pool = BrierMomentShrinkagePool(bs0=0.25, shrinkage_gamma=0.15)
+        roster = ["clone_honest", "clone_bias", "clone_abstain"]
+        for t_idx in range(1, 9):
+            y_true = t_idx % 2
+            brier_pool.record_outcome(
+                tick=t_idx,
+                item_id=f"item_{t_idx}",
+                forecasts_by_specialist={
+                    "clone_honest": 0.92 if y_true == 1 else 0.08,
+                    "clone_bias": 0.99,
+                    "clone_abstain": None,
+                },
+                all_specialists=roster,
+                outcome=y_true,
+            )
+        w_rep = brier_pool.compute_weights_and_pool(
+            specialists=roster,
+            current_forecasts={"clone_honest": 0.90, "clone_bias": 0.10, "clone_abstain": None},
+            before_tick=9,
+        )
+        self.assertGreater(w_rep["weights"]["clone_honest"], w_rep["weights"]["clone_bias"])
+
+        # 5. KL-HIGH-001 Supreme Invariant Guard
+        promo = enforce_kl_high_001_promotion_guard(
+            claim_id="CLM-99",
+            source_scope="RESTRICTED_D_THETA",
+            target_scope="FULL_DOMAIN_D0",
+            assumptions=["x > 0"],
+            evidence_lineage="lakatos_cegis",
+            current_status="CONDITIONAL",
+            requested_status="PROVED",
+        )
+        self.assertFalse(promo["promotion_allowed"])
+        self.assertEqual(promo["emitted_status"], "CONDITIONAL")
+
+        # 6. Full 2-Team Red vs Blue Adversarial Arena (5/5 campaigns neutralized)
+        arena_rep = RedBlueAdversarialArena().run_arena()
+        self.assertEqual(arena_rep["campaigns_total"], 5)
+        self.assertEqual(arena_rep["campaigns_neutralized"], 5)
+        self.assertTrue(arena_rep["all_attacks_neutralized"])
+        self.assertEqual(arena_rep["defense_containment_rate_pct"], 100.0)
+        self.assertIn("@ARENA/1|ver=1.3.0|campaigns=5/5|containment=100.0%", arena_rep["kmi_arena_wire"])
 
 
 if __name__ == "__main__":

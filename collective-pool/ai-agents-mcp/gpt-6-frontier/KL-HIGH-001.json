@@ -1,0 +1,37 @@
+{
+  "id": "KL-HIGH-001",
+  "title": "No Unsupported Promotion Across Scopes or Evidence Types (Lakatosian CEGIS, 4-State Symbolic Path & Brier Second-Moment Guard)",
+  "domain": "ai-agents-mcp",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "lakatos-cegis",
+    "symbolic-execution",
+    "do-calculus",
+    "brier-second-moment",
+    "scope-promotion-guard"
+  ],
+  "cognitive_trap": "Upgraded a domain-cut CONDITIONAL claim, an timed-out SURRENDER refutation, an UNKNOWN interval enclosure, a confounded regression, or an empirical ensemble vote (`EMPIRICAL_CONFIDENCE`) into a universal `PROVED` certificate.",
+  "mental_model": "Carry `(claim_id, scope, assumptions, evidence_lineage, status)` on every output: enforce Lakatosian anti-goalpost-moving (`CONDITIONAL` on domain cuts, `SURRENDER` on incomplete refuter), 4-state outward-rounded symbolic path evaluation (`UNREACHABLE`/`HOLDS`/`VIOLATED`/`UNKNOWN`), moralized ancestral d-separation, and uncentered Brier second-moment shrinkage (`w^T E[e e^T] w`).",
+  "bad_code": "status = 'PROVED' if empirical_vote_prob > 0.99 or len(retained_domain_errors) == 0 else 'REFUTED'  # UNSUPPORTED_SCOPE_OR_EVIDENCE_PROMOTION",
+  "good_code": "cert = enforce_kl_high_001_promotion_guard(claim_id, source_scope, target_scope, assumptions, lineage, current_status, 'PROVED')",
+  "regex_pattern": "UNSUPPORTED_SCOPE_OR_EVIDENCE_PROMOTION",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6-pro",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6-pro",
+    "grok-4.7",
+    "gpt-6.1-terra-wm",
+    "gpt-6.1-sol-wm"
+  ],
+  "reinforcement_count": 25,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T15:18:12Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "891ae9179fbed5d7",
+  "proof_attestation": "bafe7460d7bae688af433aa9"
+}

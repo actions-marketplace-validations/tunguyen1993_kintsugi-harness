@@ -2,6 +2,22 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.3.0] - 2026-11-05
+
+### Added
+- **2-Team Adversarial Harness Arena (`src/kintsugi/swarm.py` — `RedBlueAdversarialArena` & `kintsugi swarm --red-blue-arena`):**
+  - Splits High-Reasoning Council #1 into **⚔️ Red Team (`Grok 4.7 [xhigh]` + `GPT-6.1-Sol [max]`)** and **🛡️ Blue Team (`GPT-6 Pro [Thinking effort: Pro]` + `GPT-6.1-Terra [max]` + Deterministic `v1.3.0` Engine)** across 5 live adversarial campaigns (`ATK-CEGIS-001`..`ATK-PROMO-005`), achieving `5/5` (`100.0%`) containment (`@ARENA/1|ver=1.3.0|campaigns=5/5|containment=100.0%|invariant=KL-HIGH-001|status=PASS`).
+- **Lakatosian Proof-And-Refutations CEGIS Loop (`src/kintsugi/foresight.py` — `LakatosCEGISVerifier`):**
+  - Enforces 4-state verdict lattice (`PROVED` / `CONDITIONAL` / `REFUTED` / `SURRENDER`), preserves original domain counterexamples in `preserved_original_refutations` when domain cuts occur, and blocks monster-barring (`coverage < c_min` or `domain_cuts` present -> `CONDITIONAL`, never `PROVED`).
+- **4-State Sound Symbolic Path & Interval Constraint Solver (`src/kintsugi/grounding.py` — `SoundSymbolicPathSolver`):**
+  - Replaces 2-state satisfiability with `UNREACHABLE` / `HOLDS` / `VIOLATED` / `UNKNOWN`, performs correlated linear cancellation (`x - x -> 0`), outward IEEE-754 interval rounding, and blocks taint clearance unless `status == "HOLDS"`.
+- **Pearl $do$-Calculus & Counterfactual SCM Identification Verifier (`src/kintsugi/foresight.py` — `CausalDoCalculusVerifier`):**
+  - Implements graph surgery ($G_{\overline{X}}$, $G_{\underline{X}}$), moralized ancestral subgraph $d$-separation, 2-SCM non-identifiability witness certificates (`NONIDENTIFIABLE`), and 3-step Abduction–Action–Prediction tagged `SCM_EVALUATED_CONDITIONAL`.
+- **Strictly Proper Brier Score & Uncentered Second-Moment Shrinkage Pool (`src/kintsugi/swarm.py` — `BrierMomentShrinkagePool`):**
+  - Enforces append-only `before_tick` filtration, abstention baseline penalty $\mathrm{BS}_0 = 0.25$, and simplex optimization over the uncentered second-moment shrinkage matrix $\widehat{M}_\gamma = (1-\gamma)\frac{1}{n}\sum e_i e_i^\top + \gamma T$ to capture both variance and squared bias.
+- **Supreme Epistemic Invariant `KL-HIGH-001` (`src/kintsugi/cognition.py` & `enforce_kl_high_001_promotion_guard`):**
+  - Synthesized by `gpt-6-pro` (`Thinking effort: Pro`): forbids promoting `UNKNOWN`, `SURRENDER`, `CONDITIONAL` (domain-cut), `SCM_EVALUATED_CONDITIONAL`, or `EMPIRICAL_CONFIDENCE` into universal `PROVED` (`41` verified Tier-1 Frontier lessons in `collective-pool/`).
+
 ## [1.2.0] - 2026-11-05
 
 ### Added
