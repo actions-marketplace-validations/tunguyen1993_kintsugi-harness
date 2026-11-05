@@ -27,7 +27,7 @@
     "deepseek-r1-0528",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 15,
+  "reinforcement_count": 16,
   "source_repo": "github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
   "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "life-and-business",

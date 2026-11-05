@@ -1,0 +1,35 @@
+{
+  "id": "KL-MCP-006",
+  "title": "Shadow-Clone Parallel Epistemic Swarm & BFT Synaptic Merge (K=3f+1 Quorum)",
+  "domain": "ai-agents-mcp",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "multi-agent-swarm",
+    "kage-bunshin",
+    "bft-consensus",
+    "map-reduce-learning",
+    "epistemic-merge"
+  ],
+  "cognitive_trap": "Allowed parallel subagents to share intermediate drafts before independent grounding or accepted a single unverified subagent conclusion without a Byzantine-tolerant quorum (`s_p >= 3` of `K=4`).",
+  "mental_model": "Enforce orthogonal clone tracks with zero inter-clone communication during exploration, ground every clone proposition via the <5ms 3-State Gate + Counterfactual Sandbox, quarantine refuted traps into a Negative Tabu List, and merge only propositions achieving `s_p >= 3` quorum (`K=3f+1`).",
+  "bad_code": "playbook = subagents[0].unverified_draft_conclusion  # UNGROUNDED_SINGLE_CLONE_ACCEPT",
+  "good_code": "playbook = bft_merge_clones(clone_reports, quorum_threshold=3)  # K=3f+1 verified quorum",
+  "regex_pattern": "UNGROUNDED_SINGLE_CLONE_ACCEPT",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "gpt-6-luna-wm"
+  ],
+  "reinforcement_count": 18,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T12:29:48Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "4d041c6415ba619d",
+  "proof_attestation": "ef429083645e511ac799648e"
+}
