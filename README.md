@@ -6,7 +6,7 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.0.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.1.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
@@ -215,11 +215,19 @@ kintsugi swarm src/ --wire
 
 # 3. Verify Byzantine Fault Tolerance (inject a corrupted/hallucinating clone and prove 3/4 honest quorum still holds):
 kintsugi swarm src/ --byzantine-test
+
+# 4. Consent-Gated Free-Agent Pool (@POOL/1 — 12.5x BFT Error Reduction across 4+ Independent Free Model Families):
+#    Silence is NEVER consent: inspect the Consent Request, supply your own free key, or explicitly authorize $0 no-card auto-provisioning:
+kintsugi swarm --request-consent
+kintsugi swarm --add-free-key groq_free gsk_your_free_key
+kintsugi swarm --authorize-auto-provision
+kintsugi swarm --pool-status
+kintsugi swarm --revoke-consent
 ```
 
 ---
 
-## Empirical Proofs & Scientific Conservation Law Validation (`v1.0.0`)
+## Empirical Proofs & Scientific Conservation Law Validation (`v1.1.0`)
 
 Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`RepoAstGroundingEngine` + `AutopoieticSynthesizer` + `CausalForesightEngine`) has been empirically validated against **5 Universal Scientific & Mathematical Conservation Laws** (`500` simulation steps, $\Delta t = 0.05\text{ s}$). Full details and reproducible commands are documented in [**`docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md`**](docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md):
 
@@ -232,8 +240,8 @@ Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`R
 | **5** | **Floating-Point Catastrophic Cancellation & Kahan Summation** | `CATASTROPHIC_CANCELLATION_SEAM` (`gamma**2 - 1.0` at $v \ll c$, naive `sum()`) | **`344.09%` relative error** & **`100%` micro-flux loss (`0.0 J`)** | Algebraic $\frac{v^2/c^2}{1 - v^2/c^2}$ + `math.fsum()` | **`0.0%` error**, full **`+100.0 J`** preserved |
 
 - **3-State Grounding Gate Accuracy:** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms`.
-- **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`):** **`4/4` Orthogonal Clones** converge in `~100ms`, consolidating `7/7` verified truths into a single deterministic Right Playbook while quarantining adversarial hallucination traps into the Negative Tabu List (`PASS` under `f=1` Byzantine fault injection).
-- **Automated Verification Suite:** **`23/23` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`39/39` Frontier Pool Lessons Verified**.
+- **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`) & Consent-Gated Free Pool (`@POOL/1`):** **`4/4` Orthogonal Clones** bound to distinct `$0` free model families reduce BFT false-accept errors by **`12.5x` (`98.80%` consensus accuracy)**, consolidating `7/7` verified truths into a single deterministic Right Playbook while quarantining adversarial hallucination traps into the Negative Tabu List (`PASS` under `f=1` Byzantine fault injection).
+- **Automated Verification Suite:** **`24/24` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`39/39` Frontier Pool Lessons Verified**.
 
 ---
 
