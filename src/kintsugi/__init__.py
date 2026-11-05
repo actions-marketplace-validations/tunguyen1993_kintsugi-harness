@@ -41,6 +41,7 @@ from kintsugi.swarm import (
     BrierMomentShrinkagePool,
     CloneEpisodicReport,
     ClonePropositionVote,
+    ClosedLoopEvolutionArena,
     ConsentGatedBYOKPoolManager,
     PlaybookStep,
     RedBlueAdversarialArena,

@@ -373,7 +373,7 @@ class DisjointScarHoldoutVerifier:
         pos_samples: List[str] = [
             raw_bad,
             f"    {raw_bad}  # holdout_context_shift",
-            re.sub(r"\s*=\s*", " = ", raw_bad),
+            re.sub(r"(?<![=!<>])\s*=\s*(?!=)", " = ", raw_bad),
             f"def _holdout_wrapper():\n    {raw_bad}\n",
         ]
 
@@ -382,7 +382,7 @@ class DisjointScarHoldoutVerifier:
         neg_samples: List[str] = [
             raw_good,
             f"    {raw_good}",
-            re.sub(r"\s*=\s*", " = ", raw_good),
+            re.sub(r"(?<![=!<>])\s*=\s*(?!=)", " = ", raw_good),
         ] + list(cls.SAFE_PARAPHRASE_HOLD_NEGATIVES)
 
         tp_hits = sum(1 for sample in pos_samples if compiled.search(sample) is not None)
