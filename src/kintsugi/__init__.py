@@ -27,7 +27,12 @@ from kintsugi.foresight import (
 from kintsugi.grounding import RepoAstGroundingEngine
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, GoldenScar, ScanFinding, ScanReport, Severity
-from kintsugi.packs import install_skill_pack, list_installed_packs
+from kintsugi.packs import (
+    decrypt_pro_kpack_bytes,
+    encrypt_pro_kpack_bytes,
+    install_skill_pack,
+    list_installed_packs,
+)
 from kintsugi.scanner import KintsugiScanner
 from kintsugi.swarm import (
     FREE_ZERO_CARD_PROVIDER_CATALOG,
