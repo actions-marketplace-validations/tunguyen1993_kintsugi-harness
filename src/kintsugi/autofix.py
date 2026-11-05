@@ -183,6 +183,22 @@ def apply_surgical_python_fixes(source_code: str, default_timeout: int = 10) -> 
                         applied_edits.append(
                             {"scar_id": "KS-006", "line": ln_idx + 1, "description": "Upgraded yaml.load() to yaml.safe_load()"}
                         )
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            defaults = list(node.args.defaults) + [d for d in node.args.kw_defaults if d is not None]
+            for def_expr in defaults:
+                if isinstance(def_expr, (ast.List, ast.Dict, ast.Set)):
+                    d_ln = int(getattr(def_expr, "lineno", node.lineno)) - 1
+                    if 0 <= d_ln < len(lines):
+                        new_ln, cnt = re.subn(r"=\s*(?:\[\s*\]|\{\s*\})", "=None", lines[d_ln])
+                        if cnt > 0 and new_ln != lines[d_ln]:
+                            lines[d_ln] = new_ln
+                            applied_edits.append(
+                                {
+                                    "scar_id": "KS-004",
+                                    "line": d_ln + 1,
+                                    "description": f"Replaced mutable default literal with None in {node.name}()",
+                                }
+                            )
 
     candidate_code = "".join(lines)
     try:
