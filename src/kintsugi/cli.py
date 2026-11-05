@@ -43,7 +43,7 @@ from kintsugi.packs import (
     load_installed_pack_scars,
 )
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
-from kintsugi.swarm import ShadowCloneSwarmOrchestrator
+from kintsugi.swarm import ConsentGatedFreePoolManager, ShadowCloneSwarmOrchestrator
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -245,17 +245,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 + @SWARM/1 wire headers")
     p_for.add_argument("--top-k", type=int, default=8, help="Max ranked pre-emptive actions to emit (default: 8)")
 
-    # swarm (Pillar 5: Shadow-Clone Parallel Epistemic Swarm & BFT Synaptic Merge)
+    # swarm (Pillar 5 & 5B: Shadow-Clone Parallel Epistemic Swarm, BFT Synaptic Merge & Consent-Gated Free Agent Pool)
     p_swm = sub.add_parser(
         "swarm",
-        help="Spawn K=4 orthogonal Shadow Clones in parallel, reach independent grounded conclusions, and merge into 1 Verified Right Playbook",
+        help="Spawn K=4 orthogonal Shadow Clones in parallel, manage the Consent-Gated Free Agent Pool, and merge into 1 Verified Right Playbook",
     )
     p_swm.add_argument("target", nargs="?", default=".", help="Repository or file for the Shadow-Clone Swarm to explore")
     p_swm.add_argument("--workspace", default=".", help="Workspace root for .kintsugi state")
     p_swm.add_argument("--clones", type=int, default=4, help="Number of orthogonal Shadow Clones to spawn (default: 4)")
     p_swm.add_argument("--no-consolidate", action="store_true", help="Run swarm without writing newly distilled lessons to .kintsugi")
     p_swm.add_argument("--byzantine-test", action="store_true", help="Inject a Byzantine fault into 1 clone to verify K=3f+1 fault-tolerant consensus")
-    p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 wire header")
+    p_swm.add_argument("--pool-status", action="store_true", help="Show Consent-Gated Free-Agent Pool status & Condorcet BFT accuracy metrics")
+    p_swm.add_argument("--request-consent", action="store_true", help="Display structured User Consent Prompt for supplying keys or authorizing $0 auto-provisioning")
+    p_swm.add_argument("--authorize-auto-provision", action="store_true", help="Grant explicit user consent for Kintsugi to autonomously provision $0 no-card free-tier endpoints")
+    p_swm.add_argument("--scope", default="", help="Optional comma-separated provider_ids for --authorize-auto-provision")
+    p_swm.add_argument("--add-free-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Supply a user-provided $0 free-tier API key (e.g. groq_free gsk_...)")
+    p_swm.add_argument("--revoke-consent", action="store_true", help="Immediately revoke auto-provisioning consent and purge stored keys in .kintsugi/free_agent_pool.json")
+    p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     return parser
 
@@ -697,6 +703,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        pool_mgr = ConsentGatedFreePoolManager(args.workspace)
+        if args.revoke_consent:
+            print(json.dumps(pool_mgr.revoke_consent(), indent=2, ensure_ascii=False))
+            return 0
+        if args.add_free_key:
+            pid, key_val = args.add_free_key
+            print(json.dumps(pool_mgr.add_user_provided_key(pid, key_val), indent=2, ensure_ascii=False))
+            return 0
+        if args.authorize_auto_provision:
+            scope_list = [s.strip() for s in args.scope.split(",") if s.strip()] if args.scope else None
+            res = pool_mgr.authorize_auto_provision(confirmed_by_user=True, allowed_providers=scope_list)
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0
+        if args.request_consent:
+            print(json.dumps(pool_mgr.build_user_consent_prompt(target_clones=args.clones), indent=2, ensure_ascii=False))
+            return 0
+        if args.pool_status:
+            st = pool_mgr.get_pool_status(target_clones=args.clones)
+            if args.wire:
+                print(st["kmi_pool_wire"])
+                return 0
+            print(json.dumps(st, indent=2, ensure_ascii=False))
+            return 0
+
         swarm_orch = ShadowCloneSwarmOrchestrator(args.workspace)
         s_rep = swarm_orch.run_swarm(
             args.target,
@@ -705,7 +735,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             inject_byzantine_fault=bool(args.byzantine_test),
         )
         if args.wire:
-            print(s_rep["kmi_swarm_wire"])
+            print(f"{s_rep['kmi_swarm_wire']}\n{s_rep['kmi_pool_wire']}")
             return 0
         print(json.dumps(s_rep, indent=2, ensure_ascii=False))
         return 0

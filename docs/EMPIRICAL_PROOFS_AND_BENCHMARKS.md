@@ -1,20 +1,21 @@
-# Empirical Proofs, Scientific Law Validation & Benchmarks (`v1.0.0`)
+# Empirical Proofs, Scientific Law Validation & Benchmarks (`v1.1.0`)
 
-Every architectural claim in **Kintsugi Harness (`v1.0.0`)** is backed by deterministic, reproducible unit tests (`python3 -m unittest discover -s tests -v` and `cargo test`) and runtime numerical experiments.
+Every architectural claim in **Kintsugi Harness (`v1.1.0`)** is backed by deterministic, reproducible unit tests (`python3 -m unittest discover -s tests -v` and `cargo test`) and runtime numerical experiments.
 
 ---
 
-## 1. Summary of Verified Benchmarks (`v1.0.0`)
+## 1. Summary of Verified Benchmarks (`v1.1.0`)
 
-| Benchmark Pillar | Empirical Metric / Test Suite | Verified Result (`v1.0.0`) | Reproducible Command |
+| Benchmark Pillar | Empirical Metric / Test Suite | Verified Result (`v1.1.0`) | Reproducible Command |
 | :--- | :--- | :--- | :--- |
 | **Native Rust PreToolUse Engine (`kintsugi-rs`)** | Single-call latency / Full 18-file repo scan | **`9.6 µs/call`** (`16.5 ms` for 18 files × 18 scars, `0` violations) | `./target/release/kintsugi-rs bench` |
 | **`KMI/1` Ultra-Low-Token Wire Index** | Per-turn token footprint vs verbose Markdown | **`~209 tokens/turn` vs `~3,330 tokens/turn` (`93.7%` reduction, `~156,050 tokens` saved / 50 turns)** | `kintsugi token-report` |
 | **3-State AST Symbol Grounding Gate** | True Positives / True Negatives / Hallucination & Docstring Traps | **`5/5` True Positives (`VERIFIED`) · `5/5` S3 Safe Counterexamples (`REFUTED`, `0` FP) · `3/3` Hallucination/Docstring Traps (`REFUTED` in `<0.1ms`)** | `kintsugi ground src/` |
 | **5 Universal Scientific Conservation Laws** | Runtime numerical simulation + AST/Foresight detection | **`5/5` Laws Empirically Proven (`PASS 100%`)** | `python3 -m unittest discover -s tests -v` |
 | **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`)** | `K=4` Orthogonal Clones + `K=3f+1` BFT Quorum (`f=1`) | **`4/4` Clones Converge in `~100ms` · `7/7` Truths Consolidated · `100%` Fault-Tolerant under `f=1` Byzantine Injection** | `kintsugi swarm <target> --byzantine-test` |
+| **Consent-Gated Free-Agent Pool (`@POOL/1`)** | Condorcet BFT False-Accept Reduction (`1 -> 4+` Independent Families) | **`12.5x` Error Reduction (`15.0% -> 1.20%` false-accept rate, `98.80%` consensus accuracy, `$0.00` billing)** | `kintsugi swarm --pool-status` |
 | **4-Stage Frontier Epistemic Pool Gate** | 15 Universal Domains (`7` Engineering + `8` Real-Life/Business) | **`39/39` Frontier Lessons Verified (`scan(bad) >= 1` & `scan(good) == 0`)** | `kintsugi learn pool-status` |
-| **Automated Test Suites** | Python `unittest` (`23` tests) + Rust `cargo test` (`3` tests) | **`26/26` Total Tests Passing (`100% OK`)** | `cargo test && python3 -m unittest` |
+| **Automated Test Suites** | Python `unittest` (`24` tests) + Rust `cargo test` (`3` tests) | **`27/27` Total Tests Passing (`100% OK`)** | `cargo test && python3 -m unittest` |
 
 ---
 

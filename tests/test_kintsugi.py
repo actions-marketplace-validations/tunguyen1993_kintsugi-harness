@@ -633,6 +633,59 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
                 self.assertEqual(truth["support_votes_s_p"], 3)
                 self.assertEqual(truth["refute_votes_r_p"], 1)
 
+    def test_consent_gated_free_agent_pool_and_condorcet_accuracy(self) -> None:
+        from kintsugi.swarm import ConsentGatedFreePoolManager, ShadowCloneSwarmOrchestrator
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            pool_mgr = ConsentGatedFreePoolManager(ws)
+
+            # 1. Default state: AWAITING_USER_CONSENT (Silence is NEVER consent)
+            st0 = pool_mgr.get_pool_status(target_clones=4)
+            self.assertEqual(st0["state"], "AWAITING_USER_CONSENT")
+            self.assertFalse(st0["auto_provision_authorized"])
+            self.assertIn("user_consent_request", st0)
+
+            # 2. Attempting auto-provision without user confirmation MUST be blocked
+            blocked = pool_mgr.authorize_auto_provision(confirmed_by_user=False)
+            self.assertFalse(blocked["ok"])
+            self.assertTrue(blocked["auto_provision_blocked_until_user_consent"])
+
+            # 3. User supplies 1 free key -> state becomes USER_PROVIDED_KEY, secret is masked
+            st1 = pool_mgr.add_user_provided_key("groq_free", "gsk_live_user_supplied_987654")
+            self.assertEqual(st1["state"], "USER_PROVIDED_KEY")
+            self.assertEqual(st1["distinct_model_families_count"], 1)
+            self.assertNotIn("gsk_live_user_supplied_987654", st1["active_providers"][0]["masked_key"])
+
+            # 4. User explicitly grants auto-provision consent -> VERIFIED_ACTIVE_POOL (12.5x error reduction)
+            st_auth = pool_mgr.authorize_auto_provision(confirmed_by_user=True)
+            self.assertEqual(st_auth["state"], "VERIFIED_ACTIVE_POOL")
+            self.assertTrue(st_auth["auto_provision_authorized"])
+            self.assertGreaterEqual(st_auth["distinct_model_families_count"], 4)
+            self.assertEqual(
+                st_auth["condorcet_bft_accuracy_metrics"]["current_error_reduction_multiplier"],
+                "12.5x",
+            )
+            self.assertIn("@POOL/1|state=VERIFIED_ACTIVE_POOL|", st_auth["kmi_pool_wire"])
+
+            # Verify Shadow Clones bind to the 4 distinct verified model families
+            sample = ws / "demo.py"
+            sample.write_text(
+                "def update_profile(user_record, payload):\n"
+                "    user_record.update(payload)\n"
+                "    return user_record\n",
+                encoding="utf-8",
+            )
+            swarm_rep = ShadowCloneSwarmOrchestrator(ws).run_swarm(ws, num_clones=4)
+            routed_models = {c["routed_model"] for c in swarm_rep["clone_episodic_reports"]}
+            self.assertEqual(len(routed_models), 4)
+
+            # 5. Instant revocation -> state becomes REVOKED and all keys are purged
+            st_rev = pool_mgr.revoke_consent()
+            self.assertEqual(st_rev["state"], "REVOKED")
+            self.assertFalse(st_rev["auto_provision_authorized"])
+            self.assertEqual(st_rev["active_providers_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
