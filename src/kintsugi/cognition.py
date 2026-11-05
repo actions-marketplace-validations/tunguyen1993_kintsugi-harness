@@ -1554,7 +1554,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             severity=Severity.HIGH,
             languages=["javascript", "typescript"],
             tags=["cdp", "puppeteer", "indexeddb", "memory-leak"],
-            cognitive_trap="Cleared browser cookies when switching accounts (`Network.clearBrowserCookies`) while leaving stale IndexedDB cryptographic keys (`cvm_chip_pin_unavailable`), or ran global `killall Google Chrome`.",
+            cognitive_trap="Cleared browser cookies when switching accounts (`Network.clearBrowserCookies`) while leaving stale IndexedDB cryptographic keys (`cvm_chip_pin_unavailable`), or ran an unscoped global browser process kill.",
             mental_model="Navigate to `about:blank` and call `Storage.clearDataForOrigin` for `indexeddb,local_storage,cache_storage,service_workers` before clearing cookies, and terminate only the isolated `--user-data-dir` in `finally`.",
             bad_code="await client.send('Network.clearBrowserCookies');  // MISSING_INDEXEDDB_ORIGIN_CLEAR",
             good_code="await client.send('Page.navigate', { url: 'about:blank' });\nawait client.send('Storage.clearDataForOrigin', { origin, storageTypes: 'indexeddb,local_storage,cache_storage,service_workers' });",
