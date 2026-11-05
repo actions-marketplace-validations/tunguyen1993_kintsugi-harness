@@ -25,7 +25,7 @@
     "deepseek-r1-0528",
     "qwen3.8-max"
   ],
-  "reinforcement_count": 10,
+  "reinforcement_count": 12,
   "source_repo": "github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
   "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",

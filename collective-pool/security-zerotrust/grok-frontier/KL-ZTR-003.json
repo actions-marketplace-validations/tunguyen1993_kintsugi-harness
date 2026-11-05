@@ -27,7 +27,7 @@
     "grok-4.7",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 15,
+  "reinforcement_count": 17,
   "source_repo": "local-episodic",
   "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",

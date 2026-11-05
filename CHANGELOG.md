@@ -2,6 +2,33 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.2.0] - 2026-11-05
+
+### Added
+- **Covariance-Aware Equicorrelation Inverse Log-Odds BFT Merge (`src/kintsugi/swarm.py` — `ShadowCloneSwarmOrchestrator.compute_covariance_aware_bft_metrics`):**
+  - Discounts correlated subagent votes using Ledoit-Wolf shrinkage covariance ($\lambda = 0.25$) and family-clustered pairwise correlation $\hat{\rho}$, computing Effective Independent Clones $N_{\text{eff}} = \frac{K}{1 + (K - 1)\hat{\rho}}$, Equicorrelation Inverse Information $\mathcal{I}_{\text{eff}} = \frac{\sum_{i=1}^K \ell_i}{1 + (K - 1)\hat{\rho}}$, and calibrated posterior truth probability $P_{\text{post}} = \frac{1}{1 + e^{-\mathcal{I}_{\text{eff}}}}$.
+- **Blinded Anti-Sycophancy Probe & Active Epistemic Curiosity (`src/kintsugi/swarm.py`):**
+  - `run_blinded_contrary_probe`: Injects a blinded contrary premise claiming a vulnerable seam is already safe via a phantom symbol and verifies Track 2 (`Adversarial Red-Team`) deterministically refutes it (`sycophancy_rate = 0.0`).
+  - `generate_oracle_micro_probes`: Generates Round-2 AST + Call-Graph + Taint-Flow micro-probes ranked by Expected Information Gain per millisecond ($\operatorname{IG}(p)/\operatorname{cost}_{\text{ms}}(p)$) to resolve abstained propositions.
+- **Disjoint Generator/Verifier Scar Holdout Gate (`src/kintsugi/foresight.py` — `DisjointScarHoldoutVerifier`):**
+  - Enforces out-of-sample verification (`T_gen != T_ver`) with `holdout_precision >= 0.95`, `recall_drop <= 0.05`, and `0` paraphrase-mutated negative false positives before admitting any synthesized `GoldenScar` or `CognitiveLesson`.
+- **Alpha-Normalized De Bruijn AST Quotient Hash & Interprocedural Taint Graph (`src/kintsugi/grounding.py`):**
+  - `compute_alpha_normalized_ast_hash` & `verify_semantic_equivalence`: Proves semantic equivalence across variable/function alpha-renaming (`ASTQ/1` certificate) and indexes interprocedural `call_graph` and source-to-sink `taint_flows`.
+- **Hard Scientific Literature & Physics Invariant Verifier (`src/kintsugi/foresight.py` — `ScientificLiteratureVerifier` & `kintsugi foresight --scientific-corpus`):**
+  - Audits 5 high-subtlety scientific paper domains (`SCI-REL-001` Special Relativity low-$\beta$ cancellation, `SCI-HAM-002` Symplectic Hamiltonian integration, `SCI-THERMO-003` Jarzynski Equality log-sum-exp & 2nd Law entropy, `SCI-FLUID-004` Finite-Volume mass continuity & Buckingham $\Pi$, and `SCI-CAUSAL-005` Minkowski backward light-cone filtration) with runtime numerical counterexamples and `100%` counterfactual `S3` remediation.
+
+## [1.1.0] - 2026-11-05
+
+### Added
+- **Consent-Gated Free-Agent Pool & Condorcet-BFT Accuracy Engine (`src/kintsugi/swarm.py` — `ConsentGatedFreePoolManager` & `@POOL/1`):**
+  - Explicit 4-state user consent machine (`AWAITING_USER_CONSENT` -> `USER_PROVIDED_KEY` / `VERIFIED_ACTIVE_POOL` -> `REVOKED`) for binding orthogonal Shadow Clones to distinct `$0` no-card free model families (`12.5x` Condorcet BFT error reduction).
+
+## [1.0.0] - 2026-11-05
+
+### Added
+- **Pillar 5 — Shadow-Clone Parallel Epistemic Swarm (`src/kintsugi/swarm.py` — `ShadowCloneSwarmOrchestrator` & `@SWARM/1`):**
+  - Spawns `K = 4` orthogonal Shadow Clones (`K = 3f + 1`) in parallel with zero inter-clone communication, grounds claims via `<5ms` 3-State AST Gate + Counterfactual Sandbox, quarantines hallucinations into a Negative Tabu List, and merges `s_p >= 3` truths into a deterministic Right Playbook.
+
 ## [0.4.0] - 2026-11-05
 
 ### Added

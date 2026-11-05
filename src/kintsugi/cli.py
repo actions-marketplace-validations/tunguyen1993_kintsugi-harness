@@ -27,6 +27,7 @@ from kintsugi.foresight import (
     CausalForesightEngine,
     CounterfactualDreamSimulator,
     MetacognitiveSelfModel,
+    ScientificLiteratureVerifier,
 )
 from kintsugi.grounding import RepoAstGroundingEngine
 from kintsugi.hooks import (
@@ -242,6 +243,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_for.add_argument("--dream", action="store_true", help="Run Counterfactual Sandbox Dreamer (apply S3 guards in-memory & compute delta_seams / delta_p_max)")
     p_for.add_argument("--transfer", action="store_true", help="Run Cross-Domain Analogical Transfer Engine (map scientific/system invariants across domains)")
     p_for.add_argument("--swarm", action="store_true", help="Run Kage Bunshin Shadow-Clone Parallel Epistemic Swarm & BFT Playbook Consolidation")
+    p_for.add_argument("--scientific-corpus", action="store_true", help="Audit the 5-Paper Hard Scientific Literature & Physics Invariant Corpus")
     p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 + @SWARM/1 wire headers")
     p_for.add_argument("--top-k", type=int, default=8, help="Max ranked pre-emptive actions to emit (default: 8)")
 
@@ -663,6 +665,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "foresight":
+        if args.scientific_corpus:
+            verifier = ScientificLiteratureVerifier(args.workspace)
+            print(json.dumps(verifier.verify_scientific_corpus(), indent=2, ensure_ascii=False))
+            return 0
         if args.metacognition:
             meta = MetacognitiveSelfModel(args.workspace)
             print(json.dumps(meta.build_self_awareness_report(), indent=2, ensure_ascii=False))

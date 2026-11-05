@@ -441,7 +441,7 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
 
     def test_real_life_domains_and_38_seed_frontier_lessons_pass_verification(self) -> None:
         seeds = get_seed_frontier_lessons()
-        self.assertEqual(len(seeds), 39)
+        self.assertEqual(len(seeds), 40)
         pillars = {s.domain_pillar for s in seeds}
         self.assertEqual(pillars, {"engineering", "life-and-business"})
         for lesson in seeds:
@@ -685,6 +685,109 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertEqual(st_rev["state"], "REVOKED")
             self.assertFalse(st_rev["auto_provision_authorized"])
             self.assertEqual(st_rev["active_providers_count"], 0)
+
+    def test_v1_2_0_covariance_bft_disjoint_scar_and_ast_quotient(self) -> None:
+        from kintsugi.foresight import DisjointScarHoldoutVerifier
+        from kintsugi.grounding import RepoAstGroundingEngine
+        from kintsugi.models import GoldenScar, Severity
+        from kintsugi.swarm import ShadowCloneSwarmOrchestrator
+
+        # 1. Alpha-Normalized AST Quotient Hash & Semantic Equivalence
+        code_v1 = (
+            "def compute_kinetic(mass_kg, vel_ms):\n"
+            "    energy_j = 0.5 * mass_kg * (vel_ms ** 2)\n"
+            "    return energy_j\n"
+        )
+        code_v2_renamed = (
+            "def calc_e(m_val, v_val):\n"
+            "    res = 0.5 * m_val * (v_val ** 2)\n"
+            "    return res\n"
+        )
+        code_v3_mutated = (
+            "def calc_e(m_val, v_val):\n"
+            "    res = 0.5 * m_val + (v_val ** 2)\n"
+            "    return res\n"
+        )
+        eq_rep = RepoAstGroundingEngine.verify_semantic_equivalence(code_v1, code_v2_renamed)
+        self.assertTrue(eq_rep["alpha_equivalent"])
+        self.assertEqual(eq_rep["hash_a"], eq_rep["hash_b"])
+        self.assertEqual(len(eq_rep["hash_a"]), 16)
+        self.assertTrue(str(eq_rep["semantic_diff_certificate"]).startswith("ASTQ/1|"))
+
+        diff_rep = RepoAstGroundingEngine.verify_semantic_equivalence(code_v1, code_v3_mutated)
+        self.assertFalse(diff_rep["alpha_equivalent"])
+
+        # 2. DisjointScarHoldoutVerifier (T_gen != T_ver, precision >= 0.95, 0 paraphrase FPs)
+        valid_scar = GoldenScar(
+            id="KS-V120-TEST",
+            title="Symplectic Euler Guard",
+            severity=Severity.CRITICAL,
+            category="research-epistemology",
+            languages=["python"],
+            tags=["physics"],
+            root_cause="Explicit Euler drift",
+            bad_code="x_next = x_pos + v_vel * dt_sec + 0.0 * accel  # NON_SYMPLECTIC_EULER_DRIFT",
+            good_code="v_half = v_vel + 0.5 * accel_0 * dt_sec\nx_next = x_pos + v_half * dt_sec",
+            rationale="Use Velocity-Verlet",
+            regex_pattern=r"NON_SYMPLECTIC_EULER_DRIFT",
+        )
+        holdout_ok = DisjointScarHoldoutVerifier.verify_disjoint_holdout(valid_scar)
+        self.assertTrue(holdout_ok["passed"])
+        self.assertGreaterEqual(holdout_ok["holdout_precision"], 0.95)
+        self.assertEqual(holdout_ok["paraphrase_negative_fp_count"], 0)
+        self.assertTrue(holdout_ok["disjoint_tiers"])
+
+        overbroad_scar = GoldenScar(
+            id="KS-OVERBROAD",
+            title="Bad Regex",
+            severity=Severity.HIGH,
+            category="backend-api",
+            languages=["python"],
+            tags=["regex"],
+            root_cause="Overbroad",
+            bad_code="x = 1",
+            good_code="x = 2",
+            rationale="Reject trivial regex",
+            regex_pattern=r".*",
+        )
+        holdout_bad = DisjointScarHoldoutVerifier.verify_disjoint_holdout(overbroad_scar)
+        self.assertFalse(holdout_bad["passed"])
+
+        # 3. Covariance-Aware BFT (N_eff), Anti-Sycophancy Probe, Call-Graph & Taint Flows
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            app = ws / "pipeline.py"
+            app.write_text(
+                "def apply_patch(user_record, untrusted_payload):\n"
+                "    user_record.update(untrusted_payload)\n"
+                "    return user_record\n\n"
+                "def route_req(user_record, untrusted_payload):\n"
+                "    return apply_patch(user_record, untrusted_payload)\n",
+                encoding="utf-8",
+            )
+            eng = RepoAstGroundingEngine(ws)
+            self.assertIn("route_req", eng.symbol_table["call_graph"])
+            self.assertIn("apply_patch", eng.symbol_table["call_graph"]["route_req"])
+            self.assertGreaterEqual(len(eng.symbol_table["taint_flows"]), 1)
+
+            swarm = ShadowCloneSwarmOrchestrator(ws)
+            s_rep = swarm.run_swarm(ws, num_clones=4)
+            self.assertIn("covariance_bft_summary", s_rep)
+            self.assertGreater(s_rep["covariance_bft_summary"]["n_eff"], 1.0)
+            self.assertTrue(s_rep["anti_sycophancy_probe"]["sycophancy_rejected"])
+            self.assertEqual(s_rep["anti_sycophancy_probe"]["sycophancy_rate"], 0.0)
+
+    def test_hard_scientific_literature_verification_suite(self) -> None:
+        from kintsugi.foresight import ScientificLiteratureVerifier
+
+        with tempfile.TemporaryDirectory() as tmp:
+            verifier = ScientificLiteratureVerifier(tmp)
+            rep = verifier.verify_scientific_corpus()
+            self.assertEqual(rep["papers_audited"], 5)
+            self.assertTrue(rep["all_numerical_invariants_proven"])
+            self.assertGreaterEqual(rep["baseline_scientific_seams_detected"], 6)
+            self.assertEqual(rep["post_s3_counterfactual_seams"], 0)
+            self.assertEqual(rep["q_risk_reduction_pct"], 100.0)
 
 
 if __name__ == "__main__":
