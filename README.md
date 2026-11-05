@@ -6,10 +6,11 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v0.3.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v0.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
+[![Frontier Pool: Verified](https://img.shields.io/badge/Collective_Pool-Tier--1_Frontier_Only-7B1FA2)](collective-pool/index.json)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
@@ -121,6 +122,29 @@ kintsugi list-packs
 
 # Run unlocked in-place auto-remediation codemods
 kintsugi autofix . --apply
+```
+
+### 6. Human-Like Cognitive Learning & Frontier-Gated Collective Pool (`kintsugi learn`)
+
+Unlike bloated harnesses that dump noisy chat transcripts into memory, Kintsugi distills mistakes into causal **`CognitiveLesson`** records (`cognitive_trap` + `mental_model` + executable guardrail) with two user-selectable privacy/sync modes:
+
+```bash
+# Option 1 (Default — Privacy-First Local-Only + Pull by Industry):
+# Keep self-learned lessons strictly in .kintsugi/lessons_local.json (gitignored)
+# and pull curated Frontier lessons for your industry domains from GitHub:
+kintsugi learn config --mode local-only --domains ai-agents-mcp,backend-api,fintech-web3
+kintsugi learn pull --domains ai-agents-mcp,fintech-web3
+
+# Option 2 (Federated Collective Pool Sync — Tier-1 Frontier Models Only):
+# Automatically publish newly distilled lessons to collective-pool/<domain>/<model_family>/<id>.json
+# ONLY if they pass the 4-Stage Frontier Epistemic Gate:
+#   1. Tier-1 Frontier Model Provenance (claude-opus/sonnet-4, gpt-6, deepseek-r1, gemini-3.8-pro, qwen3.8-max)
+#      -> Low-tier models (mini, flash-lite, haiku, 8b) are strictly blocked from syncing upstream.
+#   2. Deterministic TP/FP Self-Verification (`scan(bad) >= 1` & `scan(good) == 0`)
+#   3. Structural & Semantic Anti-Duplicate Check (duplicates merge into reinforcement_count)
+#   4. Zero-Leak DLP Sanitization
+kintsugi learn config --mode federated-sync --auto-push
+kintsugi learn pool-status
 ```
 
 ---

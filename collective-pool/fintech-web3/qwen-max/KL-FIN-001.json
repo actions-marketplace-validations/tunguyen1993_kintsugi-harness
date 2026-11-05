@@ -1,0 +1,32 @@
+{
+  "id": "KL-FIN-001",
+  "title": "Use constant-time hmac.compare_digest() for webhook and payment signatures",
+  "domain": "fintech-web3",
+  "severity": "HIGH",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "hmac",
+    "webhook",
+    "timing-attack",
+    "fintech"
+  ],
+  "cognitive_trap": "Compared `webhook_signature == expected_hmac_digest` using standard string equality `==`.",
+  "mental_model": "Standard `==` short-circuits on the first mismatched byte, leaking signature bytes via microsecond timing side channels; always use `hmac.compare_digest`.",
+  "bad_code": "if webhook_signature == expected_hmac_digest:\n    credit_ledger()",
+  "good_code": "import hmac\nif hmac.compare_digest(webhook_signature, expected_hmac_digest):\n    credit_ledger()",
+  "regex_pattern": "\\b(?:webhook_signature|hmac_sig|expected_hmac_digest)\\s*==\\s*(?:expected_hmac_digest|webhook_signature|computed_hmac)\\b",
+  "ast_rule": null,
+  "synthesized_by_model": "qwen3.8-max",
+  "model_family": "qwen-max",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "qwen3.8-max",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 8,
+  "created_at": "2026-11-05T07:46:51Z",
+  "structural_fingerprint": "11f4a89f8b1e37a6",
+  "proof_attestation": "8886d34b490721be7c7ed409"
+}

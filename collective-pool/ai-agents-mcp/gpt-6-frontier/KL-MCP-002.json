@@ -1,0 +1,32 @@
+{
+  "id": "KL-MCP-002",
+  "title": "Enforce hard iteration and token ceilings on autonomous agent tool loops",
+  "domain": "ai-agents-mcp",
+  "severity": "HIGH",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "finops",
+    "agent-loop",
+    "token-budget",
+    "reliability"
+  ],
+  "cognitive_trap": "Wrote `while True:` around an LLM tool-calling loop assuming the model will always emit a final stop token.",
+  "mental_model": "When an upstream tool returns a transient error, LLMs frequently enter infinite retry oscillations; every agent loop must be bounded by `range(MAX_STEPS)`.",
+  "bad_code": "while True:  # UNBOUNDED_AGENT_LOOP\n    response = step_agent()",
+  "good_code": "for step in range(MAX_AGENT_STEPS):\n    response = step_agent()",
+  "regex_pattern": "while\\s+True\\s*:\\s*#\\s*UNBOUNDED_AGENT_LOOP",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "claude-opus-4"
+  ],
+  "reinforcement_count": 11,
+  "created_at": "2026-11-05T07:46:51Z",
+  "structural_fingerprint": "d0d63bf4550f5e2e",
+  "proof_attestation": "3a295e2d016c7264aa1453d0"
+}

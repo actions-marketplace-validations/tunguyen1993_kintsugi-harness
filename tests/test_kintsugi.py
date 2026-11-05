@@ -13,6 +13,13 @@ from pathlib import Path
 from kintsugi.auditor import run_posture_audit
 from kintsugi.autofix import run_autofix
 from kintsugi.cli import main as cli_main
+from kintsugi.cognition import (
+    CognitiveLesson,
+    CognitiveMemoryManager,
+    ModelTier,
+    SyncMode,
+    get_seed_frontier_lessons,
+)
 from kintsugi.compiler import BOUNDARY_END, BOUNDARY_START, SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import AgentEndpoint, EvolutionCouncil, _extract_json_object, verify_candidate_scar
@@ -357,6 +364,79 @@ class TestCLIDogfooding(unittest.TestCase):
                 ),
                 0,
             )
+
+
+class TestFederatedCognitiveLearning(unittest.TestCase):
+    def test_frontier_gate_blocks_low_tier_models_and_deduplicates_frontier_lessons(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            mgr = CognitiveMemoryManager(ws)
+
+            # 1. Default mode is local-only: lesson stays strictly in lessons_local.json
+            frontier_lesson = get_seed_frontier_lessons()[0]
+            r_local = mgr.record_lesson(frontier_lesson)
+            self.assertEqual(r_local["pool_sync_status"], "SKIPPED_LOCAL_ONLY_MODE")
+            self.assertEqual(len(mgr.load_pool_lessons()), 0)
+            self.assertEqual(len(mgr.load_local_lessons()), 1)
+
+            # 2. Switch to federated-sync mode
+            mgr.save_config(sync_mode=SyncMode.FEDERATED_SYNC.value)
+
+            # 3. Low-tier model (e.g. gpt-4o-mini / flash-lite / haiku) MUST be rejected by Frontier Gate
+            low_tier_lesson = CognitiveLesson(
+                id="KL-LOW-001",
+                title="Avoid yaml.load without SafeLoader",
+                domain="security-zerotrust",
+                severity=Severity.CRITICAL,
+                languages=["python"],
+                tags=["yaml", "security"],
+                cognitive_trap="Used yaml.load on untrusted input.",
+                mental_model="Always use yaml.safe_load.",
+                bad_code="import yaml\nyaml.load(raw)",
+                good_code="import yaml\nyaml.safe_load(raw)",
+                regex_pattern=r"\byaml\.load\s*\(",
+                synthesized_by_model="gpt-4o-mini",
+            )
+            self.assertEqual(low_tier_lesson.model_tier, ModelTier.TIER_3_LOW)
+            r_low = mgr.record_lesson(low_tier_lesson)
+            self.assertEqual(r_low["pool_sync_status"], "BLOCKED_BY_FRONTIER_GATE")
+            self.assertIn("REJECTED_LOW_TIER_MODEL", r_low["reason"])
+            self.assertEqual(len(mgr.load_pool_lessons()), 0)
+
+            # 4. Tier-1 Frontier model (deepseek-r1-0528) passes 4-Stage Gate and publishes to pool
+            r_pub = mgr.record_lesson(frontier_lesson)
+            self.assertEqual(r_pub["pool_sync_status"], "PUBLISHED_TO_COLLECTIVE_POOL")
+            self.assertEqual(len(mgr.load_pool_lessons()), 1)
+
+            # 5. Another Frontier model (claude-opus-4) submits duplicate lesson -> reinforces existing instead of duplicating
+            dup_lesson = CognitiveLesson(
+                id="KL-MCP-999",
+                title=frontier_lesson.title,
+                domain=frontier_lesson.domain,
+                severity=frontier_lesson.severity,
+                languages=frontier_lesson.languages,
+                tags=frontier_lesson.tags,
+                cognitive_trap=frontier_lesson.cognitive_trap,
+                mental_model=frontier_lesson.mental_model,
+                bad_code=frontier_lesson.bad_code,
+                good_code=frontier_lesson.good_code,
+                regex_pattern=frontier_lesson.regex_pattern,
+                synthesized_by_model="claude-opus-4",
+            )
+            r_dup = mgr.record_lesson(dup_lesson)
+            self.assertEqual(r_dup["pool_sync_status"], "BLOCKED_BY_FRONTIER_GATE")
+            self.assertIn("DUPLICATE_", r_dup["reason"])
+            pool_after = mgr.load_pool_lessons()
+            self.assertEqual(len(pool_after), 1)
+            self.assertIn("claude-opus-4", pool_after[0].endorsed_by_models)
+
+            # 6. Test selective domain pull into a clean local-only workspace
+            with tempfile.TemporaryDirectory() as tmp2:
+                ws2 = Path(tmp2)
+                mgr2 = CognitiveMemoryManager(ws2, pool_root=mgr.pool_root)
+                pull_res = mgr2.pull_lessons_by_domain(["ai-agents-mcp"])
+                self.assertEqual(pull_res["newly_merged_to_local"], 1)
+                self.assertEqual(len(mgr2.load_local_lessons()), 1)
 
 
 if __name__ == "__main__":

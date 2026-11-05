@@ -13,3 +13,5 @@ htmlcov/
 venv/
 .DS_Store
 *.sarif
+.kintsugi/lessons_local.json
+.kintsugi/learn_config.json

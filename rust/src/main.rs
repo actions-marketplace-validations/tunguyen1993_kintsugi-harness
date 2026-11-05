@@ -12,7 +12,7 @@ use kintsugi_core::{
     scan_git_staged, scan_path, scan_text, Severity, BUILTIN_RULES,
 };
 
-const VERSION: &str = "0.3.0";
+const VERSION: &str = "0.4.0";
 
 fn print_help() {
     println!(

@@ -1,0 +1,33 @@
+{
+  "id": "KL-OPS-001",
+  "title": "Enforce SSH StrictHostKeyChecking=yes in automated deployment pipelines",
+  "domain": "devops-cloud",
+  "severity": "HIGH",
+  "languages": [
+    "shell",
+    "python"
+  ],
+  "tags": [
+    "ssh",
+    "mitm",
+    "zero-trust",
+    "devops"
+  ],
+  "cognitive_trap": "Passed `-o StrictHostKeyChecking=no` in CI/CD scripts to suppress interactive host key prompts on first connect.",
+  "mental_model": "Disabling host key verification surrenders SSH authentication to active network MITM interception; pre-populate `known_hosts` and enforce `StrictHostKeyChecking=yes`.",
+  "bad_code": "ssh -o StrictHostKeyChecking=no deploy@edge.example.com \"systemctl restart api\"",
+  "good_code": "ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/ssh/known_hosts deploy@edge.example.com \"systemctl restart api\"",
+  "regex_pattern": "(?:StrictHostKeyChecking=no|AutoAddPolicy\\s*\\(\\s*\\))",
+  "ast_rule": null,
+  "synthesized_by_model": "meta-muse-spark",
+  "model_family": "meta-muse-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "meta-muse-spark",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 10,
+  "created_at": "2026-11-05T07:46:51Z",
+  "structural_fingerprint": "42d1b47bd781efae",
+  "proof_attestation": "bb52b68680956fcb6265a326"
+}

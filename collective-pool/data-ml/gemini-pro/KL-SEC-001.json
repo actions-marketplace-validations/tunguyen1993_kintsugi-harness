@@ -1,0 +1,32 @@
+{
+  "id": "KL-SEC-001",
+  "title": "Require weights_only=True in PyTorch torch.load() to block pickle RCE",
+  "domain": "data-ml",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "pytorch",
+    "pickle",
+    "rce",
+    "ml-security"
+  ],
+  "cognitive_trap": "Treated `.pt` / `.bin` model checkpoints as passive weight tensors rather than executable Python pickle bytecode.",
+  "mental_model": "Default `torch.load()` invokes `pickle.Unpickler`, allowing arbitrary OS command execution during checkpoint deserialization unless `weights_only=True` is set.",
+  "bad_code": "ckpt = torch.load(\"weights.pt\")",
+  "good_code": "ckpt = torch.load(\"weights.pt\", weights_only=True)",
+  "regex_pattern": "\\btorch\\.load\\s*\\([^)\\n]*(?<!weights_only=True)\\)",
+  "ast_rule": null,
+  "synthesized_by_model": "gemini-3.8-pro",
+  "model_family": "gemini-pro",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gemini-3.8-pro",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 9,
+  "created_at": "2026-11-05T07:46:51Z",
+  "structural_fingerprint": "9b31d1b1b3546a82",
+  "proof_attestation": "56a97772d7491640c0aaaa48"
+}

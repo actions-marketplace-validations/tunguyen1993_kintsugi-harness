@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "total_verified_frontier_lessons": 6,
+  "domains": {
+    "ai-agents-mcp": [
+      "KL-MCP-001",
+      "KL-MCP-002"
+    ],
+    "backend-api": [
+      "KL-API-001"
+    ],
+    "data-ml": [
+      "KL-SEC-001"
+    ],
+    "devops-cloud": [
+      "KL-OPS-001"
+    ],
+    "fintech-web3": [
+      "KL-FIN-001"
+    ]
+  },
+  "model_families": {
+    "claude-frontier": [
+      "KL-API-001"
+    ],
+    "deepseek-r1": [
+      "KL-MCP-001"
+    ],
+    "gemini-pro": [
+      "KL-SEC-001"
+    ],
+    "gpt-6-frontier": [
+      "KL-MCP-002"
+    ],
+    "meta-muse-frontier": [
+      "KL-OPS-001"
+    ],
+    "qwen-max": [
+      "KL-FIN-001"
+    ]
+  },
+  "lessons": [
+    {
+      "id": "KL-MCP-001",
+      "title": "Strip bidirectional Unicode overrides in MCP tool inputs and prompts (CVE-2021-42574)",
+      "domain": "ai-agents-mcp",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 7,
+      "structural_fingerprint": "25e3658f4416d75c",
+      "path": "ai-agents-mcp/deepseek-r1/KL-MCP-001.json"
+    },
+    {
+      "id": "KL-MCP-002",
+      "title": "Enforce hard iteration and token ceilings on autonomous agent tool loops",
+      "domain": "ai-agents-mcp",
+      "severity": "HIGH",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 11,
+      "structural_fingerprint": "d0d63bf4550f5e2e",
+      "path": "ai-agents-mcp/gpt-6-frontier/KL-MCP-002.json"
+    },
+    {
+      "id": "KL-API-001",
+      "title": "Never call synchronous time.sleep() inside an async def coroutine",
+      "domain": "backend-api",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 14,
+      "structural_fingerprint": "c77fa3e87ef56343",
+      "path": "backend-api/claude-frontier/KL-API-001.json"
+    },
+    {
+      "id": "KL-SEC-001",
+      "title": "Require weights_only=True in PyTorch torch.load() to block pickle RCE",
+      "domain": "data-ml",
+      "severity": "CRITICAL",
+      "model_family": "gemini-pro",
+      "synthesized_by_model": "gemini-3.8-pro",
+      "endorsed_by_models": [
+        "gemini-3.8-pro",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 9,
+      "structural_fingerprint": "9b31d1b1b3546a82",
+      "path": "data-ml/gemini-pro/KL-SEC-001.json"
+    },
+    {
+      "id": "KL-OPS-001",
+      "title": "Enforce SSH StrictHostKeyChecking=yes in automated deployment pipelines",
+      "domain": "devops-cloud",
+      "severity": "HIGH",
+      "model_family": "meta-muse-frontier",
+      "synthesized_by_model": "meta-muse-spark",
+      "endorsed_by_models": [
+        "meta-muse-spark",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 10,
+      "structural_fingerprint": "42d1b47bd781efae",
+      "path": "devops-cloud/meta-muse-frontier/KL-OPS-001.json"
+    },
+    {
+      "id": "KL-FIN-001",
+      "title": "Use constant-time hmac.compare_digest() for webhook and payment signatures",
+      "domain": "fintech-web3",
+      "severity": "HIGH",
+      "model_family": "qwen-max",
+      "synthesized_by_model": "qwen3.8-max",
+      "endorsed_by_models": [
+        "qwen3.8-max",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 8,
+      "structural_fingerprint": "11f4a89f8b1e37a6",
+      "path": "fintech-web3/qwen-max/KL-FIN-001.json"
+    }
+  ]
+}

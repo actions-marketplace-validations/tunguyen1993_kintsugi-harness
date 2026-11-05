@@ -11,6 +11,13 @@ from typing import List, Optional
 from kintsugi import __version__
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
 from kintsugi.autofix import run_autofix
+from kintsugi.cognition import (
+    SUPPORTED_DOMAINS,
+    CognitiveLesson,
+    CognitiveMemoryManager,
+    SyncMode,
+    get_seed_frontier_lessons,
+)
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import EvolutionCouncil, verify_candidate_scar
@@ -93,6 +100,51 @@ def _build_parser() -> argparse.ArgumentParser:
     # list-packs
     p_lpacks = sub.add_parser("list-packs", help="List installed external and Premium Skill Packs")
     p_lpacks.add_argument("--workspace", default=".", help="Target workspace root")
+
+    # learn (Human-like Federated Cognitive Lesson Engine & Frontier-Gated GitHub Pool)
+    p_learn = sub.add_parser(
+        "learn",
+        help="Manage human-like Cognitive Lessons, local-only privacy mode, domain pulls, and Frontier-gated GitHub Pool sync",
+    )
+    learn_sub = p_learn.add_subparsers(dest="learn_action", required=True)
+
+    p_lcfg = learn_sub.add_parser("config", help="Configure local-only vs federated-sync mode and subscribed industry domains")
+    p_lcfg.add_argument("--workspace", default=".", help="Workspace root")
+    p_lcfg.add_argument("--mode", choices=["local-only", "federated-sync"], default=None, help="Sync mode")
+    p_lcfg.add_argument("--domains", default=None, help=f"Comma-separated industry domains ({', '.join(SUPPORTED_DOMAINS)})")
+    p_lcfg.add_argument("--auto-push", dest="auto_push", action="store_true", default=None, help="Enable automatic git push on Frontier lesson creation")
+    p_lcfg.add_argument("--no-auto-push", dest="auto_push", action="store_false", help="Disable automatic git push")
+
+    p_ldist = learn_sub.add_parser("distill", help="Distill a failure into a CognitiveLesson (Frontier-gated for pool sync)")
+    p_ldist.add_argument("--workspace", default=".", help="Workspace root")
+    p_ldist.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_ldist.add_argument("--id", required=True, help="Lesson ID (e.g. KL-API-002)")
+    p_ldist.add_argument("--title", required=True, help="One-line lesson title")
+    p_ldist.add_argument("--domain", default="ai-agents-mcp", choices=list(SUPPORTED_DOMAINS), help="Industry domain")
+    p_ldist.add_argument("--severity", default="HIGH", choices=["CRITICAL", "HIGH", "MEDIUM", "LOW"])
+    p_ldist.add_argument("--language", default="python", help="Target language")
+    p_ldist.add_argument("--model", required=True, help="Synthesizing model identifier (e.g. deepseek-r1, gpt-6.1, claude-opus-4)")
+    p_ldist.add_argument("--trap", required=True, help="Cognitive trap: why the agent thought the wrong code was right")
+    p_ldist.add_argument("--mental-model", required=True, help="Reusable engineering heuristic learned")
+    p_ldist.add_argument("--bad-code", required=True, help="Minimal offending code snippet")
+    p_ldist.add_argument("--good-code", required=True, help="Minimal verified replacement snippet")
+    p_ldist.add_argument("--regex", default=None, help="Deterministic regex guardrail pattern")
+    p_ldist.add_argument("--ast-rule", default=None, help="Optional Python AST rule")
+    p_ldist.add_argument("--local-only", action="store_true", help="Force saving strictly locally even if federated-sync is active")
+    p_ldist.add_argument("--git-push", action="store_true", help="Commit and push to GitHub Collective Pool if Frontier Gate passes")
+
+    p_lpull = learn_sub.add_parser("pull", help="Pull Frontier-verified lessons for your industry domains from the GitHub Collective Pool")
+    p_lpull.add_argument("--workspace", default=".", help="Workspace root")
+    p_lpull.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_lpull.add_argument("--domains", default=None, help="Comma-separated industry domains to pull")
+    p_lpull.add_argument("--model-family", default=None, help="Filter by Frontier model family (e.g. deepseek-r1, gpt-6-frontier)")
+    p_lpull.add_argument("--remote", action="store_true", help="Fetch directly from remote GitHub repository raw API")
+
+    p_lseed = learn_sub.add_parser("seed-pool", help="Seed the partitioned GitHub Collective Pool with curated Frontier lessons")
+    p_lseed.add_argument("--workspace", default=".", help="Workspace root")
+
+    p_lstat = learn_sub.add_parser("pool-status", help="Inspect partitioned Collective Pool by domain and Frontier model family")
+    p_lstat.add_argument("--workspace", default=".", help="Workspace root")
 
     # compile
     p_comp = sub.add_parser("compile", help="Compile Golden Scars into SKILL.md, CLAUDE.md, AGENTS.md, Cursor, Copilot, and Windsurf rules")
@@ -290,6 +342,93 @@ def main(argv: Optional[List[str]] = None) -> int:
         packs = list_installed_packs(args.workspace)
         print(json.dumps({"installed_packs": packs}, indent=2, ensure_ascii=False))
         return 0
+
+    if args.command == "learn":
+        mgr = CognitiveMemoryManager(args.workspace)
+        if args.learn_action == "config":
+            doms = [d.strip() for d in args.domains.split(",") if d.strip()] if args.domains else None
+            cfg = mgr.save_config(
+                sync_mode=args.mode,
+                subscribed_domains=doms,
+                auto_push_to_github=args.auto_push,
+            )
+            print(json.dumps(cfg, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "distill":
+            lesson = CognitiveLesson(
+                id=args.id.strip().upper(),
+                title=args.title.strip(),
+                domain=args.domain,
+                severity=Severity(args.severity),
+                languages=[args.language.lower()],
+                tags=[args.domain, args.language.lower()],
+                cognitive_trap=args.trap.strip(),
+                mental_model=args.mental_model.strip(),
+                bad_code=args.bad_code,
+                good_code=args.good_code,
+                regex_pattern=args.regex,
+                ast_rule=args.ast_rule,
+                synthesized_by_model=args.model,
+            )
+            res = mgr.record_lesson(
+                lesson,
+                force_local_only=bool(args.local_only),
+                git_push=bool(args.git_push),
+            )
+            ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+            ledger.upsert(lesson.to_golden_scar())
+            ledger.save()
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "pull":
+            doms = [d.strip() for d in args.domains.split(",") if d.strip()] if args.domains else None
+            res = mgr.pull_lessons_by_domain(
+                doms,
+                model_family=args.model_family,
+                fetch_remote_github=bool(args.remote),
+            )
+            ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+            for l in mgr.load_local_lessons():
+                ledger.upsert(l.to_golden_scar())
+            ledger.save()
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "seed-pool":
+            mgr.save_config(sync_mode=SyncMode.FEDERATED_SYNC.value)
+            published = []
+            for seed in get_seed_frontier_lessons():
+                r = mgr.record_lesson(seed, force_local_only=False, git_push=False)
+                published.append(r)
+            mgr.save_config(sync_mode=SyncMode.LOCAL_ONLY.value)
+            print(json.dumps({"seeded": len(published), "results": published}, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "pool-status":
+            cfg = mgr.load_config()
+            local_lessons = mgr.load_local_lessons()
+            pool_lessons = mgr.load_pool_lessons()
+            by_domain = {}
+            by_model = {}
+            for l in pool_lessons:
+                by_domain[l.domain] = by_domain.get(l.domain, 0) + 1
+                by_model[l.model_family] = by_model.get(l.model_family, 0) + 1
+            print(
+                json.dumps(
+                    {
+                        "user_config": cfg,
+                        "local_private_lessons": len(local_lessons),
+                        "collective_pool_total": len(pool_lessons),
+                        "pool_by_domain": by_domain,
+                        "pool_by_frontier_model_family": by_model,
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+            return 0
 
     if args.command == "compile":
         ledger = _load_or_seed_ledger(args.ledger, args.workspace)
