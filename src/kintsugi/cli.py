@@ -102,10 +102,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_fix.add_argument("--apply", action="store_true", help="Apply in-place codemods (unlocked via installed Skill Packs)")
 
     # install-pack
-    p_ipack = sub.add_parser("install-pack", help="Install an external or Premium Skill Pack (.zip or .json) into .kintsugi/packs/")
-    p_ipack.add_argument("pack_path", help="Path to Skill Pack .zip or .json bundle")
+    p_ipack = sub.add_parser("install-pack", help="Install an external or encrypted Premium Skill Pack (.kpack, .zip, or .json) into .kintsugi/packs/")
+    p_ipack.add_argument("pack_path", help="Path to Skill Pack .kpack, .zip, or .json bundle")
     p_ipack.add_argument("--workspace", default=".", help="Target workspace root")
     p_ipack.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_ipack.add_argument("--license-key", default=None, help="Customer unlock key for encrypted Kintsugi Pro .kpack bundles (or set KINTSUGI_LICENSE_KEY)")
 
     # list-packs
     p_lpacks = sub.add_parser("list-packs", help="List installed external and Premium Skill Packs")
@@ -399,6 +400,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             args.pack_path,
             workspace_root=args.workspace,
             ledger_path=args.ledger,
+            license_key=args.license_key,
         )
         print(
             f"[kintsugi] Installed pack '{info['pack_id']}' ({info['tier']}) -> {info['installed_to']}\n"

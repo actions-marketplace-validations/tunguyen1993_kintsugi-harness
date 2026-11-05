@@ -789,6 +789,91 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertEqual(rep["post_s3_counterfactual_seams"], 0)
             self.assertEqual(rep["q_risk_reduction_pct"], 100.0)
 
+    def test_encrypted_pro_kpack_requires_customer_license_key(self) -> None:
+        import io
+        import zipfile
+        from kintsugi.packs import encrypt_pro_kpack_bytes, install_skill_pack
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            ledger_file = ws / ".kintsugi" / "scars.json"
+
+            # Build an in-memory Pro Skill Pack .zip
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr(
+                    "agensi-manifest.json",
+                    json.dumps(
+                        {
+                            "name": "kintsugi-pro-test-pack",
+                            "title": "Kintsugi Pro Test Pack",
+                            "version": "1.2.0",
+                            "tier": "pro-encrypted",
+                        }
+                    ),
+                )
+                zf.writestr(
+                    "scars.json",
+                    json.dumps(
+                        {
+                            "scars": [
+                                {
+                                    "id": "KS-PRO-099",
+                                    "title": "Pro Enterprise Guard",
+                                    "severity": "CRITICAL",
+                                    "category": "security",
+                                    "languages": ["python"],
+                                    "tags": ["pro"],
+                                    "root_cause": "Pro check",
+                                    "bad_code": "DANGEROUS_PRO_CALL()",
+                                    "good_code": "SAFE_PRO_CALL()",
+                                    "rationale": "Enforce Pro guard",
+                                    "regex_pattern": r"DANGEROUS_PRO_CALL\s*\(",
+                                }
+                            ]
+                        }
+                    ),
+                )
+                zf.writestr(".claude/commands/kintsugi-audit.md", "# Pro Audit Command\n")
+
+            secret_license = "KPRO-TEST-9988-7766-ABCD"
+            kpack_bytes = encrypt_pro_kpack_bytes(
+                buf.getvalue(),
+                secret_license,
+                pack_id="kintsugi-pro-test-pack",
+                tier="pro-encrypted",
+            )
+            kpack_file = ws / "kintsugi-pro-test-pack.kpack"
+            kpack_file.write_bytes(kpack_bytes)
+
+            # 1. Plaintext secret must NOT appear inside encrypted .kpack file
+            self.assertNotIn(b"DANGEROUS_PRO_CALL", kpack_bytes)
+            self.assertNotIn(b"kintsugi-audit.md", kpack_bytes)
+
+            # 2. Missing license key -> PermissionError
+            with self.assertRaises(PermissionError):
+                install_skill_pack(kpack_file, workspace_root=ws, ledger_path=ledger_file)
+
+            # 3. Wrong license key -> PermissionError (constant-time HMAC rejection)
+            with self.assertRaises(PermissionError):
+                install_skill_pack(
+                    kpack_file,
+                    workspace_root=ws,
+                    ledger_path=ledger_file,
+                    license_key="WRONG-KEY-0000-1111-2222",
+                )
+
+            # 4. Valid customer license key -> Decrypts in memory and installs cleanly!
+            info = install_skill_pack(
+                kpack_file,
+                workspace_root=ws,
+                ledger_path=ledger_file,
+                license_key=secret_license,
+            )
+            self.assertEqual(info["pack_id"], "kintsugi-pro-test-pack")
+            self.assertEqual(info["newly_unlocked_scars"], 1)
+            self.assertIn("/kintsugi-audit", info["slash_commands"])
+
 
 if __name__ == "__main__":
     unittest.main()

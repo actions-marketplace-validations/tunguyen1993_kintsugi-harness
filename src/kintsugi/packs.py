@@ -9,13 +9,122 @@ deterministic Auto-Fix playbooks, and `.claude/commands/` workflows.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import io
 import json
+import os
+import secrets
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import GoldenScar
+
+KPACK_MAGIC = "KINTSUGI-KPACK-AEAD/1"
+PBKDF2_ITERATIONS = 200_000
+
+
+def _xor_keystream(data: bytes, enc_key: bytes, nonce: bytes) -> bytes:
+    """Deterministic SHA-256 Counter-Mode (CTR) stream cipher using stdlib hmac/sha256."""
+    out = bytearray(len(data))
+    block_size = 32
+    num_blocks = (len(data) + block_size - 1) // block_size
+    for counter in range(num_blocks):
+        ks_block = hmac.new(
+            enc_key,
+            nonce + counter.to_bytes(8, "big"),
+            hashlib.sha256,
+        ).digest()
+        start = counter * block_size
+        end = min(len(data), start + block_size)
+        for idx in range(start, end):
+            out[idx] = data[idx] ^ ks_block[idx - start]
+    return bytes(out)
+
+
+def encrypt_pro_kpack_bytes(
+    zip_bytes: bytes,
+    license_key: str,
+    *,
+    pack_id: str = "kintsugi-pro-complete-bundle",
+    tier: str = "pro-encrypted",
+) -> bytes:
+    """
+    Encrypts a commercial Pro Skill Pack `.zip` archive into an authenticated `.kpack`
+    envelope (`PBKDF2-HMAC-SHA256` 200k iterations + `SHA256-CTR` + `Encrypt-then-HMAC-SHA256`).
+    Only customers holding the matching `license_key` can decrypt or install the `.kpack`.
+    """
+    clean_key = (license_key or "").strip()
+    if len(clean_key) < 12:
+        raise ValueError("Pro license key must be at least 12 characters long.")
+
+    salt = secrets.token_bytes(16)
+    nonce = secrets.token_bytes(16)
+    derived = hashlib.pbkdf2_hmac("sha256", clean_key.encode("utf-8"), salt, PBKDF2_ITERATIONS, dklen=64)
+    enc_key, mac_key = derived[:32], derived[32:]
+
+    ciphertext = _xor_keystream(zip_bytes, enc_key, nonce)
+    aad = f"{KPACK_MAGIC}|{pack_id}|{tier}".encode("utf-8")
+    mac_tag = hmac.new(mac_key, aad + salt + nonce + ciphertext, hashlib.sha256).digest()
+
+    envelope = {
+        "kpack_format": KPACK_MAGIC,
+        "pack_id": pack_id,
+        "tier": tier,
+        "kdf": "PBKDF2-HMAC-SHA256",
+        "kdf_iterations": PBKDF2_ITERATIONS,
+        "cipher": "SHA256-CTR-HMAC-SHA256-ETM",
+        "salt_b64": base64.b64encode(salt).decode("ascii"),
+        "nonce_b64": base64.b64encode(nonce).decode("ascii"),
+        "ciphertext_b64": base64.b64encode(ciphertext).decode("ascii"),
+        "mac_tag_hex": mac_tag.hex(),
+    }
+    return (json.dumps(envelope, indent=2) + "\n").encode("utf-8")
+
+
+def decrypt_pro_kpack_bytes(kpack_bytes: bytes, license_key: Optional[str]) -> bytes:
+    """
+    Verifies the Encrypt-then-MAC tag in constant time (`hmac.compare_digest`) and decrypts
+    an encrypted `.kpack` Skill Pack back into its in-memory `.zip` bytes.
+    """
+    clean_key = (license_key or os.environ.get("KINTSUGI_LICENSE_KEY") or "").strip()
+    if not clean_key:
+        raise PermissionError(
+            "KINTSUGI_PRO_LICENSE_REQUIRED: This is an encrypted Kintsugi Pro Skill Pack (.kpack). "
+            "Pass your customer unlock key via `--license-key <KEY>` or set `KINTSUGI_LICENSE_KEY`."
+        )
+
+    try:
+        envelope = json.loads(kpack_bytes.decode("utf-8"))
+    except Exception as exc:
+        raise ValueError(f"Malformed .kpack envelope: {exc}") from exc
+
+    if envelope.get("kpack_format") != KPACK_MAGIC:
+        raise ValueError("Unsupported .kpack format version.")
+
+    pack_id = str(envelope.get("pack_id", ""))
+    tier = str(envelope.get("tier", "pro-encrypted"))
+    iterations = int(envelope.get("kdf_iterations", PBKDF2_ITERATIONS))
+    salt = base64.b64decode(envelope["salt_b64"])
+    nonce = base64.b64decode(envelope["nonce_b64"])
+    ciphertext = base64.b64decode(envelope["ciphertext_b64"])
+    expected_mac_hex = str(envelope.get("mac_tag_hex", ""))
+
+    derived = hashlib.pbkdf2_hmac("sha256", clean_key.encode("utf-8"), salt, iterations, dklen=64)
+    enc_key, mac_key = derived[:32], derived[32:]
+    aad = f"{KPACK_MAGIC}|{pack_id}|{tier}".encode("utf-8")
+    computed_mac_hex = hmac.new(mac_key, aad + salt + nonce + ciphertext, hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(computed_mac_hex, expected_mac_hex):
+        raise PermissionError(
+            "KINTSUGI_PRO_LICENSE_INVALID: License key verification failed (HMAC-SHA256 mismatch). "
+            "Please verify your customer license key from Agensi.io / Gumroad."
+        )
+
+    return _xor_keystream(ciphertext, enc_key, nonce)
 
 
 def get_packs_dir(workspace_root: str | Path = ".") -> Path:
@@ -83,10 +192,11 @@ def install_skill_pack(
     *,
     workspace_root: str | Path = ".",
     ledger_path: str | Path = ".kintsugi/scars.json",
+    license_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Install a `.zip` or `.json` Skill Pack into `.kintsugi/packs/`, merge its
-    verified Golden Scars into the active ledger, and extract any slash commands.
+    Install a `.kpack` (encrypted Pro bundle), `.zip`, or `.json` Skill Pack into `.kintsugi/packs/`,
+    merge its verified Golden Scars into the active ledger, and extract any slash commands.
     """
     src = Path(pack_source)
     ws = Path(workspace_root)
@@ -99,9 +209,16 @@ def install_skill_pack(
 
     extracted_commands: List[str] = []
     pack_payload: Dict[str, Any] = {}
+    suffix = src.suffix.lower()
 
-    if src.suffix.lower() == ".zip":
-        with zipfile.ZipFile(src, "r") as zf:
+    if suffix in {".zip", ".kpack"}:
+        if suffix == ".kpack":
+            decrypted_zip = decrypt_pro_kpack_bytes(src.read_bytes(), license_key)
+            zf_ctx = zipfile.ZipFile(io.BytesIO(decrypted_zip), "r")
+        else:
+            zf_ctx = zipfile.ZipFile(src, "r")
+
+        with zf_ctx as zf:
             names = zf.namelist()
             # Locate agensi-manifest.json or pack.json + scars.json inside the archive
             manifest_data: Dict[str, Any] = {}
@@ -123,12 +240,18 @@ def install_skill_pack(
                     cmd_dest.parent.mkdir(parents=True, exist_ok=True)
                     cmd_dest.write_bytes(zf.read(member))
                     extracted_commands.append(f"/{cmd_dest.stem}")
+                elif ".claude/skills/" in member and member.endswith(".md"):
+                    rel_idx = member.find(".claude/skills/")
+                    rel_sub = member[rel_idx:]
+                    skill_dest = ws / rel_sub
+                    skill_dest.parent.mkdir(parents=True, exist_ok=True)
+                    skill_dest.write_bytes(zf.read(member))
 
             pack_slug = manifest_data.get("name", src.stem)
             pack_payload = {
                 "name": pack_slug,
                 "title": manifest_data.get("title", pack_slug),
-                "version": manifest_data.get("version", "0.3.0"),
+                "version": manifest_data.get("version", "1.2.0"),
                 "tier": manifest_data.get("tier", "premium"),
                 "scars": scars_list,
                 "autofix_playbooks": playbooks_list,
