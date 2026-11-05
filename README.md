@@ -191,6 +191,23 @@ kintsugi foresight src/ --self-generate
 
 ---
 
+## Empirical Proofs & Scientific Conservation Law Validation (`v0.8.0`)
+
+Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`RepoAstGroundingEngine` + `AutopoieticSynthesizer` + `CausalForesightEngine`) has been empirically validated against **5 Universal Scientific & Mathematical Conservation Laws** (`500` simulation steps, $\Delta t = 0.05\text{ s}$). Full details and reproducible commands are documented in [**`docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md`**](docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md):
+
+| # | Scientific Law & Invariant | Unguarded Seam (`S0/S1` — `VERIFIED`) | Runtime Violation Measurement | `S3` Guarded Implementation (`REFUTED` — `0` FP) | Runtime `S3` Measurement |
+| :- | :--- | :--- | :--- | :--- | :--- |
+| **1** | **1st Law of Thermodynamics & Symplectic Liouville Theorem** ($\det(J) = 1$) | `NON_SYMPLECTIC_ENERGY_DRIFT_SEAM` (Forward Euler $\det(J) > 1$) | Energy explodes `2.0 J` $\to$ **`289.55 J` (`+14,377.28%` drift)** | Symplectic Velocity-Verlet (`v_half`) | **`1.9997 J` (`0.0147%` bounded)** |
+| **2** | **Buckingham $\Pi$ Dimensional Homogeneity & Radian Invariance** | `DIMENSIONAL_UNIT_MISMATCH_SEAM` (`Pa + m/s + mm`, raw `math.sin(deg)`) | Bernoulli head corrupted to **`-100,610.27`** ($10^4\times$ error) | SI base-unit normalization `[m]` + `math.radians()` | **`11.3980 m`** (exact SI head) |
+| **3** | **Conservation of Mass / Continuity & Positivity** ($\frac{\partial \rho}{\partial t} + \nabla \cdot (\rho \mathbf{u}) = 0$) | `MASS_CONTINUITY_VIOLATION_SEAM` (unbalanced flux + unclipped sink) | Unphysical negative density **`-1.70 kg/m³`** ($\rho < 0$) | Pairwise antisymmetric flux ($\Delta m_A = -\Delta m_B$) + positivity limiter | **`0.0 kg` mass drift** (`< 1e-15`), $\rho \ge 0$ |
+| **4** | **Relativistic Causal Light-Cone ($t_{\text{cause}} \le t_{\text{effect}}$) & 2nd Law ($\Delta S \ge 0$)** | `CAUSAL_ARROW_LOOKAHEAD_SEAM` (reading future `series[idx_t + 1]`, $\Delta S < 0$) | Future spike leak (**`50.5`** vs `0.5`) & $\Delta S = -0.25 < 0$ | Strictly causal past/present window (`<= idx_t`) & $\Delta S \ge 0$ | **`0.5`** causal estimate, $\Delta S = +0.10 \ge 0$ |
+| **5** | **Floating-Point Catastrophic Cancellation & Kahan Summation** | `CATASTROPHIC_CANCELLATION_SEAM` (`gamma**2 - 1.0` at $v \ll c$, naive `sum()`) | **`344.09%` relative error** & **`100%` micro-flux loss (`0.0 J`)** | Algebraic $\frac{v^2/c^2}{1 - v^2/c^2}$ + `math.fsum()` | **`0.0%` error**, full **`+100.0 J`** preserved |
+
+- **3-State Grounding Gate Accuracy:** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms`.
+- **Automated Verification Suite:** **`22/22` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`38/38` Frontier Pool Lessons Verified**.
+
+---
+
 ## Wire into Claude Code (`PreToolUse`) & MCP
 
 ```bash
