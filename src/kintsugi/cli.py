@@ -21,6 +21,7 @@ from kintsugi.cognition import (
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import EvolutionCouncil, verify_candidate_scar
+from kintsugi.grounding import RepoAstGroundingEngine
 from kintsugi.hooks import (
     evaluate_claude_pre_tool_payload,
     install_claude_settings_hook,
@@ -213,6 +214,13 @@ def _build_parser() -> argparse.ArgumentParser:
     # stats
     p_stats = sub.add_parser("stats", help="Display Golden Scar ledger summary and verification health")
     p_stats.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+
+    # ground (Neuro-Symbolic AST Symbol Table & 3-State Hypothesis Grounding Gate)
+    p_gnd = sub.add_parser("ground", help="Run <5ms AST Symbol Table & Seam extraction + 3-State Hypothesis Grounding Gate")
+    p_gnd.add_argument("target", nargs="?", default=".", help="Repository or file to index")
+    p_gnd.add_argument("--anchor", default=None, help="Optional file:line anchor to verify (e.g. src/app.py:42)")
+    p_gnd.add_argument("--symbols", default=None, help="Comma-separated symbol names to verify at anchor")
+    p_gnd.add_argument("--manifest-sha", default=None, help="Optional expected manifest SHA-256 to check for commit drift")
 
     return parser
 
@@ -598,6 +606,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                 indent=2,
             )
         )
+        return 0
+
+    if args.command == "ground":
+        engine = RepoAstGroundingEngine(args.target)
+        if args.anchor:
+            syms = [s.strip() for s in (args.symbols or "").split(",") if s.strip()]
+            verdict = engine.verify_hypothesis(
+                {"anchor": args.anchor, "symbols": syms},
+                expected_manifest_sha=args.manifest_sha,
+            )
+            print(json.dumps(verdict, indent=2, ensure_ascii=False))
+            return 0 if verdict["status"] == "VERIFIED" else 1
+        print(json.dumps(engine.summary(), indent=2, ensure_ascii=False))
         return 0
 
     return 0

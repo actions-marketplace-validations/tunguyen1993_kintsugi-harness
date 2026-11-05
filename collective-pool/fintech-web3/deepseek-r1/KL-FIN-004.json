@@ -1,0 +1,35 @@
+{
+  "id": "KL-FIN-004",
+  "title": "Bind cryptographic signatures to (chainId, verifyingContract, nonce, deadline) and update vault shares before external calls",
+  "domain": "fintech-web3",
+  "severity": "CRITICAL",
+  "languages": [
+    "python",
+    "decision"
+  ],
+  "tags": [
+    "eip712",
+    "signature-replay",
+    "read-only-reentrancy",
+    "vault"
+  ],
+  "cognitive_trap": "Verified a withdrawal signature without binding `(chainId, verifyingContract, nonce, deadline)` and transferred vault assets before burning shares, exposing mid-callback share price skew.",
+  "mental_model": "Unscoped signatures enable cross-context replay, and transferring assets before burning shares creates a read-only reentrancy window where `totalAssets / totalSupply` is artificially depressed.",
+  "bad_code": "digest = keccak256(user, amount)  # UNSCOPED_SIGNATURE_MISSING_NONCE_CHAINID",
+  "good_code": "digest = keccak256(chain_id, verifying_contract, user, amount, nonce, deadline)",
+  "regex_pattern": "UNSCOPED_SIGNATURE_MISSING_NONCE_CHAINID",
+  "ast_rule": null,
+  "synthesized_by_model": "deepseek-r1-0528",
+  "model_family": "deepseek-r1",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "deepseek-r1-0528",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 15,
+  "source_repo": "neuro-symbolic-cortex:atom_003",
+  "created_at": "2026-11-05T08:35:28Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "96db3f27d0366d7f",
+  "proof_attestation": "0dafda949d937f69c787fad8"
+}

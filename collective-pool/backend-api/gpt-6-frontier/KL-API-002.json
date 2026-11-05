@@ -1,0 +1,35 @@
+{
+  "id": "KL-API-002",
+  "title": "Multi-Tenant Cache & Secondary Query Isolation: Always prefix cache keys with tenant_id",
+  "domain": "backend-api",
+  "severity": "CRITICAL",
+  "languages": [
+    "python",
+    "typescript"
+  ],
+  "tags": [
+    "multi-tenant",
+    "cache-poisoning",
+    "data-leakage",
+    "redis"
+  ],
+  "cognitive_trap": "Filtered the primary SQL query by `tenant_id`, but keyed the Redis cache lookup by bare `record_id` (`cache.get(f'record:{record_id}')`), leaking cached records across tenants.",
+  "mental_model": "Every secondary retrieval path, cache key, and export job must bind the authenticated `tenant_id` (`f'tenant:{tenant_id}:record:{record_id}'`); row-level security on the DB does not protect an unscoped cache hit.",
+  "bad_code": "cached = redis_client.get(f\"record:{record_id}\")  # UNSCOPED_MULTI_TENANT_CACHE_KEY",
+  "good_code": "cached = redis_client.get(f\"tenant:{tenant_id}:record:{record_id}\")",
+  "regex_pattern": "UNSCOPED_MULTI_TENANT_CACHE_KEY",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "claude-opus-4"
+  ],
+  "reinforcement_count": 12,
+  "source_repo": "neuro-symbolic-cortex:atom_005",
+  "created_at": "2026-11-05T08:35:28Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "96303a99673c6db2",
+  "proof_attestation": "c1010167adbc947f24c4e5e1"
+}

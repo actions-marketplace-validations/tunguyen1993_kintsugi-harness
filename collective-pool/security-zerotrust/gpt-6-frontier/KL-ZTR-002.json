@@ -1,0 +1,34 @@
+{
+  "id": "KL-ZTR-002",
+  "title": "Cross-Layer Path Seam Containment: Never concatenate unvalidated user filenames into open()",
+  "domain": "security-zerotrust",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "path-traversal",
+    "trust-boundary",
+    "seam",
+    "file-io"
+  ],
+  "cognitive_trap": "Assumed a surface string filter on a user filename prevents directory traversal when concatenated via `open(base_dir + '/' + filename)`.",
+  "mental_model": "Surface string filters fail against encoding/traversal seams across layers; resolve the canonical path via `Path(base_dir).joinpath(filename).resolve()` and enforce `.is_relative_to(base_root)` before opening.",
+  "bad_code": "fh = open(base_dir + \"/\" + user_filename, \"rb\")  # UNSAFE_PATH_CONCAT_SEAM",
+  "good_code": "target = (Path(base_dir) / user_filename).resolve()\nassert target.is_relative_to(Path(base_dir).resolve())\nfh = target.open(\"rb\")",
+  "regex_pattern": "UNSAFE_PATH_CONCAT_SEAM|\\bopen\\(\\s*base_dir\\s*\\+",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 14,
+  "source_repo": "neuro-symbolic-cortex:atom_001",
+  "created_at": "2026-11-05T08:35:28Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "486af101a82030e5",
+  "proof_attestation": "6aa5029f10c0452dfc881a0c"
+}

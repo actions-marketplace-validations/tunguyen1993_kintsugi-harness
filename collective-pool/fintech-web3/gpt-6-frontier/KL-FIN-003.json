@@ -1,0 +1,35 @@
+{
+  "id": "KL-FIN-003",
+  "title": "Atomic Ledger Locking (TOCTOU) & Symmetric Decimal Scaling Guard",
+  "domain": "fintech-web3",
+  "severity": "CRITICAL",
+  "languages": [
+    "python",
+    "decision"
+  ],
+  "tags": [
+    "toctou",
+    "ledger",
+    "concurrency",
+    "decimal-rounding"
+  ],
+  "cognitive_trap": "Checked account balance at t1 (`SELECT balance`) and deducted at t2 without row-level locking or atomic conditional debit, while rounding 18-decimal internal units down on debit and up on 6-decimal payout.",
+  "mental_model": "Concurrent withdrawals race between unlocked reads and writes (`TOCTOU_UNLOCKED_LEDGER_DEBIT`). Enforce atomic `UPDATE ... WHERE balance >= amount` (or `SELECT ... FOR UPDATE`) and use identical floor-quantized atomic units for both debit and payout.",
+  "bad_code": "bal = db.query('SELECT balance FROM accounts WHERE id = :id')  # TOCTOU_UNLOCKED_LEDGER_DEBIT",
+  "good_code": "rows = db.execute('UPDATE accounts SET balance = balance - :amt WHERE id = :id AND balance >= :amt')",
+  "regex_pattern": "TOCTOU_UNLOCKED_LEDGER_DEBIT",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 16,
+  "source_repo": "neuro-symbolic-cortex:atom_002",
+  "created_at": "2026-11-05T08:35:28Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "bda676dfb6605b9b",
+  "proof_attestation": "b372d7bfb9f7b6cf4f3ff8fd"
+}

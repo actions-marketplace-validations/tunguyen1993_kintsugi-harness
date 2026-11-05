@@ -1,0 +1,35 @@
+{
+  "id": "KL-OPS-003",
+  "title": "Complete Browser Origin Storage Teardown (IndexedDB + ServiceWorkers) & Scoped Profile Cleanup",
+  "domain": "devops-cloud",
+  "severity": "HIGH",
+  "languages": [
+    "javascript",
+    "typescript"
+  ],
+  "tags": [
+    "cdp",
+    "puppeteer",
+    "indexeddb",
+    "memory-leak"
+  ],
+  "cognitive_trap": "Cleared browser cookies when switching accounts (`Network.clearBrowserCookies`) while leaving stale IndexedDB cryptographic keys (`cvm_chip_pin_unavailable`), or ran global `killall Google Chrome`.",
+  "mental_model": "Navigate to `about:blank` and call `Storage.clearDataForOrigin` for `indexeddb,local_storage,cache_storage,service_workers` before clearing cookies, and terminate only the isolated `--user-data-dir` in `finally`.",
+  "bad_code": "await client.send('Network.clearBrowserCookies');  // MISSING_INDEXEDDB_ORIGIN_CLEAR",
+  "good_code": "await client.send('Page.navigate', { url: 'about:blank' });\nawait client.send('Storage.clearDataForOrigin', { origin, storageTypes: 'indexeddb,local_storage,cache_storage,service_workers' });",
+  "regex_pattern": "MISSING_INDEXEDDB_ORIGIN_CLEAR",
+  "ast_rule": null,
+  "synthesized_by_model": "meta-muse-spark",
+  "model_family": "meta-muse-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "meta-muse-spark",
+    "grok-4.7"
+  ],
+  "reinforcement_count": 12,
+  "source_repo": "production-agent-memory:CM-009-CM-016",
+  "created_at": "2026-11-05T08:35:28Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "968648cf68915f9d",
+  "proof_attestation": "963996debe41089e9a05ccc8"
+}

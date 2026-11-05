@@ -1,20 +1,30 @@
 {
   "schema_version": "1.1",
-  "total_verified_frontier_lessons": 25,
+  "total_verified_frontier_lessons": 35,
   "pillars": {
     "engineering": [
       "KL-API-001",
+      "KL-API-002",
+      "KL-API-003",
       "KL-FE-001",
       "KL-FIN-001",
       "KL-FIN-002",
+      "KL-FIN-003",
+      "KL-FIN-004",
+      "KL-FIN-005",
       "KL-MCP-001",
       "KL-MCP-002",
       "KL-MCP-003",
       "KL-MCP-004",
+      "KL-MCP-005",
       "KL-ML-002",
       "KL-OPS-001",
+      "KL-OPS-002",
+      "KL-OPS-003",
       "KL-SEC-001",
-      "KL-ZTR-001"
+      "KL-ZTR-001",
+      "KL-ZTR-002",
+      "KL-ZTR-003"
     ],
     "life-and-business": [
       "KL-BIZ-001",
@@ -37,10 +47,13 @@
       "KL-MCP-001",
       "KL-MCP-002",
       "KL-MCP-003",
-      "KL-MCP-004"
+      "KL-MCP-004",
+      "KL-MCP-005"
     ],
     "backend-api": [
-      "KL-API-001"
+      "KL-API-001",
+      "KL-API-002",
+      "KL-API-003"
     ],
     "business-negotiation": [
       "KL-BIZ-001",
@@ -55,7 +68,9 @@
       "KL-DEC-002"
     ],
     "devops-cloud": [
-      "KL-OPS-001"
+      "KL-OPS-001",
+      "KL-OPS-002",
+      "KL-OPS-003"
     ],
     "finance-capital": [
       "KL-CAP-001",
@@ -63,7 +78,10 @@
     ],
     "fintech-web3": [
       "KL-FIN-001",
-      "KL-FIN-002"
+      "KL-FIN-002",
+      "KL-FIN-003",
+      "KL-FIN-004",
+      "KL-FIN-005"
     ],
     "frontend-ts": [
       "KL-FE-001"
@@ -86,12 +104,15 @@
       "KL-EPI-001"
     ],
     "security-zerotrust": [
-      "KL-ZTR-001"
+      "KL-ZTR-001",
+      "KL-ZTR-002",
+      "KL-ZTR-003"
     ]
   },
   "model_families": {
     "claude-frontier": [
       "KL-API-001",
+      "KL-API-003",
       "KL-BIZ-001",
       "KL-DEC-001",
       "KL-FE-001",
@@ -103,27 +124,36 @@
     "deepseek-r1": [
       "KL-CAP-001",
       "KL-EPI-001",
+      "KL-FIN-004",
+      "KL-FIN-005",
       "KL-MCP-001",
-      "KL-ML-002"
+      "KL-ML-002",
+      "KL-OPS-002"
     ],
     "gemini-pro": [
       "KL-LEG-002",
       "KL-SEC-001"
     ],
     "gpt-6-frontier": [
+      "KL-API-002",
       "KL-CAP-002",
       "KL-DEC-002",
+      "KL-FIN-003",
       "KL-LEG-001",
-      "KL-MCP-002"
+      "KL-MCP-002",
+      "KL-ZTR-002"
     ],
     "grok-frontier": [
       "KL-BIZ-002",
+      "KL-MCP-005",
       "KL-PSY-001",
-      "KL-ZTR-001"
+      "KL-ZTR-001",
+      "KL-ZTR-003"
     ],
     "meta-muse-frontier": [
       "KL-HLT-001",
-      "KL-OPS-001"
+      "KL-OPS-001",
+      "KL-OPS-003"
     ],
     "qwen-max": [
       "KL-FIN-001",
@@ -143,7 +173,7 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "github:anthropics/skills/mcp-builder",
       "structural_fingerprint": "7490525323a40f4a",
       "proof_attestation": "1716184f44e9c285bd0521d3",
@@ -161,7 +191,7 @@
         "claude-opus-4",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "github:anthropics/skills/claude-api",
       "structural_fingerprint": "9d1fa68958334226",
       "proof_attestation": "66abcf9b894911c81bbfeb48",
@@ -179,7 +209,7 @@
         "deepseek-r1-0528",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "local-episodic",
       "structural_fingerprint": "25e3658f4416d75c",
       "proof_attestation": "499d5bd5f2914a3628f335ab",
@@ -197,11 +227,29 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "d0d63bf4550f5e2e",
       "proof_attestation": "3a295e2d016c7264aa1453d0",
       "path": "ai-agents-mcp/gpt-6-frontier/KL-MCP-002.json"
+    },
+    {
+      "id": "KL-MCP-005",
+      "title": "Anti-Silent-Model-Downgrade Gate: Verify upstream routed model identity instead of masking with fallback",
+      "domain": "ai-agents-mcp",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "grok-frontier",
+      "synthesized_by_model": "grok-4.7",
+      "endorsed_by_models": [
+        "grok-4.7",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 11,
+      "source_repo": "production-agent-memory:CM-017",
+      "structural_fingerprint": "582168db4ef55850",
+      "proof_attestation": "3029b61cf00e6748e20a37ac",
+      "path": "ai-agents-mcp/grok-frontier/KL-MCP-005.json"
     },
     {
       "id": "KL-API-001",
@@ -215,11 +263,47 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "local-episodic",
       "structural_fingerprint": "c77fa3e87ef56343",
       "proof_attestation": "ff60acb693a4d3769fb7b21e",
       "path": "backend-api/claude-frontier/KL-API-001.json"
+    },
+    {
+      "id": "KL-API-003",
+      "title": "HTTP Redirect Effective-Host Verification & Verbatim Raw-Byte Archival",
+      "domain": "backend-api",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 13,
+      "source_repo": "production-agent-memory:CM-002-CM-018",
+      "structural_fingerprint": "dcd6ad4d1925095d",
+      "proof_attestation": "cc5fe50c4aee6f7237fb2634",
+      "path": "backend-api/claude-frontier/KL-API-003.json"
+    },
+    {
+      "id": "KL-API-002",
+      "title": "Multi-Tenant Cache & Secondary Query Isolation: Always prefix cache keys with tenant_id",
+      "domain": "backend-api",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 12,
+      "source_repo": "neuro-symbolic-cortex:atom_005",
+      "structural_fingerprint": "96303a99673c6db2",
+      "proof_attestation": "c1010167adbc947f24c4e5e1",
+      "path": "backend-api/gpt-6-frontier/KL-API-002.json"
     },
     {
       "id": "KL-BIZ-001",
@@ -233,7 +317,7 @@
         "claude-opus-4",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "0ce51db71bd198c6",
       "proof_attestation": "85eeed86a641d2a87c94f267",
@@ -251,7 +335,7 @@
         "grok-4.7",
         "claude-opus-4"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "4b3d4218ac1d0d57",
       "proof_attestation": "e636ef40a2fec87e6264d0f8",
@@ -269,7 +353,7 @@
         "deepseek-r1-0528",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
       "structural_fingerprint": "61882f28f36a55c4",
       "proof_attestation": "e9de11b499038b327b904c47",
@@ -287,7 +371,7 @@
         "gemini-3.8-pro",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "9b31d1b1b3546a82",
       "proof_attestation": "56a97772d7491640c0aaaa48",
@@ -305,7 +389,7 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 13,
+      "reinforcement_count": 14,
       "source_repo": "github:anthropics/skills/discernment-nudge",
       "structural_fingerprint": "2dcfffe195f36a6f",
       "proof_attestation": "cafc0456b2b97e1e1043f573",
@@ -323,11 +407,29 @@
         "gpt-6.1-terra-wm",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "github:patrickjs/awesome-cursorrules/anti-overengineering",
       "structural_fingerprint": "cccadab4e6ea7597",
       "proof_attestation": "b9a7a38b4fe5e55c0edacc42",
       "path": "decision-strategy/gpt-6-frontier/KL-DEC-002.json"
+    },
+    {
+      "id": "KL-OPS-002",
+      "title": "Singleton Daemon Flock & Event-Driven Wakeup: Never run unlocked overlapping daemons or busy-poll loops",
+      "domain": "devops-cloud",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "meta-muse-spark"
+      ],
+      "reinforcement_count": 10,
+      "source_repo": "production-agent-memory:CM-015",
+      "structural_fingerprint": "cd34a4e8184d8fc3",
+      "proof_attestation": "3ccfe6967f2c82273dbcb647",
+      "path": "devops-cloud/deepseek-r1/KL-OPS-002.json"
     },
     {
       "id": "KL-OPS-001",
@@ -341,11 +443,29 @@
         "meta-muse-spark",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "42d1b47bd781efae",
       "proof_attestation": "bb52b68680956fcb6265a326",
       "path": "devops-cloud/meta-muse-frontier/KL-OPS-001.json"
+    },
+    {
+      "id": "KL-OPS-003",
+      "title": "Complete Browser Origin Storage Teardown (IndexedDB + ServiceWorkers) & Scoped Profile Cleanup",
+      "domain": "devops-cloud",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "meta-muse-frontier",
+      "synthesized_by_model": "meta-muse-spark",
+      "endorsed_by_models": [
+        "meta-muse-spark",
+        "grok-4.7"
+      ],
+      "reinforcement_count": 12,
+      "source_repo": "production-agent-memory:CM-009-CM-016",
+      "structural_fingerprint": "968648cf68915f9d",
+      "proof_attestation": "963996debe41089e9a05ccc8",
+      "path": "devops-cloud/meta-muse-frontier/KL-OPS-003.json"
     },
     {
       "id": "KL-CAP-001",
@@ -360,7 +480,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 19,
+      "reinforcement_count": 20,
       "source_repo": "local-episodic",
       "structural_fingerprint": "da5797cf757a4a25",
       "proof_attestation": "8173b2752b90b081e3e4be9f",
@@ -378,7 +498,7 @@
         "gpt-6.1-terra-wm",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "local-episodic",
       "structural_fingerprint": "887bf85630f37071",
       "proof_attestation": "70c886660bd08926baf26328",
@@ -396,11 +516,65 @@
         "claude-opus-4",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "github:anthropics/skills/xlsx",
       "structural_fingerprint": "fb1f6d741ec5cde6",
       "proof_attestation": "12dda9cbe4484f9b22b4c9e5",
       "path": "fintech-web3/claude-frontier/KL-FIN-002.json"
+    },
+    {
+      "id": "KL-FIN-004",
+      "title": "Bind cryptographic signatures to (chainId, verifyingContract, nonce, deadline) and update vault shares before external calls",
+      "domain": "fintech-web3",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 15,
+      "source_repo": "neuro-symbolic-cortex:atom_003",
+      "structural_fingerprint": "96db3f27d0366d7f",
+      "proof_attestation": "0dafda949d937f69c787fad8",
+      "path": "fintech-web3/deepseek-r1/KL-FIN-004.json"
+    },
+    {
+      "id": "KL-FIN-005",
+      "title": "Deterministic Wallet Derivation & Closed-Loop Sign-Recover Gate",
+      "domain": "fintech-web3",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 20,
+      "source_repo": "production-agent-memory:CM-001",
+      "structural_fingerprint": "6d4434adb590c3ae",
+      "proof_attestation": "76b6de15e061a92a4e0339b5",
+      "path": "fintech-web3/deepseek-r1/KL-FIN-005.json"
+    },
+    {
+      "id": "KL-FIN-003",
+      "title": "Atomic Ledger Locking (TOCTOU) & Symmetric Decimal Scaling Guard",
+      "domain": "fintech-web3",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 16,
+      "source_repo": "neuro-symbolic-cortex:atom_002",
+      "structural_fingerprint": "bda676dfb6605b9b",
+      "proof_attestation": "b372d7bfb9f7b6cf4f3ff8fd",
+      "path": "fintech-web3/gpt-6-frontier/KL-FIN-003.json"
     },
     {
       "id": "KL-FIN-001",
@@ -414,7 +588,7 @@
         "qwen3.8-max",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "local-episodic",
       "structural_fingerprint": "11f4a89f8b1e37a6",
       "proof_attestation": "8886d34b490721be7c7ed409",
@@ -432,7 +606,7 @@
         "claude-opus-4",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 7,
+      "reinforcement_count": 8,
       "source_repo": "github:anthropics/skills/webapp-testing",
       "structural_fingerprint": "9314fa92db2364ad",
       "proof_attestation": "69f4833812b39309275c773e",
@@ -450,7 +624,7 @@
         "qwen3.8-max",
         "grok-4.7"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "2af18f1053dfed53",
       "proof_attestation": "dad675ea3dc71ac7c03ca127",
@@ -468,7 +642,7 @@
         "meta-muse-spark",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "24db29a3bfb7e47e",
       "proof_attestation": "d204ed99f4fb396cd03ca09e",
@@ -486,7 +660,7 @@
         "gemini-3.8-pro",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "a0132d014d20168a",
       "proof_attestation": "295c7160d99a0957bc52e78a",
@@ -504,7 +678,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "2c4fa14f0dd5c09f",
       "proof_attestation": "aeffe81c1ae52300e8551636",
@@ -522,7 +696,7 @@
         "claude-opus-4",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "local-episodic",
       "structural_fingerprint": "f1707ed7b9c7b523",
       "proof_attestation": "59889de590c473a588094fc4",
@@ -540,7 +714,7 @@
         "grok-4.7",
         "meta-muse-spark"
       ],
-      "reinforcement_count": 16,
+      "reinforcement_count": 17,
       "source_repo": "local-episodic",
       "structural_fingerprint": "1f4f8e644d51d0df",
       "proof_attestation": "836828c6993bde6956fbc77d",
@@ -558,11 +732,29 @@
         "deepseek-r1-0528",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 14,
+      "reinforcement_count": 15,
       "source_repo": "github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
       "structural_fingerprint": "40519126664c82a5",
       "proof_attestation": "f2aa5dcc315090b155884586",
       "path": "research-epistemology/deepseek-r1/KL-EPI-001.json"
+    },
+    {
+      "id": "KL-ZTR-002",
+      "title": "Cross-Layer Path Seam Containment: Never concatenate unvalidated user filenames into open()",
+      "domain": "security-zerotrust",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 14,
+      "source_repo": "neuro-symbolic-cortex:atom_001",
+      "structural_fingerprint": "486af101a82030e5",
+      "proof_attestation": "6aa5029f10c0452dfc881a0c",
+      "path": "security-zerotrust/gpt-6-frontier/KL-ZTR-002.json"
     },
     {
       "id": "KL-ZTR-001",
@@ -576,11 +768,29 @@
         "grok-4.7",
         "claude-opus-4"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "aad0d433fe0d308b",
       "proof_attestation": "4db60afee14ddaf66d86e7a3",
       "path": "security-zerotrust/grok-frontier/KL-ZTR-001.json"
+    },
+    {
+      "id": "KL-ZTR-003",
+      "title": "Anti-Mass-Assignment Privilege Boundary: Never merge raw request dicts into user/account records",
+      "domain": "security-zerotrust",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "grok-frontier",
+      "synthesized_by_model": "grok-4.7",
+      "endorsed_by_models": [
+        "grok-4.7",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 13,
+      "source_repo": "neuro-symbolic-cortex:atom_004",
+      "structural_fingerprint": "96b8fb6aa99d93bb",
+      "proof_attestation": "603b1776d1fd493f9cfef61d",
+      "path": "security-zerotrust/grok-frontier/KL-ZTR-003.json"
     }
   ]
 }

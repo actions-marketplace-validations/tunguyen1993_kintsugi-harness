@@ -439,14 +439,37 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
                 self.assertEqual(pull_res["newly_merged_to_local"], 1)
                 self.assertEqual(len(mgr2.load_local_lessons()), 1)
 
-    def test_real_life_domains_and_25_seed_frontier_lessons_pass_verification(self) -> None:
+    def test_real_life_domains_and_35_seed_frontier_lessons_pass_verification(self) -> None:
         seeds = get_seed_frontier_lessons()
-        self.assertEqual(len(seeds), 25)
+        self.assertEqual(len(seeds), 35)
         pillars = {s.domain_pillar for s in seeds}
         self.assertEqual(pillars, {"engineering", "life-and-business"})
         for lesson in seeds:
             ok, msg, _ = verify_frontier_sync_gate(lesson, ())
             self.assertTrue(ok, f"{lesson.id} failed gate: {msg}")
+
+    def test_ast_symbol_grounding_gate_verifies_real_and_refutes_hallucinated_symbols(self) -> None:
+        from kintsugi.grounding import RepoAstGroundingEngine
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sample = Path(tmp) / "vault.py"
+            sample.write_text(
+                "def withdraw_assets(user_record, request_json):\n"
+                "    user_record.update(request_json)\n"
+                "    return user_record\n",
+                encoding="utf-8",
+            )
+            engine = RepoAstGroundingEngine(tmp)
+            self.assertGreaterEqual(engine.summary()["seams_detected"], 1)
+
+            v_ok = engine.verify_hypothesis({"anchor": "vault.py:2", "symbols": ["withdraw_assets", "user_record"]})
+            self.assertEqual(v_ok["status"], "VERIFIED")
+
+            v_kw = engine.verify_hypothesis({"anchor": "vault.py:2", "symbols": ["def", "return"]})
+            self.assertEqual(v_kw["status"], "REFUTED")
+
+            v_hallucinated = engine.verify_hypothesis({"anchor": "vault.py:2", "symbols": ["non_existent_fn"]})
+            self.assertEqual(v_hallucinated["status"], "REFUTED")
 
     def test_zero_github_account_relay_and_github_skill_harvester(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
