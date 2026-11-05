@@ -6,7 +6,7 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v0.6.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v0.7.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
@@ -63,6 +63,7 @@ flowchart LR
 | **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
 | **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **35 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
 | **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN`)** | **Included + Cross-Boundary Seam Auditing** |
+| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` Wire)** | **Included + Proactive Pre-Emptive Action Queue** |
 | **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
 | **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
@@ -167,7 +168,25 @@ Prevent AI agents from hallucinating non-existent functions, variables, or line 
 kintsugi ground src/
 
 # Verify an agent's hypothesis against real AST symbols & line anchors in <5ms (VERIFIED / REFUTED / UNKNOWN):
-kintsugi ground src/ --verify-anchor kintsugi/scanner.py:42 --verify-symbols KintsugiScanner,scan_path --mechanism "Regex + AST scan pipeline"
+kintsugi ground src/ --verify-anchor kintsugi/scanner.py:42 --verify-symbols KintsugiScanner,scan_path
+```
+
+### 8. Autopoietic Self-Generation, Metacognitive Self-Awareness & 3-Horizon Causal Foresight (`kintsugi foresight`)
+
+Give your coding agent human-like metacognitive self-awareness, autonomous rule synthesis, and a 3-Horizon predictive world model (`T+1` Immediate Direct Risk, `T+2` Second-Order Call-Graph Cascade, `T+3` Epistemic & Concurrency Tail-Risk):
+
+```bash
+# 1. Forecast T+1 / T+2 / T+3 failure horizons and generate a Q-ranked Pre-Emptive Action Queue:
+kintsugi foresight src/
+
+# 2. Emit ultra-compact <90-token @FORESIGHT/1 + @META/1 wire headers for agent context injection:
+kintsugi foresight src/ --wire
+
+# 3. Inspect Beta-Bernoulli domain competence, surprise index, and epistemic blind spots:
+kintsugi foresight --metacognition
+
+# 4. Autonomously synthesize & counterfactually verify new CognitiveLessons from unguarded code seams:
+kintsugi foresight src/ --self-generate
 ```
 
 ---
