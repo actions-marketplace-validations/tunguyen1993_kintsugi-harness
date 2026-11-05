@@ -46,8 +46,73 @@ class RepoAstGroundingEngine:
             "file_lines": {},
             "seams": [],
             "guards": {},
+            "call_graph": {},
+            "taint_flows": [],
+            "ast_quotient_hashes": {},
         }
         self._build_index()
+
+    @staticmethod
+    def compute_alpha_normalized_ast_hash(code_or_node: str | ast.AST) -> str:
+        """
+        Compute a 16-hex SHA-256 Typed AST Quotient Hash invariant to local variable
+        and parameter alpha-renaming (`v_0`, `v_1`, ...) and formatting/comments.
+        """
+        try:
+            tree = ast.parse(code_or_node) if isinstance(code_or_node, str) else code_or_node
+        except SyntaxError:
+            raw = code_or_node if isinstance(code_or_node, str) else ""
+            norm = re.sub(r"\s+", " ", raw.strip())
+            return hashlib.sha256(norm.encode("utf-8")).hexdigest()[:16]
+
+        alpha_map: Dict[str, str] = {}
+        tokens: List[str] = []
+
+        def _norm_id(name: str) -> str:
+            if name in LANGUAGE_KEYWORDS or name in {"len", "range", "min", "max", "sum", "open", "eval", "exec", "int", "float", "str", "dict", "list", "set", "Path", "math"}:
+                return f"BUILTIN:{name}"
+            if name not in alpha_map:
+                alpha_map[name] = f"v_{len(alpha_map)}"
+            return alpha_map[name]
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.Load, ast.Store, ast.Del)):
+                continue
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                tokens.append(f"FUNC({len(node.args.args)})")
+                for arg in node.args.args + node.args.kwonlyargs:
+                    tokens.append(f"ARG({_norm_id(arg.arg)})")
+            elif isinstance(node, ast.Name):
+                tokens.append(f"NAME({_norm_id(node.id)})")
+            elif isinstance(node, ast.Attribute):
+                tokens.append(f"ATTR(.{node.attr})")
+            elif isinstance(node, ast.Constant):
+                if isinstance(node.value, str) and node is getattr(tree, "body", [None])[0]:
+                    continue
+                tokens.append(f"CONST({type(node.value).__name__}:{repr(node.value)})")
+            else:
+                tokens.append(type(node).__name__)
+
+        canon = "|".join(tokens)
+        return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+    @classmethod
+    def verify_semantic_equivalence(cls, code_a: str, code_b: str) -> Dict[str, Any]:
+        """
+        Verify whether two code snippets are semantically equivalent under AST alpha-renaming
+        and return a deterministic `semantic_diff_certificate`.
+        """
+        h_a = cls.compute_alpha_normalized_ast_hash(code_a)
+        h_b = cls.compute_alpha_normalized_ast_hash(code_b)
+        equiv = h_a == h_b
+        cert_raw = f"ASTQ/1|a={h_a}|b={h_b}|eq={int(equiv)}"
+        cert_sig = hashlib.sha256(cert_raw.encode("utf-8")).hexdigest()[:16]
+        return {
+            "alpha_equivalent": equiv,
+            "hash_a": h_a,
+            "hash_b": h_b,
+            "semantic_diff_certificate": f"{cert_raw}|sig={cert_sig}",
+        }
 
     def _collect_files(self) -> List[Path]:
         if self.target_path.is_file():
@@ -150,19 +215,67 @@ class RepoAstGroundingEngine:
                                 "function": current_func or "module_scope",
                                 "anchor": anchor,
                                 "code": stripped[:140],
+                                "ast_quotient_hash": self.compute_alpha_normalized_ast_hash(stripped),
                             }
                         )
 
             if py_tree is not None:
+                taint_source_prefixes = ("untrusted", "payload", "raw_", "input_", "req_", "user_", "dynamic_", "query_")
+                sink_names = {"open", "eval", "exec", "compile", "system", "update", "setdefault", "get", "set"}
                 for node in ast.walk(py_tree):
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         loc = f"{rel}:{node.lineno}"
                         lst = self.symbol_table["functions"].setdefault(node.name, [])
                         if loc not in lst:
                             lst.append(loc)
+                        fn_q_hash = self.compute_alpha_normalized_ast_hash(node)
+                        self.symbol_table["ast_quotient_hashes"][f"{rel}:{node.name}"] = fn_q_hash
+                        arg_names: List[str] = []
                         for arg in node.args.args + node.args.kwonlyargs:
                             if arg.arg not in LANGUAGE_KEYWORDS:
                                 self.symbol_table["variables"].add(arg.arg)
+                                arg_names.append(arg.arg)
+                        tainted_vars: Set[str] = {
+                            a for a in arg_names if a.lower().startswith(taint_source_prefixes)
+                        }
+                        callees: Set[str] = set()
+                        for sub in ast.walk(node):
+                            if isinstance(sub, ast.Assign):
+                                rhs_names = {
+                                    n.id for n in ast.walk(sub.value) if isinstance(n, ast.Name)
+                                }
+                                if rhs_names & tainted_vars or any(
+                                    rn.lower().startswith(taint_source_prefixes) for rn in rhs_names
+                                ):
+                                    for tgt in sub.targets:
+                                        if isinstance(tgt, ast.Name):
+                                            tainted_vars.add(tgt.id)
+                            elif isinstance(sub, ast.Call):
+                                callee_name = ""
+                                if isinstance(sub.func, ast.Name):
+                                    callee_name = sub.func.id
+                                elif isinstance(sub.func, ast.Attribute):
+                                    callee_name = sub.func.attr
+                                if callee_name:
+                                    callees.add(callee_name)
+                                    call_arg_names = {
+                                        n.id for n in ast.walk(sub) if isinstance(n, ast.Name)
+                                    }
+                                    matched_taint = sorted(
+                                        t for t in call_arg_names
+                                        if t in tainted_vars or t.lower().startswith(taint_source_prefixes)
+                                    )
+                                    if matched_taint and callee_name in sink_names:
+                                        self.symbol_table["taint_flows"].append(
+                                            {
+                                                "caller": node.name,
+                                                "sink": callee_name,
+                                                "tainted_symbols": matched_taint,
+                                                "anchor": f"{rel}:{getattr(sub, 'lineno', node.lineno)}",
+                                                "ast_quotient_hash": fn_q_hash,
+                                            }
+                                        )
+                        self.symbol_table["call_graph"][node.name] = sorted(callees)
                     elif isinstance(node, ast.ClassDef):
                         loc = f"{rel}:{node.lineno}"
                         lst = self.symbol_table["classes"].setdefault(node.name, [])
@@ -182,6 +295,14 @@ class RepoAstGroundingEngine:
                 for tok in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", text):
                     if tok not in LANGUAGE_KEYWORDS and tok.lower() not in LANGUAGE_KEYWORDS:
                         self.symbol_table["variables"].add(tok)
+
+        # Attach function-level AST quotient hash and taint status to detected seams
+        taint_anchors = {tf["anchor"] for tf in self.symbol_table["taint_flows"]}
+        for seam in self.symbol_table["seams"]:
+            fn_key = f"{seam['anchor'].rsplit(':', 1)[0]}:{seam['function']}"
+            if fn_key in self.symbol_table["ast_quotient_hashes"]:
+                seam["function_ast_quotient_hash"] = self.symbol_table["ast_quotient_hashes"][fn_key]
+            seam["taint_verified"] = seam["anchor"] in taint_anchors
 
     def get_code_window(self, rel_file: str, line_no: int, radius: int = 8) -> str:
         lines = self.symbol_table["file_lines"].get(rel_file, [])
@@ -288,4 +409,7 @@ class RepoAstGroundingEngine:
             "seams_detected": len(self.symbol_table["seams"]),
             "seams": self.symbol_table["seams"][:25],
             "guards_detected": len(self.symbol_table["guards"]),
+            "call_graph_functions_count": len(self.symbol_table["call_graph"]),
+            "taint_flows_detected": len(self.symbol_table["taint_flows"]),
+            "ast_quotient_hashes_count": len(self.symbol_table["ast_quotient_hashes"]),
         }

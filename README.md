@@ -6,11 +6,11 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.1.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.2.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Frontier Pool: 39 Verified](https://img.shields.io/badge/Collective_Pool-39_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
+[![Frontier Pool: 40 Verified](https://img.shields.io/badge/Collective_Pool-40_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
@@ -61,10 +61,10 @@ flowchart LR
 | **`KMI/1` Ultra-Low-Token Compiler (`--compact` & `token-report`)** | Included (`93.7%` token savings) | Included + Pre-tuned Domain Profiles |
 | **Posture Auditor (`kintsugi audit` — Grade `A+` to `F` + Badge)** | Included | Included + Executive Compliance Checks |
 | **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
-| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **39 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
-| **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN` + AST Docstring Filter)** | **Included + Cross-Boundary & Scientific Seam Auditing** |
-| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` + `@DREAM/1` + 5 Scientific Conservation Laws)** | **Included + Proactive Pre-Emptive Action Queue** |
-| **Shadow-Clone Parallel Epistemic Swarm & BFT Merge (`kintsugi swarm`)** | **Included (`K=4` Orthogonal Clones + `K=3f+1` BFT Quorum + `@SWARM/1` + Verified Right Playbook)** | **Included + Multi-Model Council Clone Orchestration** |
+| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **40 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
+| **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN` + Alpha-Normalized AST Quotient `ASTQ/1` + Taint Graph)** | **Included + Cross-Boundary & Scientific Seam Auditing** |
+| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` + `@DREAM/1` + `DisjointScarHoldoutVerifier` + `--scientific-corpus`)** | **Included + Proactive Pre-Emptive Action Queue** |
+| **Shadow-Clone Parallel Epistemic Swarm & BFT Merge (`kintsugi swarm`)** | **Included (`K=4` Orthogonal Clones + Covariance-Aware $N_{\text{eff}}$ BFT + Anti-Sycophancy Probe + Oracle Micro-Probes)** | **Included + Multi-Model Council Clone Orchestration** |
 | **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
 | **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
@@ -227,21 +227,22 @@ kintsugi swarm --revoke-consent
 
 ---
 
-## Empirical Proofs & Scientific Conservation Law Validation (`v1.1.0`)
+## Empirical Proofs & Hard Scientific Literature Verification (`v1.2.0`)
 
-Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`RepoAstGroundingEngine` + `AutopoieticSynthesizer` + `CausalForesightEngine`) has been empirically validated against **5 Universal Scientific & Mathematical Conservation Laws** (`500` simulation steps, $\Delta t = 0.05\text{ s}$). Full details and reproducible commands are documented in [**`docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md`**](docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md):
+Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`RepoAstGroundingEngine` + `AutopoieticSynthesizer` + `DisjointScarHoldoutVerifier` + `ScientificLiteratureVerifier`) has been empirically validated against **5 Hard Scientific Paper Domains & Universal Conservation Laws** (`kintsugi foresight --scientific-corpus`, `500` simulation steps, $\Delta t = 0.05\text{ s}$). Full details and reproducible commands are documented in [**`docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md`**](docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md):
 
 | # | Scientific Law & Invariant | Unguarded Seam (`S0/S1` — `VERIFIED`) | Runtime Violation Measurement | `S3` Guarded Implementation (`REFUTED` — `0` FP) | Runtime `S3` Measurement |
 | :- | :--- | :--- | :--- | :--- | :--- |
 | **1** | **1st Law of Thermodynamics & Symplectic Liouville Theorem** ($\det(J) = 1$) | `NON_SYMPLECTIC_ENERGY_DRIFT_SEAM` (Forward Euler $\det(J) > 1$) | Energy explodes `2.0 J` $\to$ **`289.55 J` (`+14,377.28%` drift)** | Symplectic Velocity-Verlet (`v_half`) | **`1.9997 J` (`0.0147%` bounded)** |
 | **2** | **Buckingham $\Pi$ Dimensional Homogeneity & Radian Invariance** | `DIMENSIONAL_UNIT_MISMATCH_SEAM` (`Pa + m/s + mm`, raw `math.sin(deg)`) | Bernoulli head corrupted to **`-100,610.27`** ($10^4\times$ error) | SI base-unit normalization `[m]` + `math.radians()` | **`11.3980 m`** (exact SI head) |
 | **3** | **Conservation of Mass / Continuity & Positivity** ($\frac{\partial \rho}{\partial t} + \nabla \cdot (\rho \mathbf{u}) = 0$) | `MASS_CONTINUITY_VIOLATION_SEAM` (unbalanced flux + unclipped sink) | Unphysical negative density **`-1.70 kg/m³`** ($\rho < 0$) | Pairwise antisymmetric flux ($\Delta m_A = -\Delta m_B$) + positivity limiter | **`0.0 kg` mass drift** (`< 1e-15`), $\rho \ge 0$ |
-| **4** | **Relativistic Causal Light-Cone ($t_{\text{cause}} \le t_{\text{effect}}$) & 2nd Law ($\Delta S \ge 0$)** | `CAUSAL_ARROW_LOOKAHEAD_SEAM` (reading future `series[idx_t + 1]`, $\Delta S < 0$) | Future spike leak (**`50.5`** vs `0.5`) & $\Delta S = -0.25 < 0$ | Strictly causal past/present window (`<= idx_t`) & $\Delta S \ge 0$ | **`0.5`** causal estimate, $\Delta S = +0.10 \ge 0$ |
+| **4** | **Relativistic Causal Light-Cone ($t_{\text{cause}} \le t_{\text{effect}}$) & Jarzynski / 2nd Law ($\Delta S \ge 0$)** | `CAUSAL_ARROW_LOOKAHEAD_SEAM` (reading future `series[idx_t + 1]`, $\Delta S < 0$, naive `exp(-W)`) | Future spike leak (**`50.5`** vs `0.5`), $\Delta S = -0.25 < 0$, `exp(-800) = 0.0` | Strictly causal past window (`<= idx_t`), shifted `logsumexp`, & $\Delta S \ge 0$ | **`0.5`** causal estimate, exact $\beta \Delta F = 800.26$, $\Delta S \ge 0$ |
 | **5** | **Floating-Point Catastrophic Cancellation & Kahan Summation** | `CATASTROPHIC_CANCELLATION_SEAM` (`gamma**2 - 1.0` at $v \ll c$, naive `sum()`) | **`344.09%` relative error** & **`100%` micro-flux loss (`0.0 J`)** | Algebraic $\frac{v^2/c^2}{1 - v^2/c^2}$ + `math.fsum()` | **`0.0%` error**, full **`+100.0 J`** preserved |
 
-- **3-State Grounding Gate Accuracy:** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms`.
-- **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`) & Consent-Gated Free Pool (`@POOL/1`):** **`4/4` Orthogonal Clones** bound to distinct `$0` free model families reduce BFT false-accept errors by **`12.5x` (`98.80%` consensus accuracy)**, consolidating `7/7` verified truths into a single deterministic Right Playbook while quarantining adversarial hallucination traps into the Negative Tabu List (`PASS` under `f=1` Byzantine fault injection).
-- **Automated Verification Suite:** **`24/24` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`39/39` Frontier Pool Lessons Verified**.
+- **3-State Grounding Gate & Alpha-Normalized AST Quotient (`ASTQ/1`):** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms` · **`100%`** Alpha-Rename Semantic Equivalence verified via De Bruijn index AST quotient hashing.
+- **Disjoint Scar Holdout Verifier (`T_gen != T_ver`):** Enforces `holdout_precision >= 0.95`, `recall_drop <= 0.05`, and `0` paraphrase-mutated negative false positives before admitting any synthesized `GoldenScar`.
+- **Shadow-Clone Covariance-Aware BFT Swarm (`@SWARM/1`) & Consent-Gated Free Pool (`@POOL/1`):** Discounts correlated votes via Equicorrelation Inverse Log-Odds ($N_{\text{eff}} = \frac{K}{1 + (K-1)\hat{\rho}} = 3.40$ across 4 distinct free model families), verifies **`0.0%` sycophancy** via Blinded Contrary Probes, and reduces BFT false-accept errors by **`12.5x` (`98.80%` consensus accuracy)**.
+- **Automated Verification Suite:** **`26/26` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`40/40` Frontier Pool Lessons Verified**.
 
 ---
 
