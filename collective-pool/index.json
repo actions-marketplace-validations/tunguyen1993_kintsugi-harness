@@ -1,79 +1,141 @@
 {
-  "schema_version": "1.0",
-  "total_verified_frontier_lessons": 6,
+  "schema_version": "1.1",
+  "total_verified_frontier_lessons": 25,
+  "pillars": {
+    "engineering": [
+      "KL-API-001",
+      "KL-FE-001",
+      "KL-FIN-001",
+      "KL-FIN-002",
+      "KL-MCP-001",
+      "KL-MCP-002",
+      "KL-MCP-003",
+      "KL-MCP-004",
+      "KL-ML-002",
+      "KL-OPS-001",
+      "KL-SEC-001",
+      "KL-ZTR-001"
+    ],
+    "life-and-business": [
+      "KL-BIZ-001",
+      "KL-BIZ-002",
+      "KL-CAP-001",
+      "KL-CAP-002",
+      "KL-DEC-001",
+      "KL-DEC-002",
+      "KL-EPI-001",
+      "KL-GRW-001",
+      "KL-HLT-001",
+      "KL-LEG-001",
+      "KL-LEG-002",
+      "KL-PSY-001",
+      "KL-PSY-002"
+    ]
+  },
   "domains": {
     "ai-agents-mcp": [
       "KL-MCP-001",
-      "KL-MCP-002"
+      "KL-MCP-002",
+      "KL-MCP-003",
+      "KL-MCP-004"
     ],
     "backend-api": [
       "KL-API-001"
     ],
+    "business-negotiation": [
+      "KL-BIZ-001",
+      "KL-BIZ-002"
+    ],
     "data-ml": [
+      "KL-ML-002",
       "KL-SEC-001"
+    ],
+    "decision-strategy": [
+      "KL-DEC-001",
+      "KL-DEC-002"
     ],
     "devops-cloud": [
       "KL-OPS-001"
     ],
+    "finance-capital": [
+      "KL-CAP-001",
+      "KL-CAP-002"
+    ],
     "fintech-web3": [
-      "KL-FIN-001"
+      "KL-FIN-001",
+      "KL-FIN-002"
+    ],
+    "frontend-ts": [
+      "KL-FE-001"
+    ],
+    "growth-marketing": [
+      "KL-GRW-001"
+    ],
+    "health-longevity": [
+      "KL-HLT-001"
+    ],
+    "legal-contracts": [
+      "KL-LEG-001",
+      "KL-LEG-002"
+    ],
+    "psychology-relationships": [
+      "KL-PSY-001",
+      "KL-PSY-002"
+    ],
+    "research-epistemology": [
+      "KL-EPI-001"
+    ],
+    "security-zerotrust": [
+      "KL-ZTR-001"
     ]
   },
   "model_families": {
     "claude-frontier": [
-      "KL-API-001"
+      "KL-API-001",
+      "KL-BIZ-001",
+      "KL-DEC-001",
+      "KL-FE-001",
+      "KL-FIN-002",
+      "KL-MCP-003",
+      "KL-MCP-004",
+      "KL-PSY-002"
     ],
     "deepseek-r1": [
-      "KL-MCP-001"
+      "KL-CAP-001",
+      "KL-EPI-001",
+      "KL-MCP-001",
+      "KL-ML-002"
     ],
     "gemini-pro": [
+      "KL-LEG-002",
       "KL-SEC-001"
     ],
     "gpt-6-frontier": [
+      "KL-CAP-002",
+      "KL-DEC-002",
+      "KL-LEG-001",
       "KL-MCP-002"
     ],
+    "grok-frontier": [
+      "KL-BIZ-002",
+      "KL-PSY-001",
+      "KL-ZTR-001"
+    ],
     "meta-muse-frontier": [
+      "KL-HLT-001",
       "KL-OPS-001"
     ],
     "qwen-max": [
-      "KL-FIN-001"
+      "KL-FIN-001",
+      "KL-GRW-001"
     ]
   },
   "lessons": [
     {
-      "id": "KL-MCP-001",
-      "title": "Strip bidirectional Unicode overrides in MCP tool inputs and prompts (CVE-2021-42574)",
+      "id": "KL-MCP-003",
+      "title": "Return structured isError=True MCP tool responses instead of raising raw unhandled exceptions",
       "domain": "ai-agents-mcp",
-      "severity": "CRITICAL",
-      "model_family": "deepseek-r1",
-      "synthesized_by_model": "deepseek-r1-0528",
-      "endorsed_by_models": [
-        "deepseek-r1-0528",
-        "gpt-6.1-terra-wm"
-      ],
-      "reinforcement_count": 7,
-      "structural_fingerprint": "25e3658f4416d75c",
-      "path": "ai-agents-mcp/deepseek-r1/KL-MCP-001.json"
-    },
-    {
-      "id": "KL-MCP-002",
-      "title": "Enforce hard iteration and token ceilings on autonomous agent tool loops",
-      "domain": "ai-agents-mcp",
-      "severity": "HIGH",
-      "model_family": "gpt-6-frontier",
-      "synthesized_by_model": "gpt-6.1-terra-wm",
-      "endorsed_by_models": [
-        "gpt-6.1-terra-wm",
-        "claude-opus-4"
-      ],
-      "reinforcement_count": 11,
-      "structural_fingerprint": "d0d63bf4550f5e2e",
-      "path": "ai-agents-mcp/gpt-6-frontier/KL-MCP-002.json"
-    },
-    {
-      "id": "KL-API-001",
-      "title": "Never call synchronous time.sleep() inside an async def coroutine",
-      "domain": "backend-api",
+      "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "claude-frontier",
       "synthesized_by_model": "claude-opus-4",
@@ -81,14 +143,143 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 14,
+      "reinforcement_count": 9,
+      "source_repo": "github:anthropics/skills/mcp-builder",
+      "structural_fingerprint": "7490525323a40f4a",
+      "proof_attestation": "1716184f44e9c285bd0521d3",
+      "path": "ai-agents-mcp/claude-frontier/KL-MCP-003.json"
+    },
+    {
+      "id": "KL-MCP-004",
+      "title": "Enable prompt caching (cache_control ephemeral) on static system instructions and tool catalogs",
+      "domain": "ai-agents-mcp",
+      "domain_pillar": "engineering",
+      "severity": "MEDIUM",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 10,
+      "source_repo": "github:anthropics/skills/claude-api",
+      "structural_fingerprint": "9d1fa68958334226",
+      "proof_attestation": "66abcf9b894911c81bbfeb48",
+      "path": "ai-agents-mcp/claude-frontier/KL-MCP-004.json"
+    },
+    {
+      "id": "KL-MCP-001",
+      "title": "Strip bidirectional Unicode overrides in MCP tool inputs and prompts (CVE-2021-42574)",
+      "domain": "ai-agents-mcp",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 8,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "25e3658f4416d75c",
+      "proof_attestation": "499d5bd5f2914a3628f335ab",
+      "path": "ai-agents-mcp/deepseek-r1/KL-MCP-001.json"
+    },
+    {
+      "id": "KL-MCP-002",
+      "title": "Enforce hard iteration and token ceilings on autonomous agent tool loops",
+      "domain": "ai-agents-mcp",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 12,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "d0d63bf4550f5e2e",
+      "proof_attestation": "3a295e2d016c7264aa1453d0",
+      "path": "ai-agents-mcp/gpt-6-frontier/KL-MCP-002.json"
+    },
+    {
+      "id": "KL-API-001",
+      "title": "Never call synchronous time.sleep() inside an async def coroutine",
+      "domain": "backend-api",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 15,
+      "source_repo": "local-episodic",
       "structural_fingerprint": "c77fa3e87ef56343",
+      "proof_attestation": "ff60acb693a4d3769fb7b21e",
       "path": "backend-api/claude-frontier/KL-API-001.json"
+    },
+    {
+      "id": "KL-BIZ-001",
+      "title": "Anti-Scope-Creep Gate: Bind every out-of-scope client request to a written change order and fee/timeline delta",
+      "domain": "business-negotiation",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 12,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "0ce51db71bd198c6",
+      "proof_attestation": "85eeed86a641d2a87c94f267",
+      "path": "business-negotiation/claude-frontier/KL-BIZ-001.json"
+    },
+    {
+      "id": "KL-BIZ-002",
+      "title": "Never volunteer a unilateral price discount before establishing ROI and receiving a concrete counter-commitment",
+      "domain": "business-negotiation",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "grok-frontier",
+      "synthesized_by_model": "grok-4.7",
+      "endorsed_by_models": [
+        "grok-4.7",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 10,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "4b3d4218ac1d0d57",
+      "proof_attestation": "e636ef40a2fec87e6264d0f8",
+      "path": "business-negotiation/grok-frontier/KL-BIZ-002.json"
+    },
+    {
+      "id": "KL-ML-002",
+      "title": "Block look-ahead bias (.shift(-1)) inside feature engineering columns",
+      "domain": "data-ml",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "qwen3.8-max"
+      ],
+      "reinforcement_count": 8,
+      "source_repo": "github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
+      "structural_fingerprint": "61882f28f36a55c4",
+      "proof_attestation": "e9de11b499038b327b904c47",
+      "path": "data-ml/deepseek-r1/KL-ML-002.json"
     },
     {
       "id": "KL-SEC-001",
       "title": "Require weights_only=True in PyTorch torch.load() to block pickle RCE",
       "domain": "data-ml",
+      "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "gemini-pro",
       "synthesized_by_model": "gemini-3.8-pro",
@@ -96,14 +287,53 @@
         "gemini-3.8-pro",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
+      "source_repo": "local-episodic",
       "structural_fingerprint": "9b31d1b1b3546a82",
+      "proof_attestation": "56a97772d7491640c0aaaa48",
       "path": "data-ml/gemini-pro/KL-SEC-001.json"
+    },
+    {
+      "id": "KL-DEC-001",
+      "title": "One-Way Door Pre-Mortem Gate: Require explicit downside bounds and kill-criteria before irreversible decisions",
+      "domain": "decision-strategy",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 13,
+      "source_repo": "github:anthropics/skills/discernment-nudge",
+      "structural_fingerprint": "2dcfffe195f36a6f",
+      "proof_attestation": "cafc0456b2b97e1e1043f573",
+      "path": "decision-strategy/claude-frontier/KL-DEC-001.json"
+    },
+    {
+      "id": "KL-DEC-002",
+      "title": "Anti-Over-Engineering Gate: Reject speculative abstractions, kitchen-sink wrappers, and unrequested features",
+      "domain": "decision-strategy",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 15,
+      "source_repo": "github:patrickjs/awesome-cursorrules/anti-overengineering",
+      "structural_fingerprint": "cccadab4e6ea7597",
+      "proof_attestation": "b9a7a38b4fe5e55c0edacc42",
+      "path": "decision-strategy/gpt-6-frontier/KL-DEC-002.json"
     },
     {
       "id": "KL-OPS-001",
       "title": "Enforce SSH StrictHostKeyChecking=yes in automated deployment pipelines",
       "domain": "devops-cloud",
+      "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "meta-muse-frontier",
       "synthesized_by_model": "meta-muse-spark",
@@ -111,14 +341,72 @@
         "meta-muse-spark",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
+      "source_repo": "local-episodic",
       "structural_fingerprint": "42d1b47bd781efae",
+      "proof_attestation": "bb52b68680956fcb6265a326",
       "path": "devops-cloud/meta-muse-frontier/KL-OPS-001.json"
+    },
+    {
+      "id": "KL-CAP-001",
+      "title": "Zero-Deposit Capital Guard: Reject any task, bounty, or investment requiring upfront bond or outbound wallet approval",
+      "domain": "finance-capital",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "gpt-6.1-terra-wm",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 19,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "da5797cf757a4a25",
+      "proof_attestation": "8173b2752b90b081e3e4be9f",
+      "path": "finance-capital/deepseek-r1/KL-CAP-001.json"
+    },
+    {
+      "id": "KL-CAP-002",
+      "title": "Anti-Martingale Position Sizing: Never double exposure after a losing trade or drawdown",
+      "domain": "finance-capital",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "qwen3.8-max"
+      ],
+      "reinforcement_count": 15,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "887bf85630f37071",
+      "proof_attestation": "70c886660bd08926baf26328",
+      "path": "finance-capital/gpt-6-frontier/KL-CAP-002.json"
+    },
+    {
+      "id": "KL-FIN-002",
+      "title": "Never hardcode calculated sum/margin totals into financial spreadsheet cells; emit live Excel formulas",
+      "domain": "fintech-web3",
+      "domain_pillar": "engineering",
+      "severity": "HIGH",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "qwen3.8-max"
+      ],
+      "reinforcement_count": 8,
+      "source_repo": "github:anthropics/skills/xlsx",
+      "structural_fingerprint": "fb1f6d741ec5cde6",
+      "proof_attestation": "12dda9cbe4484f9b22b4c9e5",
+      "path": "fintech-web3/claude-frontier/KL-FIN-002.json"
     },
     {
       "id": "KL-FIN-001",
       "title": "Use constant-time hmac.compare_digest() for webhook and payment signatures",
       "domain": "fintech-web3",
+      "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "qwen-max",
       "synthesized_by_model": "qwen3.8-max",
@@ -126,9 +414,173 @@
         "qwen3.8-max",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
+      "source_repo": "local-episodic",
       "structural_fingerprint": "11f4a89f8b1e37a6",
+      "proof_attestation": "8886d34b490721be7c7ed409",
       "path": "fintech-web3/qwen-max/KL-FIN-001.json"
+    },
+    {
+      "id": "KL-FE-001",
+      "title": "Wait for networkidle or explicit DOM readiness before inspecting dynamic web apps in Playwright",
+      "domain": "frontend-ts",
+      "domain_pillar": "engineering",
+      "severity": "MEDIUM",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "gemini-3.8-pro"
+      ],
+      "reinforcement_count": 7,
+      "source_repo": "github:anthropics/skills/webapp-testing",
+      "structural_fingerprint": "9314fa92db2364ad",
+      "proof_attestation": "69f4833812b39309275c773e",
+      "path": "frontend-ts/claude-frontier/KL-FE-001.json"
+    },
+    {
+      "id": "KL-GRW-001",
+      "title": "Organic Trust Warmup (95/5 Rule): Never blast outbound promo links from fresh or low-karma community accounts",
+      "domain": "growth-marketing",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "qwen-max",
+      "synthesized_by_model": "qwen3.8-max",
+      "endorsed_by_models": [
+        "qwen3.8-max",
+        "grok-4.7"
+      ],
+      "reinforcement_count": 11,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "2af18f1053dfed53",
+      "proof_attestation": "dad675ea3dc71ac7c03ca127",
+      "path": "growth-marketing/qwen-max/KL-GRW-001.json"
+    },
+    {
+      "id": "KL-HLT-001",
+      "title": "Circadian & Cognitive Recovery Guard: Block late caffeine and连续 >4h unpaused deep-work marathons",
+      "domain": "health-longevity",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "meta-muse-frontier",
+      "synthesized_by_model": "meta-muse-spark",
+      "endorsed_by_models": [
+        "meta-muse-spark",
+        "gemini-3.8-pro"
+      ],
+      "reinforcement_count": 11,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "24db29a3bfb7e47e",
+      "proof_attestation": "d204ed99f4fb396cd03ca09e",
+      "path": "health-longevity/meta-muse-frontier/KL-HLT-001.json"
+    },
+    {
+      "id": "KL-LEG-002",
+      "title": "Background IP Retention: Carve out pre-existing tools, frameworks, and harnesses from client IP assignment clauses",
+      "domain": "legal-contracts",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "gemini-pro",
+      "synthesized_by_model": "gemini-3.8-pro",
+      "endorsed_by_models": [
+        "gemini-3.8-pro",
+        "deepseek-r1-0528"
+      ],
+      "reinforcement_count": 10,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "a0132d014d20168a",
+      "proof_attestation": "295c7160d99a0957bc52e78a",
+      "path": "legal-contracts/gemini-pro/KL-LEG-002.json"
+    },
+    {
+      "id": "KL-LEG-001",
+      "title": "Contract Liability Cap: Never sign agreements with uncapped consequential damages or unilateral indemnity",
+      "domain": "legal-contracts",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 11,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "2c4fa14f0dd5c09f",
+      "proof_attestation": "aeffe81c1ae52300e8551636",
+      "path": "legal-contracts/gpt-6-frontier/KL-LEG-001.json"
+    },
+    {
+      "id": "KL-PSY-002",
+      "title": "Conflict De-escalation: Enforce a cool-down pause and replace 'You always/never' accusations with factual observations",
+      "domain": "psychology-relationships",
+      "domain_pillar": "life-and-business",
+      "severity": "MEDIUM",
+      "model_family": "claude-frontier",
+      "synthesized_by_model": "claude-opus-4",
+      "endorsed_by_models": [
+        "claude-opus-4",
+        "gemini-3.8-pro"
+      ],
+      "reinforcement_count": 9,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "f1707ed7b9c7b523",
+      "proof_attestation": "59889de590c473a588094fc4",
+      "path": "psychology-relationships/claude-frontier/KL-PSY-002.json"
+    },
+    {
+      "id": "KL-PSY-001",
+      "title": "Emotional Calibration & Anti-Chasing: Never send needy double/triple follow-ups when counterpart investment drops",
+      "domain": "psychology-relationships",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "grok-frontier",
+      "synthesized_by_model": "grok-4.7",
+      "endorsed_by_models": [
+        "grok-4.7",
+        "meta-muse-spark"
+      ],
+      "reinforcement_count": 16,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "1f4f8e644d51d0df",
+      "proof_attestation": "836828c6993bde6956fbc77d",
+      "path": "psychology-relationships/grok-frontier/KL-PSY-001.json"
+    },
+    {
+      "id": "KL-EPI-001",
+      "title": "Anti-Sycophancy & Primary-Source Epistemology: Verify primary data before agreeing with user premises",
+      "domain": "research-epistemology",
+      "domain_pillar": "life-and-business",
+      "severity": "HIGH",
+      "model_family": "deepseek-r1",
+      "synthesized_by_model": "deepseek-r1-0528",
+      "endorsed_by_models": [
+        "deepseek-r1-0528",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 14,
+      "source_repo": "github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
+      "structural_fingerprint": "40519126664c82a5",
+      "proof_attestation": "f2aa5dcc315090b155884586",
+      "path": "research-epistemology/deepseek-r1/KL-EPI-001.json"
+    },
+    {
+      "id": "KL-ZTR-001",
+      "title": "Reject JWT verification calls that disable signature checking or allow alg='none'",
+      "domain": "security-zerotrust",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "grok-frontier",
+      "synthesized_by_model": "grok-4.7",
+      "endorsed_by_models": [
+        "grok-4.7",
+        "claude-opus-4"
+      ],
+      "reinforcement_count": 12,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "aad0d433fe0d308b",
+      "proof_attestation": "4db60afee14ddaf66d86e7a3",
+      "path": "security-zerotrust/grok-frontier/KL-ZTR-001.json"
     }
   ]
 }

@@ -1,0 +1,35 @@
+{
+  "id": "KL-MCP-004",
+  "title": "Enable prompt caching (cache_control ephemeral) on static system instructions and tool catalogs",
+  "domain": "ai-agents-mcp",
+  "severity": "MEDIUM",
+  "languages": [
+    "python",
+    "typescript"
+  ],
+  "tags": [
+    "claude-api",
+    "prompt-caching",
+    "finops",
+    "token-savings"
+  ],
+  "cognitive_trap": "Sent the full 20,000-token system prompt and MCP tool schema un-cached on every multi-turn agent step, paying 10x input token costs.",
+  "mental_model": "Harvested from anthropics/skills (claude-api): Mark static system prompts and tool definitions with `cache_control: {'type': 'ephemeral'}` to cut repeated input token latency and cost by up to 90%.",
+  "bad_code": "system_blocks = [{\"type\": \"text\", \"text\": STATIC_AGENT_CONSTITUTION}]  # MISSING_PROMPT_CACHE",
+  "good_code": "system_blocks = [{\"type\": \"text\", \"text\": STATIC_AGENT_CONSTITUTION, \"cache_control\": {\"type\": \"ephemeral\"}}]",
+  "regex_pattern": "MISSING_PROMPT_CACHE",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 10,
+  "source_repo": "github:anthropics/skills/claude-api",
+  "created_at": "2026-11-05T08:04:21Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "9d1fa68958334226",
+  "proof_attestation": "66abcf9b894911c81bbfeb48"
+}

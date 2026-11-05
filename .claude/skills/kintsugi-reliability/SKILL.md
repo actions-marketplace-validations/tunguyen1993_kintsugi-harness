@@ -1,7 +1,7 @@
 ---
 name: kintsugi-reliability
 description: "Focused reliability anti-patterns and verified code templates compiled by Kintsugi Harness."
-tags: ["ast", "base-image", "browser", "debugging", "docker", "exceptions", "golang", "hang", "http", "memory-leak"]
+tags: ["ast", "browser", "debugging", "exceptions", "golang", "hang", "http", "memory-leak", "observability", "playwright"]
 ---
 
 # kintsugi-reliability
@@ -88,20 +88,4 @@ try {
 } finally {
   await browser.close();
 }
-```
-
-### `KS-018` · [MEDIUM] Pin Docker base images to an immutable digest
-- **Root cause:** The Dockerfile uses the mutable python:latest tag, whose image contents can change between builds.
-- **Why this matters:** An image digest pins the exact base image content, making builds reproducible and preventing unexpected changes from a mutable tag. Replace the placeholder with the verified digest for the intended Python image, and update it deliberately for security fixes.
-
-**Avoid (`❌ Anti-Pattern`):**
-```dockerfile
-FROM python:latest
-WORKDIR /app
-```
-
-**Prefer (`✅ Verified Pattern`):**
-```dockerfile
-FROM python:3.12.9@sha256:<verified-image-digest>
-WORKDIR /app
 ```

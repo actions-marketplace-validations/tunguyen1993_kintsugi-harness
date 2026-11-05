@@ -1,0 +1,36 @@
+{
+  "id": "KL-FE-001",
+  "title": "Wait for networkidle or explicit DOM readiness before inspecting dynamic web apps in Playwright",
+  "domain": "frontend-ts",
+  "severity": "MEDIUM",
+  "languages": [
+    "python",
+    "typescript",
+    "javascript"
+  ],
+  "tags": [
+    "playwright",
+    "webapp-testing",
+    "flaky-tests",
+    "hydration"
+  ],
+  "cognitive_trap": "Inspected DOM elements immediately after `page.goto()` or used arbitrary fixed `page.wait_for_timeout(5000)` before client-side hydration finished.",
+  "mental_model": "Harvested from anthropics/skills (webapp-testing): Modern SPAs hydrate asynchronously; always wait for `page.wait_for_load_state('networkidle')` or deterministic locator visibility rather than arbitrary blind sleeps.",
+  "bad_code": "page.goto(\"http://localhost:3000\")\npage.wait_for_timeout(5000)  # BLIND_PLAYWRIGHT_SLEEP",
+  "good_code": "page.goto(\"http://localhost:3000\")\npage.wait_for_load_state(\"networkidle\")",
+  "regex_pattern": "page\\.wait_for_timeout\\s*\\(\\s*\\d+\\s*\\)\\s*#\\s*BLIND_PLAYWRIGHT_SLEEP",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "gemini-3.8-pro"
+  ],
+  "reinforcement_count": 7,
+  "source_repo": "github:anthropics/skills/webapp-testing",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "9314fa92db2364ad",
+  "proof_attestation": "69f4833812b39309275c773e"
+}

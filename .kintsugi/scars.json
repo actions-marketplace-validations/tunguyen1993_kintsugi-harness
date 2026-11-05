@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total_scars": 18,
+  "total_scars": 16,
   "scars": [
     {
       "id": "KS-001",
@@ -31,8 +31,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "1692c2e21863cd46"
     },
     {
@@ -62,8 +62,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "1e13a95b3dbeb10f"
     },
     {
@@ -90,8 +90,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "302347ed313f3c2f"
     },
     {
@@ -118,8 +118,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "cd62827193df4ee4"
     },
     {
@@ -146,8 +146,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "110ea00c5093d1c6"
     },
     {
@@ -175,8 +175,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "211ecc0b0c336412"
     },
     {
@@ -204,8 +204,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "6f96a79813ad1c87"
     },
     {
@@ -233,8 +233,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "77bfd07f80230141"
     },
     {
@@ -263,8 +263,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "26b52254bdb6a881"
     },
     {
@@ -293,8 +293,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "4ae853304c8e8aa7"
     },
     {
@@ -321,8 +321,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "ed45f32b37c2f01b"
     },
     {
@@ -352,8 +352,8 @@
         "starter-pack",
         "self-check"
       ],
-      "hits": 2,
-      "created_at": "2026-11-04T11:10:19Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "092afa48a3cf9338"
     },
     {
@@ -383,8 +383,8 @@
         "critic:muse-2b",
         "self-check"
       ],
-      "hits": 1,
-      "created_at": "2026-11-05T05:52:16Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "2aad6aa5f101043d"
     },
     {
@@ -416,8 +416,8 @@
         "critic:muse-2b",
         "self-check"
       ],
-      "hits": 1,
-      "created_at": "2026-11-05T05:52:16Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "b1b39af09f60f081"
     },
     {
@@ -448,8 +448,8 @@
         "critic:muse-2b",
         "self-check"
       ],
-      "hits": 1,
-      "created_at": "2026-11-05T05:52:16Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "ca35ffdc46e9a0ee"
     },
     {
@@ -478,71 +478,9 @@
         "critic:muse-2b",
         "self-check"
       ],
-      "hits": 1,
-      "created_at": "2026-11-05T05:52:16Z",
+      "hits": 0,
+      "created_at": "2026-11-05T08:07:47Z",
       "fingerprint": "8b1dbce1e6759d33"
-    },
-    {
-      "id": "KS-017",
-      "title": "Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559)",
-      "severity": "HIGH",
-      "category": "security",
-      "languages": [
-        "python"
-      ],
-      "tags": [
-        "cve-2007-4559",
-        "tarfile",
-        "path-traversal",
-        "archive-extraction",
-        "security"
-      ],
-      "root_cause": "tarfile.extractall() is called without a safety filter, so archive members containing paths such as ../target or absolute paths can write outside dest_dir.",
-      "bad_code": "with tarfile.open(archive_path) as tar:\n    tar.extractall(path=dest_dir)",
-      "good_code": "with tarfile.open(archive_path) as tar:\n    tar.extractall(path=dest_dir, filter=\"data\")",
-      "rationale": "The data extraction filter rejects members that escape the destination and restricts unsafe archive features. This requires a Python version that supports extraction filters; otherwise, validate each member path before extraction.",
-      "regex_pattern": "extractall\\((?![^)]*filter\\s*=)[^)]*\\)",
-      "ast_rule": "missing_kwarg:tarfile.TarFile.extractall:filter",
-      "verified_by": [
-        "architect:gpt-6.1-terra-wm",
-        "synthesizer:deepseek-v4.1-flash",
-        "critic:muse-2b",
-        "self-check"
-      ],
-      "hits": 0,
-      "created_at": "2026-11-05T05:57:11Z",
-      "fingerprint": "25670ff82f35bddf"
-    },
-    {
-      "id": "KS-018",
-      "title": "Pin Docker base images to an immutable digest",
-      "severity": "MEDIUM",
-      "category": "reliability",
-      "languages": [
-        "dockerfile"
-      ],
-      "tags": [
-        "docker",
-        "base-image",
-        "mutable-tag",
-        "reproducible-builds",
-        "supply-chain"
-      ],
-      "root_cause": "The Dockerfile uses the mutable python:latest tag, whose image contents can change between builds.",
-      "bad_code": "FROM python:latest\nWORKDIR /app",
-      "good_code": "FROM python:3.12.9@sha256:<verified-image-digest>\nWORKDIR /app",
-      "rationale": "An image digest pins the exact base image content, making builds reproducible and preventing unexpected changes from a mutable tag. Replace the placeholder with the verified digest for the intended Python image, and update it deliberately for security fixes.",
-      "regex_pattern": "(?im)^\\s*FROM\\s+python:latest(?:\\s|$)",
-      "ast_rule": null,
-      "verified_by": [
-        "architect:gpt-6.1-terra-wm",
-        "synthesizer:deepseek-v4.1-flash",
-        "critic:muse-2b",
-        "self-check"
-      ],
-      "hits": 0,
-      "created_at": "2026-11-05T05:59:05Z",
-      "fingerprint": "58c028138fcf8e97"
     }
   ]
 }

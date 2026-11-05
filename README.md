@@ -55,15 +55,17 @@ flowchart LR
 
 ## Open-Core Architecture (Community Open-Source vs Pro Skill Packs)
 
-| Feature | **Open-Source Core (GitHub — Apache-2.0 / MIT)** | **Kintsugi Pro Skill Packs (`kintsugi install-pack`)** |
+| Feature | **Open-Source Core (GitHub — Apache-2.0 / MIT)** | **Kintsugi Pro Skill Packs (`$5–$9` on Agensi.io)** |
 | :--- | :--- | :--- |
 | **Native Rust Engine (`kintsugi-rs`) & Python AST/Regex Scanner** | Included (`100% Open Source`) | Included |
 | **`KMI/1` Ultra-Low-Token Compiler (`--compact` & `token-report`)** | Included (`93.7%` token savings) | Included + Pre-tuned Domain Profiles |
 | **Posture Auditor (`kintsugi audit` — Grade `A+` to `F` + Badge)** | Included | Included + Executive Compliance Checks |
 | **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
+| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **25 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
 | **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
 | **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
+| **Volume Pricing (Agensi.io)** | **Free (`MIT / Apache-2.0`)** | **FinOps (`$5`) · Zero-Trust MCP (`$7`) · Complete All-in-One (`$9`)** |
 
 ---
 
@@ -124,26 +126,34 @@ kintsugi list-packs
 kintsugi autofix . --apply
 ```
 
-### 6. Human-Like Cognitive Learning & Frontier-Gated Collective Pool (`kintsugi learn`)
+### 6. Human-Like Cognitive Learning, Zero-GitHub-Account Relay & GitHub Skill Harvester (`kintsugi learn`)
 
-Unlike bloated harnesses that dump noisy chat transcripts into memory, Kintsugi distills mistakes into causal **`CognitiveLesson`** records (`cognitive_trap` + `mental_model` + executable guardrail) with two user-selectable privacy/sync modes:
+Unlike bloated harnesses that dump noisy chat transcripts into memory, Kintsugi distills mistakes across **15 Universal Domains** (**7 Engineering Pillars**: `ai-agents-mcp`, `backend-api`, `security-zerotrust`, `fintech-web3`, `devops-cloud`, `frontend-ts`, `data-ml` + **8 Real-Life & Business Pillars**: `finance-capital`, `business-negotiation`, `psychology-relationships`, `legal-contracts`, `health-longevity`, `decision-strategy`, `research-epistemology`, `growth-marketing`) into causal **`CognitiveLesson`** records (`cognitive_trap` + `mental_model` + executable guardrail):
 
 ```bash
-# Option 1 (Default — Privacy-First Local-Only + Pull by Industry):
+# Option 1 (Default — Privacy-First Local-Only + Pull by Engineering / Real-Life Domain):
 # Keep self-learned lessons strictly in .kintsugi/lessons_local.json (gitignored)
-# and pull curated Frontier lessons for your industry domains from GitHub:
-kintsugi learn config --mode local-only --domains ai-agents-mcp,backend-api,fintech-web3
-kintsugi learn pull --domains ai-agents-mcp,fintech-web3
+# and pull curated Frontier lessons for your engineering & life domains from GitHub or Relay:
+kintsugi learn config --mode local-only --domains ai-agents-mcp,finance-capital,business-negotiation,decision-strategy
+kintsugi learn pull --domains ai-agents-mcp,finance-capital,business-negotiation --relay
 
-# Option 2 (Federated Collective Pool Sync — Tier-1 Frontier Models Only):
-# Automatically publish newly distilled lessons to collective-pool/<domain>/<model_family>/<id>.json
-# ONLY if they pass the 4-Stage Frontier Epistemic Gate:
-#   1. Tier-1 Frontier Model Provenance (claude-opus/sonnet-4, gpt-6, deepseek-r1, gemini-3.8-pro, qwen3.8-max)
+# Option 2 (Federated Collective Pool Sync + Zero-GitHub-Account Relay — Tier-1 Frontier Models Only):
+# Publish newly distilled lessons to collective-pool/<domain>/<model_family>/<id>.json
+# AND broadcast to the Zero-GitHub-Account Public Relay (KINTSUGI-RELAY/1) so agents without
+# a GitHub account can contribute directly after passing the 4-Stage Frontier Epistemic Gate:
+#   1. Tier-1 Frontier Model Provenance (claude-opus/sonnet-4, gpt-6, deepseek-r1, gemini-3.8-pro, qwen3.8-max, grok-4)
 #      -> Low-tier models (mini, flash-lite, haiku, 8b) are strictly blocked from syncing upstream.
 #   2. Deterministic TP/FP Self-Verification (`scan(bad) >= 1` & `scan(good) == 0`)
 #   3. Structural & Semantic Anti-Duplicate Check (duplicates merge into reinforcement_count)
 #   4. Zero-Leak DLP Sanitization
-kintsugi learn config --mode federated-sync --auto-push
+kintsugi learn config --mode federated-sync
+kintsugi learn push-relay
+kintsugi learn sync-relay --since 48h
+
+# Option 3 (Autonomous GitHub Skill & Guardrail Repo Harvester):
+# Scan external GitHub skill repositories (anthropics/skills, patrickjs/awesome-cursorrules, etc.)
+# and merge Frontier-verified guardrails into the shared Collective Pool:
+kintsugi learn harvest-github
 kintsugi learn pool-status
 ```
 

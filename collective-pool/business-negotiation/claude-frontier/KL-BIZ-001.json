@@ -1,0 +1,36 @@
+{
+  "id": "KL-BIZ-001",
+  "title": "Anti-Scope-Creep Gate: Bind every out-of-scope client request to a written change order and fee/timeline delta",
+  "domain": "business-negotiation",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown",
+    "contract"
+  ],
+  "tags": [
+    "negotiation",
+    "scope-creep",
+    "b2b-sales",
+    "pricing"
+  ],
+  "cognitive_trap": "Said 'Sure, we can throw in that extra module for free' to please a client during delivery, eroding project margin and delaying core milestones.",
+  "mental_model": "Unpriced concessions train clients that your time has zero marginal cost. Always welcome new ideas warmly while anchoring them to a formal Change Order (`CHANGE_ORDER_WITH_FEE_AND_TIMELINE`).",
+  "bad_code": "RESPONSE: ACCEPT_UNBILLED_SCOPE_ADDITION(extra_deliverables=True, fee_delta=0)",
+  "good_code": "RESPONSE: PROPOSE_CHANGE_ORDER(extra_deliverables=True, fee_delta=1500, timeline_extension_days=5)",
+  "regex_pattern": "ACCEPT_UNBILLED_SCOPE_ADDITION",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 12,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "0ce51db71bd198c6",
+  "proof_attestation": "85eeed86a641d2a87c94f267"
+}

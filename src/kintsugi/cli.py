@@ -132,18 +132,37 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ldist.add_argument("--ast-rule", default=None, help="Optional Python AST rule")
     p_ldist.add_argument("--local-only", action="store_true", help="Force saving strictly locally even if federated-sync is active")
     p_ldist.add_argument("--git-push", action="store_true", help="Commit and push to GitHub Collective Pool if Frontier Gate passes")
+    p_ldist.add_argument("--relay-push", action="store_true", help="Broadcast to Zero-GitHub-Account Public Relay (no GitHub account needed)")
 
-    p_lpull = learn_sub.add_parser("pull", help="Pull Frontier-verified lessons for your industry domains from the GitHub Collective Pool")
+    p_lpull = learn_sub.add_parser("pull", help="Pull Frontier-verified lessons for your industry/life domains from the Collective Pool")
     p_lpull.add_argument("--workspace", default=".", help="Workspace root")
     p_lpull.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
-    p_lpull.add_argument("--domains", default=None, help="Comma-separated industry domains to pull")
+    p_lpull.add_argument("--domains", default=None, help="Comma-separated industry/life domains to pull")
     p_lpull.add_argument("--model-family", default=None, help="Filter by Frontier model family (e.g. deepseek-r1, gpt-6-frontier)")
     p_lpull.add_argument("--remote", action="store_true", help="Fetch directly from remote GitHub repository raw API")
+    p_lpull.add_argument("--relay", action="store_true", help="Also ingest pending lessons from Zero-GitHub-Account Public Relay")
+
+    p_lrpush = learn_sub.add_parser("push-relay", help="Broadcast local Frontier-verified lessons to Zero-GitHub-Account Public Relay")
+    p_lrpush.add_argument("--workspace", default=".", help="Workspace root")
+    p_lrpush.add_argument("--relay-url", default=None, help="Custom relay URL (default: https://ntfy.sh/kintsugi-collective-pool-v1)")
+    p_lrpush.add_argument("--offline-outbox", action="store_true", help="Write to local relay outbox without HTTP POST")
+
+    p_lrsync = learn_sub.add_parser("sync-relay", help="Ingest and 4-Stage-verify lessons from Zero-GitHub-Account Public Relay into Pool")
+    p_lrsync.add_argument("--workspace", default=".", help="Workspace root")
+    p_lrsync.add_argument("--relay-url", default=None, help="Custom relay URL")
+    p_lrsync.add_argument("--since", default="48h", help="Lookback window (e.g. 24h, 48h, all)")
+    p_lrsync.add_argument("--local-outbox-only", action="store_true", help="Ingest only from local relay_outbox.jsonl")
+
+    p_lharv = learn_sub.add_parser("harvest-github", help="Autonomously scan external GitHub Skill repos and merge Frontier-verified lessons into Pool")
+    p_lharv.add_argument("--workspace", default=".", help="Workspace root")
+    p_lharv.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_lharv.add_argument("--repos", default=None, help="Comma-separated GitHub owner/repo slugs (default: anthropics/skills,patrickjs/awesome-cursorrules)")
+    p_lharv.add_argument("--offline", action="store_true", help="Use curated verified fallback without network calls")
 
     p_lseed = learn_sub.add_parser("seed-pool", help="Seed the partitioned GitHub Collective Pool with curated Frontier lessons")
     p_lseed.add_argument("--workspace", default=".", help="Workspace root")
 
-    p_lstat = learn_sub.add_parser("pool-status", help="Inspect partitioned Collective Pool by domain and Frontier model family")
+    p_lstat = learn_sub.add_parser("pool-status", help="Inspect partitioned Collective Pool by pillar, domain, and Frontier model family")
     p_lstat.add_argument("--workspace", default=".", help="Workspace root")
 
     # compile
@@ -375,6 +394,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 lesson,
                 force_local_only=bool(args.local_only),
                 git_push=bool(args.git_push),
+                relay_push=bool(args.relay_push),
             )
             ledger = _load_or_seed_ledger(args.ledger, args.workspace)
             ledger.upsert(lesson.to_golden_scar())
@@ -388,9 +408,44 @@ def main(argv: Optional[List[str]] = None) -> int:
                 doms,
                 model_family=args.model_family,
                 fetch_remote_github=bool(args.remote),
+                include_relay=bool(args.relay),
             )
             ledger = _load_or_seed_ledger(args.ledger, args.workspace)
             for l in mgr.load_local_lessons():
+                ledger.upsert(l.to_golden_scar())
+            ledger.save()
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "push-relay":
+            dispatched = []
+            for local_lesson in mgr.load_local_lessons():
+                r = mgr.push_to_zero_auth_relay(
+                    local_lesson,
+                    relay_url=args.relay_url,
+                    network_send=not bool(args.offline_outbox),
+                )
+                dispatched.append({"id": local_lesson.id, **r})
+            print(json.dumps({"total_checked": len(dispatched), "results": dispatched}, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "sync-relay":
+            res = mgr.sync_from_zero_auth_relay(
+                relay_url=args.relay_url,
+                since=args.since,
+                fetch_network=not bool(args.local_outbox_only),
+            )
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0
+
+        if args.learn_action == "harvest-github":
+            repo_list = [r.strip() for r in args.repos.split(",") if r.strip()] if args.repos else None
+            res = mgr.harvest_github_skill_repos(
+                repos=repo_list,
+                fetch_live_github=not bool(args.offline),
+            )
+            ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+            for l in mgr.load_pool_lessons():
                 ledger.upsert(l.to_golden_scar())
             ledger.save()
             print(json.dumps(res, indent=2, ensure_ascii=False))
@@ -410,19 +465,25 @@ def main(argv: Optional[List[str]] = None) -> int:
             cfg = mgr.load_config()
             local_lessons = mgr.load_local_lessons()
             pool_lessons = mgr.load_pool_lessons()
+            by_pillar = {"engineering": 0, "life-and-business": 0}
             by_domain = {}
             by_model = {}
+            by_source = {}
             for l in pool_lessons:
+                by_pillar[l.domain_pillar] = by_pillar.get(l.domain_pillar, 0) + 1
                 by_domain[l.domain] = by_domain.get(l.domain, 0) + 1
                 by_model[l.model_family] = by_model.get(l.model_family, 0) + 1
+                by_source[l.source_repo] = by_source.get(l.source_repo, 0) + 1
             print(
                 json.dumps(
                     {
                         "user_config": cfg,
                         "local_private_lessons": len(local_lessons),
                         "collective_pool_total": len(pool_lessons),
+                        "pool_by_pillar": by_pillar,
                         "pool_by_domain": by_domain,
                         "pool_by_frontier_model_family": by_model,
+                        "pool_by_source_repo": by_source,
                     },
                     indent=2,
                     ensure_ascii=False,
@@ -540,3 +601,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

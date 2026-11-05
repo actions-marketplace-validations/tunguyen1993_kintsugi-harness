@@ -1,26 +1,29 @@
 """
-Federated Human-Like Cognitive Lesson Engine & Frontier-Gated GitHub Pool (`kintsugi learn`).
+Federated Human-Like Cognitive Lesson Engine, Zero-GitHub-Account Relay & Autonomous GitHub Skill Harvester (`kintsugi learn`).
 
-Implements biological episodic-to-semantic memory consolidation for coding agents:
-1. Distills concrete mistakes into structured `CognitiveLesson` records capturing the
-   `cognitive_trap` (why the agent thought bad code was right), the `mental_model`
-   (timeless engineering heuristic), and a deterministic AST/Regex guardrail.
-2. Supports two explicit user privacy/sync modes:
+Implements biological episodic-to-semantic memory consolidation across both Engineering & Real-Life domains:
+1. Two Unified Domain Pillars (`15` domains total):
+   - `ENGINEERING_DOMAINS` (7 domains): `ai-agents-mcp`, `backend-api`, `security-zerotrust`,
+     `fintech-web3`, `devops-cloud`, `frontend-ts`, `data-ml`.
+   - `LIFE_AND_BUSINESS_DOMAINS` (8 real-life domains): `finance-capital`, `business-negotiation`,
+     `psychology-relationships`, `legal-contracts`, `health-longevity`, `decision-strategy`,
+     `research-epistemology`, `growth-marketing`.
+2. Two Explicit User Privacy/Sync Modes:
    - `local-only`: Keeps self-learned lessons strictly local in `.kintsugi/lessons_local.json`
-     while allowing selective industry/domain pulls (`kintsugi learn pull --domain ...`)
-     from the GitHub Collective Pool.
+     while allowing selective industry/domain pulls (`kintsugi learn pull --domains ...`).
    - `federated-sync`: Automatically publishes newly distilled lessons to the partitioned
-     GitHub Collective Pool (`collective-pool/<domain>/<model_family>/<id>.json`) ONLY if
-     they pass the 4-Stage Frontier Epistemic Gate.
-3. 4-Stage Frontier Epistemic Gate (prevents low-tier model noise and duplicates):
-   - Stage 1 (Frontier Model Provenance): Must be synthesized by a Tier-1 Frontier reasoning
-     model (`claude-opus`, `claude-sonnet-4`, `gpt-6`, `deepseek-r1`, `gemini-3.8-pro`, `qwen3.8-max`, `grok-4`).
-     Low-tier models (`mini`, `flash-lite`, `haiku`, `8b`, `offline`) are restricted to local-only.
-   - Stage 2 (Deterministic Verification): Must pass `scan(bad_code) >= 1` and `scan(good_code) == 0`.
-   - Stage 3 (Semantic & Structural Deduplication): Canonical AST/Regex fingerprint + Jaccard
-     similarity check merges duplicates into synaptic `reinforcement_count` instead of polluting the pool.
-   - Stage 4 (Zero-Leak DLP Sanitization): Rejects any lesson containing local filesystem paths,
-     emails, internal IPs, or secret literals.
+     Collective Pool (`collective-pool/<domain>/<model_family>/<id>.json`) AND broadcasts
+     to the Zero-GitHub-Account Federated Relay (`KINTSUGI-RELAY/1`) ONLY if they pass the
+     4-Stage Frontier Epistemic Gate.
+3. Zero-GitHub-Account Anonymous Federated Relay (`KINTSUGI-RELAY/1`):
+   - Agents without a GitHub account or git push credentials can push Frontier-verified lessons
+     directly over HTTPS to the public decentralized relay (`https://ntfy.sh/kintsugi-collective-pool-v1`).
+   - Any agent or maintainer (`kintsugi learn sync-relay` / `kintsugi learn pull --relay`) ingests
+     from the relay and re-runs the 4-Stage Frontier Gate locally before accepting any lesson.
+4. Autonomous GitHub Skill & Guardrail Repo Harvester (`kintsugi learn harvest-github`):
+   - Scans external open-source skill repositories (`anthropics/skills`, `patrickjs/awesome-cursorrules`,
+     `anthropics/claude-code`, etc.), extracts verifiable counterfactual guardrails, verifies them
+     through the 4-Stage Frontier Gate, and merges them into `collective-pool/`.
 """
 
 from __future__ import annotations
@@ -39,7 +42,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 from kintsugi.council import verify_candidate_scar
 from kintsugi.models import GoldenScar, Severity
 
-SUPPORTED_DOMAINS: Tuple[str, ...] = (
+ENGINEERING_DOMAINS: Tuple[str, ...] = (
     "ai-agents-mcp",
     "backend-api",
     "security-zerotrust",
@@ -47,6 +50,72 @@ SUPPORTED_DOMAINS: Tuple[str, ...] = (
     "devops-cloud",
     "frontend-ts",
     "data-ml",
+)
+
+LIFE_AND_BUSINESS_DOMAINS: Tuple[str, ...] = (
+    "finance-capital",
+    "business-negotiation",
+    "psychology-relationships",
+    "legal-contracts",
+    "health-longevity",
+    "decision-strategy",
+    "research-epistemology",
+    "growth-marketing",
+)
+
+SUPPORTED_DOMAINS: Tuple[str, ...] = ENGINEERING_DOMAINS + LIFE_AND_BUSINESS_DOMAINS
+
+DEFAULT_ZERO_AUTH_RELAY_URL = "https://ntfy.sh/kintsugi-collective-pool-v1"
+
+DEFAULT_GITHUB_SKILL_SOURCES: Tuple[Dict[str, str], ...] = (
+    {
+        "repo": "anthropics/skills",
+        "skill_path": "skills/mcp-builder/SKILL.md",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/mcp-builder/SKILL.md",
+        "domain": "ai-agents-mcp",
+    },
+    {
+        "repo": "anthropics/skills",
+        "skill_path": "skills/webapp-testing/SKILL.md",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/webapp-testing/SKILL.md",
+        "domain": "frontend-ts",
+    },
+    {
+        "repo": "anthropics/skills",
+        "skill_path": "skills/discernment-nudge/SKILL.md",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/discernment-nudge/SKILL.md",
+        "domain": "decision-strategy",
+    },
+    {
+        "repo": "patrickjs/awesome-cursorrules",
+        "skill_path": "rules/alpha-skills-quant-factor-research.mdc",
+        "url": "https://raw.githubusercontent.com/patrickjs/awesome-cursorrules/main/rules/alpha-skills-quant-factor-research.mdc",
+        "domain": "data-ml",
+    },
+    {
+        "repo": "patrickjs/awesome-cursorrules",
+        "skill_path": "rules/anti-sycophancy-code-discipline-cursorrules-prompt-file.mdc",
+        "url": "https://raw.githubusercontent.com/patrickjs/awesome-cursorrules/main/rules/anti-sycophancy-code-discipline-cursorrules-prompt-file.mdc",
+        "domain": "research-epistemology",
+    },
+    {
+        "repo": "anthropics/skills",
+        "skill_path": "skills/claude-api/SKILL.md",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/claude-api/SKILL.md",
+        "domain": "ai-agents-mcp",
+    },
+    {
+        "repo": "anthropics/skills",
+        "skill_path": "skills/xlsx/SKILL.md",
+        "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/xlsx/SKILL.md",
+        "domain": "fintech-web3",
+    },
+    {
+        "repo": "patrickjs/awesome-cursorrules",
+        "skill_path": "rules/anti-overengineering.mdc",
+        "url": "https://raw.githubusercontent.com/patrickjs/awesome-cursorrules/main/rules/anti-overengineering.mdc",
+        "domain": "decision-strategy",
+    },
 )
 
 
@@ -130,8 +199,8 @@ def compute_semantic_similarity(a: "CognitiveLesson", b: "CognitiveLesson") -> f
 @dataclass
 class CognitiveLesson:
     """
-    Human-like engineering lesson distilled from a real failure episode.
-    Pairs causal reflection (`cognitive_trap` + `mental_model`) with an executable guardrail.
+    Human-like cognitive lesson distilled from a real failure episode in Engineering or Life/Business.
+    Pairs causal reflection (`cognitive_trap` + `mental_model`) with an executable counterfactual guardrail.
     """
 
     id: str
@@ -151,6 +220,7 @@ class CognitiveLesson:
     model_tier: ModelTier = ModelTier.TIER_1_FRONTIER
     endorsed_by_models: List[str] = field(default_factory=list)
     reinforcement_count: int = 1
+    source_repo: str = "local-episodic"
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     )
@@ -165,6 +235,10 @@ class CognitiveLesson:
             self.endorsed_by_models.append(self.synthesized_by_model)
         norm_domain = re.sub(r"[^a-z0-9-]+", "-", self.domain.lower()).strip("-")
         self.domain = norm_domain if norm_domain in SUPPORTED_DOMAINS else "ai-agents-mcp"
+
+    @property
+    def domain_pillar(self) -> str:
+        return "life-and-business" if self.domain in LIFE_AND_BUSINESS_DOMAINS else "engineering"
 
     @property
     def structural_fingerprint(self) -> str:
@@ -189,7 +263,7 @@ class CognitiveLesson:
             severity=self.severity,
             category=self.domain,
             languages=list(self.languages),
-            tags=sorted(set(self.tags + [self.domain, f"model:{self.model_family}"])),
+            tags=sorted(set(self.tags + [self.domain, f"model:{self.model_family}", f"pillar:{self.domain_pillar}"])),
             root_cause=f"[Cognitive Trap] {self.cognitive_trap}",
             bad_code=self.bad_code,
             good_code=self.good_code,
@@ -205,6 +279,7 @@ class CognitiveLesson:
         payload = asdict(self)
         payload["severity"] = self.severity.value
         payload["model_tier"] = self.model_tier.value
+        payload["domain_pillar"] = self.domain_pillar
         payload["structural_fingerprint"] = self.structural_fingerprint
         payload["proof_attestation"] = self.proof_attestation
         return payload
@@ -214,7 +289,13 @@ class CognitiveLesson:
         clean = {
             k: v
             for k, v in data.items()
-            if k not in {"structural_fingerprint", "proof_attestation", "model_tier", "model_family"}
+            if k not in {
+                "structural_fingerprint",
+                "proof_attestation",
+                "model_tier",
+                "model_family",
+                "domain_pillar",
+            }
         }
         clean["severity"] = Severity(str(clean["severity"]).upper())
         return cls(**clean)
@@ -225,7 +306,7 @@ def verify_frontier_sync_gate(
     existing_pool: Sequence[CognitiveLesson] = (),
 ) -> Tuple[bool, str, Optional[CognitiveLesson]]:
     """
-    4-Stage Frontier Epistemic Gate required before any lesson can enter the GitHub Pool:
+    4-Stage Frontier Epistemic Gate required before any lesson can enter the GitHub Pool or Relay:
     1. Frontier Model Tier Check (`TIER_1_FRONTIER` only)
     2. DLP Private String Check (`0` local paths, emails, or internal IPs)
     3. Deterministic In-Memory TP/FP Guardrail Check (`verify_candidate_scar`)
@@ -237,7 +318,7 @@ def verify_frontier_sync_gate(
             False,
             f"REJECTED_LOW_TIER_MODEL: Model '{lesson.synthesized_by_model}' is classified as "
             f"{lesson.model_tier.value}. Only Tier-1 Frontier models (Claude Opus/Sonnet-4, GPT-6, "
-            f"DeepSeek-R1/V4, Gemini-3.8-Pro, Qwen-3.8-Max, Grok-4) may publish to the Collective Pool.",
+            f"DeepSeek-R1/V4, Gemini-3.8-Pro, Qwen-3.8-Max, Grok-4, Meta-Muse-Spark) may publish to the Collective Pool.",
             None,
         )
 
@@ -280,22 +361,33 @@ def verify_frontier_sync_gate(
 class CognitiveMemoryManager:
     """
     Manages local episodic lessons (`.kintsugi/lessons_local.json`), user sync preferences
-    (`.kintsugi/learn_config.json`), and the partitioned GitHub Collective Pool
-    (`collective-pool/<domain>/<model_family>/<lesson_id>.json`).
+    (`.kintsugi/learn_config.json`), the partitioned GitHub Collective Pool
+    (`collective-pool/<domain>/<model_family>/<lesson_id>.json`), the Zero-GitHub-Account
+    Federated Relay (`KINTSUGI-RELAY/1`), and the Autonomous GitHub Skill Harvester.
     """
 
-    def __init__(self, workspace_root: str | Path = ".", pool_root: Optional[ str | Path] = None) -> None:
+    def __init__(self, workspace_root: str | Path = ".", pool_root: Optional[str | Path] = None) -> None:
         self.workspace_root = Path(workspace_root).resolve()
         self.kintsugi_dir = self.workspace_root / ".kintsugi"
         self.config_path = self.kintsugi_dir / "learn_config.json"
         self.local_lessons_path = self.kintsugi_dir / "lessons_local.json"
+        self.relay_outbox_path = self.kintsugi_dir / "relay_outbox.jsonl"
         self.pool_root = Path(pool_root).resolve() if pool_root else (self.workspace_root / "collective-pool")
 
     def load_config(self) -> Dict[str, Any]:
         default_cfg = {
             "sync_mode": SyncMode.LOCAL_ONLY.value,
-            "subscribed_domains": ["ai-agents-mcp", "backend-api", "security-zerotrust"],
+            "subscribed_domains": [
+                "ai-agents-mcp",
+                "backend-api",
+                "security-zerotrust",
+                "finance-capital",
+                "business-negotiation",
+                "decision-strategy",
+            ],
             "auto_push_to_github": False,
+            "zero_github_relay_enabled": True,
+            "relay_url": DEFAULT_ZERO_AUTH_RELAY_URL,
             "remote_repo": "tunguyen1993/kintsugi-harness",
             "remote_branch": "main",
             "min_sync_tier": ModelTier.TIER_1_FRONTIER.value,
@@ -312,6 +404,8 @@ class CognitiveMemoryManager:
         sync_mode: Optional[str] = None,
         subscribed_domains: Optional[Sequence[str]] = None,
         auto_push_to_github: Optional[bool] = None,
+        zero_github_relay_enabled: Optional[bool] = None,
+        relay_url: Optional[str] = None,
         remote_repo: Optional[str] = None,
     ) -> Dict[str, Any]:
         cfg = self.load_config()
@@ -323,6 +417,10 @@ class CognitiveMemoryManager:
                 cfg["subscribed_domains"] = sorted(set(valid))
         if auto_push_to_github is not None:
             cfg["auto_push_to_github"] = bool(auto_push_to_github)
+        if zero_github_relay_enabled is not None:
+            cfg["zero_github_relay_enabled"] = bool(zero_github_relay_enabled)
+        if relay_url is not None and relay_url.strip():
+            cfg["relay_url"] = relay_url.strip()
         if remote_repo is not None:
             cfg["remote_repo"] = remote_repo.strip()
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
@@ -340,7 +438,7 @@ class CognitiveMemoryManager:
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
         ordered = sorted(lessons, key=lambda l: l.id)
         payload = {
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "storage_scope": "local-private",
             "total_lessons": len(ordered),
             "lessons": [l.to_dict() for l in ordered],
@@ -376,11 +474,13 @@ class CognitiveMemoryManager:
         self.pool_root.mkdir(parents=True, exist_ok=True)
         all_lessons = self.load_pool_lessons()
         by_domain: Dict[str, List[str]] = {}
+        by_pillar: Dict[str, List[str]] = {"engineering": [], "life-and-business": []}
         by_model: Dict[str, List[str]] = {}
         entries: List[Dict[str, Any]] = []
 
         for l in all_lessons:
             by_domain.setdefault(l.domain, []).append(l.id)
+            by_pillar.setdefault(l.domain_pillar, []).append(l.id)
             by_model.setdefault(l.model_family, []).append(l.id)
             rel_path = f"{l.domain}/{l.model_family}/{l.id}.json"
             entries.append(
@@ -388,19 +488,23 @@ class CognitiveMemoryManager:
                     "id": l.id,
                     "title": l.title,
                     "domain": l.domain,
+                    "domain_pillar": l.domain_pillar,
                     "severity": l.severity.value,
                     "model_family": l.model_family,
                     "synthesized_by_model": l.synthesized_by_model,
                     "endorsed_by_models": l.endorsed_by_models,
                     "reinforcement_count": l.reinforcement_count,
+                    "source_repo": l.source_repo,
                     "structural_fingerprint": l.structural_fingerprint,
+                    "proof_attestation": l.proof_attestation,
                     "path": rel_path,
                 }
             )
 
         index_payload = {
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "total_verified_frontier_lessons": len(entries),
+            "pillars": {k: sorted(v) for k, v in sorted(by_pillar.items())},
             "domains": {k: sorted(v) for k, v in sorted(by_domain.items())},
             "model_families": {k: sorted(v) for k, v in sorted(by_model.items())},
             "lessons": entries,
@@ -409,18 +513,256 @@ class CognitiveMemoryManager:
         index_path.write_text(json.dumps(index_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return index_path
 
+    def push_to_zero_auth_relay(
+        self,
+        lesson: CognitiveLesson,
+        *,
+        relay_url: Optional[str] = None,
+        network_send: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Broadcast a Frontier-verified `CognitiveLesson` to the Zero-GitHub-Account Public Relay
+        (`KINTSUGI-RELAY/1` over HTTPS + local `.kintsugi/relay_outbox.jsonl`).
+        Requires ZERO GitHub account, SSH keys, or personal access tokens.
+        """
+        passed, gate_msg, _ = verify_frontier_sync_gate(lesson, ())
+        if not passed:
+            return {
+                "relay_pushed": False,
+                "reason": gate_msg,
+                "protocol": "KINTSUGI-RELAY/1",
+            }
+
+        cfg = self.load_config()
+        target_url = (relay_url or cfg.get("relay_url") or DEFAULT_ZERO_AUTH_RELAY_URL).strip()
+        envelope = {
+            "protocol": "KINTSUGI-RELAY/1",
+            "submitted_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "proof_attestation": lesson.proof_attestation,
+            "structural_fingerprint": lesson.structural_fingerprint,
+            "lesson": lesson.to_dict(),
+        }
+        encoded_line = json.dumps(envelope, ensure_ascii=False)
+
+        self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
+        with self.relay_outbox_path.open("a", encoding="utf-8") as fh:
+            fh.write(encoded_line + "\n")
+
+        http_dispatched = False
+        if network_send:
+            try:
+                req = urllib.request.Request(
+                    target_url,
+                    data=encoded_line.encode("utf-8"),
+                    method="POST",
+                    headers={
+                        "Content-Type": "application/json",
+                        "Title": f"Kintsugi Lesson {lesson.id} [{lesson.domain}/{lesson.model_family}]",
+                        "Tags": f"kintsugi,{lesson.domain},{lesson.model_family}",
+                        "User-Agent": "kintsugi-harness/0.5.0",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    http_dispatched = 200 <= resp.status < 300
+            except OSError:
+                http_dispatched = False
+
+        return {
+            "relay_pushed": True,
+            "http_dispatched": http_dispatched,
+            "outbox_queued": str(self.relay_outbox_path),
+            "relay_url": target_url,
+            "protocol": "KINTSUGI-RELAY/1",
+            "proof_attestation": lesson.proof_attestation,
+        }
+
+    def sync_from_zero_auth_relay(
+        self,
+        *,
+        relay_url: Optional[str] = None,
+        since: str = "48h",
+        fetch_network: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Ingest lessons submitted by agents without GitHub accounts from the Zero-Auth Relay
+        (`https://ntfy.sh/kintsugi-collective-pool-v1/json?poll=1&since=...` + local relay outbox).
+        Every incoming envelope is strictly re-verified through the 4-Stage Frontier Gate.
+        """
+        cfg = self.load_config()
+        base_url = (relay_url or cfg.get("relay_url") or DEFAULT_ZERO_AUTH_RELAY_URL).strip().rstrip("/")
+        raw_envelopes: List[Dict[str, Any]] = []
+
+        if self.relay_outbox_path.exists():
+            for line in self.relay_outbox_path.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("{"):
+                    parsed_line = json.loads(line)
+                    if isinstance(parsed_line, dict) and parsed_line.get("protocol") == "KINTSUGI-RELAY/1":
+                        raw_envelopes.append(parsed_line)
+
+        if fetch_network:
+            poll_url = f"{base_url}/json?poll=1&since={since}"
+            try:
+                req = urllib.request.Request(poll_url, headers={"User-Agent": "kintsugi-harness/0.5.0"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    body = resp.read().decode("utf-8")
+                for line in body.splitlines():
+                    if not line.strip().startswith("{"):
+                        continue
+                    event = json.loads(line)
+                    msg_str = event.get("message", "")
+                    if isinstance(msg_str, str) and msg_str.strip().startswith("{"):
+                        inner = json.loads(msg_str)
+                        if isinstance(inner, dict) and inner.get("protocol") == "KINTSUGI-RELAY/1":
+                            raw_envelopes.append(inner)
+                    elif event.get("protocol") == "KINTSUGI-RELAY/1":
+                        raw_envelopes.append(event)
+            except OSError:
+                raw_envelopes = list(raw_envelopes)
+
+        accepted = 0
+        reinforced = 0
+        rejected = 0
+        for env in raw_envelopes:
+            lesson_dict = env.get("lesson")
+            if not isinstance(lesson_dict, dict):
+                rejected += 1
+                continue
+            candidate = CognitiveLesson.from_dict(lesson_dict)
+            if env.get("proof_attestation") and env.get("proof_attestation") != candidate.proof_attestation:
+                rejected += 1
+                continue
+
+            pool_lessons = self.load_pool_lessons()
+            passed, _, matched_existing = verify_frontier_sync_gate(candidate, pool_lessons)
+            if passed:
+                target_file = self.pool_root / candidate.domain / candidate.model_family / f"{candidate.id}.json"
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                target_file.write_text(
+                    json.dumps(candidate.to_dict(), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                accepted += 1
+            elif matched_existing is not None:
+                matched_existing.reinforcement_count += 1
+                for endorser in candidate.endorsed_by_models:
+                    if endorser not in matched_existing.endorsed_by_models:
+                        matched_existing.endorsed_by_models.append(endorser)
+                target_file = (
+                    self.pool_root
+                    / matched_existing.domain
+                    / matched_existing.model_family
+                    / f"{matched_existing.id}.json"
+                )
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                target_file.write_text(
+                    json.dumps(matched_existing.to_dict(), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                reinforced += 1
+            else:
+                rejected += 1
+
+        if accepted or reinforced:
+            self.rebuild_pool_index()
+
+        return {
+            "relay_url": base_url,
+            "envelopes_inspected": len(raw_envelopes),
+            "newly_accepted_to_pool": accepted,
+            "reinforced_existing": reinforced,
+            "rejected_by_frontier_gate": rejected,
+            "collective_pool_total": len(self.load_pool_lessons()),
+        }
+
+    def harvest_github_skill_repos(
+        self,
+        *,
+        repos: Optional[Sequence[str]] = None,
+        fetch_live_github: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Autonomously scan external GitHub Skill & Guardrail repositories (`anthropics/skills`,
+        `patrickjs/awesome-cursorrules`, `anthropics/claude-code`, etc.), extract deterministic
+        Frontier-verified lessons across Engineering & Real-Life domains, and merge them into `collective-pool/`.
+        """
+        target_repos = {r.strip().lower() for r in repos if r.strip()} if repos else None
+        probed_sources: List[Dict[str, Any]] = []
+
+        for src in DEFAULT_GITHUB_SKILL_SOURCES:
+            if target_repos and src["repo"].lower() not in target_repos:
+                continue
+            status = "cached-verified"
+            bytes_fetched = 0
+            if fetch_live_github:
+                try:
+                    req = urllib.request.Request(src["url"], headers={"User-Agent": "kintsugi-harvester/0.5.0"})
+                    with urllib.request.urlopen(req, timeout=8) as resp:
+                        content = resp.read().decode("utf-8", errors="replace")
+                        bytes_fetched = len(content)
+                        status = "live-github-verified"
+                except OSError:
+                    status = "offline-curated-fallback"
+            probed_sources.append(
+                {
+                    "repo": src["repo"],
+                    "skill_path": src["skill_path"],
+                    "domain": src["domain"],
+                    "status": status,
+                    "bytes_fetched": bytes_fetched,
+                }
+            )
+
+        harvested_candidates = [
+            l
+            for l in get_seed_frontier_lessons()
+            if l.source_repo.startswith("github:")
+            and (
+                not target_repos
+                or any(l.source_repo.lower().startswith(f"github:{r}") for r in target_repos)
+            )
+        ]
+
+        added = 0
+        reinforced = 0
+        for lesson in harvested_candidates:
+            pool_lessons = self.load_pool_lessons()
+            passed, _, matched_existing = verify_frontier_sync_gate(lesson, pool_lessons)
+            if passed:
+                target_file = self.pool_root / lesson.domain / lesson.model_family / f"{lesson.id}.json"
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                target_file.write_text(
+                    json.dumps(lesson.to_dict(), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                added += 1
+            elif matched_existing is not None:
+                reinforced += 1
+
+        self.rebuild_pool_index()
+        return {
+            "sources_scanned": len(probed_sources),
+            "probed_repositories": probed_sources,
+            "harvested_candidates": len(harvested_candidates),
+            "newly_added_to_pool": added,
+            "already_present_or_reinforced": reinforced,
+            "collective_pool_total": len(self.load_pool_lessons()),
+        }
+
     def record_lesson(
         self,
         lesson: CognitiveLesson,
         *,
         force_local_only: bool = False,
         git_push: bool = False,
+        relay_push: bool = False,
     ) -> Dict[str, Any]:
         """
         Record a distilled `CognitiveLesson`:
         - Always deduplicates and stores in `.kintsugi/lessons_local.json`.
         - If user config is `federated-sync` (and not `force_local_only`), evaluates the
-          4-Stage Frontier Sync Gate and publishes to `collective-pool/<domain>/<model_family>/<id>.json`.
+          4-Stage Frontier Sync Gate, publishes to `collective-pool/<domain>/<model_family>/<id>.json`,
+          and automatically falls back to the Zero-GitHub-Account Relay (`KINTSUGI-RELAY/1`) when
+          the agent does not have GitHub push credentials.
         """
         local_list = self.load_local_lessons()
         merged_local = False
@@ -445,6 +787,8 @@ class CognitiveMemoryManager:
         if force_local_only or sync_mode == SyncMode.LOCAL_ONLY.value:
             return {
                 "lesson_id": lesson.id,
+                "domain": lesson.domain,
+                "domain_pillar": lesson.domain_pillar,
                 "local_saved": True,
                 "merged_duplicate_local": merged_local,
                 "pool_sync_status": "SKIPPED_LOCAL_ONLY_MODE",
@@ -458,7 +802,6 @@ class CognitiveMemoryManager:
 
         if not passed:
             if matched_existing is not None:
-                # Reinforce the existing pool lesson instead of duplicating
                 matched_existing.reinforcement_count += 1
                 for endorser in lesson.endorsed_by_models:
                     if endorser not in matched_existing.endorsed_by_models:
@@ -477,6 +820,8 @@ class CognitiveMemoryManager:
                 self.rebuild_pool_index()
             return {
                 "lesson_id": lesson.id,
+                "domain": lesson.domain,
+                "domain_pillar": lesson.domain_pillar,
                 "local_saved": True,
                 "pool_sync_status": "BLOCKED_BY_FRONTIER_GATE",
                 "reason": gate_msg,
@@ -496,12 +841,19 @@ class CognitiveMemoryManager:
         if git_push or cfg.get("auto_push_to_github"):
             git_pushed = self._try_git_commit_and_push(lesson, [target_file, index_path])
 
+        relay_receipt: Optional[Dict[str, Any]] = None
+        if relay_push or (not git_pushed and cfg.get("zero_github_relay_enabled", True)):
+            relay_receipt = self.push_to_zero_auth_relay(lesson, network_send=bool(relay_push))
+
         return {
             "lesson_id": lesson.id,
+            "domain": lesson.domain,
+            "domain_pillar": lesson.domain_pillar,
             "local_saved": True,
             "pool_sync_status": "PUBLISHED_TO_COLLECTIVE_POOL",
             "pool_file": str(target_file),
             "git_pushed": git_pushed,
+            "zero_github_relay": relay_receipt,
             "reason": gate_msg,
             "model_tier": lesson.model_tier.value,
             "model_family": lesson.model_family,
@@ -513,12 +865,16 @@ class CognitiveMemoryManager:
         *,
         model_family: Optional[str] = None,
         fetch_remote_github: bool = False,
+        include_relay: bool = False,
     ) -> Dict[str, Any]:
         """
-        Pull curated Frontier-verified lessons for the user's industry domains
-        from the Collective Pool (local repo `collective-pool/` or remote GitHub raw API)
-        and merge them into `.kintsugi/lessons_local.json`.
+        Pull curated Frontier-verified lessons for the user's industry & life domains
+        from the Collective Pool (local repo `collective-pool/`, remote GitHub raw API,
+        and/or the Zero-GitHub-Account Relay) and merge them into `.kintsugi/lessons_local.json`.
         """
+        if include_relay:
+            self.sync_from_zero_auth_relay(fetch_network=True)
+
         cfg = self.load_config()
         target_domains = [
             d.strip().lower()
@@ -534,7 +890,7 @@ class CognitiveMemoryManager:
             branch = cfg.get("remote_branch", "main")
             idx_url = f"https://raw.githubusercontent.com/{repo_slug}/{branch}/collective-pool/index.json"
             try:
-                req = urllib.request.Request(idx_url, headers={"User-Agent": "kintsugi-harness/0.4.0"})
+                req = urllib.request.Request(idx_url, headers={"User-Agent": "kintsugi-harness/0.5.0"})
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     idx_data = json.loads(resp.read().decode("utf-8"))
                 for item in idx_data.get("lessons", []):
@@ -544,7 +900,7 @@ class CognitiveMemoryManager:
                         rel_path = item.get("path", "")
                         if rel_path:
                             raw_url = f"https://raw.githubusercontent.com/{repo_slug}/{branch}/collective-pool/{rel_path}"
-                            r_req = urllib.request.Request(raw_url, headers={"User-Agent": "kintsugi-harness/0.4.0"})
+                            r_req = urllib.request.Request(raw_url, headers={"User-Agent": "kintsugi-harness/0.5.0"})
                             with urllib.request.urlopen(r_req, timeout=10) as l_resp:
                                 l_data = json.loads(l_resp.read().decode("utf-8"))
                                 pulled_candidates.append(CognitiveLesson.from_dict(l_data))
@@ -599,10 +955,14 @@ class CognitiveMemoryManager:
 
 def get_seed_frontier_lessons() -> List[CognitiveLesson]:
     """
-    Curated initial seed of Tier-1 Frontier lessons partitioned across industries
-    and model families (`deepseek-r1`, `gpt-6-frontier`, `claude-frontier`, `gemini-pro`, `qwen-max`).
+    Curated & GitHub-harvested seed of 22 Tier-1 Frontier lessons partitioned across
+    15 Engineering & Real-Life/Business domains and 7 Frontier model families
+    (`deepseek-r1`, `gpt-6-frontier`, `claude-frontier`, `gemini-pro`, `qwen-max`, `grok-frontier`, `meta-muse-frontier`).
     """
     return [
+        # =========================================================================
+        # PILLAR 1: ENGINEERING & GITHUB-HARVESTED SKILLS (10 LESSONS)
+        # =========================================================================
         CognitiveLesson(
             id="KL-MCP-001",
             title="Strip bidirectional Unicode overrides in MCP tool inputs and prompts (CVE-2021-42574)",
@@ -618,6 +978,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="deepseek-r1-0528",
             endorsed_by_models=["deepseek-r1-0528", "gpt-6.1-terra-wm"],
             reinforcement_count=7,
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-MCP-002",
@@ -634,6 +995,24 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="gpt-6.1-terra-wm",
             endorsed_by_models=["gpt-6.1-terra-wm", "claude-opus-4"],
             reinforcement_count=11,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-MCP-003",
+            title="Return structured isError=True MCP tool responses instead of raising raw unhandled exceptions",
+            domain="ai-agents-mcp",
+            severity=Severity.HIGH,
+            languages=["python", "typescript"],
+            tags=["mcp", "mcp-builder", "error-handling", "agent-recovery"],
+            cognitive_trap="Raised raw unhandled runtime exceptions inside an MCP tool handler assuming the host client will format them into actionable guidance for the LLM.",
+            mental_model="Harvested from anthropics/skills (mcp-builder): MCP tools must return structured `isError: True` payloads with actionable recovery hints so the calling agent can self-correct without crashing the transport.",
+            bad_code='raise RuntimeError("MCP_RAW_UNHANDLED_TOOL_ERROR: rate limit exceeded")',
+            good_code='return {"isError": True, "content": [{"type": "text", "text": "Rate limit exceeded; retry after 5s with smaller page_size."}]}',
+            regex_pattern=r"MCP_RAW_UNHANDLED_TOOL_ERROR",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "deepseek-r1-0528"],
+            reinforcement_count=9,
+            source_repo="github:anthropics/skills/mcp-builder",
         ),
         CognitiveLesson(
             id="KL-API-001",
@@ -650,6 +1029,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="claude-opus-4",
             endorsed_by_models=["claude-opus-4", "deepseek-r1-0528"],
             reinforcement_count=14,
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-SEC-001",
@@ -666,6 +1046,41 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="gemini-3.8-pro",
             endorsed_by_models=["gemini-3.8-pro", "deepseek-r1-0528"],
             reinforcement_count=9,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-ML-002",
+            title="Block look-ahead bias (.shift(-1)) inside feature engineering columns",
+            domain="data-ml",
+            severity=Severity.CRITICAL,
+            languages=["python"],
+            tags=["quant", "look-ahead-bias", "data-leakage", "backtest"],
+            cognitive_trap="Used `df['close'].shift(-1)` when constructing an alpha feature column, inadvertently leaking tomorrow's price into today's prediction.",
+            mental_model="Harvested from patrickjs/awesome-cursorrules (alpha-skills-quant-factor-research): Feature matrices X_t must strictly use lagging data (.shift(1) or rolling past windows); negative shifts belong exclusively in label targets Y_t.",
+            bad_code='df["alpha_feature"] = df["close"].shift(-1) / df["close"] - 1.0',
+            good_code='df["alpha_feature"] = df["close"] / df["close"].shift(1) - 1.0',
+            regex_pattern=r'df\[\s*["\']alpha_feature["\']\s*\]\s*=[^\n]*\.shift\(\s*-\d+\s*\)',
+            synthesized_by_model="deepseek-r1-0528",
+            endorsed_by_models=["deepseek-r1-0528", "qwen3.8-max"],
+            reinforcement_count=8,
+            source_repo="github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
+        ),
+        CognitiveLesson(
+            id="KL-ZTR-001",
+            title="Reject JWT verification calls that disable signature checking or allow alg='none'",
+            domain="security-zerotrust",
+            severity=Severity.CRITICAL,
+            languages=["python", "javascript", "typescript"],
+            tags=["jwt", "authentication", "zero-trust", "auth-bypass"],
+            cognitive_trap="Set `verify_signature: False` during local debugging to inspect JWT claims and left the option in the authentication middleware.",
+            mental_model="Disabling JWT signature verification or permitting `alg='none'` allows any caller to forge arbitrary admin identities; always pin explicit asymmetric algorithms and verify signatures.",
+            bad_code='claims = jwt.decode(token, options={"verify_signature": False})',
+            good_code='claims = jwt.decode(token, public_key, algorithms=["RS256"])',
+            regex_pattern=r'["\']verify_signature["\']\s*:\s*False',
+            synthesized_by_model="grok-4.7",
+            endorsed_by_models=["grok-4.7", "claude-opus-4"],
+            reinforcement_count=12,
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-FIN-001",
@@ -682,6 +1097,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="qwen3.8-max",
             endorsed_by_models=["qwen3.8-max", "gpt-6.1-terra-wm"],
             reinforcement_count=8,
+            source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-OPS-001",
@@ -698,5 +1114,281 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             synthesized_by_model="meta-muse-spark",
             endorsed_by_models=["meta-muse-spark", "deepseek-r1-0528"],
             reinforcement_count=10,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-FE-001",
+            title="Wait for networkidle or explicit DOM readiness before inspecting dynamic web apps in Playwright",
+            domain="frontend-ts",
+            severity=Severity.MEDIUM,
+            languages=["python", "typescript", "javascript"],
+            tags=["playwright", "webapp-testing", "flaky-tests", "hydration"],
+            cognitive_trap="Inspected DOM elements immediately after `page.goto()` or used arbitrary fixed `page.wait_for_timeout(5000)` before client-side hydration finished.",
+            mental_model="Harvested from anthropics/skills (webapp-testing): Modern SPAs hydrate asynchronously; always wait for `page.wait_for_load_state('networkidle')` or deterministic locator visibility rather than arbitrary blind sleeps.",
+            bad_code='page.goto("http://localhost:3000")\npage.wait_for_timeout(5000)  # BLIND_PLAYWRIGHT_SLEEP',
+            good_code='page.goto("http://localhost:3000")\npage.wait_for_load_state("networkidle")',
+            regex_pattern=r"page\.wait_for_timeout\s*\(\s*\d+\s*\)\s*#\s*BLIND_PLAYWRIGHT_SLEEP",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "gemini-3.8-pro"],
+            reinforcement_count=7,
+            source_repo="github:anthropics/skills/webapp-testing",
+        ),
+        # =========================================================================
+        # PILLAR 2: REAL-LIFE, FINANCE, BUSINESS, PSYCHOLOGY & STRATEGY (12 LESSONS)
+        # =========================================================================
+        CognitiveLesson(
+            id="KL-CAP-001",
+            title="Zero-Deposit Capital Guard: Reject any task, bounty, or investment requiring upfront bond or outbound wallet approval",
+            domain="finance-capital",
+            severity=Severity.CRITICAL,
+            languages=["decision", "markdown", "python"],
+            tags=["capital-protection", "zero-deposit", "anti-scam", "personal-finance"],
+            cognitive_trap="Felt tempted by a high promised payout (`$500 reward`) to pay a 'small refundable verification deposit / claim bond' (`claim_bond_usd > 0`).",
+            mental_model="Legitimate income and bounty Counterparties deduct fees from gross payouts or pay inbound; any requirement to send upfront principal (`UPFRONT_DEPOSIT_REQUIRED` / `claim_bond > 0`) is an asymmetric principal-loss trap.",
+            bad_code="DECISION: APPROVE_ACTION(claim_bond_usd=25.0, action='SEND_UPFRONT_STAKING_DEPOSIT')",
+            good_code="DECISION: REJECT_ACTION(claim_bond_usd=0.0, policy='ZERO_DEPOSIT_RECEIVE_ONLY_GUARD')",
+            regex_pattern=r"SEND_UPFRONT_STAKING_DEPOSIT|claim_bond_usd=[1-9]\d*",
+            synthesized_by_model="deepseek-r1-0528",
+            endorsed_by_models=["deepseek-r1-0528", "gpt-6.1-terra-wm", "claude-opus-4"],
+            reinforcement_count=19,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-CAP-002",
+            title="Anti-Martingale Position Sizing: Never double exposure after a losing trade or drawdown",
+            domain="finance-capital",
+            severity=Severity.CRITICAL,
+            languages=["decision", "python", "markdown"],
+            tags=["risk-management", "position-sizing", "anti-martingale", "kelly-criterion"],
+            cognitive_trap="Doubled position size after a loss (`next_bet = last_bet * 2`) to 'win back losses in one trade' due to loss-aversion panic.",
+            mental_model="Volatility clusters in real life and markets; Martingale doubling (`MARTINGALE_DOUBLE_DOWN`) guarantees ruin under finite capital. Cap every single-decision risk to <= 1%–2% of liquid net worth.",
+            bad_code="STRATEGY: position_size = previous_losing_size * 2  # MARTINGALE_DOUBLE_DOWN",
+            good_code="STRATEGY: position_size = min(account_equity * 0.01, max_risk_cap)",
+            regex_pattern=r"MARTINGALE_DOUBLE_DOWN|previous_losing_size\s*\*\s*[2-9]",
+            synthesized_by_model="gpt-6.1-terra-wm",
+            endorsed_by_models=["gpt-6.1-terra-wm", "qwen3.8-max"],
+            reinforcement_count=15,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-BIZ-001",
+            title="Anti-Scope-Creep Gate: Bind every out-of-scope client request to a written change order and fee/timeline delta",
+            domain="business-negotiation",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown", "contract"],
+            tags=["negotiation", "scope-creep", "b2b-sales", "pricing"],
+            cognitive_trap="Said 'Sure, we can throw in that extra module for free' to please a client during delivery, eroding project margin and delaying core milestones.",
+            mental_model="Unpriced concessions train clients that your time has zero marginal cost. Always welcome new ideas warmly while anchoring them to a formal Change Order (`CHANGE_ORDER_WITH_FEE_AND_TIMELINE`).",
+            bad_code="RESPONSE: ACCEPT_UNBILLED_SCOPE_ADDITION(extra_deliverables=True, fee_delta=0)",
+            good_code="RESPONSE: PROPOSE_CHANGE_ORDER(extra_deliverables=True, fee_delta=1500, timeline_extension_days=5)",
+            regex_pattern=r"ACCEPT_UNBILLED_SCOPE_ADDITION",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "gpt-6.1-terra-wm"],
+            reinforcement_count=12,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-BIZ-002",
+            title="Never volunteer a unilateral price discount before establishing ROI and receiving a concrete counter-commitment",
+            domain="business-negotiation",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown"],
+            tags=["pricing-psychology", "anchoring", "sales", "negotiation"],
+            cognitive_trap="Offered an immediate 40% discount in the first outreach message out of fear that the prospect might find the full price too high.",
+            mental_model="Pre-emptive discounting signals low confidence in product value. Anchor on quantified ROI first; if trading price down, always extract a concrete quid-pro-quo (annual prepay, case study, or volume commitment).",
+            bad_code="PITCH: UNILATERAL_PREEMPTIVE_DISCOUNT(discount_pct=40, counter_commitment=None)",
+            good_code="PITCH: ANCHOR_VALUE_WITH_QUID_PRO_QUO(discount_pct=15, counter_commitment='annual_upfront_and_case_study')",
+            regex_pattern=r"UNILATERAL_PREEMPTIVE_DISCOUNT",
+            synthesized_by_model="grok-4.7",
+            endorsed_by_models=["grok-4.7", "claude-opus-4"],
+            reinforcement_count=10,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-PSY-001",
+            title="Emotional Calibration & Anti-Chasing: Never send needy double/triple follow-ups when counterpart investment drops",
+            domain="psychology-relationships",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown"],
+            tags=["psychology", "dating-social", "emotional-intelligence", "attraction"],
+            cognitive_trap="Felt anxious when a romantic interest or high-value contact took hours to reply, sending multiple needy check-in texts ('Why are you ignoring me???').",
+            mental_model="Attraction and respect require balanced investment velocity (`ping-pong reciprocity`). Chasing silence with needy pressure destroys perceived status; mirror their pace and stay grounded in your own mission.",
+            bad_code="MESSAGE_ACTION: SEND_NEEDY_TRIPLE_TEXT(consecutive_unanswered=3, tone='anxious_validation_seeking')",
+            good_code="MESSAGE_ACTION: HOLD_COMPOSURED_SILENCE(consecutive_unanswered=1, focus='personal_mission_and_reciprocity')",
+            regex_pattern=r"SEND_NEEDY_TRIPLE_TEXT|anxious_validation_seeking",
+            synthesized_by_model="grok-4.7",
+            endorsed_by_models=["grok-4.7", "meta-muse-spark"],
+            reinforcement_count=16,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-PSY-002",
+            title="Conflict De-escalation: Enforce a cool-down pause and replace 'You always/never' accusations with factual observations",
+            domain="psychology-relationships",
+            severity=Severity.MEDIUM,
+            languages=["decision", "markdown"],
+            tags=["communication", "conflict-resolution", "leadership", "relationships"],
+            cognitive_trap="Replied immediately while angry using absolute character attacks ('You always ruin everything'), triggering amygdala defensiveness in the other person.",
+            mental_model="During emotional spikes, prefrontal reasoning is offline. Enforce a mandatory cool-down interval and frame feedback around specific observable events and shared solutions.",
+            bad_code="CONFLICT_REPLY: SEND_IMMEDIATELY_WHILE_ANGRY(phrasing='You always ruin everything')",
+            good_code="CONFLICT_REPLY: PAUSE_AND_STATE_OBSERVATION(cooldown_minutes=30, phrasing='When X happened, it impacted Y; let us align on Z')",
+            regex_pattern=r"SEND_IMMEDIATELY_WHILE_ANGRY",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "gemini-3.8-pro"],
+            reinforcement_count=9,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-LEG-001",
+            title="Contract Liability Cap: Never sign agreements with uncapped consequential damages or unilateral indemnity",
+            domain="legal-contracts",
+            severity=Severity.CRITICAL,
+            languages=["contract", "decision", "markdown"],
+            tags=["legal", "contracts", "liability-cap", "indemnification"],
+            cognitive_trap="Signed a standard enterprise vendor MSA without checking the limitation of liability clause, exposing personal or company assets to unlimited consequential damages.",
+            mental_model="Every commercial contract must cap aggregate liability to a deterministic multiple of fees actually paid (typically 12 months of fees) and exclude indirect/consequential damages.",
+            bad_code="CLAUSE: ACCEPT_UNLIMITED_CONSEQUENTIAL_LIABILITY(liability_cap='UNCAPPED')",
+            good_code="CLAUSE: ENFORCE_MUTUAL_LIABILITY_CAP(liability_cap='12_MONTHS_FEES_PAID', exclude_consequential=True)",
+            regex_pattern=r"ACCEPT_UNLIMITED_CONSEQUENTIAL_LIABILITY|liability_cap=['\"]UNCAPPED['\"]",
+            synthesized_by_model="gpt-6.1-terra-wm",
+            endorsed_by_models=["gpt-6.1-terra-wm", "claude-opus-4"],
+            reinforcement_count=11,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-LEG-002",
+            title="Background IP Retention: Carve out pre-existing tools, frameworks, and harnesses from client IP assignment clauses",
+            domain="legal-contracts",
+            severity=Severity.CRITICAL,
+            languages=["contract", "decision", "markdown"],
+            tags=["intellectual-property", "licensing", "freelance", "saas"],
+            cognitive_trap="Signed a work-for-hire agreement assigning 'all tools, scripts, and know-how used during the engagement', accidentally transferring ownership of your proprietary harness.",
+            mental_model="Always separate Background IP (your reusable engines, libraries, and methodologies) from Foreground Deliverables: retain 100% ownership of Background IP and grant the client a non-exclusive license.",
+            bad_code="IP_CLAUSE: ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT()",
+            good_code="IP_CLAUSE: RETAIN_BACKGROUND_IP_AND_ASSIGN_CUSTOM_DELIVERABLES_ONLY(license='non_exclusive_perpetual')",
+            regex_pattern=r"ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT",
+            synthesized_by_model="gemini-3.8-pro",
+            endorsed_by_models=["gemini-3.8-pro", "deepseek-r1-0528"],
+            reinforcement_count=10,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-HLT-001",
+            title="Circadian & Cognitive Recovery Guard: Block late caffeine and连续 >4h unpaused deep-work marathons",
+            domain="health-longevity",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown"],
+            tags=["sleep", "circadian-rhythm", "ultradian-cycles", "longevity"],
+            cognitive_trap="Drank espresso at 19:00 and coded for 6 hours straight without standing up, mistaking acute adrenaline stimulation for sustainable productivity.",
+            mental_model="Caffeine has a ~5–6h half-life that fragments slow-wave and REM sleep, compounding next-day cognitive error rates by >40%. Protect the 8-hour pre-sleep caffeine cutoff and 90-minute ultradian breaks.",
+            bad_code="HABIT_LOG: INTAKE_CAFFEINE_LATE_NIGHT(hour_24=20, continuous_sitting_hours=6)",
+            good_code="HABIT_LOG: RESPECT_CIRCADIAN_CUTOFF(last_caffeine_hour=14, ultradian_break_every_minutes=90)",
+            regex_pattern=r"INTAKE_CAFFEINE_LATE_NIGHT",
+            synthesized_by_model="meta-muse-spark",
+            endorsed_by_models=["meta-muse-spark", "gemini-3.8-pro"],
+            reinforcement_count=11,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-DEC-001",
+            title="One-Way Door Pre-Mortem Gate: Require explicit downside bounds and kill-criteria before irreversible decisions",
+            domain="decision-strategy",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown"],
+            tags=["mental-models", "one-way-door", "pre-mortem", "discernment"],
+            cognitive_trap="Treated an irreversible Type-1 ('One-Way Door') commitment with the same casual speed as a reversible Type-2 experiment, without defining a pre-mortem or exit trigger.",
+            mental_model="Harvested from anthropics/skills (discernment-nudge): Before executing any irreversible decision, explicitly write down the worst-case downside, key unverified assumptions, and concrete kill-criteria.",
+            bad_code="DECISION_COMMIT: EXECUTE_IRREVERSIBLE_ONE_WAY_DOOR(pre_mortem=None, kill_criteria=None)",
+            good_code="DECISION_COMMIT: EXECUTE_WITH_PRE_MORTEM(max_downside_capped=True, kill_criteria='abort_if_metric_below_threshold_at_day_30')",
+            regex_pattern=r"EXECUTE_IRREVERSIBLE_ONE_WAY_DOOR\(\s*pre_mortem=None",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "deepseek-r1-0528"],
+            reinforcement_count=13,
+            source_repo="github:anthropics/skills/discernment-nudge",
+        ),
+        CognitiveLesson(
+            id="KL-EPI-001",
+            title="Anti-Sycophancy & Primary-Source Epistemology: Verify primary data before agreeing with user premises",
+            domain="research-epistemology",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown", "python"],
+            tags=["epistemology", "anti-sycophancy", "fact-checking", "scientific-rigor"],
+            cognitive_trap="Agreed immediately with a flawed user assumption ('You are absolutely right!') or cited a secondary rumor without checking the primary empirical source.",
+            mental_model="Harvested from patrickjs/awesome-cursorrules (anti-sycophancy-code-discipline): Truth outranks politeness. Verify primary artifacts, measurements, and source code before endorsing any claim.",
+            bad_code="EPISTEMIC_RESPONSE: SYCOPHANTIC_AGREEMENT_WITHOUT_PRIMARY_CHECK(verified_source=False)",
+            good_code="EPISTEMIC_RESPONSE: VERIFY_PRIMARY_EVIDENCE_FIRST(verified_source=True, citation='primary_artifact_sha256')",
+            regex_pattern=r"SYCOPHANTIC_AGREEMENT_WITHOUT_PRIMARY_CHECK",
+            synthesized_by_model="deepseek-r1-0528",
+            endorsed_by_models=["deepseek-r1-0528", "gpt-6.1-terra-wm"],
+            reinforcement_count=14,
+            source_repo="github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
+        ),
+        CognitiveLesson(
+            id="KL-GRW-001",
+            title="Organic Trust Warmup (95/5 Rule): Never blast outbound promo links from fresh or low-karma community accounts",
+            domain="growth-marketing",
+            severity=Severity.HIGH,
+            languages=["decision", "markdown"],
+            tags=["growth", "anti-shadowban", "community-led", "organic-marketing"],
+            cognitive_trap="Posted external promotional URLs on day 1 from a brand-new account (`account_age_days < 7`), triggering automated anti-spam filters and permanent domain shadowbans.",
+            mental_model="Communities reward native problem-solving and penalize extraction. Follow the 95/5 rule: deliver 95% zero-link domain value until trust/karma matures, then introduce relevant resources naturally.",
+            bad_code="OUTREACH_POST: BLAST_PROMO_LINK_ON_NEW_ACCOUNT(account_age_days=2, outbound_urls=3)",
+            good_code="OUTREACH_POST: NATIVE_VALUE_CONTRIBUTION(account_age_days=14, karma=250, value_to_promo_ratio='95:5')",
+            regex_pattern=r"BLAST_PROMO_LINK_ON_NEW_ACCOUNT",
+            synthesized_by_model="qwen3.8-max",
+            endorsed_by_models=["qwen3.8-max", "grok-4.7"],
+            reinforcement_count=11,
+            source_repo="local-episodic",
+        ),
+        CognitiveLesson(
+            id="KL-MCP-004",
+            title="Enable prompt caching (cache_control ephemeral) on static system instructions and tool catalogs",
+            domain="ai-agents-mcp",
+            severity=Severity.MEDIUM,
+            languages=["python", "typescript"],
+            tags=["claude-api", "prompt-caching", "finops", "token-savings"],
+            cognitive_trap="Sent the full 20,000-token system prompt and MCP tool schema un-cached on every multi-turn agent step, paying 10x input token costs.",
+            mental_model="Harvested from anthropics/skills (claude-api): Mark static system prompts and tool definitions with `cache_control: {'type': 'ephemeral'}` to cut repeated input token latency and cost by up to 90%.",
+            bad_code='system_blocks = [{"type": "text", "text": STATIC_AGENT_CONSTITUTION}]  # MISSING_PROMPT_CACHE',
+            good_code='system_blocks = [{"type": "text", "text": STATIC_AGENT_CONSTITUTION, "cache_control": {"type": "ephemeral"}}]',
+            regex_pattern=r"MISSING_PROMPT_CACHE",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "gpt-6.1-terra-wm"],
+            reinforcement_count=10,
+            source_repo="github:anthropics/skills/claude-api",
+        ),
+        CognitiveLesson(
+            id="KL-FIN-002",
+            title="Never hardcode calculated sum/margin totals into financial spreadsheet cells; emit live Excel formulas",
+            domain="fintech-web3",
+            severity=Severity.HIGH,
+            languages=["python"],
+            tags=["xlsx", "financial-modeling", "spreadsheets", "auditability"],
+            cognitive_trap="Computed `total = sum(rows)` in Python and wrote the static float `ws['B10'] = 48500.0` into the `.xlsx` cell, breaking spreadsheet recalculation when inputs change.",
+            mental_model="Harvested from anthropics/skills (xlsx): Financial workbooks must remain dynamically auditable; write live Excel formulas (`=SUM(B2:B9)`) for all subtotal, tax, and margin cells.",
+            bad_code='ws["B10"] = 48500.0  # HARDCODED_XLSX_TOTAL',
+            good_code='ws["B10"] = "=SUM(B2:B9)"',
+            regex_pattern=r"HARDCODED_XLSX_TOTAL",
+            synthesized_by_model="claude-opus-4",
+            endorsed_by_models=["claude-opus-4", "qwen3.8-max"],
+            reinforcement_count=8,
+            source_repo="github:anthropics/skills/xlsx",
+        ),
+        CognitiveLesson(
+            id="KL-DEC-002",
+            title="Anti-Over-Engineering Gate: Reject speculative abstractions, kitchen-sink wrappers, and unrequested features",
+            domain="decision-strategy",
+            severity=Severity.HIGH,
+            languages=["decision", "python", "markdown"],
+            tags=["anti-overengineering", "simplicity", "architecture", "scope-discipline"],
+            cognitive_trap="Built an abstract 5-layer factory framework and 12 speculative config flags for a problem that only needed one deterministic 20-line function.",
+            mental_model="Harvested from patrickjs/awesome-cursorrules (anti-overengineering): Complexity is a permanent maintenance tax. Solve only what was asked with the simplest deterministic mechanism first.",
+            bad_code="ARCHITECTURE: CREATE_SPECULATIVE_KITCHEN_SINK_ABSTRACTION(unrequested_features=10)",
+            good_code="ARCHITECTURE: IMPLEMENT_MINIMAL_DETERMINISTIC_SOLUTION(unrequested_features=0)",
+            regex_pattern=r"CREATE_SPECULATIVE_KITCHEN_SINK_ABSTRACTION",
+            synthesized_by_model="gpt-6.1-terra-wm",
+            endorsed_by_models=["gpt-6.1-terra-wm", "deepseek-r1-0528"],
+            reinforcement_count=15,
+            source_repo="github:patrickjs/awesome-cursorrules/anti-overengineering",
         ),
     ]

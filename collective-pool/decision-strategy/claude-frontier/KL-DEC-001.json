@@ -1,0 +1,35 @@
+{
+  "id": "KL-DEC-001",
+  "title": "One-Way Door Pre-Mortem Gate: Require explicit downside bounds and kill-criteria before irreversible decisions",
+  "domain": "decision-strategy",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "mental-models",
+    "one-way-door",
+    "pre-mortem",
+    "discernment"
+  ],
+  "cognitive_trap": "Treated an irreversible Type-1 ('One-Way Door') commitment with the same casual speed as a reversible Type-2 experiment, without defining a pre-mortem or exit trigger.",
+  "mental_model": "Harvested from anthropics/skills (discernment-nudge): Before executing any irreversible decision, explicitly write down the worst-case downside, key unverified assumptions, and concrete kill-criteria.",
+  "bad_code": "DECISION_COMMIT: EXECUTE_IRREVERSIBLE_ONE_WAY_DOOR(pre_mortem=None, kill_criteria=None)",
+  "good_code": "DECISION_COMMIT: EXECUTE_WITH_PRE_MORTEM(max_downside_capped=True, kill_criteria='abort_if_metric_below_threshold_at_day_30')",
+  "regex_pattern": "EXECUTE_IRREVERSIBLE_ONE_WAY_DOOR\\(\\s*pre_mortem=None",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 13,
+  "source_repo": "github:anthropics/skills/discernment-nudge",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "2dcfffe195f36a6f",
+  "proof_attestation": "cafc0456b2b97e1e1043f573"
+}

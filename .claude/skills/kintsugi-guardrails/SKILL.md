@@ -1,7 +1,7 @@
 ---
 name: kintsugi-guardrails
 description: "Self-evolved security, reliability, and correctness guardrails enforced by Kintsugi AST/Regex scanner. Activate before editing code or running shell commands."
-tags: ["anti-hallucination", "archive-extraction", "ast", "authentication", "base-image", "bash", "browser", "bug", "child_process", "claude-code"]
+tags: ["anti-hallucination", "ast", "authentication", "bash", "browser", "bug", "child_process", "claude-code", "command-injection", "cors"]
 ---
 
 # kintsugi-guardrails
@@ -216,22 +216,6 @@ client := &http.Client{Timeout: 10 * time.Second}
 resp, err := client.Get("https://api.example.com/status")
 ```
 
-### `KS-017` · [HIGH] Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559)
-- **Root cause:** tarfile.extractall() is called without a safety filter, so archive members containing paths such as ../target or absolute paths can write outside dest_dir.
-- **Why this matters:** The data extraction filter rejects members that escape the destination and restricts unsafe archive features. This requires a Python version that supports extraction filters; otherwise, validate each member path before extraction.
-
-**Avoid (`❌ Anti-Pattern`):**
-```python
-with tarfile.open(archive_path) as tar:
-    tar.extractall(path=dest_dir)
-```
-
-**Prefer (`✅ Verified Pattern`):**
-```python
-with tarfile.open(archive_path) as tar:
-    tar.extractall(path=dest_dir, filter="data")
-```
-
 ### `KS-004` · [MEDIUM] Python mutable default argument in function signature
 - **Root cause:** Default list, dict, or set literals in Python function definitions are evaluated once at import time and shared across calls.
 - **Why this matters:** Eliminates cross-request state leakage across function invocations.
@@ -288,20 +272,4 @@ try {
 } finally {
   await browser.close();
 }
-```
-
-### `KS-018` · [MEDIUM] Pin Docker base images to an immutable digest
-- **Root cause:** The Dockerfile uses the mutable python:latest tag, whose image contents can change between builds.
-- **Why this matters:** An image digest pins the exact base image content, making builds reproducible and preventing unexpected changes from a mutable tag. Replace the placeholder with the verified digest for the intended Python image, and update it deliberately for security fixes.
-
-**Avoid (`❌ Anti-Pattern`):**
-```dockerfile
-FROM python:latest
-WORKDIR /app
-```
-
-**Prefer (`✅ Verified Pattern`):**
-```dockerfile
-FROM python:3.12.9@sha256:<verified-image-digest>
-WORKDIR /app
 ```

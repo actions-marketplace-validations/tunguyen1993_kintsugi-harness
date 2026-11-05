@@ -1,0 +1,36 @@
+{
+  "id": "KL-CAP-002",
+  "title": "Anti-Martingale Position Sizing: Never double exposure after a losing trade or drawdown",
+  "domain": "finance-capital",
+  "severity": "CRITICAL",
+  "languages": [
+    "decision",
+    "python",
+    "markdown"
+  ],
+  "tags": [
+    "risk-management",
+    "position-sizing",
+    "anti-martingale",
+    "kelly-criterion"
+  ],
+  "cognitive_trap": "Doubled position size after a loss (`next_bet = last_bet * 2`) to 'win back losses in one trade' due to loss-aversion panic.",
+  "mental_model": "Volatility clusters in real life and markets; Martingale doubling (`MARTINGALE_DOUBLE_DOWN`) guarantees ruin under finite capital. Cap every single-decision risk to <= 1%–2% of liquid net worth.",
+  "bad_code": "STRATEGY: position_size = previous_losing_size * 2  # MARTINGALE_DOUBLE_DOWN",
+  "good_code": "STRATEGY: position_size = min(account_equity * 0.01, max_risk_cap)",
+  "regex_pattern": "MARTINGALE_DOUBLE_DOWN|previous_losing_size\\s*\\*\\s*[2-9]",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "qwen3.8-max"
+  ],
+  "reinforcement_count": 15,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "887bf85630f37071",
+  "proof_attestation": "70c886660bd08926baf26328"
+}

@@ -19,6 +19,7 @@ from kintsugi.cognition import (
     ModelTier,
     SyncMode,
     get_seed_frontier_lessons,
+    verify_frontier_sync_gate,
 )
 from kintsugi.compiler import BOUNDARY_END, BOUNDARY_START, SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
@@ -437,6 +438,37 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
                 pull_res = mgr2.pull_lessons_by_domain(["ai-agents-mcp"])
                 self.assertEqual(pull_res["newly_merged_to_local"], 1)
                 self.assertEqual(len(mgr2.load_local_lessons()), 1)
+
+    def test_real_life_domains_and_25_seed_frontier_lessons_pass_verification(self) -> None:
+        seeds = get_seed_frontier_lessons()
+        self.assertEqual(len(seeds), 25)
+        pillars = {s.domain_pillar for s in seeds}
+        self.assertEqual(pillars, {"engineering", "life-and-business"})
+        for lesson in seeds:
+            ok, msg, _ = verify_frontier_sync_gate(lesson, ())
+            self.assertTrue(ok, f"{lesson.id} failed gate: {msg}")
+
+    def test_zero_github_account_relay_and_github_skill_harvester(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            mgr = CognitiveMemoryManager(ws)
+
+            # 1. Agent without GitHub account pushes a real-life finance-capital lesson to Zero-Auth Relay
+            life_lesson = [l for l in get_seed_frontier_lessons() if l.id == "KL-CAP-001"][0]
+            relay_res = mgr.push_to_zero_auth_relay(life_lesson, network_send=False)
+            self.assertTrue(relay_res["relay_pushed"])
+            self.assertEqual(relay_res["protocol"], "KINTSUGI-RELAY/1")
+
+            # 2. Sync from relay ingests and verifies the lesson into collective-pool/
+            sync_res = mgr.sync_from_zero_auth_relay(fetch_network=False)
+            self.assertEqual(sync_res["newly_accepted_to_pool"], 1)
+            self.assertEqual(len(mgr.load_pool_lessons(domains=["finance-capital"])), 1)
+
+            # 3. Autonomous GitHub Skill Harvester scans and adds the 8 GitHub-sourced skills
+            harv_res = mgr.harvest_github_skill_repos(fetch_live_github=False)
+            self.assertEqual(harv_res["sources_scanned"], 8)
+            self.assertEqual(harv_res["newly_added_to_pool"], 8)
+            self.assertEqual(harv_res["collective_pool_total"], 9)
 
 
 if __name__ == "__main__":

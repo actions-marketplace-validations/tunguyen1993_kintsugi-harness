@@ -1,0 +1,36 @@
+{
+  "id": "KL-EPI-001",
+  "title": "Anti-Sycophancy & Primary-Source Epistemology: Verify primary data before agreeing with user premises",
+  "domain": "research-epistemology",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown",
+    "python"
+  ],
+  "tags": [
+    "epistemology",
+    "anti-sycophancy",
+    "fact-checking",
+    "scientific-rigor"
+  ],
+  "cognitive_trap": "Agreed immediately with a flawed user assumption ('You are absolutely right!') or cited a secondary rumor without checking the primary empirical source.",
+  "mental_model": "Harvested from patrickjs/awesome-cursorrules (anti-sycophancy-code-discipline): Truth outranks politeness. Verify primary artifacts, measurements, and source code before endorsing any claim.",
+  "bad_code": "EPISTEMIC_RESPONSE: SYCOPHANTIC_AGREEMENT_WITHOUT_PRIMARY_CHECK(verified_source=False)",
+  "good_code": "EPISTEMIC_RESPONSE: VERIFY_PRIMARY_EVIDENCE_FIRST(verified_source=True, citation='primary_artifact_sha256')",
+  "regex_pattern": "SYCOPHANTIC_AGREEMENT_WITHOUT_PRIMARY_CHECK",
+  "ast_rule": null,
+  "synthesized_by_model": "deepseek-r1-0528",
+  "model_family": "deepseek-r1",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "deepseek-r1-0528",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 14,
+  "source_repo": "github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "40519126664c82a5",
+  "proof_attestation": "f2aa5dcc315090b155884586"
+}

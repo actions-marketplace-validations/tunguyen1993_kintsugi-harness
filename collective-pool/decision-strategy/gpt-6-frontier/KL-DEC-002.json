@@ -1,0 +1,36 @@
+{
+  "id": "KL-DEC-002",
+  "title": "Anti-Over-Engineering Gate: Reject speculative abstractions, kitchen-sink wrappers, and unrequested features",
+  "domain": "decision-strategy",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "python",
+    "markdown"
+  ],
+  "tags": [
+    "anti-overengineering",
+    "simplicity",
+    "architecture",
+    "scope-discipline"
+  ],
+  "cognitive_trap": "Built an abstract 5-layer factory framework and 12 speculative config flags for a problem that only needed one deterministic 20-line function.",
+  "mental_model": "Harvested from patrickjs/awesome-cursorrules (anti-overengineering): Complexity is a permanent maintenance tax. Solve only what was asked with the simplest deterministic mechanism first.",
+  "bad_code": "ARCHITECTURE: CREATE_SPECULATIVE_KITCHEN_SINK_ABSTRACTION(unrequested_features=10)",
+  "good_code": "ARCHITECTURE: IMPLEMENT_MINIMAL_DETERMINISTIC_SOLUTION(unrequested_features=0)",
+  "regex_pattern": "CREATE_SPECULATIVE_KITCHEN_SINK_ABSTRACTION",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 15,
+  "source_repo": "github:patrickjs/awesome-cursorrules/anti-overengineering",
+  "created_at": "2026-11-05T08:04:21Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "cccadab4e6ea7597",
+  "proof_attestation": "b9a7a38b4fe5e55c0edacc42"
+}

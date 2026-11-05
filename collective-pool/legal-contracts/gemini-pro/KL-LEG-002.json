@@ -1,0 +1,36 @@
+{
+  "id": "KL-LEG-002",
+  "title": "Background IP Retention: Carve out pre-existing tools, frameworks, and harnesses from client IP assignment clauses",
+  "domain": "legal-contracts",
+  "severity": "CRITICAL",
+  "languages": [
+    "contract",
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "intellectual-property",
+    "licensing",
+    "freelance",
+    "saas"
+  ],
+  "cognitive_trap": "Signed a work-for-hire agreement assigning 'all tools, scripts, and know-how used during the engagement', accidentally transferring ownership of your proprietary harness.",
+  "mental_model": "Always separate Background IP (your reusable engines, libraries, and methodologies) from Foreground Deliverables: retain 100% ownership of Background IP and grant the client a non-exclusive license.",
+  "bad_code": "IP_CLAUSE: ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT()",
+  "good_code": "IP_CLAUSE: RETAIN_BACKGROUND_IP_AND_ASSIGN_CUSTOM_DELIVERABLES_ONLY(license='non_exclusive_perpetual')",
+  "regex_pattern": "ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT",
+  "ast_rule": null,
+  "synthesized_by_model": "gemini-3.8-pro",
+  "model_family": "gemini-pro",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gemini-3.8-pro",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 10,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "a0132d014d20168a",
+  "proof_attestation": "295c7160d99a0957bc52e78a"
+}

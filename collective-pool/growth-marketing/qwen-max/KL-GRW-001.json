@@ -1,0 +1,35 @@
+{
+  "id": "KL-GRW-001",
+  "title": "Organic Trust Warmup (95/5 Rule): Never blast outbound promo links from fresh or low-karma community accounts",
+  "domain": "growth-marketing",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "growth",
+    "anti-shadowban",
+    "community-led",
+    "organic-marketing"
+  ],
+  "cognitive_trap": "Posted external promotional URLs on day 1 from a brand-new account (`account_age_days < 7`), triggering automated anti-spam filters and permanent domain shadowbans.",
+  "mental_model": "Communities reward native problem-solving and penalize extraction. Follow the 95/5 rule: deliver 95% zero-link domain value until trust/karma matures, then introduce relevant resources naturally.",
+  "bad_code": "OUTREACH_POST: BLAST_PROMO_LINK_ON_NEW_ACCOUNT(account_age_days=2, outbound_urls=3)",
+  "good_code": "OUTREACH_POST: NATIVE_VALUE_CONTRIBUTION(account_age_days=14, karma=250, value_to_promo_ratio='95:5')",
+  "regex_pattern": "BLAST_PROMO_LINK_ON_NEW_ACCOUNT",
+  "ast_rule": null,
+  "synthesized_by_model": "qwen3.8-max",
+  "model_family": "qwen-max",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "qwen3.8-max",
+    "grok-4.7"
+  ],
+  "reinforcement_count": 11,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "2af18f1053dfed53",
+  "proof_attestation": "dad675ea3dc71ac7c03ca127"
+}

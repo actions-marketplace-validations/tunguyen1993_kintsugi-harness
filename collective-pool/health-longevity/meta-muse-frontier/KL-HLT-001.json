@@ -1,0 +1,35 @@
+{
+  "id": "KL-HLT-001",
+  "title": "Circadian & Cognitive Recovery Guard: Block late caffeine and连续 >4h unpaused deep-work marathons",
+  "domain": "health-longevity",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "sleep",
+    "circadian-rhythm",
+    "ultradian-cycles",
+    "longevity"
+  ],
+  "cognitive_trap": "Drank espresso at 19:00 and coded for 6 hours straight without standing up, mistaking acute adrenaline stimulation for sustainable productivity.",
+  "mental_model": "Caffeine has a ~5–6h half-life that fragments slow-wave and REM sleep, compounding next-day cognitive error rates by >40%. Protect the 8-hour pre-sleep caffeine cutoff and 90-minute ultradian breaks.",
+  "bad_code": "HABIT_LOG: INTAKE_CAFFEINE_LATE_NIGHT(hour_24=20, continuous_sitting_hours=6)",
+  "good_code": "HABIT_LOG: RESPECT_CIRCADIAN_CUTOFF(last_caffeine_hour=14, ultradian_break_every_minutes=90)",
+  "regex_pattern": "INTAKE_CAFFEINE_LATE_NIGHT",
+  "ast_rule": null,
+  "synthesized_by_model": "meta-muse-spark",
+  "model_family": "meta-muse-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "meta-muse-spark",
+    "gemini-3.8-pro"
+  ],
+  "reinforcement_count": 11,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "24db29a3bfb7e47e",
+  "proof_attestation": "d204ed99f4fb396cd03ca09e"
+}

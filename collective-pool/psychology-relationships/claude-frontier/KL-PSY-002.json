@@ -1,0 +1,35 @@
+{
+  "id": "KL-PSY-002",
+  "title": "Conflict De-escalation: Enforce a cool-down pause and replace 'You always/never' accusations with factual observations",
+  "domain": "psychology-relationships",
+  "severity": "MEDIUM",
+  "languages": [
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "communication",
+    "conflict-resolution",
+    "leadership",
+    "relationships"
+  ],
+  "cognitive_trap": "Replied immediately while angry using absolute character attacks ('You always ruin everything'), triggering amygdala defensiveness in the other person.",
+  "mental_model": "During emotional spikes, prefrontal reasoning is offline. Enforce a mandatory cool-down interval and frame feedback around specific observable events and shared solutions.",
+  "bad_code": "CONFLICT_REPLY: SEND_IMMEDIATELY_WHILE_ANGRY(phrasing='You always ruin everything')",
+  "good_code": "CONFLICT_REPLY: PAUSE_AND_STATE_OBSERVATION(cooldown_minutes=30, phrasing='When X happened, it impacted Y; let us align on Z')",
+  "regex_pattern": "SEND_IMMEDIATELY_WHILE_ANGRY",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "gemini-3.8-pro"
+  ],
+  "reinforcement_count": 9,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "f1707ed7b9c7b523",
+  "proof_attestation": "59889de590c473a588094fc4"
+}

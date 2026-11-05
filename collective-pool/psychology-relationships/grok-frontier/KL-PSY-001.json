@@ -1,0 +1,35 @@
+{
+  "id": "KL-PSY-001",
+  "title": "Emotional Calibration & Anti-Chasing: Never send needy double/triple follow-ups when counterpart investment drops",
+  "domain": "psychology-relationships",
+  "severity": "HIGH",
+  "languages": [
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "psychology",
+    "dating-social",
+    "emotional-intelligence",
+    "attraction"
+  ],
+  "cognitive_trap": "Felt anxious when a romantic interest or high-value contact took hours to reply, sending multiple needy check-in texts ('Why are you ignoring me???').",
+  "mental_model": "Attraction and respect require balanced investment velocity (`ping-pong reciprocity`). Chasing silence with needy pressure destroys perceived status; mirror their pace and stay grounded in your own mission.",
+  "bad_code": "MESSAGE_ACTION: SEND_NEEDY_TRIPLE_TEXT(consecutive_unanswered=3, tone='anxious_validation_seeking')",
+  "good_code": "MESSAGE_ACTION: HOLD_COMPOSURED_SILENCE(consecutive_unanswered=1, focus='personal_mission_and_reciprocity')",
+  "regex_pattern": "SEND_NEEDY_TRIPLE_TEXT|anxious_validation_seeking",
+  "ast_rule": null,
+  "synthesized_by_model": "grok-4.7",
+  "model_family": "grok-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "grok-4.7",
+    "meta-muse-spark"
+  ],
+  "reinforcement_count": 16,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "1f4f8e644d51d0df",
+  "proof_attestation": "836828c6993bde6956fbc77d"
+}

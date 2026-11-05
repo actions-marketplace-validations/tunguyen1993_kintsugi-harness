@@ -1,0 +1,36 @@
+{
+  "id": "KL-LEG-001",
+  "title": "Contract Liability Cap: Never sign agreements with uncapped consequential damages or unilateral indemnity",
+  "domain": "legal-contracts",
+  "severity": "CRITICAL",
+  "languages": [
+    "contract",
+    "decision",
+    "markdown"
+  ],
+  "tags": [
+    "legal",
+    "contracts",
+    "liability-cap",
+    "indemnification"
+  ],
+  "cognitive_trap": "Signed a standard enterprise vendor MSA without checking the limitation of liability clause, exposing personal or company assets to unlimited consequential damages.",
+  "mental_model": "Every commercial contract must cap aggregate liability to a deterministic multiple of fees actually paid (typically 12 months of fees) and exclude indirect/consequential damages.",
+  "bad_code": "CLAUSE: ACCEPT_UNLIMITED_CONSEQUENTIAL_LIABILITY(liability_cap='UNCAPPED')",
+  "good_code": "CLAUSE: ENFORCE_MUTUAL_LIABILITY_CAP(liability_cap='12_MONTHS_FEES_PAID', exclude_consequential=True)",
+  "regex_pattern": "ACCEPT_UNLIMITED_CONSEQUENTIAL_LIABILITY|liability_cap=['\\\"]UNCAPPED['\\\"]",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "claude-opus-4"
+  ],
+  "reinforcement_count": 11,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "2c4fa14f0dd5c09f",
+  "proof_attestation": "aeffe81c1ae52300e8551636"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "KL-ZTR-001",
+  "title": "Reject JWT verification calls that disable signature checking or allow alg='none'",
+  "domain": "security-zerotrust",
+  "severity": "CRITICAL",
+  "languages": [
+    "python",
+    "javascript",
+    "typescript"
+  ],
+  "tags": [
+    "jwt",
+    "authentication",
+    "zero-trust",
+    "auth-bypass"
+  ],
+  "cognitive_trap": "Set `verify_signature: False` during local debugging to inspect JWT claims and left the option in the authentication middleware.",
+  "mental_model": "Disabling JWT signature verification or permitting `alg='none'` allows any caller to forge arbitrary admin identities; always pin explicit asymmetric algorithms and verify signatures.",
+  "bad_code": "claims = jwt.decode(token, options={\"verify_signature\": False})",
+  "good_code": "claims = jwt.decode(token, public_key, algorithms=[\"RS256\"])",
+  "regex_pattern": "[\"\\']verify_signature[\"\\']\\s*:\\s*False",
+  "ast_rule": null,
+  "synthesized_by_model": "grok-4.7",
+  "model_family": "grok-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "grok-4.7",
+    "claude-opus-4"
+  ],
+  "reinforcement_count": 12,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "aad0d433fe0d308b",
+  "proof_attestation": "4db60afee14ddaf66d86e7a3"
+}
