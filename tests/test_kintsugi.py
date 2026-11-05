@@ -571,6 +571,17 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             f_rep = CausalForesightEngine(ws).forecast(ws)
             self.assertGreaterEqual(f_rep["horizons_summary"]["T+1_immediate_count"], 2)
 
+            # 4. Pillar 4: Analogical Transfer & Counterfactual Sandbox Dreamer
+            from kintsugi.foresight import AnalogicalTransferEngine, CounterfactualDreamSimulator
+
+            tr = AnalogicalTransferEngine().transfer_from_target(ws)
+            self.assertEqual(tr["analogical_transfers_count"], 2)
+            dream = CounterfactualDreamSimulator(ws).simulate_dream(ws)
+            self.assertTrue(dream["no_disk_mutation"])
+            self.assertTrue(dream["counterfactual_verified"])
+            self.assertLess(dream["causal_deltas"]["delta_seams"], 0)
+            self.assertIn("@DREAM/1|", dream["kmi_dream_wire"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v0.8.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v0.9.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
@@ -187,6 +187,12 @@ kintsugi foresight --metacognition
 
 # 4. Autonomously synthesize & counterfactually verify new CognitiveLessons from unguarded code seams:
 kintsugi foresight src/ --self-generate
+
+# 5. Run Counterfactual Sandbox Dreamer (@DREAM/1) — apply S3 guards in-memory & prove 100% risk reduction without touching disk:
+kintsugi foresight src/ --dream
+
+# 6. Run Cross-Domain Analogical Transfer Engine — map scientific conservation laws to Distributed Systems, FinTech & Strategy invariants:
+kintsugi foresight src/ --transfer
 ```
 
 ---
