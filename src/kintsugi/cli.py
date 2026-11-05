@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import List, Optional
 
 from kintsugi import __version__
+from kintsugi.auditor import render_audit_markdown, run_posture_audit
+from kintsugi.autofix import run_autofix
 from kintsugi.compiler import SkillCompiler
+from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import EvolutionCouncil, verify_candidate_scar
 from kintsugi.hooks import (
     evaluate_claude_pre_tool_payload,
@@ -19,14 +22,18 @@ from kintsugi.hooks import (
 from kintsugi.ledger import ScarLedger
 from kintsugi.mcp_server import KintsugiMCPServer
 from kintsugi.models import FailureTrace, Severity
-from kintsugi.packager import SkillPackager
+from kintsugi.packs import (
+    install_skill_pack,
+    list_installed_packs,
+    load_installed_pack_scars,
+)
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kintsugi",
-        description="Kintsugi Harness — Turn coding agent failures into deterministic PreToolUse guardrails and portable SKILL.md skills.",
+        description="Kintsugi Harness — Hybrid Rust/Python PreToolUse guardrail engine and KMI/1 ultra-low-token skill compiler.",
     )
     parser.add_argument("--version", action="version", version=f"kintsugi-harness {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -35,6 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init = sub.add_parser("init", help="Bootstrap .kintsugi/scars.json starter pack and compile skills")
     p_init.add_argument("--workspace", default=".", help="Target repository root")
     p_init.add_argument("--ledger", default=None, help="Custom path to scars.json")
+    p_init.add_argument("--compact", action="store_true", help="Compile KMI/1 ultra-low-token governance headers")
     p_init.add_argument("--no-compile", action="store_true", help="Skip generating SKILL.md / CLAUDE.md")
 
     # scan
@@ -57,20 +65,45 @@ def _build_parser() -> argparse.ArgumentParser:
         default="HIGH",
     )
 
+    # audit
+    p_audit = sub.add_parser("audit", help="Run repository Security & Agent Readiness Posture Audit (Grade A+ to F)")
+    p_audit.add_argument("target", nargs="?", default=".", help="Target repository root")
+    p_audit.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_audit.add_argument("--format", choices=["text", "markdown", "json"], default="markdown")
+
+    # token-report
+    p_tok = sub.add_parser("token-report", help="Benchmark KMI/1 ultra-low-token compression vs verbose Markdown skills")
+    p_tok.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_tok.add_argument("--turns", type=int, default=50, help="Number of turns per coding session")
+    p_tok.add_argument("--format", choices=["text", "json"], default="text")
+
+    # autofix
+    p_fix = sub.add_parser("autofix", help="Preview patches (--dry-run) or apply deterministic codemods (--apply with installed Pack)")
+    p_fix.add_argument("target", nargs="?", default=".", help="File or directory to remediate")
+    p_fix.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_fix.add_argument("--workspace", default=".", help="Workspace root containing .kintsugi/packs")
+    p_fix.add_argument("--apply", action="store_true", help="Apply in-place codemods (unlocked via installed Skill Packs)")
+
+    # install-pack
+    p_ipack = sub.add_parser("install-pack", help="Install an external or Premium Skill Pack (.zip or .json) into .kintsugi/packs/")
+    p_ipack.add_argument("pack_path", help="Path to Skill Pack .zip or .json bundle")
+    p_ipack.add_argument("--workspace", default=".", help="Target workspace root")
+    p_ipack.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+
+    # list-packs
+    p_lpacks = sub.add_parser("list-packs", help="List installed external and Premium Skill Packs")
+    p_lpacks.add_argument("--workspace", default=".", help="Target workspace root")
+
     # compile
     p_comp = sub.add_parser("compile", help="Compile Golden Scars into SKILL.md, CLAUDE.md, AGENTS.md, Cursor, Copilot, and Windsurf rules")
     p_comp.add_argument("--workspace", default=".", help="Target repository root")
     p_comp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_comp.add_argument("--compact", action="store_true", help="Emit ultra-low-token KMI/1 wire index (>93% token savings)")
     p_comp.add_argument(
         "--targets",
         default="skills,claude,agents,cursor",
         help="Comma-separated targets: skills,claude,agents,cursor,copilot,windsurf,all",
     )
-
-    # package-skills
-    p_pkg = sub.add_parser("package-skills", help="Export standalone multi-agent Skill Packs (.zip + SKILL.md + Agensi manifest)")
-    p_pkg.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
-    p_pkg.add_argument("--output-dir", default="dist/skill-packs", help="Output directory for bundled Skill Packs")
 
     # explain
     p_exp = sub.add_parser("explain", help="Inspect a specific Golden Scar with root cause and verified replacement")
@@ -113,10 +146,12 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_or_seed_ledger(ledger_path: str | Path) -> ScarLedger:
+def _load_or_seed_ledger(ledger_path: str | Path, workspace_root: str | Path = ".") -> ScarLedger:
     ledger = ScarLedger(ledger_path)
     if not ledger.all():
         ledger.bootstrap_starter_pack()
+    for pack_scar in load_installed_pack_scars(workspace_root):
+        ledger.upsert(pack_scar)
     return ledger
 
 
@@ -131,7 +166,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         added = ledger.bootstrap_starter_pack()
         print(f"[kintsugi] Initialized {ledger_path} ({len(ledger.all())} total scars, {added} newly seeded).")
         if not args.no_compile:
-            written = SkillCompiler(ledger.all()).compile_all(ws)
+            written = SkillCompiler(ledger.all(), compact_kmi=bool(args.compact)).compile_all(ws)
             for p in written:
                 print(f"[kintsugi] Compiled -> {p}")
         return 0
@@ -184,20 +219,87 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         return 0
 
-    if args.command == "compile":
-        ledger = _load_or_seed_ledger(args.ledger)
-        targets = [t.strip() for t in args.targets.split(",") if t.strip()]
-        written = SkillCompiler(ledger.all()).compile_all(args.workspace, targets=targets)
-        for p in written:
-            print(f"[kintsugi] Compiled -> {p}")
+    if args.command == "audit":
+        ledger = _load_or_seed_ledger(args.ledger, args.target)
+        audit = run_posture_audit(args.target, ledger.all())
+        if args.format == "json":
+            print(json.dumps(audit, indent=2, ensure_ascii=False))
+        else:
+            print(render_audit_markdown(audit))
         return 0
 
-    if args.command == "package-skills":
+    if args.command == "token-report":
         ledger = _load_or_seed_ledger(args.ledger)
-        packager = SkillPackager(ledger.all())
-        packs = packager.build_all_packs(args.output_dir)
-        for p in packs:
-            print(f"[kintsugi] Packaged {p['slug']} ({p['scars_count']} scars) -> {p['zip_archive']}")
+        scars = ledger.all()
+        verbose_md = SkillCompiler(scars).render_skill_markdown(
+            "kintsugi-guardrails",
+            "Verbose baseline comparison",
+            scars,
+        )
+        stats = compute_token_savings_report(scars, verbose_md, turns_per_session=args.turns)
+        if args.format == "json":
+            print(json.dumps(stats, indent=2, ensure_ascii=False))
+        else:
+            print(
+                f"=== Kintsugi KMI/1 Token-Compression Benchmark ({stats['rules_compiled']} active scars) ===\n"
+                f"• Verbose Markdown Context : ~{stats['verbose_tokens_per_turn']} tokens/turn\n"
+                f"• Kintsugi KMI/1 Wire Index: ~{stats['kmi_tokens_per_turn']} tokens/turn\n"
+                f"• Per-Turn Token Reduction : {stats['reduction_percent']}% ({stats['tokens_saved_per_turn']} tokens saved/turn)\n"
+                f"• {stats['turns_per_session']}-Turn Session Savings  : ~{stats['tokens_saved_per_session']:,} tokens\n\n"
+                f"{stats['kmi_preview']}"
+            )
+        return 0
+
+    if args.command == "autofix":
+        ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+        res = run_autofix(
+            args.target,
+            ledger.all(),
+            workspace_root=args.workspace,
+            apply_changes=bool(args.apply),
+        )
+        print(
+            f"[kintsugi autofix] Mode={res['mode']} | Findings={res['findings_count']} | "
+            f"Loaded Playbooks={res['premium_playbooks_loaded']} | Applied={res['applied_fixes']}"
+        )
+        if args.apply and res["premium_playbooks_loaded"] == 0:
+            print(
+                "  [i] Live codemod rewrites (--apply) require an installed Kintsugi Skill Pack "
+                "with autofix_playbooks (`kintsugi install-pack <bundle.zip>`). Showing dry-run previews:"
+            )
+        for item in res["items"]:
+            print(f"\n--- {item['scar_id']} ({item['status']}) at {item['file_path']}:{item['line']} ---")
+            print(item["patch_preview"])
+        return 0
+
+    if args.command == "install-pack":
+        info = install_skill_pack(
+            args.pack_path,
+            workspace_root=args.workspace,
+            ledger_path=args.ledger,
+        )
+        print(
+            f"[kintsugi] Installed pack '{info['pack_id']}' ({info['tier']}) -> {info['installed_to']}\n"
+            f"  • Scars in pack       : {info['scars_in_pack']} ({info['newly_unlocked_scars']} newly unlocked)\n"
+            f"  • Auto-fix playbooks  : {info['autofix_playbooks']}\n"
+            f"  • Slash commands      : {', '.join(info['slash_commands']) or 'none'}"
+        )
+        return 0
+
+    if args.command == "list-packs":
+        packs = list_installed_packs(args.workspace)
+        print(json.dumps({"installed_packs": packs}, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "compile":
+        ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+        targets = [t.strip() for t in args.targets.split(",") if t.strip()]
+        written = SkillCompiler(ledger.all(), compact_kmi=bool(args.compact)).compile_all(
+            args.workspace,
+            targets=targets,
+        )
+        for p in written:
+            print(f"[kintsugi] Compiled -> {p}")
         return 0
 
     if args.command == "explain":
@@ -291,6 +393,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "total_scars": len(scars),
                     "by_severity": by_sev,
                     "total_prevented_hits": sum(s.hits for s in scars),
+                    "kmi_wire_index": render_kmi_index(scars),
                 },
                 indent=2,
             )
@@ -298,7 +401,3 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -1,3 +1,4 @@
+# kintsugi: ignore-file
 """Zero-dependency unit & integration test suite compatible with both `unittest` and `pytest`."""
 
 from __future__ import annotations
@@ -9,14 +10,17 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from kintsugi.auditor import run_posture_audit
+from kintsugi.autofix import run_autofix
 from kintsugi.cli import main as cli_main
 from kintsugi.compiler import BOUNDARY_END, BOUNDARY_START, SkillCompiler
+from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import AgentEndpoint, EvolutionCouncil, _extract_json_object, verify_candidate_scar
 from kintsugi.hooks import evaluate_claude_pre_tool_payload, install_claude_settings_hook
 from kintsugi.ledger import ScarLedger
 from kintsugi.mcp_server import KintsugiMCPServer
 from kintsugi.models import FailureTrace, GoldenScar, Severity
-from kintsugi.packager import SkillPackager
+from kintsugi.packs import install_skill_pack, list_installed_packs
 from kintsugi.scanner import (
     KintsugiScanner,
     parse_git_diff_text,
@@ -148,19 +152,52 @@ class TestScarLedgerCompilerAndPackager(unittest.TestCase):
             )
             self.assertTrue((tmp_path / ".windsurfrules").exists())
 
-    def test_skill_packager_builds_marketplace_zips(self) -> None:
+    def test_kmi_token_compression_and_pack_installer_autofix(self) -> None:
+        scars = get_starter_scars()
+        compiler = SkillCompiler(scars)
+        verbose_md = compiler.render_skill_markdown("kintsugi-guardrails", "desc", scars)
+        stats = compute_token_savings_report(scars, verbose_md, turns_per_session=50)
+        self.assertGreaterEqual(stats["reduction_percent"], 90.0)
+        self.assertIn("KMI/1;pack=core@", render_kmi_index(scars))
+
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = Path(tmp) / "packs"
-            packager = SkillPackager(get_starter_scars())
-            packs = packager.build_all_packs(out_dir)
-            self.assertGreaterEqual(len(packs), 4)
-            pro_pack = packs[0]
-            zip_file = Path(pro_pack["zip_archive"])
-            self.assertTrue(zip_file.exists())
-            with zipfile.ZipFile(zip_file, "r") as zf:
-                names = zf.namelist()
-                self.assertTrue(any(n.endswith("/SKILL.md") for n in names))
-                self.assertTrue(any(n.endswith("/agensi-manifest.json") for n in names))
+            ws = Path(tmp)
+            ledger_file = ws / ".kintsugi" / "scars.json"
+            pack_json = ws / "sample-pro-pack.json"
+            pack_json.write_text(
+                json.dumps(
+                    {
+                        "name": "sample-pro-pack",
+                        "title": "Sample Pro Pack",
+                        "version": "0.3.0",
+                        "tier": "premium",
+                        "scars": [],
+                        "autofix_playbooks": [
+                            {
+                                "scar_id": "KS-003",
+                                "description": "Disable shell=True in subprocess calls",
+                                "search_regex": r"shell\s*=\s*True",
+                                "replace_expr": "shell=False",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            info = install_skill_pack(pack_json, workspace_root=ws, ledger_path=ledger_file)
+            self.assertEqual(info["pack_id"], "sample-pro-pack")
+            self.assertEqual(len(list_installed_packs(ws)), 1)
+
+            bad_file = ws / "runner.py"
+            bad_file.write_text('import subprocess\nsubprocess.run(["ls"], shell=True, check=True)\n', encoding="utf-8")
+            fix_res = run_autofix(bad_file, scars, workspace_root=ws, apply_changes=True)
+            self.assertEqual(fix_res["applied_fixes"], 1)
+            self.assertIn("shell=False", bad_file.read_text(encoding="utf-8"))
+
+            compiler.compile_all(ws, targets=["all"])
+            audit = run_posture_audit(ws, scars)
+            self.assertEqual(audit["grade"], "A+")
+            self.assertEqual(audit["score"], 100)
 
 
 class TestClaudeCodePreToolHooks(unittest.TestCase):

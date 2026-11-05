@@ -7,6 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
+from kintsugi.compressor import render_kmi_index
 from kintsugi.models import GoldenScar
 
 BOUNDARY_START = "<!-- KINTSUGI:START -->"
@@ -33,15 +34,24 @@ class SkillCompiler:
     and IDE governance configs across Claude Code, Cursor, Copilot, Windsurf, and Codex.
     """
 
-    def __init__(self, scars: Sequence[GoldenScar], *, max_scars_in_root_doc: int = 18) -> None:
+    def __init__(
+        self,
+        scars: Sequence[GoldenScar],
+        *,
+        max_scars_in_root_doc: int = 18,
+        compact_kmi: bool = False,
+    ) -> None:
         self.scars = sorted(
             scars,
             key=lambda s: (-s.severity.rank, -s.hits, s.id),
         )
         self.max_scars_in_root_doc = max_scars_in_root_doc
+        self.compact_kmi = compact_kmi
 
     def render_root_governance_block(self) -> str:
-        """Render compact index table for CLAUDE.md / AGENTS.md (< 40 tokens per rule)."""
+        """Render either KMI/1 ultra-low-token index (~12 tokens/rule) or compact table."""
+        if self.compact_kmi:
+            return render_kmi_index(self.scars)
         top_scars = self.scars[: self.max_scars_in_root_doc]
         lines = [
             "## Kintsugi Self-Evolved Guardrails (Auto-Compiled)",
