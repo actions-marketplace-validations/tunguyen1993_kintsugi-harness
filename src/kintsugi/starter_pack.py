@@ -19,7 +19,7 @@ def get_starter_scars() -> List[GoldenScar]:
             languages=["python", "javascript", "typescript", "go", "rust", "shell"],
             tags=["secrets", "credentials", "dlp", "security"],
             root_cause="Coding agents frequently inline live sk-/ghp_/AKIA tokens during rapid prototyping instead of reading environment variables.",
-            bad_code='API_TOKEN = "sk-proj-A9b8C7d6E5f4G3h2I1j0K9l8M7n6O5p4"',
+            bad_code='API_TOKEN = "sk-proj-EXAMPLE_PLACEHOLDER_00000000000000"  # ggignore',
             good_code='import os\nAPI_TOKEN = os.environ["OPENAI_API_KEY"]',
             rationale="Prevents irreversible credential leakage into git history, CI logs, and public pull requests.",
             regex_pattern=r"""(?x)

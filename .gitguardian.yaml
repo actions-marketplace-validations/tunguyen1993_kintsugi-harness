@@ -1,0 +1,8 @@
+version: 2
+
+secret:
+  ignored_paths:
+    - ".kintsugi/scars.json"
+    - ".claude/skills/**"
+    - "src/kintsugi/starter_pack.py"
+    - "tests/**"

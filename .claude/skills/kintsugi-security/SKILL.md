@@ -22,7 +22,7 @@ kintsugi scan . --fail-on HIGH
 
 **Avoid (`❌ Anti-Pattern`):**
 ```python
-API_TOKEN = "sk-proj-A9b8C7d6E5f4G3h2I1j0K9l8M7n6O5p4"
+API_TOKEN = "sk-proj-EXAMPLE_PLACEHOLDER_00000000000000"  # ggignore
 ```
 
 **Prefer (`✅ Verified Pattern`):**
