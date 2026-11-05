@@ -43,6 +43,7 @@ from kintsugi.swarm import (
     ClonePropositionVote,
     ClosedLoopEvolutionArena,
     ConsentGatedBYOKPoolManager,
+    ControlledInternetForager,
     PlaybookStep,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
