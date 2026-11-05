@@ -22,8 +22,10 @@ from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import EvolutionCouncil, verify_candidate_scar
 from kintsugi.foresight import (
+    AnalogicalTransferEngine,
     AutopoieticSynthesizer,
     CausalForesightEngine,
+    CounterfactualDreamSimulator,
     MetacognitiveSelfModel,
 )
 from kintsugi.grounding import RepoAstGroundingEngine
@@ -227,16 +229,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gnd.add_argument("--symbols", default=None, help="Comma-separated symbol names to verify at anchor")
     p_gnd.add_argument("--manifest-sha", default=None, help="Optional expected manifest SHA-256 to check for commit drift")
 
-    # foresight (3-Horizon Causal Foresight, Metacognitive Self-Awareness & Autopoietic Synthesis)
+    # foresight (3-Horizon Causal Foresight, Metacognitive Self-Awareness, Autopoiesis & Counterfactual Dreaming)
     p_for = sub.add_parser(
         "foresight",
-        help="Run 3-Horizon (T+1/T+2/T+3) Causal Foresight, Metacognitive Self-Awareness & Autopoietic Rule Synthesis",
+        help="Run 3-Horizon (T+1/T+2/T+3) Causal Foresight, Metacognition, Autopoiesis, Analogical Transfer & Counterfactual Dreaming",
     )
     p_for.add_argument("target", nargs="?", default=".", help="Repository or file to forecast")
     p_for.add_argument("--workspace", default=".", help="Workspace root for .kintsugi state")
     p_for.add_argument("--self-generate", action="store_true", help="Autopoietically synthesize and verify new lessons from unguarded seams")
     p_for.add_argument("--metacognition", action="store_true", help="Output Beta-Bernoulli domain competence & blind-spot calibration report")
-    p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 wire headers (<90 tokens)")
+    p_for.add_argument("--dream", action="store_true", help="Run Counterfactual Sandbox Dreamer (apply S3 guards in-memory & compute delta_seams / delta_p_max)")
+    p_for.add_argument("--transfer", action="store_true", help="Run Cross-Domain Analogical Transfer Engine (map scientific/system invariants across domains)")
+    p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 wire headers")
     p_for.add_argument("--top-k", type=int, default=8, help="Max ranked pre-emptive actions to emit (default: 8)")
 
     return parser
@@ -648,10 +652,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             res = synth.synthesize_from_target(args.target)
             print(json.dumps(res, indent=2, ensure_ascii=False))
             return 0
+        if args.transfer:
+            transfer = AnalogicalTransferEngine()
+            print(json.dumps(transfer.transfer_from_target(args.target), indent=2, ensure_ascii=False))
+            return 0
+        if args.dream:
+            dreamer = CounterfactualDreamSimulator(args.workspace)
+            d_rep = dreamer.simulate_dream(args.target)
+            if args.wire:
+                print(d_rep["kmi_dream_wire"])
+                return 0
+            print(json.dumps(d_rep, indent=2, ensure_ascii=False))
+            return 0
         forecaster = CausalForesightEngine(args.workspace)
         rep = forecaster.forecast(args.target, top_k_actions=args.top_k)
         if args.wire:
-            print(f"{rep['kmi_foresight_wire']}\n{rep['metacognitive_wire']}")
+            dream_wire = CounterfactualDreamSimulator(args.workspace).simulate_dream(args.target)["kmi_dream_wire"]
+            print(f"{rep['kmi_foresight_wire']}\n{rep['metacognitive_wire']}\n{dream_wire}")
             return 0
         print(json.dumps(rep, indent=2, ensure_ascii=False))
         return 0
