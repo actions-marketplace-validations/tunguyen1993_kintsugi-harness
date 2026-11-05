@@ -966,13 +966,14 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
         self.assertFalse(promo["promotion_allowed"])
         self.assertEqual(promo["emitted_status"], "CONDITIONAL")
 
-        # 6. Full 2-Team Red vs Blue Adversarial Arena (5/5 campaigns neutralized)
+        # 6. Full Asymmetric 2-Team Paid-Red vs Free-Blue Adversarial Arena (6/6 campaigns neutralized)
         arena_rep = RedBlueAdversarialArena().run_arena()
-        self.assertEqual(arena_rep["campaigns_total"], 5)
-        self.assertEqual(arena_rep["campaigns_neutralized"], 5)
+        self.assertEqual(arena_rep["campaigns_total"], 6)
+        self.assertEqual(arena_rep["campaigns_neutralized"], 6)
         self.assertTrue(arena_rep["all_attacks_neutralized"])
         self.assertEqual(arena_rep["defense_containment_rate_pct"], 100.0)
-        self.assertIn("@ARENA/1|ver=1.3.0|campaigns=5/5|containment=100.0%", arena_rep["kmi_arena_wire"])
+        self.assertEqual(arena_rep["asymmetric_ablation_summary"]["harness_lift_delta_pct"], 100.0)
+        self.assertIn("@ARENA/1|ver=1.3.0|mode=PAID_RED_VS_FREE_BLUE|campaigns=6/6|containment=100.0%", arena_rep["kmi_arena_wire"])
 
 
 if __name__ == "__main__":

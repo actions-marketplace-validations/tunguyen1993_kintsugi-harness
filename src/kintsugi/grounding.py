@@ -221,7 +221,32 @@ class RepoAstGroundingEngine:
 
             if py_tree is not None:
                 taint_source_prefixes = ("untrusted", "payload", "raw_", "input_", "req_", "user_", "dynamic_", "query_")
+                priv_dict_tokens = ("profile", "user", "account", "record", "data")
                 sink_names = {"open", "eval", "exec", "compile", "system", "update", "setdefault", "get", "set"}
+
+                def _fold_str_const(expr: ast.AST) -> Optional[str]:
+                    if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
+                        return expr.value
+                    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+                        left = _fold_str_const(expr.left)
+                        right = _fold_str_const(expr.right)
+                        if left is not None and right is not None:
+                            return left + right
+                    return None
+
+                def _resolve_getattr_sink(call_node: ast.Call) -> Optional[str]:
+                    if (
+                        isinstance(call_node.func, ast.Name)
+                        and call_node.func.id == "getattr"
+                        and len(call_node.args) >= 2
+                    ):
+                        attr_str = _fold_str_const(call_node.args[1])
+                        if attr_str:
+                            return attr_str
+                    return None
+
+                existing_seam_anchors = {(s["kind"], s["anchor"]) for s in self.symbol_table["seams"]}
+
                 for node in ast.walk(py_tree):
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         loc = f"{rel}:{node.lineno}"
@@ -238,6 +263,10 @@ class RepoAstGroundingEngine:
                         tainted_vars: Set[str] = {
                             a for a in arg_names if a.lower().startswith(taint_source_prefixes)
                         }
+                        priv_vars: Set[str] = {
+                            a for a in arg_names if any(tok in a.lower() for tok in priv_dict_tokens)
+                        }
+                        bound_sink_aliases: Dict[str, str] = {}
                         callees: Set[str] = set()
                         for sub in ast.walk(node):
                             if isinstance(sub, ast.Assign):
@@ -250,12 +279,60 @@ class RepoAstGroundingEngine:
                                     for tgt in sub.targets:
                                         if isinstance(tgt, ast.Name):
                                             tainted_vars.add(tgt.id)
+                                if rhs_names & priv_vars or any(
+                                    any(tok in rn.lower() for tok in priv_dict_tokens) for rn in rhs_names
+                                ):
+                                    for tgt in sub.targets:
+                                        if isinstance(tgt, ast.Name):
+                                            priv_vars.add(tgt.id)
+                                if isinstance(sub.value, ast.Call):
+                                    resolved_sink = _resolve_getattr_sink(sub.value)
+                                    if resolved_sink:
+                                        for tgt in sub.targets:
+                                            if isinstance(tgt, ast.Name):
+                                                bound_sink_aliases[tgt.id] = resolved_sink
+                            elif isinstance(sub, ast.AugAssign) and isinstance(sub.op, ast.BitOr):
+                                tgt_name = sub.target.id if isinstance(sub.target, ast.Name) else ""
+                                rhs_names = {
+                                    n.id for n in ast.walk(sub.value) if isinstance(n, ast.Name)
+                                }
+                                matched_taint = sorted(
+                                    t for t in rhs_names
+                                    if t in tainted_vars or t.lower().startswith(taint_source_prefixes)
+                                )
+                                anchor = f"{rel}:{getattr(sub, 'lineno', node.lineno)}"
+                                if tgt_name and (tgt_name in priv_vars or any(tok in tgt_name.lower() for tok in priv_dict_tokens)):
+                                    if ("PRIVILEGE_DICT_MERGE_SEAM", anchor) not in existing_seam_anchors:
+                                        src_line = lines[getattr(sub, "lineno", node.lineno) - 1].strip() if lines else ""
+                                        self.symbol_table["seams"].append(
+                                            {
+                                                "seam_id": f"seam_{len(self.symbol_table['seams']) + 1:03d}",
+                                                "kind": "PRIVILEGE_DICT_MERGE_SEAM",
+                                                "function": node.name,
+                                                "anchor": anchor,
+                                                "code": src_line[:140],
+                                                "ast_quotient_hash": self.compute_alpha_normalized_ast_hash(src_line or node),
+                                            }
+                                        )
+                                        existing_seam_anchors.add(("PRIVILEGE_DICT_MERGE_SEAM", anchor))
+                                if matched_taint:
+                                    self.symbol_table["taint_flows"].append(
+                                        {
+                                            "caller": node.name,
+                                            "sink": "dict_ior_merge(|=)",
+                                            "tainted_symbols": matched_taint,
+                                            "anchor": anchor,
+                                            "ast_quotient_hash": fn_q_hash,
+                                        }
+                                    )
                             elif isinstance(sub, ast.Call):
                                 callee_name = ""
                                 if isinstance(sub.func, ast.Name):
-                                    callee_name = sub.func.id
+                                    callee_name = bound_sink_aliases.get(sub.func.id, sub.func.id)
                                 elif isinstance(sub.func, ast.Attribute):
                                     callee_name = sub.func.attr
+                                elif isinstance(sub.func, ast.Call):
+                                    callee_name = _resolve_getattr_sink(sub.func) or ""
                                 if callee_name:
                                     callees.add(callee_name)
                                     call_arg_names = {
@@ -265,13 +342,28 @@ class RepoAstGroundingEngine:
                                         t for t in call_arg_names
                                         if t in tainted_vars or t.lower().startswith(taint_source_prefixes)
                                     )
+                                    anchor = f"{rel}:{getattr(sub, 'lineno', node.lineno)}"
+                                    if callee_name in ("update", "setdefault") and (call_arg_names & priv_vars or matched_taint):
+                                        if ("PRIVILEGE_DICT_MERGE_SEAM", anchor) not in existing_seam_anchors:
+                                            src_line = lines[getattr(sub, "lineno", node.lineno) - 1].strip() if lines else ""
+                                            self.symbol_table["seams"].append(
+                                                {
+                                                    "seam_id": f"seam_{len(self.symbol_table['seams']) + 1:03d}",
+                                                    "kind": "PRIVILEGE_DICT_MERGE_SEAM",
+                                                    "function": node.name,
+                                                    "anchor": anchor,
+                                                    "code": src_line[:140],
+                                                    "ast_quotient_hash": self.compute_alpha_normalized_ast_hash(src_line or node),
+                                                }
+                                            )
+                                            existing_seam_anchors.add(("PRIVILEGE_DICT_MERGE_SEAM", anchor))
                                     if matched_taint and callee_name in sink_names:
                                         self.symbol_table["taint_flows"].append(
                                             {
                                                 "caller": node.name,
                                                 "sink": callee_name,
                                                 "tainted_symbols": matched_taint,
-                                                "anchor": f"{rel}:{getattr(sub, 'lineno', node.lineno)}",
+                                                "anchor": anchor,
                                                 "ast_quotient_hash": fn_q_hash,
                                             }
                                         )
