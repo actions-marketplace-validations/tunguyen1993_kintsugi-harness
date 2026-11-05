@@ -439,9 +439,9 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
                 self.assertEqual(pull_res["newly_merged_to_local"], 1)
                 self.assertEqual(len(mgr2.load_local_lessons()), 1)
 
-    def test_real_life_domains_and_35_seed_frontier_lessons_pass_verification(self) -> None:
+    def test_real_life_domains_and_38_seed_frontier_lessons_pass_verification(self) -> None:
         seeds = get_seed_frontier_lessons()
-        self.assertEqual(len(seeds), 35)
+        self.assertEqual(len(seeds), 38)
         pillars = {s.domain_pillar for s in seeds}
         self.assertEqual(pillars, {"engineering", "life-and-business"})
         for lesson in seeds:
@@ -536,6 +536,40 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             top_act = f_rep["proactive_action_queue"][0]
             self.assertIn("what_will_happen", top_act)
             self.assertIn("what_to_do_now", top_act)
+
+    def test_scientific_laws_grounding_autopoiesis_and_foresight(self) -> None:
+        from kintsugi.foresight import AutopoieticSynthesizer, CausalForesightEngine
+        from kintsugi.grounding import RepoAstGroundingEngine
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            sim_file = ws / "sim.py"
+            sim_file.write_text(
+                '"""Docstring mentioning math.sin(tilt_deg) and Thermodynamics that must be ignored."""\n'
+                "import math\n\n"
+                "def step_euler(x_pos, v_vel, accel, dt_sec):\n"
+                "    x_next = x_pos + v_vel * dt_sec + 0.0 * accel  # NON_SYMPLECTIC_EULER_DRIFT\n"
+                "    return x_next\n\n"
+                "def add_incompatible_units(pressure_pa, velocity_ms, tilt_deg):\n"
+                "    raw = pressure_pa + velocity_ms  # DIMENSIONAL_UNIT_MISMATCH\n"
+                "    return raw * math.sin(tilt_deg)\n",
+                encoding="utf-8",
+            )
+            eng = RepoAstGroundingEngine(ws)
+            # Docstring word 'Thermodynamics' must NOT pollute AST variables
+            self.assertEqual(
+                eng.verify_hypothesis({"anchor": "sim.py:5", "symbols": ["Thermodynamics"]})["status"],
+                "REFUTED",
+            )
+            self.assertEqual(
+                eng.verify_hypothesis({"anchor": "sim.py:5", "symbols": ["step_euler", "x_next"]})["status"],
+                "VERIFIED",
+            )
+            synth = AutopoieticSynthesizer(ws)
+            gen = synth.synthesize_from_target(ws)
+            self.assertEqual(gen["newly_synthesized_count"], 2)
+            f_rep = CausalForesightEngine(ws).forecast(ws)
+            self.assertGreaterEqual(f_rep["horizons_summary"]["T+1_immediate_count"], 2)
 
 
 if __name__ == "__main__":
