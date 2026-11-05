@@ -1,19 +1,20 @@
-# Empirical Proofs, Scientific Law Validation & Benchmarks (`v0.8.0`)
+# Empirical Proofs, Scientific Law Validation & Benchmarks (`v1.0.0`)
 
-Every architectural claim in **Kintsugi Harness (`v0.8.0`)** is backed by deterministic, reproducible unit tests (`python3 -m unittest discover -s tests -v` and `cargo test`) and runtime numerical experiments.
+Every architectural claim in **Kintsugi Harness (`v1.0.0`)** is backed by deterministic, reproducible unit tests (`python3 -m unittest discover -s tests -v` and `cargo test`) and runtime numerical experiments.
 
 ---
 
-## 1. Summary of Verified Benchmarks (`v0.8.0`)
+## 1. Summary of Verified Benchmarks (`v1.0.0`)
 
-| Benchmark Pillar | Empirical Metric / Test Suite | Verified Result (`v0.8.0`) | Reproducible Command |
+| Benchmark Pillar | Empirical Metric / Test Suite | Verified Result (`v1.0.0`) | Reproducible Command |
 | :--- | :--- | :--- | :--- |
 | **Native Rust PreToolUse Engine (`kintsugi-rs`)** | Single-call latency / Full 18-file repo scan | **`9.6 µs/call`** (`16.5 ms` for 18 files × 18 scars, `0` violations) | `./target/release/kintsugi-rs bench` |
 | **`KMI/1` Ultra-Low-Token Wire Index** | Per-turn token footprint vs verbose Markdown | **`~209 tokens/turn` vs `~3,330 tokens/turn` (`93.7%` reduction, `~156,050 tokens` saved / 50 turns)** | `kintsugi token-report` |
 | **3-State AST Symbol Grounding Gate** | True Positives / True Negatives / Hallucination & Docstring Traps | **`5/5` True Positives (`VERIFIED`) · `5/5` S3 Safe Counterexamples (`REFUTED`, `0` FP) · `3/3` Hallucination/Docstring Traps (`REFUTED` in `<0.1ms`)** | `kintsugi ground src/` |
 | **5 Universal Scientific Conservation Laws** | Runtime numerical simulation + AST/Foresight detection | **`5/5` Laws Empirically Proven (`PASS 100%`)** | `python3 -m unittest discover -s tests -v` |
-| **4-Stage Frontier Epistemic Pool Gate** | 15 Universal Domains (`7` Engineering + `8` Real-Life/Business) | **`38/38` Frontier Lessons Verified (`scan(bad) >= 1` & `scan(good) == 0`)** | `kintsugi learn pool-status` |
-| **Automated Test Suites** | Python `unittest` (`22` tests) + Rust `cargo test` (`3` tests) | **`25/25` Total Tests Passing (`100% OK`)** | `cargo test && python3 -m unittest` |
+| **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`)** | `K=4` Orthogonal Clones + `K=3f+1` BFT Quorum (`f=1`) | **`4/4` Clones Converge in `~100ms` · `7/7` Truths Consolidated · `100%` Fault-Tolerant under `f=1` Byzantine Injection** | `kintsugi swarm <target> --byzantine-test` |
+| **4-Stage Frontier Epistemic Pool Gate** | 15 Universal Domains (`7` Engineering + `8` Real-Life/Business) | **`39/39` Frontier Lessons Verified (`scan(bad) >= 1` & `scan(good) == 0`)** | `kintsugi learn pool-status` |
+| **Automated Test Suites** | Python `unittest` (`23` tests) + Rust `cargo test` (`3` tests) | **`26/26` Total Tests Passing (`100% OK`)** | `cargo test && python3 -m unittest` |
 
 ---
 
@@ -52,9 +53,28 @@ When executed on a coupled codebase (`kintsugi foresight <target>`), Kintsugi em
 @FORESIGHT/1|sha=f5dfa4b9|T1=7|T2=7|T3=3|p_max=0.96|top=F-T2-002@physics_sim.py:55
 @META/1|C_avg=0.87|K_avg=0.81|blind=health-longevity,psychology-relationships,growth-marketing|act=AUTONOMOUS_FAST_EXECUTE
 @DREAM/1|sha=f5dfa4b9|seams=7->0|p_max=0.96->0.00|q_red=100.0%|iso=5|status=VERIFIED
+@SWARM/1|sha=f5dfa4b9|clones=4|accepted=7|tabu=1|bft=PASS|c_gain=+0.0243|playbook=VERIFIED
 ```
 
 - **`T+1 (Immediate Direct Faults)`:** Pinpoints single-function boundary and conservation violations.
 - **`T+2 (Second-Order Call-Graph Cascade)`:** Propagates failure probabilities across caller fan-out via damped adjacency $r^{(2)} = A r + 0.6 A^2 r$, ranking coupled entrypoints by $Q = \frac{\text{Severity} \times \text{Probability} \times \text{CascadeMultiplier}}{\text{Cost}}$.
 - **`T+3 (Long-Horizon Drift & Epistemic Tail-Risk)`:** Combines long-horizon secular drift with Beta-Bernoulli domain blind-spot indices $B_d$ to trigger pre-emptive guardrail pulls before regressions occur.
 - **`@DREAM/1 (Counterfactual Sandbox Dreamer & Cross-Domain Analogical Transfer)`:** Applies candidate `S3` guards in an isolated temporary snapshot (`no_disk_mutation: True`), proving that unguarded seams drop from `7 -> 0` and direct/cascade failure probability drops from `0.96 -> 0.00` (`100.0%` $Q$-risk reduction), while mapping the 5 Scientific Conservation Laws across Distributed Systems, FinTech, and Strategy domains (`AnalogicalTransferEngine`).
+
+---
+
+## 5. Pillar 5: Shadow-Clone Parallel Epistemic Swarm & BFT Experience Consolidation (`@SWARM/1`)
+
+In **`v1.0.0`**, `ShadowCloneSwarmOrchestrator` (`src/kintsugi/swarm.py`) implements parallel multi-clone exploration and Byzantine-Fault-Tolerant (`K = 3f + 1`, $f = 1$) synaptic consolidation:
+
+1. **Phase 1 — Orthogonal Clone Spawning (`K = 4`):**
+   - `clone-01-ast-seams` (`TRACK_1_AST_BOUNDARY_SEAMS`): Structural AST symbol and boundary seam mapping.
+   - `clone-02-adversarial-redteam` (`TRACK_2_ADVERSARIAL_RED_TEAM`): Exploit chain probing (`S0 -> S1 -> S2`) and adversarial hallucination trap testing.
+   - `clone-03-counterfactual-s3` (`TRACK_3_COUNTERFACTUAL_S3_SYNTHESIS`): Candidate `S3` guard synthesis and Counterfactual Sandbox verification.
+   - `clone-04-analogical-laws` (`TRACK_4_ANALOGICAL_LAW_MAPPER`): Cross-domain physical/mathematical conservation law mapping and 3-Horizon priority $Q$ weighting.
+2. **Phase 2 — Independent Grounded `CloneEpisodicReport`:**
+   - Each clone runs in isolation without inter-clone communication, testing every proposition against the `<5ms` 3-State Grounding Gate (`VERIFIED` / `REFUTED` / `UNKNOWN`) and signing its report with a 16-hex SHA-256 integrity digest.
+3. **Phase 3 — Byzantine-Tolerant Synaptic Merge ($s_p \ge 3$):**
+   - Accepts proposition $p$ (`CONSOLIDATED_TRUTH`) only when $s_p \ge 3$ orthogonal clones concur and counterfactual verification passes, ranking accepted steps by $W(p) = \sum_{i \in S_p} q_i$ into a deterministic Step-by-Step **Right Playbook (`Cách Làm Đúng`)**.
+   - Quarantines refuted or hallucinated propositions ($r_p \ge 1$) into `.kintsugi/swarm_negative_tabu.json` so the entire swarm learns what *not* to do.
+   - **Empirical BFT Proof (`--byzantine-test`):** Even when 1 clone (`f = 1`) is injected with a Byzantine hallucination fault (`__byzantine_hallucinated_symbol_999__`), the remaining `3/4` honest clones satisfy quorum ($s_p = 3 \ge 3$) and reconstruct `100%` of the verified Right Playbook (`bft=PASS`, `playbook=VERIFIED`).

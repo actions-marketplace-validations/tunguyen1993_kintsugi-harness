@@ -6,11 +6,11 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v0.9.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.0.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Frontier Pool: 38 Verified](https://img.shields.io/badge/Collective_Pool-38_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
+[![Frontier Pool: 39 Verified](https://img.shields.io/badge/Collective_Pool-39_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
@@ -61,9 +61,10 @@ flowchart LR
 | **`KMI/1` Ultra-Low-Token Compiler (`--compact` & `token-report`)** | Included (`93.7%` token savings) | Included + Pre-tuned Domain Profiles |
 | **Posture Auditor (`kintsugi audit` — Grade `A+` to `F` + Badge)** | Included | Included + Executive Compliance Checks |
 | **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
-| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **38 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
+| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **39 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
 | **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN` + AST Docstring Filter)** | **Included + Cross-Boundary & Scientific Seam Auditing** |
-| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` Wire + 5 Scientific Conservation Laws)** | **Included + Proactive Pre-Emptive Action Queue** |
+| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` + `@DREAM/1` + 5 Scientific Conservation Laws)** | **Included + Proactive Pre-Emptive Action Queue** |
+| **Shadow-Clone Parallel Epistemic Swarm & BFT Merge (`kintsugi swarm`)** | **Included (`K=4` Orthogonal Clones + `K=3f+1` BFT Quorum + `@SWARM/1` + Verified Right Playbook)** | **Included + Multi-Model Council Clone Orchestration** |
 | **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
 | **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
@@ -195,9 +196,30 @@ kintsugi foresight src/ --dream
 kintsugi foresight src/ --transfer
 ```
 
+### 9. Shadow-Clone Parallel Epistemic Swarm & BFT Experience Consolidation (`kintsugi swarm` — `v1.0.0`)
+
+Inspired by parallel Shadow Clone (`Kage Bunshin`) exploration: when encountering an unfamiliar codebase or task, the Central Brain spawns **`K = 4` isolated orthogonal Shadow Clones** (`K = 3f + 1` Byzantine Fault Tolerance) with zero inter-clone communication during execution so clones never collapse into groupthink:
+- **Clone 1 (`TRACK_1_AST_BOUNDARY_SEAMS`):** Maps AST symbol tables, function/class boundaries, and structural seams.
+- **Clone 2 (`TRACK_2_ADVERSARIAL_RED_TEAM`):** Probes `S0 -> S1 -> S2` exploit chains, edge cases, and adversarial hallucination traps.
+- **Clone 3 (`TRACK_3_COUNTERFACTUAL_S3_SYNTHESIS`):** Synthesizes candidate `S3` guards and replays them in the isolated Counterfactual Sandbox.
+- **Clone 4 (`TRACK_4_ANALOGICAL_LAW_MAPPER`):** Maps cross-domain physical/mathematical conservation laws and 3-Horizon (`T+1/T+2/T+3`) cascade priorities.
+
+Each clone reaches its own independent, cryptographically signed `CloneEpisodicReport`. Upon completion, all `K = 4` clones merge back into the single Central Brain via a **Byzantine-Fault-Tolerant Quorum (`s_p >= 3`)**, quarantining refuted/hallucinated paths into the **Negative Tabu List** while distilling verified truths into a single deterministic **Step-by-Step Right Playbook (`Cách Làm Đúng`)**:
+
+```bash
+# 1. Spawn K=4 orthogonal Shadow Clones in parallel and merge their conclusions into 1 Verified Right Playbook:
+kintsugi swarm src/
+
+# 2. Emit the ultra-compact <45-token @SWARM/1 wire header:
+kintsugi swarm src/ --wire
+
+# 3. Verify Byzantine Fault Tolerance (inject a corrupted/hallucinating clone and prove 3/4 honest quorum still holds):
+kintsugi swarm src/ --byzantine-test
+```
+
 ---
 
-## Empirical Proofs & Scientific Conservation Law Validation (`v0.8.0`)
+## Empirical Proofs & Scientific Conservation Law Validation (`v1.0.0`)
 
 Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`RepoAstGroundingEngine` + `AutopoieticSynthesizer` + `CausalForesightEngine`) has been empirically validated against **5 Universal Scientific & Mathematical Conservation Laws** (`500` simulation steps, $\Delta t = 0.05\text{ s}$). Full details and reproducible commands are documented in [**`docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md`**](docs/EMPIRICAL_PROOFS_AND_BENCHMARKS.md):
 
@@ -210,7 +232,8 @@ Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`R
 | **5** | **Floating-Point Catastrophic Cancellation & Kahan Summation** | `CATASTROPHIC_CANCELLATION_SEAM` (`gamma**2 - 1.0` at $v \ll c$, naive `sum()`) | **`344.09%` relative error** & **`100%` micro-flux loss (`0.0 J`)** | Algebraic $\frac{v^2/c^2}{1 - v^2/c^2}$ + `math.fsum()` | **`0.0%` error**, full **`+100.0 J`** preserved |
 
 - **3-State Grounding Gate Accuracy:** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms`.
-- **Automated Verification Suite:** **`22/22` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`38/38` Frontier Pool Lessons Verified**.
+- **Shadow-Clone BFT Epistemic Swarm (`@SWARM/1`):** **`4/4` Orthogonal Clones** converge in `~100ms`, consolidating `7/7` verified truths into a single deterministic Right Playbook while quarantining adversarial hallucination traps into the Negative Tabu List (`PASS` under `f=1` Byzantine fault injection).
+- **Automated Verification Suite:** **`23/23` Python `unittest` (`OK`)** + **`3/3` Rust `cargo test` (`OK`)** + **`39/39` Frontier Pool Lessons Verified**.
 
 ---
 

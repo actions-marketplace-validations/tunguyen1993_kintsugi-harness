@@ -43,6 +43,7 @@ from kintsugi.packs import (
     load_installed_pack_scars,
 )
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
+from kintsugi.swarm import ShadowCloneSwarmOrchestrator
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -240,8 +241,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p_for.add_argument("--metacognition", action="store_true", help="Output Beta-Bernoulli domain competence & blind-spot calibration report")
     p_for.add_argument("--dream", action="store_true", help="Run Counterfactual Sandbox Dreamer (apply S3 guards in-memory & compute delta_seams / delta_p_max)")
     p_for.add_argument("--transfer", action="store_true", help="Run Cross-Domain Analogical Transfer Engine (map scientific/system invariants across domains)")
-    p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 wire headers")
+    p_for.add_argument("--swarm", action="store_true", help="Run Kage Bunshin Shadow-Clone Parallel Epistemic Swarm & BFT Playbook Consolidation")
+    p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 + @SWARM/1 wire headers")
     p_for.add_argument("--top-k", type=int, default=8, help="Max ranked pre-emptive actions to emit (default: 8)")
+
+    # swarm (Pillar 5: Shadow-Clone Parallel Epistemic Swarm & BFT Synaptic Merge)
+    p_swm = sub.add_parser(
+        "swarm",
+        help="Spawn K=4 orthogonal Shadow Clones in parallel, reach independent grounded conclusions, and merge into 1 Verified Right Playbook",
+    )
+    p_swm.add_argument("target", nargs="?", default=".", help="Repository or file for the Shadow-Clone Swarm to explore")
+    p_swm.add_argument("--workspace", default=".", help="Workspace root for .kintsugi state")
+    p_swm.add_argument("--clones", type=int, default=4, help="Number of orthogonal Shadow Clones to spawn (default: 4)")
+    p_swm.add_argument("--no-consolidate", action="store_true", help="Run swarm without writing newly distilled lessons to .kintsugi")
+    p_swm.add_argument("--byzantine-test", action="store_true", help="Inject a Byzantine fault into 1 clone to verify K=3f+1 fault-tolerant consensus")
+    p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 wire header")
 
     return parser
 
@@ -664,13 +678,36 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return 0
             print(json.dumps(d_rep, indent=2, ensure_ascii=False))
             return 0
+        if args.swarm:
+            swarm_orch = ShadowCloneSwarmOrchestrator(args.workspace)
+            s_rep = swarm_orch.run_swarm(args.target)
+            if args.wire:
+                print(s_rep["kmi_swarm_wire"])
+                return 0
+            print(json.dumps(s_rep, indent=2, ensure_ascii=False))
+            return 0
         forecaster = CausalForesightEngine(args.workspace)
         rep = forecaster.forecast(args.target, top_k_actions=args.top_k)
         if args.wire:
             dream_wire = CounterfactualDreamSimulator(args.workspace).simulate_dream(args.target)["kmi_dream_wire"]
-            print(f"{rep['kmi_foresight_wire']}\n{rep['metacognitive_wire']}\n{dream_wire}")
+            swarm_wire = ShadowCloneSwarmOrchestrator(args.workspace).run_swarm(args.target, consolidate_to_memory=False)["kmi_swarm_wire"]
+            print(f"{rep['kmi_foresight_wire']}\n{rep['metacognitive_wire']}\n{dream_wire}\n{swarm_wire}")
             return 0
         print(json.dumps(rep, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "swarm":
+        swarm_orch = ShadowCloneSwarmOrchestrator(args.workspace)
+        s_rep = swarm_orch.run_swarm(
+            args.target,
+            num_clones=args.clones,
+            consolidate_to_memory=not bool(args.no_consolidate),
+            inject_byzantine_fault=bool(args.byzantine_test),
+        )
+        if args.wire:
+            print(s_rep["kmi_swarm_wire"])
+            return 0
+        print(json.dumps(s_rep, indent=2, ensure_ascii=False))
         return 0
 
     return 0

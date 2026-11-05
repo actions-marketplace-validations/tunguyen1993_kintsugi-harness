@@ -1,6 +1,6 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
 from kintsugi.autofix import run_autofix
@@ -27,6 +27,12 @@ from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, GoldenScar, ScanFinding, ScanReport, Severity
 from kintsugi.packs import install_skill_pack, list_installed_packs
 from kintsugi.scanner import KintsugiScanner
+from kintsugi.swarm import (
+    CloneEpisodicReport,
+    ClonePropositionVote,
+    PlaybookStep,
+    ShadowCloneSwarmOrchestrator,
+)
 
 __all__ = [
     "__version__",
@@ -47,4 +53,8 @@ __all__ = [
     "run_autofix",
     "install_skill_pack",
     "list_installed_packs",
+    "CloneEpisodicReport",
+    "ClonePropositionVote",
+    "PlaybookStep",
+    "ShadowCloneSwarmOrchestrator",
 ]

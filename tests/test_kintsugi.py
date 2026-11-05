@@ -441,7 +441,7 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
 
     def test_real_life_domains_and_38_seed_frontier_lessons_pass_verification(self) -> None:
         seeds = get_seed_frontier_lessons()
-        self.assertEqual(len(seeds), 38)
+        self.assertEqual(len(seeds), 39)
         pillars = {s.domain_pillar for s in seeds}
         self.assertEqual(pillars, {"engineering", "life-and-business"})
         for lesson in seeds:
@@ -581,6 +581,57 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertTrue(dream["counterfactual_verified"])
             self.assertLess(dream["causal_deltas"]["delta_seams"], 0)
             self.assertIn("@DREAM/1|", dream["kmi_dream_wire"])
+
+    def test_shadow_clone_swarm_parallel_learning_and_bft_merge(self) -> None:
+        from kintsugi.swarm import ShadowCloneSwarmOrchestrator
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            target_file = ws / "unfamiliar_module.py"
+            target_file.write_text(
+                "import math\n\n"
+                "def mutate_profile(user_record, untrusted_payload):\n"
+                "    user_record.update(untrusted_payload)\n"
+                "    return user_record\n\n"
+                "def integrate_motion(x_pos, v_vel, accel, dt_sec):\n"
+                "    x_next = x_pos + v_vel * dt_sec + 0.0 * accel  # NON_SYMPLECTIC_EULER_DRIFT\n"
+                "    return x_next\n",
+                encoding="utf-8",
+            )
+
+            orchestrator = ShadowCloneSwarmOrchestrator(ws)
+            # 1. Normal 4-clone parallel exploration + BFT merge
+            rep = orchestrator.run_swarm(ws, num_clones=4, consolidate_to_memory=True)
+            self.assertEqual(rep["clones_spawned"], 4)
+            self.assertEqual(rep["bft_consensus_status"], "PASS")
+            self.assertEqual(rep["playbook_status"], "VERIFIED")
+            self.assertGreaterEqual(rep["consolidated_truths_count"], 2)
+            self.assertGreaterEqual(rep["negative_tabu_quarantined_count"], 1)
+            self.assertGreaterEqual(rep["right_playbook_steps_count"], 2)
+            self.assertIn("@SWARM/1|", rep["kmi_swarm_wire"])
+            self.assertGreaterEqual(len(rep["distilled_lesson_ids"]), 2)
+
+            # Verify each clone produced an independent signed episodic report
+            tracks = {c["track"] for c in rep["clone_episodic_reports"]}
+            self.assertEqual(len(tracks), 4)
+            for c_rep in rep["clone_episodic_reports"]:
+                self.assertEqual(len(c_rep["report_signature"]), 16)
+                self.assertIn("VERIFIED", c_rep["independent_conclusion"])
+
+            # 2. Byzantine Fault Injection test (1 clone corrupted, 3 honest clones still reach 3/4 BFT quorum!)
+            bft_rep = orchestrator.run_swarm(
+                ws,
+                num_clones=4,
+                consolidate_to_memory=False,
+                inject_byzantine_fault=True,
+            )
+            self.assertTrue(bft_rep["byzantine_fault_injected"])
+            self.assertEqual(bft_rep["bft_consensus_status"], "PASS")
+            self.assertEqual(bft_rep["playbook_status"], "VERIFIED")
+            self.assertGreaterEqual(bft_rep["consolidated_truths_count"], 2)
+            for truth in bft_rep["consolidated_truths"]:
+                self.assertEqual(truth["support_votes_s_p"], 3)
+                self.assertEqual(truth["refute_votes_r_p"], 1)
 
 
 if __name__ == "__main__":
