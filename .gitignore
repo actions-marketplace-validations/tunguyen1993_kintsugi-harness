@@ -15,4 +15,6 @@ venv/
 *.sarif
 .kintsugi/lessons_local.json
 .kintsugi/learn_config.json
+.kintsugi/learning_config.json
 .kintsugi/relay_outbox.jsonl
+.kintsugi/dlp_denylist.txt

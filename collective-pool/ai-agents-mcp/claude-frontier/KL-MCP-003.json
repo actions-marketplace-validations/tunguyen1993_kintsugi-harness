@@ -26,9 +26,9 @@
     "claude-opus-4",
     "deepseek-r1-0528"
   ],
-  "reinforcement_count": 11,
+  "reinforcement_count": 9,
   "source_repo": "github:anthropics/skills/mcp-builder",
-  "created_at": "2026-11-05T08:02:26Z",
+  "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",
   "structural_fingerprint": "7490525323a40f4a",
   "proof_attestation": "1716184f44e9c285bd0521d3"
