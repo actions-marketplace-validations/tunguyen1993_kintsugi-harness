@@ -975,6 +975,28 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
         self.assertEqual(arena_rep["asymmetric_ablation_summary"]["harness_lift_delta_pct"], 100.0)
         self.assertIn("@ARENA/1|ver=1.3.0|mode=PAID_RED_VS_FREE_BLUE|campaigns=6/6|containment=100.0%", arena_rep["kmi_arena_wire"])
 
+    def test_v1_3_0_closed_loop_self_learning_and_self_healing_across_5_waves(self) -> None:
+        from kintsugi.swarm import ClosedLoopEvolutionArena
+
+        ev_rep = ClosedLoopEvolutionArena().run_evolution_proof()
+        self.assertEqual(ev_rep["waves_total"], 5)
+        # Epoch 0: 0% catch rate before encountering the 5 novel 0-day problems
+        self.assertEqual(ev_rep["epoch_0_pre_learning_catch_rate_pct"], 0.0)
+        # Monotonic learning curve: 0% -> 20% -> 40% -> 60% -> 80% -> 100%
+        curve_rates = [pt["catch_rate_pct"] for pt in ev_rep["learning_curve_epoch_0_to_5"]]
+        self.assertEqual(curve_rates, [0.0, 20.0, 40.0, 60.0, 80.0, 100.0])
+        # Epoch 5: 100% unseen polymorphic variants caught, 100% self-healed, 0% FP, 100% poison rejected
+        self.assertEqual(ev_rep["epoch_5_post_learning_unseen_catch_rate_pct"], 100.0)
+        self.assertEqual(ev_rep["autonomous_code_self_heal_rate_pct"], 100.0)
+        self.assertEqual(ev_rep["unseen_polymorphic_generalization_pct"], 100.0)
+        self.assertEqual(ev_rep["safe_lookalike_false_positive_rate_pct"], 0.0)
+        self.assertEqual(ev_rep["poisoned_rule_rejection_rate_pct"], 100.0)
+        self.assertTrue(ev_rep["all_invariants_verified"])
+        self.assertIn(
+            "@EVOLVE/1|ver=1.3.0|waves=5|epoch0_catch=0.0%|epoch5_unseen_catch=100.0%|self_healed=5/5|poison_rejected=3/3|status=VERIFIED",
+            ev_rep["kmi_evolve_wire"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

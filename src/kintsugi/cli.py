@@ -45,6 +45,7 @@ from kintsugi.packs import (
 )
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
 from kintsugi.swarm import (
+    ClosedLoopEvolutionArena,
     ConsentGatedFreePoolManager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
@@ -268,7 +269,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--scope", default="", help="Optional comma-separated provider_ids for --authorize-auto-provision")
     p_swm.add_argument("--add-free-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Supply a user-provided $0 free-tier API key (e.g. groq_free gsk_...)")
     p_swm.add_argument("--revoke-consent", action="store_true", help="Immediately revoke auto-provisioning consent and purge stored keys in .kintsugi/free_agent_pool.json")
-    p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 5 High-Reasoning Council campaigns)")
+    p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 6 High-Reasoning Council campaigns)")
+    p_swm.add_argument("--evolution-proof", action="store_true", help="Run 5-Wave Closed-Loop Self-Learning & Self-Healing Proof (Epoch 0 Breach -> Scar Synthesis -> Autofix -> Epoch 5 Unseen Variant Immunity)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     return parser
@@ -716,6 +718,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        if args.evolution_proof:
+            ev_rep = ClosedLoopEvolutionArena().run_evolution_proof()
+            if args.wire:
+                print(ev_rep["kmi_evolve_wire"])
+                return 0
+            print(json.dumps(ev_rep, indent=2, ensure_ascii=False))
+            return 0 if ev_rep["all_invariants_verified"] else 1
         if args.red_blue_arena:
             arena_rep = RedBlueAdversarialArena().run_arena()
             if args.wire:
