@@ -1028,6 +1028,36 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
         self.assertEqual(macros["deepseek_free_plus_gemini_3b8_kintsugi_v130"], 97.04)
         self.assertEqual(rep["engineering_tradeoffs_and_overhead"]["benign_lookalike_false_positive_rate_pct"], 0.0)
 
+    def test_v1_3_0_surgical_pr_patch_synthesis_and_4gate_verification(self) -> None:
+        from kintsugi.autofix import synthesize_verified_pr_patch
+
+        wild_sample = (
+            "import requests\n\n"
+            "def send_alert(webhook_url: str, payload: dict) -> bool:\n"
+            "    try:\n"
+            "        resp = requests.post(webhook_url, json=payload)\n"
+            "        return resp.status_code == 200\n"
+            "    except:\n"
+            "        pass\n"
+            "    return False\n"
+        )
+        pr_bundle = synthesize_verified_pr_patch(
+            repo_full_name="0xTaoDev/jupiter-python-cli",
+            rel_file_path="functions.py",
+            original_code=wild_sample,
+            scars=get_starter_scars(),
+        )
+        self.assertEqual(pr_bundle["findings_before"], 2)
+        self.assertEqual(pr_bundle["findings_after"], 0)
+        self.assertTrue(pr_bundle["confirmed_correct_local"])
+        gates = pr_bundle["verification_gates"]
+        self.assertTrue(gates["gate1_scanner_zero_post_findings"])
+        self.assertTrue(gates["gate2_ast_signatures_and_bytecode_ok"])
+        self.assertTrue(gates["gate3_git_apply_check_clean"])
+        self.assertTrue(gates["gate4_subprocess_unittest_passed"])
+        self.assertIn("timeout=10", pr_bundle["unified_diff"])
+        self.assertIn("except Exception:", pr_bundle["unified_diff"])
+
 
 if __name__ == "__main__":
     unittest.main()
