@@ -29,6 +29,9 @@ EXTENSION_LANGUAGE_MAP: Dict[str, str] = {
     ".bash": "shell",
     ".zsh": "shell",
     ".md": "markdown",
+    ".txt": "decision",
+    ".decision": "decision",
+    ".contract": "contract",
     ".dockerfile": "dockerfile",
 }
 

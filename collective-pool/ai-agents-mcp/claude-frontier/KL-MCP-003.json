@@ -1,0 +1,35 @@
+{
+  "id": "KL-MCP-003",
+  "title": "Return structured isError=True MCP tool responses instead of raising raw unhandled exceptions",
+  "domain": "ai-agents-mcp",
+  "severity": "HIGH",
+  "languages": [
+    "python",
+    "typescript"
+  ],
+  "tags": [
+    "mcp",
+    "mcp-builder",
+    "error-handling",
+    "agent-recovery"
+  ],
+  "cognitive_trap": "Raised raw unhandled runtime exceptions inside an MCP tool handler assuming the host client will format them into actionable guidance for the LLM.",
+  "mental_model": "Harvested from anthropics/skills (mcp-builder): MCP tools must return structured `isError: True` payloads with actionable recovery hints so the calling agent can self-correct without crashing the transport.",
+  "bad_code": "raise RuntimeError(\"MCP_RAW_UNHANDLED_TOOL_ERROR: rate limit exceeded\")",
+  "good_code": "return {\"isError\": True, \"content\": [{\"type\": \"text\", \"text\": \"Rate limit exceeded; retry after 5s with smaller page_size.\"}]}",
+  "regex_pattern": "MCP_RAW_UNHANDLED_TOOL_ERROR",
+  "ast_rule": null,
+  "synthesized_by_model": "claude-opus-4",
+  "model_family": "claude-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "claude-opus-4",
+    "deepseek-r1-0528"
+  ],
+  "reinforcement_count": 9,
+  "source_repo": "github:anthropics/skills/mcp-builder",
+  "created_at": "2026-11-05T08:02:26Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "7490525323a40f4a",
+  "proof_attestation": "1716184f44e9c285bd0521d3"
+}
