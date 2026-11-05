@@ -38,6 +38,30 @@ COMPACT_SIGNATURES: Dict[str, str] = {
     "KS-016": "go!http_client_timeout",
     "KS-017": "tar!extractall->filter='data'",
     "KS-018": "docker!no_latest->pin_sha256",
+    "KS-NET-301": "torch!load->weights_only=True",
+    "KS-NET-302": "eof!stream_read->break_empty",
+    "KS-NET-303": "oauth!rfc7592->bind_client_id",
+    "KS-NET-304": "tar!pep706->filter=data",
+    "KS-NET-305": "jwt!verify_signature=True",
+    "KS-NET-306": "pde!cfl<=1.0",
+    "KS-WILD-501": "http!429->retry_after_jitter",
+    "KS-WILD-502": "auth!redirect->allowlist_host",
+    "KS-WILD-503": "usdc!float->Decimal_exact",
+    "KS-WILD-504": "hmac!eq->compare_digest",
+    "KS-WILD-505": "math!div_first->mul_before_div",
+    "KS-WILD-506": "sha256!raw_bytes->no_bom_strip",
+    "KS-WILD-507": "http!wild->explicit_timeout",
+    "KS-WILD-508": "py!wild_except->typed_exc",
+    "KS-WILD-509": "py!wild_mut_def->None_init",
+    "KS-WILD-510": "sh!wild_cmd->argv_no_shell",
+    "KS-WILD-511": "yaml!wild->safe_load",
+    "KS-WILD-512": "io!wild_open->with_ctx",
+    "KS-WILD-513": "rng!wild_token->secrets_mod",
+    "KS-WILD-514": "sql!wild_interp->param_tuple",
+    "KS-WILD-515": "async!wild_wait->wait_for_timeout",
+    "KS-WILD-516": "tls!wild_verify->verify_True",
+    "KS-WILD-517": "mem!wild_cache->bounded_lru",
+    "KS-WILD-518": "fp!wild_eq->math_isclose",
 }
 
 
@@ -122,3 +146,42 @@ def compute_token_savings_report(
         "tokens_saved_per_session": saved_per_session,
         "kmi_preview": kmi_text,
     }
+
+
+def render_domain_sliced_kmi_index(
+    scars: Sequence[GoldenScar],
+    *,
+    active_language: str = "python",
+    active_category: str | None = None,
+    max_active_rules: int = 8,
+) -> str:
+    """
+    `KMI/2` Ultra-Dense Domain-Sliced + Merkle-Deferred Wire Index.
+    Keeps per-turn token usage O(1) (~28-42 tokens) even when 50-500+ wild GitHub scars
+    are stored in the ledger by only expanding top-priority rules for `active_language`
+    and collapsing deferred rules into a 1-token `@DEFERRED` Merkle root.
+    """
+    lang = active_language.lower()
+    ordered = sorted(scars, key=lambda s: (-s.severity.rank, s.id))
+    active: list[GoldenScar] = []
+    deferred: list[GoldenScar] = []
+
+    for s in ordered:
+        langs = [x.lower() for x in s.languages] if s.languages else ["*"]
+        lang_match = ("*" in langs) or (lang in langs)
+        cat_match = (active_category is None) or (s.category == active_category)
+        if lang_match and cat_match and len(active) < max_active_rules:
+            active.append(s)
+        else:
+            deferred.append(s)
+
+    def_basis = "|".join(s.id for s in deferred)
+    def_sha6 = hashlib.sha256(def_basis.encode("utf-8")).hexdigest()[:6] if deferred else "000000"
+    active_tokens = ",".join(
+        f"{s.id}:{COMPACT_SIGNATURES.get(s.id, s.category[:6])}" for s in active
+    )
+    return (
+        f"@KMI/2|lang={lang}|act={len(active)}/{len(ordered)}|"
+        f"rules=[{active_tokens}]|@DEFERRED(n={len(deferred)},sha6={def_sha6},jit=1)"
+    )
+

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import bisect
 import difflib
 import os
 import re
@@ -301,13 +302,44 @@ class KintsugiScanner:
         self.scars = [s for s in scars if s.severity.meets(min_severity)]
         self.excluded_dirs = excluded_dirs if excluded_dirs is not None else set(DEFAULT_EXCLUDED_DIRS)
         self._compiled_regex: List[Tuple[GoldenScar, re.Pattern[str]]] = []
+        self._lang_regex_map: Dict[str, List[Tuple[GoldenScar, re.Pattern[str]]]] = {}
+        self._lang_fast_gate: Dict[str, Optional[re.Pattern[str]]] = {}
         self._ast_scars: Dict[str, List[GoldenScar]] = {}
+        self._scan_cache: Dict[Tuple[int, int, str, str], List[ScanFinding]] = {}
+        self._scars_fingerprint = "|".join(f"{s.id}:{s.regex_pattern}:{s.ast_rule}" for s in self.scars)
 
         for scar in self.scars:
             if scar.regex_pattern:
-                self._compiled_regex.append((scar, re.compile(scar.regex_pattern, re.MULTILINE)))
+                compiled = re.compile(scar.regex_pattern, re.MULTILINE)
+                self._compiled_regex.append((scar, compiled))
+                allowed_langs = [x.lower() for x in scar.languages] if scar.languages else ["*"]
+                for lg in allowed_langs:
+                    self._lang_regex_map.setdefault(lg, []).append((scar, compiled))
             if scar.ast_rule:
                 self._ast_scars.setdefault(scar.ast_rule, []).append(scar)
+
+        # Build single-pass fused union regex gate per language for O(1)-pass fast rejection on clean files
+        all_langs = set(EXTENSION_LANGUAGE_MAP.values()) | set(self._lang_regex_map.keys())
+        for lg in all_langs:
+            applicable = list(self._lang_regex_map.get(lg, []))
+            if lg != "*":
+                applicable.extend(self._lang_regex_map.get("*", []))
+            if applicable:
+                try:
+                    cleaned_branches: List[str] = []
+                    for s, _ in applicable:
+                        if s.regex_pattern:
+                            scoped_pat = re.sub(
+                                r"^\(\?([aiLmsux]+)\)(.*)",
+                                r"(?\1:\2)",
+                                s.regex_pattern.strip(),
+                                flags=re.DOTALL,
+                            )
+                            cleaned_branches.append(f"(?:{scoped_pat})")
+                    union_pat = "|".join(cleaned_branches)
+                    self._lang_fast_gate[lg] = re.compile(union_pat, re.MULTILINE) if union_pat else None
+                except re.error:
+                    self._lang_fast_gate[lg] = None
 
     @staticmethod
     def infer_language(file_path: str | Path, fallback: str = "python") -> str:
@@ -323,11 +355,19 @@ class KintsugiScanner:
         allowed_lines: Optional[Set[int]] = None,
     ) -> List[ScanFinding]:
         lang = (language or self.infer_language(file_path)).lower()
+        cache_key: Optional[Tuple[int, int, str, str]] = None
+        if allowed_lines is None and len(content) <= 262144:
+            cache_key = (len(content), hash(content), lang, file_path)
+            cached = self._scan_cache.get(cache_key)
+            if cached is not None:
+                return list(cached)
+
         lines = content.splitlines()
         if any(IGNORE_FILE_RE.search(ln) for ln in lines[:5]):
             return []
         findings: List[ScanFinding] = []
         seen_keys: Set[Tuple[str, int]] = set()
+        newline_offsets: Optional[List[int]] = None
 
         def _is_ignored(line_no: int, scar_id: str) -> bool:
             if allowed_lines is not None and line_no not in allowed_lines:
@@ -370,39 +410,56 @@ class KintsugiScanner:
                         )
                     )
 
-        for scar, pattern in self._compiled_regex:
-            allowed_langs = [x.lower() for x in scar.languages]
-            if allowed_langs and "*" not in allowed_langs and lang not in allowed_langs:
-                continue
-            for match in pattern.finditer(content):
-                start = match.start()
-                lineno = content.count("\n", 0, start) + 1
-                line_start = content.rfind("\n", 0, start)
-                col = start - (0 if line_start == -1 else line_start + 1) + 1
-                if _is_ignored(lineno, scar.id):
-                    continue
-                dedup = (scar.id, lineno)
-                if dedup in seen_keys:
-                    continue
-                seen_keys.add(dedup)
-                snippet = lines[lineno - 1].strip() if 1 <= lineno <= len(lines) else match.group(0)
-                findings.append(
-                    ScanFinding(
-                        scar_id=scar.id,
-                        title=scar.title,
-                        severity=scar.severity,
-                        category=scar.category,
-                        file_path=file_path,
-                        line=lineno,
-                        column=col,
-                        engine="regex",
-                        snippet=snippet[:200],
-                        rationale=scar.rationale,
-                        good_code_hint=scar.good_code,
+        # Single-pass fused regex fast-gate skips per-rule scanning completely if 0 patterns match
+        fast_gate = self._lang_fast_gate.get(lang)
+        applicable_regex = list(self._lang_regex_map.get(lang, []))
+        if lang != "*":
+            applicable_regex.extend(self._lang_regex_map.get("*", []))
+        if not applicable_regex and self._compiled_regex:
+            applicable_regex = [
+                (s, p)
+                for s, p in self._compiled_regex
+                if not s.languages or "*" in [x.lower() for x in s.languages] or lang in [x.lower() for x in s.languages]
+            ]
+
+        if applicable_regex and (fast_gate is None or fast_gate.search(content) is not None):
+            for scar, pattern in applicable_regex:
+                for match in pattern.finditer(content):
+                    start = match.start()
+                    if newline_offsets is None:
+                        newline_offsets = [idx for idx, ch in enumerate(content) if ch == "\n"]
+                    line_idx = bisect.bisect_right(newline_offsets, start - 1) if start > 0 else 0
+                    lineno = line_idx + 1
+                    line_start = newline_offsets[line_idx - 1] if line_idx > 0 else -1
+                    col = start - (0 if line_start == -1 else line_start + 1) + 1
+                    if _is_ignored(lineno, scar.id):
+                        continue
+                    dedup = (scar.id, lineno)
+                    if dedup in seen_keys:
+                        continue
+                    seen_keys.add(dedup)
+                    snippet = lines[lineno - 1].strip() if 1 <= lineno <= len(lines) else match.group(0)
+                    findings.append(
+                        ScanFinding(
+                            scar_id=scar.id,
+                            title=scar.title,
+                            severity=scar.severity,
+                            category=scar.category,
+                            file_path=file_path,
+                            line=lineno,
+                            column=col,
+                            engine="regex",
+                            snippet=snippet[:200],
+                            rationale=scar.rationale,
+                            good_code_hint=scar.good_code,
+                        )
                     )
-                )
 
         findings.sort(key=lambda f: (f.file_path, f.line, -f.severity.rank, f.scar_id))
+        if cache_key is not None:
+            if len(self._scan_cache) >= 2048:
+                self._scan_cache.clear()
+            self._scan_cache[cache_key] = list(findings)
         return findings
 
     def iter_target_files(self, target: Path) -> Iterable[Path]:
