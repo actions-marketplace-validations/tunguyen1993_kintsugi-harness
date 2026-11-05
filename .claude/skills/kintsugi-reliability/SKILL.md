@@ -1,6 +1,7 @@
 ---
 name: kintsugi-reliability
 description: "Focused reliability anti-patterns and verified code templates compiled by Kintsugi Harness."
+tags: ["ast", "browser", "debugging", "exceptions", "golang", "hang", "http", "memory-leak", "observability", "playwright"]
 ---
 
 # kintsugi-reliability
@@ -11,7 +12,7 @@ Every rule below was compiled from a verified failure trace and is enforced dete
 ## Verification Gate
 
 ```bash
-kintsugi scan . --fail-on HIGH
+kintsugi scan --staged --fail-on HIGH
 ```
 
 ## Verified Golden Scars (`❌ Anti-Pattern` vs `✅ Verified Fix`)
@@ -51,6 +52,21 @@ resp = urllib.request.urlopen("https://example.com/api/health")
 ```python
 import urllib.request
 resp = urllib.request.urlopen("https://example.com/api/health", timeout=10)
+```
+
+### `KS-016` · [HIGH] Go net/http DefaultClient call without bounded timeout
+- **Root cause:** Go's package-level http.Get and http.Post helpers use http.DefaultClient, which has a default Timeout of 0 (infinite wait).
+- **Why this matters:** Explicit http.Client{Timeout: ...} prevents goroutine leaks on unresponsive upstream servers.
+
+**Avoid (`❌ Anti-Pattern`):**
+```go
+resp, err := http.Get("https://api.example.com/status")
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```go
+client := &http.Client{Timeout: 10 * time.Second}
+resp, err := client.Get("https://api.example.com/status")
 ```
 
 ### `KS-010` · [MEDIUM] Headless browser launch without deterministic finally teardown

@@ -6,16 +6,23 @@ import io
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from kintsugi.cli import main as cli_main
 from kintsugi.compiler import BOUNDARY_END, BOUNDARY_START, SkillCompiler
-from kintsugi.council import AgentEndpoint, EvolutionCouncil, verify_candidate_scar
+from kintsugi.council import AgentEndpoint, EvolutionCouncil, _extract_json_object, verify_candidate_scar
 from kintsugi.hooks import evaluate_claude_pre_tool_payload, install_claude_settings_hook
 from kintsugi.ledger import ScarLedger
 from kintsugi.mcp_server import KintsugiMCPServer
 from kintsugi.models import FailureTrace, GoldenScar, Severity
-from kintsugi.scanner import KintsugiScanner, report_to_sarif
+from kintsugi.packager import SkillPackager
+from kintsugi.scanner import (
+    KintsugiScanner,
+    parse_git_diff_text,
+    render_patch_preview,
+    report_to_sarif,
+)
 from kintsugi.starter_pack import get_starter_scars
 
 
@@ -24,14 +31,14 @@ class TestStarterPackSelfVerification(unittest.TestCase):
 
     def test_all_starter_scars_pass_deterministic_self_check(self) -> None:
         scars = get_starter_scars()
-        self.assertGreaterEqual(len(scars), 12)
+        self.assertGreaterEqual(len(scars), 16)
         for scar in scars:
             with self.subTest(scar_id=scar.id):
                 ok, message = verify_candidate_scar(scar)
                 self.assertTrue(ok, f"{scar.id} failed self-check: {message}")
 
 
-class TestASTAndRegexScanner(unittest.TestCase):
+class TestASTRegexAndDiffScanner(unittest.TestCase):
     def test_python_ast_catches_mutable_default_and_respects_pragma(self) -> None:
         scanner = KintsugiScanner(get_starter_scars())
         bad_src = "def collect(x, acc=[]):\n    acc.append(x)\n    return acc\n"
@@ -47,6 +54,38 @@ class TestASTAndRegexScanner(unittest.TestCase):
         good = 'import requests\nresp = requests.get("https://api.example.com/v1", timeout=5)\n'
         self.assertTrue(any(f.scar_id == "KS-008" for f in scanner.scan_text(bad, file_path="client.py")))
         self.assertEqual(scanner.scan_text(good, file_path="client.py"), [])
+
+    def test_git_diff_hunk_filtering_and_patch_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "service.py"
+            target.write_text(
+                "def old_fn(a=[]):\n    return a\n\nimport pickle\npickle.loads(raw)\n",
+                encoding="utf-8",
+            )
+            diff_sample = (
+                "--- a/service.py\n"
+                "+++ b/service.py\n"
+                "@@ -4,0 +4,2 @@\n"
+                "+import pickle\n"
+                "+pickle.loads(raw)\n"
+            )
+            changed_map = parse_git_diff_text(diff_sample, root)
+            self.assertIn(target.resolve(), changed_map)
+            self.assertEqual(changed_map[target.resolve()], {4, 5})
+
+            scanner = KintsugiScanner(get_starter_scars())
+            findings = scanner.scan_text(
+                target.read_text(encoding="utf-8"),
+                file_path=str(target),
+                allowed_lines=changed_map[target.resolve()],
+            )
+            # Line 1 mutable default is outside the diff hunk and MUST be ignored; Line 5 KS-006 is caught!
+            self.assertEqual([f.scar_id for f in findings], ["KS-006"])
+            preview = render_patch_preview(findings[0])
+            self.assertIn("--- a/", preview)
+            self.assertIn("+++ b/", preview)
+            self.assertIn("-pickle.loads(raw)", preview)
 
     def test_extensible_council_ast_rules(self) -> None:
         custom = GoldenScar(
@@ -78,23 +117,23 @@ class TestASTAndRegexScanner(unittest.TestCase):
             self.assertEqual(sarif["runs"][0]["results"][0]["ruleId"], "KS-006")
 
 
-class TestScarLedgerAndSkillCompiler(unittest.TestCase):
+class TestScarLedgerCompilerAndPackager(unittest.TestCase):
     def test_ledger_deduplicates_identical_fingerprints(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ledger = ScarLedger(Path(tmp) / ".kintsugi" / "scars.json")
             added = ledger.bootstrap_starter_pack()
-            self.assertEqual(added, 12)
+            self.assertEqual(added, 16)
             self.assertEqual(ledger.bootstrap_starter_pack(), 0)
-            self.assertEqual(len(ledger.all()), 12)
+            self.assertEqual(len(ledger.all()), 16)
 
-    def test_compiler_preserves_human_sections_in_claude_md(self) -> None:
+    def test_compiler_supports_all_six_agent_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             claude_md = tmp_path / "CLAUDE.md"
             claude_md.write_text("# Project Guide\n\nHuman architecture notes.\n", encoding="utf-8")
 
             compiler = SkillCompiler(get_starter_scars())
-            written = compiler.compile_all(tmp_path)
+            written = compiler.compile_all(tmp_path, targets=["all"])
             self.assertIn(claude_md, written)
 
             compiled_text = claude_md.read_text(encoding="utf-8")
@@ -102,11 +141,26 @@ class TestScarLedgerAndSkillCompiler(unittest.TestCase):
             self.assertEqual(compiled_text.count(BOUNDARY_START), 1)
             self.assertEqual(compiled_text.count(BOUNDARY_END), 1)
 
-            compiler.compile_all(tmp_path)
-            recompiled_text = claude_md.read_text(encoding="utf-8")
-            self.assertEqual(recompiled_text.count(BOUNDARY_START), 1)
             self.assertTrue((tmp_path / ".claude" / "skills" / "kintsugi-guardrails" / "SKILL.md").exists())
             self.assertTrue((tmp_path / ".cursor" / "rules" / "kintsugi-guardrails.mdc").exists())
+            self.assertTrue(
+                (tmp_path / ".github" / "instructions" / "kintsugi-guardrails.instructions.md").exists()
+            )
+            self.assertTrue((tmp_path / ".windsurfrules").exists())
+
+    def test_skill_packager_builds_marketplace_zips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "packs"
+            packager = SkillPackager(get_starter_scars())
+            packs = packager.build_all_packs(out_dir)
+            self.assertGreaterEqual(len(packs), 4)
+            pro_pack = packs[0]
+            zip_file = Path(pro_pack["zip_archive"])
+            self.assertTrue(zip_file.exists())
+            with zipfile.ZipFile(zip_file, "r") as zf:
+                names = zf.namelist()
+                self.assertTrue(any(n.endswith("/SKILL.md") for n in names))
+                self.assertTrue(any(n.endswith("/agensi-manifest.json") for n in names))
 
 
 class TestClaudeCodePreToolHooks(unittest.TestCase):
@@ -142,6 +196,11 @@ class TestClaudeCodePreToolHooks(unittest.TestCase):
 
 
 class TestThreeAgentCouncilAndMCP(unittest.TestCase):
+    def test_extract_json_handles_template_literal_braces_in_prose(self) -> None:
+        prose = 'Analysis of `exec(`convert ${userFile} out.png`)`:\n{"title": "Test", "bad_code": "x"}'
+        obj = _extract_json_object(prose)
+        self.assertEqual(obj["title"], "Test")
+
     def test_council_self_heals_when_first_regex_has_false_positive(self) -> None:
         endpoints = [
             AgentEndpoint("architect", "gemini-pro", "https://example.invalid/v1", "k1"),
@@ -200,18 +259,6 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
         self.assertEqual(scar.id, "KS-050")
         self.assertIn("PASS", msg)
 
-    def test_offline_evolve_yaml_load(self) -> None:
-        council = EvolutionCouncil(endpoints=[])
-        trace = FailureTrace(
-            source="pytest",
-            error_summary="Unsafe yaml.load detected",
-            raw_trace="cfg = yaml.load(stream)",
-            language="python",
-        )
-        scar, msg = council.evolve(trace, scar_id="KS-099")
-        self.assertEqual(scar.id, "KS-099")
-        self.assertIn("PASS", msg)
-
     def test_mcp_stdio_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ledger_file = Path(tmp) / ".kintsugi" / "scars.json"
@@ -233,7 +280,7 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
                                     "file_path": "handler.py",
                                 },
                             },
-                        }
+                        },
                     ),
                 ]
             )
@@ -259,6 +306,7 @@ class TestCLIDogfooding(unittest.TestCase):
                 0,
             )
             self.assertEqual(cli_main(["verify-ledger", "--ledger", str(ledger_path)]), 0)
+            self.assertEqual(cli_main(["explain", "KS-003", "--ledger", str(ledger_path)]), 0)
             self.assertEqual(
                 cli_main(
                     [

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kintsugi-harness"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-evolving failure-to-skill and deterministic PreToolUse AST/Regex guardrail compiler for Claude Code, Cursor, Codex, and MCP agents."
 readme = "README.md"
 license = { text = "Apache-2.0" }

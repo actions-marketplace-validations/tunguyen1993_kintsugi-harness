@@ -1,10 +1,12 @@
-"""Dual-engine deterministic scanner (Python AST + Multi-Language Regex + SARIF 2.1.0 exporter)."""
+"""Dual-engine deterministic scanner (Python AST + Multi-Language Regex + Git-Diff Hunk Filter + SARIF 2.1.0)."""
 
 from __future__ import annotations
 
 import ast
+import difflib
 import os
 import re
+import subprocess
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
@@ -27,6 +29,7 @@ EXTENSION_LANGUAGE_MAP: Dict[str, str] = {
     ".bash": "shell",
     ".zsh": "shell",
     ".md": "markdown",
+    ".dockerfile": "dockerfile",
 }
 
 DEFAULT_EXCLUDED_DIRS: Set[str] = {
@@ -50,6 +53,7 @@ DEFAULT_EXCLUDED_DIRS: Set[str] = {
 
 IGNORE_FILE_RE = re.compile(r"kintsugi:\s*ignore-file\b", re.IGNORECASE)
 IGNORE_PRAGMA_RE = re.compile(r"kintsugi:\s*ignore(?:\[([A-Za-z0-9_,\s-]+)\])?", re.IGNORECASE)
+HUNK_HEADER_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 SECURITY_NAME_RE = re.compile(
     r"(?:token|secret|nonce|api_key|apikey|password|passwd|auth_code|otp|session_id|private_key|salt)",
     re.IGNORECASE,
@@ -75,6 +79,63 @@ def _dotted_call_name(node: ast.Call) -> str:
     if isinstance(curr, ast.Name):
         parts.append(curr.id)
     return ".".join(reversed(parts))
+
+
+def parse_git_diff_text(diff_text: str, repo_root: Path) -> Dict[Path, Set[int]]:
+    """
+    Parse unified `git diff -U0` output into `{resolved_file_path: {added_or_modified_line_numbers}}`.
+    """
+    changed: Dict[Path, Set[int]] = {}
+    current_file: Optional[Path] = None
+
+    for raw_line in diff_text.splitlines():
+        if raw_line.startswith("+++ b/"):
+            rel_path = raw_line[6:].strip()
+            current_file = (repo_root / rel_path).resolve()
+            changed.setdefault(current_file, set())
+        elif raw_line.startswith("+++ /dev/null"):
+            current_file = None
+        elif current_file is not None and raw_line.startswith("@@"):
+            match = HUNK_HEADER_RE.match(raw_line)
+            if match:
+                start_line = int(match.group(1))
+                count = int(match.group(2)) if match.group(2) is not None else 1
+                if count > 0:
+                    changed[current_file].update(range(start_line, start_line + count))
+    return {p: lines for p, lines in changed.items() if lines and p.exists()}
+
+
+def get_git_changed_lines(
+    repo_root: str | Path = ".",
+    *,
+    staged: bool = False,
+    diff_ref: Optional[str] = None,
+) -> Dict[Path, Set[int]]:
+    """Run `git diff -U0` and return touched line numbers per file."""
+    root = Path(repo_root).resolve()
+    cmd = ["git", "-C", str(root), "diff", "-U0", "--no-color"]
+    if staged:
+        cmd.append("--staged")
+    elif diff_ref:
+        cmd.append(diff_ref)
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(f"git diff failed: {proc.stderr.strip()}")
+    return parse_git_diff_text(proc.stdout, root)
+
+
+def render_patch_preview(finding: ScanFinding) -> str:
+    """Generate a unified diff preview showing how to replace the offending snippet."""
+    before_lines = [finding.snippet.rstrip() + "\n"]
+    after_lines = [ln + "\n" for ln in finding.good_code_hint.strip().splitlines()]
+    diff = difflib.unified_diff(
+        before_lines,
+        after_lines,
+        fromfile=f"a/{finding.file_path}:{finding.line}",
+        tofile=f"b/{finding.file_path}:{finding.line} (verified {finding.scar_id} fix)",
+        lineterm="\n",
+    )
+    return "".join(diff).rstrip()
 
 
 class _PythonASTVisitor(ast.NodeVisitor):
@@ -164,7 +225,6 @@ class _PythonASTVisitor(ast.NodeVisitor):
         call_name = _dotted_call_name(node)
         kwargs = {kw.arg: kw.value for kw in node.keywords if kw.arg is not None}
 
-        # 1. subprocess(..., shell=True)
         if call_name in {
             "subprocess.run",
             "subprocess.Popen",
@@ -176,13 +236,11 @@ class _PythonASTVisitor(ast.NodeVisitor):
             if isinstance(shell_val, ast.Constant) and shell_val.value is True:
                 self._record("py_subprocess_shell_true", node)
 
-        # 2. eval / exec / pickle.loads / yaml.load without Loader
         if call_name in {"eval", "exec", "pickle.loads", "pickle.load", "marshal.loads"}:
             self._record("py_unsafe_dynamic_exec", node)
         elif call_name == "yaml.load" and "Loader" not in kwargs:
             self._record("py_unsafe_dynamic_exec", node)
 
-        # 3. Synchronous HTTP calls missing timeout=
         if call_name in {
             "urlopen",
             "request.urlopen",
@@ -199,21 +257,16 @@ class _PythonASTVisitor(ast.NodeVisitor):
         }:
             has_star_kwargs = any(kw.arg is None for kw in node.keywords)
             if "timeout" not in kwargs and not has_star_kwargs:
-                # urllib.request.urlopen accepts timeout as 3rd positional argument
                 if call_name.endswith("urlopen") and len(node.args) >= 3:
                     pass
                 else:
                     self._record("py_http_missing_timeout", node)
 
-        # 4. random.* assigned to security-sensitive identifiers
         if call_name.startswith("random.") and any(
             SECURITY_NAME_RE.search(t) for t in self._current_target_names
         ):
             self._record("py_insecure_random_for_secret", node)
 
-        # 5. Extensible Council-synthesized AST rules:
-        #    - "call:<dotted_name>"
-        #    - "missing_kwarg:<dotted_name>:<kwarg_name>"
         for rule_key in self.ast_scars:
             if rule_key.startswith("call:"):
                 target_fn = rule_key.split(":", 1)[1]
@@ -232,7 +285,7 @@ class _PythonASTVisitor(ast.NodeVisitor):
 
 
 class KintsugiScanner:
-    """Deterministic static & pre-tool code scanner backed by a GoldenScar list."""
+    """Deterministic static, git-diff, and pre-tool code scanner backed by a GoldenScar list."""
 
     def __init__(
         self,
@@ -263,6 +316,7 @@ class KintsugiScanner:
         *,
         file_path: str = "<memory>",
         language: Optional[str] = None,
+        allowed_lines: Optional[Set[int]] = None,
     ) -> List[ScanFinding]:
         lang = (language or self.infer_language(file_path)).lower()
         lines = content.splitlines()
@@ -272,6 +326,8 @@ class KintsugiScanner:
         seen_keys: Set[Tuple[str, int]] = set()
 
         def _is_ignored(line_no: int, scar_id: str) -> bool:
+            if allowed_lines is not None and line_no not in allowed_lines:
+                return True
             if not (1 <= line_no <= len(lines)):
                 return False
             ignored = _extract_ignored_ids(lines[line_no - 1])
@@ -279,7 +335,6 @@ class KintsugiScanner:
                 return False
             return "*" in ignored or scar_id.upper() in ignored
 
-        # 1. Python AST engine
         if lang == "python" and self._ast_scars:
             try:
                 tree = ast.parse(content, filename=file_path)
@@ -311,7 +366,6 @@ class KintsugiScanner:
                         )
                     )
 
-        # 2. Multi-language Regex engine
         for scar, pattern in self._compiled_regex:
             allowed_langs = [x.lower() for x in scar.languages]
             if allowed_langs and "*" not in allowed_langs and lang not in allowed_langs:
@@ -372,6 +426,45 @@ class KintsugiScanner:
                 continue
             file_count += 1
             findings.extend(self.scan_text(text, file_path=str(fpath)))
+
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        return ScanReport(
+            scanned_files=file_count,
+            active_scars=len(self.scars),
+            findings=findings,
+            elapsed_ms=elapsed_ms,
+        )
+
+    def scan_git_changes(
+        self,
+        repo_root: str | Path = ".",
+        *,
+        staged: bool = False,
+        diff_ref: Optional[str] = None,
+    ) -> ScanReport:
+        """Scan only git-modified files and touched line numbers."""
+        t0 = time.perf_counter()
+        changed_map = get_git_changed_lines(repo_root, staged=staged, diff_ref=diff_ref)
+        findings: List[ScanFinding] = []
+        file_count = 0
+
+        for fpath, touched_lines in sorted(changed_map.items()):
+            if fpath.suffix.lower() not in EXTENSION_LANGUAGE_MAP:
+                continue
+            if any(part in self.excluded_dirs for part in fpath.parts):
+                continue
+            try:
+                text = fpath.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            file_count += 1
+            findings.extend(
+                self.scan_text(
+                    text,
+                    file_path=str(fpath),
+                    allowed_lines=touched_lines,
+                )
+            )
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         return ScanReport(

@@ -1,6 +1,7 @@
 ---
 name: kintsugi-guardrails
 description: "Self-evolved security, reliability, and correctness guardrails enforced by Kintsugi AST/Regex scanner. Activate before editing code or running shell commands."
+tags: ["anti-hallucination", "archive-extraction", "ast", "authentication", "base-image", "bash", "browser", "bug", "child_process", "claude-code"]
 ---
 
 # kintsugi-guardrails
@@ -11,7 +12,7 @@ Every rule below was compiled from a verified failure trace and is enforced dete
 ## Verification Gate
 
 ```bash
-kintsugi scan . --fail-on HIGH
+kintsugi scan --staged --fail-on HIGH
 ```
 
 ## Verified Golden Scars (`❌ Anti-Pattern` vs `✅ Verified Fix`)
@@ -89,6 +90,20 @@ cursor.execute("SELECT id, email FROM users WHERE email = ?", (email,))
 <!-- Validated skill documentation containing purely declarative tool schemas -->
 ```
 
+### `KS-014` · [CRITICAL] Global TLS certificate verification disabled in Node.js process
+- **Root cause:** Agents debugging self-signed cert errors often set NODE_TLS_REJECT_UNAUTHORIZED = '0', silently disabling TLS verification for every outbound HTTPS request in the process.
+- **Why this matters:** Configures custom CA certificates per-agent instead of disabling TLS validation process-wide.
+
+**Avoid (`❌ Anti-Pattern`):**
+```javascript
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```javascript
+const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });
+```
+
 ### `KS-003` · [HIGH] Subprocess execution with shell=True
 - **Root cause:** Agents pass shell=True to subprocess.run/Popen to use string commands, exposing shell metacharacter injection when filenames or user arguments contain spaces or semicolons.
 - **Why this matters:** Argument arrays bypass /bin/sh parsing completely, eliminating command injection.
@@ -159,25 +174,62 @@ api_nonce = f'{secrets.randbelow(900000) + 100000}'
 ```
 
 ### `KS-013` · [HIGH] Potential shell command injection through interpolated exec command
-- **Root cause:** child_process.exec passes a command string to a shell. If user-controlled input is interpolated into that string, shell metacharacters may be interpreted as syntax, enabling arbitrary command execution.
-- **Why this matters:** Use execFile or spawn with an argument array and shell disabled so the filename is passed as data rather than parsed by a shell. Avoid interpolating untrusted values into exec command strings. Interpolation alone does not establish that a value is untrusted; verify its source before treating a match as a vulnerability.
+- **Root cause:** Passing template literals with `${...}` interpolation into child_process.exec or execSync invokes /bin/sh on unsanitized input.
+- **Why this matters:** execFile and spawn pass arguments as an array directly to the OS kernel without shell interpretation.
 
 **Avoid (`❌ Anti-Pattern`):**
 ```javascript
-const child_process = require('child_process');
-
-function convert(userFile) {
-  child_process.exec(`convert ${userFile} output.png`);
-}
+child_process.exec(`convert ${userFile} output.png`);
 ```
 
 **Prefer (`✅ Verified Pattern`):**
 ```javascript
-const { execFile } = require('child_process');
+child_process.execFile('convert', [userFile, 'output.png']);
+```
 
-function convert(userFile) {
-  return execFile('convert', [userFile, 'output.png']);
-}
+### `KS-015` · [HIGH] Permissive CORS wildcard origin combined with allow_credentials=True
+- **Root cause:** Agents scaffolding FastAPI or Express backends frequently combine allow_origins=['*'] with allow_credentials=True.
+- **Why this matters:** Explicit origin allowlists prevent cross-origin credential exposure.
+
+**Avoid (`❌ Anti-Pattern`):**
+```python
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```python
+app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)
+```
+
+### `KS-016` · [HIGH] Go net/http DefaultClient call without bounded timeout
+- **Root cause:** Go's package-level http.Get and http.Post helpers use http.DefaultClient, which has a default Timeout of 0 (infinite wait).
+- **Why this matters:** Explicit http.Client{Timeout: ...} prevents goroutine leaks on unresponsive upstream servers.
+
+**Avoid (`❌ Anti-Pattern`):**
+```go
+resp, err := http.Get("https://api.example.com/status")
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```go
+client := &http.Client{Timeout: 10 * time.Second}
+resp, err := client.Get("https://api.example.com/status")
+```
+
+### `KS-017` · [HIGH] Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559)
+- **Root cause:** tarfile.extractall() is called without a safety filter, so archive members containing paths such as ../target or absolute paths can write outside dest_dir.
+- **Why this matters:** The data extraction filter rejects members that escape the destination and restricts unsafe archive features. This requires a Python version that supports extraction filters; otherwise, validate each member path before extraction.
+
+**Avoid (`❌ Anti-Pattern`):**
+```python
+with tarfile.open(archive_path) as tar:
+    tar.extractall(path=dest_dir)
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```python
+with tarfile.open(archive_path) as tar:
+    tar.extractall(path=dest_dir, filter="data")
 ```
 
 ### `KS-004` · [MEDIUM] Python mutable default argument in function signature
@@ -236,4 +288,20 @@ try {
 } finally {
   await browser.close();
 }
+```
+
+### `KS-018` · [MEDIUM] Pin Docker base images to an immutable digest
+- **Root cause:** The Dockerfile uses the mutable python:latest tag, whose image contents can change between builds.
+- **Why this matters:** An image digest pins the exact base image content, making builds reproducible and preventing unexpected changes from a mutable tag. Replace the placeholder with the verified digest for the intended Python image, and update it deliberately for security fixes.
+
+**Avoid (`❌ Anti-Pattern`):**
+```dockerfile
+FROM python:latest
+WORKDIR /app
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```dockerfile
+FROM python:3.12.9@sha256:<verified-image-digest>
+WORKDIR /app
 ```

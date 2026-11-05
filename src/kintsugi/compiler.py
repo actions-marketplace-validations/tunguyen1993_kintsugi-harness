@@ -1,4 +1,4 @@
-"""Cross-agent Harness & Skill Compiler (Claude Code SKILL.md, CLAUDE.md, AGENTS.md, Cursor .mdc)."""
+"""Cross-agent Harness & Skill Compiler (Claude Code, Cursor, GitHub Copilot, Windsurf, Codex/AGENTS.md)."""
 
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ def _upsert_bounded_section(existing_text: str, section_body: str) -> str:
 class SkillCompiler:
     """
     Compiles verified GoldenScars into portable, token-budgeted agent skill files
-    and IDE governance configs without bloating context windows.
+    and IDE governance configs across Claude Code, Cursor, Copilot, Windsurf, and Codex.
     """
 
-    def __init__(self, scars: Sequence[GoldenScar], *, max_scars_in_root_doc: int = 15) -> None:
+    def __init__(self, scars: Sequence[GoldenScar], *, max_scars_in_root_doc: int = 18) -> None:
         self.scars = sorted(
             scars,
             key=lambda s: (-s.severity.rank, -s.hits, s.id),
@@ -46,7 +46,7 @@ class SkillCompiler:
         lines = [
             "## Kintsugi Self-Evolved Guardrails (Auto-Compiled)",
             "",
-            "> Managed by `kintsugi-harness`. Run `kintsugi scan .` before committing or opening PRs.",
+            "> Managed by `kintsugi-harness`. Run `kintsugi scan .` or `kintsugi scan --staged` before committing.",
             "> Full paired anti-patterns (`❌ Bad` vs `✅ Good`) live in `.claude/skills/kintsugi-guardrails/SKILL.md`.",
             "",
             "| ID | Severity | Category | Anti-Pattern to Avoid |",
@@ -62,11 +62,14 @@ class SkillCompiler:
         return "\n".join(lines)
 
     def render_skill_markdown(self, skill_name: str, description: str, scars: Sequence[GoldenScar]) -> str:
-        """Render an Agent Skills compliant SKILL.md with paired code examples and verification steps."""
+        """Render an Agent Skills compliant SKILL.md (Agensi.io / Claude Code / Codex standard)."""
+        all_tags = sorted({t for s in scars for t in s.tags})[:10]
+        tags_yaml = ", ".join(f'"{t}"' for t in all_tags)
         lines = [
             "---",
             f"name: {skill_name}",
             f'description: "{description}"',
+            f"tags: [{tags_yaml}]",
             "---",
             "",
             f"# {skill_name}",
@@ -77,7 +80,7 @@ class SkillCompiler:
             "## Verification Gate",
             "",
             "```bash",
-            "kintsugi scan . --fail-on HIGH",
+            "kintsugi scan --staged --fail-on HIGH",
             "```",
             "",
             "## Verified Golden Scars (`❌ Anti-Pattern` vs `✅ Verified Fix`)",
@@ -117,6 +120,20 @@ class SkillCompiler:
             f"{body}\n"
         )
 
+    def render_copilot_instructions(self) -> str:
+        """Render `.github/instructions/kintsugi-guardrails.instructions.md` for GitHub Copilot."""
+        body = self.render_root_governance_block()
+        return (
+            "---\n"
+            'applyTo: "**/*"\n'
+            "---\n\n"
+            f"{body}\n"
+        )
+
+    def render_windsurf_rules(self) -> str:
+        """Render `.windsurfrules` governance block for Windsurf IDE."""
+        return self.render_root_governance_block() + "\n"
+
     def compile_all(
         self,
         workspace_root: str | Path,
@@ -125,10 +142,11 @@ class SkillCompiler:
     ) -> List[Path]:
         root = Path(workspace_root)
         target_set = {t.strip().lower() for t in targets}
+        if "all" in target_set:
+            target_set = {"skills", "claude", "agents", "cursor", "copilot", "windsurf"}
         written: List[Path] = []
 
         if "skills" in target_set:
-            # 1. Master consolidated skill
             master_skill = root / ".claude" / "skills" / "kintsugi-guardrails" / "SKILL.md"
             master_skill.parent.mkdir(parents=True, exist_ok=True)
             master_skill.write_text(
@@ -141,7 +159,6 @@ class SkillCompiler:
             )
             written.append(master_skill)
 
-            # 2. Category-specific modular skills when >= 2 scars exist in a category
             by_cat: Dict[str, List[GoldenScar]] = defaultdict(list)
             for scar in self.scars:
                 by_cat[scar.category.lower()].append(scar)
@@ -179,5 +196,17 @@ class SkillCompiler:
             cursor_mdc.parent.mkdir(parents=True, exist_ok=True)
             cursor_mdc.write_text(self.render_cursor_mdc(), encoding="utf-8")
             written.append(cursor_mdc)
+
+        if "copilot" in target_set:
+            copilot_file = root / ".github" / "instructions" / "kintsugi-guardrails.instructions.md"
+            copilot_file.parent.mkdir(parents=True, exist_ok=True)
+            copilot_file.write_text(self.render_copilot_instructions(), encoding="utf-8")
+            written.append(copilot_file)
+
+        if "windsurf" in target_set:
+            windsurf_path = root / ".windsurfrules"
+            existing = windsurf_path.read_text(encoding="utf-8") if windsurf_path.exists() else ""
+            windsurf_path.write_text(_upsert_bounded_section(existing, block), encoding="utf-8")
+            written.append(windsurf_path)
 
         return written
