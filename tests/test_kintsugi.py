@@ -493,6 +493,50 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertEqual(harv_res["newly_added_to_pool"], 8)
             self.assertEqual(harv_res["collective_pool_total"], 9)
 
+    def test_autopoietic_metacognition_and_3_horizon_causal_foresight(self) -> None:
+        from kintsugi.foresight import (
+            AutopoieticSynthesizer,
+            CausalForesightEngine,
+            MetacognitiveSelfModel,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            app_file = ws / "service.py"
+            app_file.write_text(
+                "def update_account(user_record, payload):\n"
+                "    user_record.update(payload)\n"
+                "    return user_record\n\n"
+                "def handle_request(user_record, payload):\n"
+                "    return update_account(user_record, payload)\n",
+                encoding="utf-8",
+            )
+
+            # 1. Metacognitive Self-Awareness
+            meta = MetacognitiveSelfModel(ws)
+            st = meta.record_outcome("security-zerotrust", succeeded=True, predicted_prob=0.9)
+            self.assertGreater(st.competence, 0.65)
+            meta_rep = meta.build_self_awareness_report()
+            self.assertIn("@META/1|", meta_rep["kmi_metacognitive_wire"])
+
+            # 2. Autopoietic Self-Generation
+            synth = AutopoieticSynthesizer(ws)
+            gen_res = synth.synthesize_from_target(ws)
+            self.assertEqual(gen_res["newly_synthesized_count"], 1)
+            self.assertEqual(gen_res["synthesized_lessons"][0]["seam_kind"], "PRIVILEGE_DICT_MERGE_SEAM")
+
+            # 3. 3-Horizon Causal Foresight (T+1, T+2, T+3) + Proactive Action Queue
+            forecaster = CausalForesightEngine(ws)
+            f_rep = forecaster.forecast(ws)
+            self.assertGreaterEqual(f_rep["horizons_summary"]["T+1_immediate_count"], 1)
+            self.assertGreaterEqual(f_rep["horizons_summary"]["T+2_cascade_count"], 1)
+            self.assertGreaterEqual(f_rep["horizons_summary"]["T+3_tail_risk_count"], 1)
+            self.assertIn("@FORESIGHT/1|", f_rep["kmi_foresight_wire"])
+            self.assertGreaterEqual(len(f_rep["proactive_action_queue"]), 2)
+            top_act = f_rep["proactive_action_queue"][0]
+            self.assertIn("what_will_happen", top_act)
+            self.assertIn("what_to_do_now", top_act)
+
 
 if __name__ == "__main__":
     unittest.main()

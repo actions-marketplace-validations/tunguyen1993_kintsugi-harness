@@ -18,3 +18,4 @@ venv/
 .kintsugi/learning_config.json
 .kintsugi/relay_outbox.jsonl
 .kintsugi/dlp_denylist.txt
+.kintsugi/metacognition_state.json
