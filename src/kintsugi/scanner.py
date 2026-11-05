@@ -47,6 +47,7 @@ DEFAULT_EXCLUDED_DIRS: Set[str] = {
     "venv",
     "env",
     "node_modules",
+    "target",
     "dist",
     "build",
 }
