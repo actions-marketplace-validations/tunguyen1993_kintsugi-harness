@@ -6,11 +6,11 @@
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v0.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v0.6.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Frontier Pool: Verified](https://img.shields.io/badge/Collective_Pool-Tier--1_Frontier_Only-7B1FA2)](collective-pool/index.json)
+[![Frontier Pool: 35 Verified](https://img.shields.io/badge/Collective_Pool-35_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
@@ -61,7 +61,8 @@ flowchart LR
 | **`KMI/1` Ultra-Low-Token Compiler (`--compact` & `token-report`)** | Included (`93.7%` token savings) | Included + Pre-tuned Domain Profiles |
 | **Posture Auditor (`kintsugi audit` — Grade `A+` to `F` + Badge)** | Included | Included + Executive Compliance Checks |
 | **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
-| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **25 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
+| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **35 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
+| **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN`)** | **Included + Cross-Boundary Seam Auditing** |
 | **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
 | **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
@@ -155,6 +156,18 @@ kintsugi learn sync-relay --since 48h
 # and merge Frontier-verified guardrails into the shared Collective Pool:
 kintsugi learn harvest-github
 kintsugi learn pool-status
+```
+
+### 7. Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground` — `<5ms` Anti-Hallucination)
+
+Prevent AI agents from hallucinating non-existent functions, variables, or line numbers during security audits and automated code edits:
+
+```bash
+# Build a deterministic SHA-256 manifest, AST symbol table, and cross-boundary seam index:
+kintsugi ground src/
+
+# Verify an agent's hypothesis against real AST symbols & line anchors in <5ms (VERIFIED / REFUTED / UNKNOWN):
+kintsugi ground src/ --verify-anchor kintsugi/scanner.py:42 --verify-symbols KintsugiScanner,scan_path --mechanism "Regex + AST scan pipeline"
 ```
 
 ---
