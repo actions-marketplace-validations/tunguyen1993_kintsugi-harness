@@ -25,7 +25,7 @@
     "gpt-6.1-terra-wm",
     "deepseek-r1-0528"
   ],
-  "reinforcement_count": 14,
+  "reinforcement_count": 15,
   "source_repo": "neuro-symbolic-cortex:atom_001",
   "created_at": "2026-11-05T08:35:28Z",
   "domain_pillar": "engineering",
