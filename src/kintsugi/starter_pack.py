@@ -1,5 +1,5 @@
 # kintsugi: ignore-file
-"""Curated Starter Pack of 12 real-world AI coding agent anti-patterns (KS-001 .. KS-012)."""
+"""Curated Starter Pack of 16 real-world AI coding agent anti-patterns (KS-001 .. KS-016)."""
 
 from __future__ import annotations
 
@@ -183,5 +183,61 @@ def get_starter_scars() -> List[GoldenScar]:
             rationale="Protects coding agents against indirect prompt injection in skills and repository fixtures.",
             regex_pattern=r"(?i)ignore\s+(?:all\s+)?(?:previous|prior|system)\s+instructions\b[^\n]{0,120}\b(?:exfiltrate|curl|webhook|\.ssh|\.env)\b",
             verified_by=["starter-pack", "self-check"],
+        ),
+        GoldenScar(
+            id="KS-013",
+            title="Potential shell command injection through interpolated exec command",
+            severity=Severity.HIGH,
+            category="security",
+            languages=["javascript", "typescript"],
+            tags=["nodejs", "child_process", "command-injection", "security"],
+            root_cause="Passing template literals with `${...}` interpolation into child_process.exec or execSync invokes /bin/sh on unsanitized input.",
+            bad_code="child_process.exec(`convert ${userFile} output.png`);",
+            good_code="child_process.execFile('convert', [userFile, 'output.png']);",
+            rationale="execFile and spawn pass arguments as an array directly to the OS kernel without shell interpretation.",
+            regex_pattern=r"\b(?:child_process\.)?exec(?:Sync)?\s*\(\s*`[^`]*\$\{[^}]+\}",
+            verified_by=["architect:gemini-3.8-flash", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
+        ),
+        GoldenScar(
+            id="KS-014",
+            title="Global TLS certificate verification disabled in Node.js process",
+            severity=Severity.CRITICAL,
+            category="security",
+            languages=["javascript", "typescript", "shell"],
+            tags=["tls", "ssl", "mitm", "nodejs", "security"],
+            root_cause="Agents debugging self-signed cert errors often set NODE_TLS_REJECT_UNAUTHORIZED = '0', silently disabling TLS verification for every outbound HTTPS request in the process.",
+            bad_code="process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';",
+            good_code="const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });",
+            rationale="Configures custom CA certificates per-agent instead of disabling TLS validation process-wide.",
+            regex_pattern=r"""NODE_TLS_REJECT_UNAUTHORIZED\s*(?:=|:)\s*["']?0["']?""",
+            verified_by=["architect:gpt-6-thinking", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
+        ),
+        GoldenScar(
+            id="KS-015",
+            title="Permissive CORS wildcard origin combined with allow_credentials=True",
+            severity=Severity.HIGH,
+            category="security",
+            languages=["python", "javascript", "typescript"],
+            tags=["cors", "fastapi", "web-security", "authentication"],
+            root_cause="Agents scaffolding FastAPI or Express backends frequently combine allow_origins=['*'] with allow_credentials=True.",
+            bad_code='app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)',
+            good_code='app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)',
+            rationale="Explicit origin allowlists prevent cross-origin credential exposure.",
+            regex_pattern=r"""allow_origins\s*=\s*\[\s*["']\*["']\s*\][^\n]{0,80}allow_credentials\s*=\s*True""",
+            verified_by=["architect:gpt-6-thinking", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
+        ),
+        GoldenScar(
+            id="KS-016",
+            title="Go net/http DefaultClient call without bounded timeout",
+            severity=Severity.HIGH,
+            category="reliability",
+            languages=["go"],
+            tags=["golang", "http", "timeout", "reliability"],
+            root_cause="Go's package-level http.Get and http.Post helpers use http.DefaultClient, which has a default Timeout of 0 (infinite wait).",
+            bad_code='resp, err := http.Get("https://api.example.com/status")',
+            good_code='client := &http.Client{Timeout: 10 * time.Second}\nresp, err := client.Get("https://api.example.com/status")',
+            rationale="Explicit http.Client{Timeout: ...} prevents goroutine leaks on unresponsive upstream servers.",
+            regex_pattern=r"\bhttp\.(?:Get|Post|PostForm|Head)\s*\(",
+            verified_by=["architect:gemini-3.8-flash", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
         ),
     ]

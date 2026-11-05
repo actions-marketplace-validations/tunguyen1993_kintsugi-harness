@@ -19,7 +19,8 @@ from kintsugi.hooks import (
 from kintsugi.ledger import ScarLedger
 from kintsugi.mcp_server import KintsugiMCPServer
 from kintsugi.models import FailureTrace, Severity
-from kintsugi.scanner import KintsugiScanner, report_to_sarif
+from kintsugi.packager import SkillPackager
+from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -37,9 +38,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--no-compile", action="store_true", help="Skip generating SKILL.md / CLAUDE.md")
 
     # scan
-    p_scan = sub.add_parser("scan", help="Scan files or directories against verified Golden Scars")
+    p_scan = sub.add_parser("scan", help="Scan files, directories, or git diffs against verified Golden Scars")
     p_scan.add_argument("target", nargs="?", default=".", help="File or directory to scan")
     p_scan.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_scan.add_argument("--staged", action="store_true", help="Scan only staged git diff lines (git diff --staged)")
+    p_scan.add_argument("--diff", default=None, metavar="REF", help="Scan only lines changed relative to git REF (e.g. origin/main)")
+    p_scan.add_argument("--patch-preview", action="store_true", help="Display unified diff replacement preview for each finding")
     p_scan.add_argument("--format", choices=["text", "json", "sarif"], default="text")
     p_scan.add_argument("--output", default=None, help="Optional file path to write scan output")
     p_scan.add_argument(
@@ -54,14 +58,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # compile
-    p_comp = sub.add_parser("compile", help="Compile Golden Scars into SKILL.md, CLAUDE.md, AGENTS.md, and Cursor rules")
+    p_comp = sub.add_parser("compile", help="Compile Golden Scars into SKILL.md, CLAUDE.md, AGENTS.md, Cursor, Copilot, and Windsurf rules")
     p_comp.add_argument("--workspace", default=".", help="Target repository root")
     p_comp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_comp.add_argument(
         "--targets",
         default="skills,claude,agents,cursor",
-        help="Comma-separated targets: skills,claude,agents,cursor",
+        help="Comma-separated targets: skills,claude,agents,cursor,copilot,windsurf,all",
     )
+
+    # package-skills
+    p_pkg = sub.add_parser("package-skills", help="Export standalone multi-agent Skill Packs (.zip + SKILL.md + Agensi manifest)")
+    p_pkg.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_pkg.add_argument("--output-dir", default="dist/skill-packs", help="Output directory for bundled Skill Packs")
+
+    # explain
+    p_exp = sub.add_parser("explain", help="Inspect a specific Golden Scar with root cause and verified replacement")
+    p_exp.add_argument("scar_id", help="Scar identifier (e.g. KS-003)")
+    p_exp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
 
     # evolve
     p_evo = sub.add_parser("evolve", help="Evolve a new self-verified Golden Scar from a failure log or snippet pair")
@@ -128,7 +142,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             ledger.all(),
             min_severity=Severity(args.min_severity),
         )
-        report = scanner.scan_path(args.target)
+        if args.staged or args.diff:
+            report = scanner.scan_git_changes(
+                args.target,
+                staged=bool(args.staged),
+                diff_ref=args.diff,
+            )
+        else:
+            report = scanner.scan_path(args.target)
         ledger.record_hits([f.scar_id for f in report.findings])
 
         if args.format == "json":
@@ -148,6 +169,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                         f"    Snippet : {f.snippet}\n"
                         f"    Fix     : {f.good_code_hint.splitlines()[0]}"
                     )
+                    if args.patch_preview:
+                        preview = render_patch_preview(f)
+                        indented = "\n".join(f"      {ln}" for ln in preview.splitlines())
+                        lines.append(f"    Patch Preview:\n{indented}")
             rendered = "\n".join(lines)
 
         if args.output:
@@ -165,6 +190,33 @@ def main(argv: Optional[List[str]] = None) -> int:
         written = SkillCompiler(ledger.all()).compile_all(args.workspace, targets=targets)
         for p in written:
             print(f"[kintsugi] Compiled -> {p}")
+        return 0
+
+    if args.command == "package-skills":
+        ledger = _load_or_seed_ledger(args.ledger)
+        packager = SkillPackager(ledger.all())
+        packs = packager.build_all_packs(args.output_dir)
+        for p in packs:
+            print(f"[kintsugi] Packaged {p['slug']} ({p['scars_count']} scars) -> {p['zip_archive']}")
+        return 0
+
+    if args.command == "explain":
+        ledger = _load_or_seed_ledger(args.ledger)
+        target_id = args.scar_id.strip().upper()
+        matches = [s for s in ledger.all() if s.id.upper() == target_id]
+        if not matches:
+            print(f"Scar not found: {target_id}", file=sys.stderr)
+            return 1
+        scar = matches[0]
+        print(
+            f"{scar.id} · [{scar.severity.value}] {scar.title}\n"
+            f"Category  : {scar.category}\n"
+            f"Languages : {', '.join(scar.languages)}\n"
+            f"Root Cause: {scar.root_cause}\n"
+            f"Rationale : {scar.rationale}\n\n"
+            f"❌ Bad Code:\n{scar.bad_code}\n\n"
+            f"✅ Verified Fix:\n{scar.good_code}"
+        )
         return 0
 
     if args.command == "evolve":

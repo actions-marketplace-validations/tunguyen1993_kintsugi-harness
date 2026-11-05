@@ -47,10 +47,14 @@ flowchart LR
   - **Python AST Visitors:** Detects mutable default arguments, `subprocess(..., shell=True)`, silent `except:` / `except Exception: pass`, `eval`/`exec`/`pickle.loads`/`yaml.load`, synchronous HTTP calls missing `timeout=`, insecure `random.*` on security tokens, plus extensible `call:<fn>` and `missing_kwarg:<fn>:<kwarg>` rules.
   - **Multi-Language Regex Guard:** Covers Python, TypeScript, JavaScript, Go, Rust, Shell, and Markdown (`SKILL.md` prompt-injection & secret DLP).
 - **Self-Verifying 3-Agent Evolution Council:** Coordinates **Architect** (e.g., Gemini), **Synthesizer** (e.g., DeepSeek R1), and **Red-Team Critic** (e.g., Muse / OpenAI) over any OpenAI-compatible API. Every candidate rule must pass an in-memory invariant check (`scan(bad_code) >= 1` and `scan(good_code) == 0`) before entering `.kintsugi/scars.json`. Includes an offline zero-API-key fallback.
-- **Write-Once, Compile-Everywhere Skills:** Compiles verified Golden Scars into:
+- **Write-Once, Compile-Everywhere Skills (`6+ Agent Targets`):** Compiles verified Golden Scars into:
   - `.claude/skills/kintsugi-guardrails/SKILL.md` (+ per-category modular skills)
   - Bounded `<!-- KINTSUGI:START -->` governance tables in `CLAUDE.md` and `AGENTS.md` (preserving all human-written sections)
-  - `.cursor/rules/kintsugi-guardrails.mdc`
+  - `.cursor/rules/kintsugi-guardrails.mdc` (Cursor IDE)
+  - `.github/instructions/kintsugi-guardrails.instructions.md` (GitHub Copilot)
+  - `.windsurfrules` (Windsurf IDE)
+  - Standalone distributable `.zip` Skill Packs (`kintsugi package-skills`) compatible with **Agensi.io** and the `SKILL.md` 1.0 open standard.
+- **Git-Diff & Staged-Only Hunk Scanner + Unified Patch Previews:** Scan only modified lines (`kintsugi scan --staged` or `kintsugi scan --diff origin/main`) in `< 5ms` and preview unified `difflib` replacements via `--patch-preview`.
 - **Native MCP Server & GitHub Code Scanning (`SARIF 2.1.0`):** Ships with `kintsugi mcp` (`stdio` JSON-RPC 2.0) and a composite `action.yml` for pull-request gating.
 
 ---
@@ -83,11 +87,21 @@ kintsugi install-hooks --git
 
 Automatically adds `kintsugi hook claude-pre-tool` to `.claude/settings.json` (`Write|Edit|MultiEdit|Bash` matcher). Whenever an agent attempts a dangerous command (e.g. `git reset --hard`) or writes vulnerable code, Kintsugi blocks the tool call in `< 15ms` and returns the verified `✅ Good` replacement directly to the agent.
 
-### 4. Scan Code & Export SARIF 2.1.0
+### 4. Scan Code, Staged Diffs, Patch Previews & SARIF 2.1.0
 
 ```bash
-# Human-readable terminal scan
+# Full repository scan
 kintsugi scan . --fail-on HIGH
+
+# Incremental git-diff scan (only modified lines in staged changes or PR branch)
+kintsugi scan . --staged --patch-preview
+kintsugi scan . --diff origin/main --patch-preview
+
+# Explain a specific Golden Scar in detail
+kintsugi explain KS-003
+
+# Export standalone Skill Packs (.zip + SKILL.md + Agensi.io manifest)
+kintsugi package-skills --output-dir dist/skill-packs
 
 # Export OASIS SARIF 2.1.0 for GitHub Security tab
 kintsugi scan src/ --format sarif --output results.sarif

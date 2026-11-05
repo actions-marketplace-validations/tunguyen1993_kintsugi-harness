@@ -237,7 +237,12 @@ class EvolutionCouncil:
             )
 
             try:
-                parsed = _extract_json_object(critic_reply)
+                try:
+                    parsed = _extract_json_object(critic_reply)
+                    if "title" not in parsed or "bad_code" not in parsed:
+                        parsed = _extract_json_object(raw_json_reply)
+                except ValueError:
+                    parsed = _extract_json_object(raw_json_reply)
                 candidate = GoldenScar(
                     id=scar_id,
                     title=str(parsed["title"]),

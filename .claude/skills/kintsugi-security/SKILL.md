@@ -1,6 +1,7 @@
 ---
 name: kintsugi-security
 description: "Focused security anti-patterns and verified code templates compiled by Kintsugi Harness."
+tags: ["ast", "authentication", "child_process", "claude-code", "command-injection", "cors", "credentials", "crypto", "database", "dlp"]
 ---
 
 # kintsugi-security
@@ -11,7 +12,7 @@ Every rule below was compiled from a verified failure trace and is enforced dete
 ## Verification Gate
 
 ```bash
-kintsugi scan . --fail-on HIGH
+kintsugi scan --staged --fail-on HIGH
 ```
 
 ## Verified Golden Scars (`❌ Anti-Pattern` vs `✅ Verified Fix`)
@@ -75,6 +76,20 @@ cursor.execute("SELECT id, email FROM users WHERE email = ?", (email,))
 <!-- Validated skill documentation containing purely declarative tool schemas -->
 ```
 
+### `KS-014` · [CRITICAL] Global TLS certificate verification disabled in Node.js process
+- **Root cause:** Agents debugging self-signed cert errors often set NODE_TLS_REJECT_UNAUTHORIZED = '0', silently disabling TLS verification for every outbound HTTPS request in the process.
+- **Why this matters:** Configures custom CA certificates per-agent instead of disabling TLS validation process-wide.
+
+**Avoid (`❌ Anti-Pattern`):**
+```javascript
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```javascript
+const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });
+```
+
 ### `KS-003` · [HIGH] Subprocess execution with shell=True
 - **Root cause:** Agents pass shell=True to subprocess.run/Popen to use string commands, exposing shell metacharacter injection when filenames or user arguments contain spaces or semicolons.
 - **Why this matters:** Argument arrays bypass /bin/sh parsing completely, eliminating command injection.
@@ -105,4 +120,32 @@ api_nonce = str(random.randint(100000, 999999))
 ```python
 import secrets
 api_nonce = f'{secrets.randbelow(900000) + 100000}'
+```
+
+### `KS-013` · [HIGH] Potential shell command injection through interpolated exec command
+- **Root cause:** Passing template literals with `${...}` interpolation into child_process.exec or execSync invokes /bin/sh on unsanitized input.
+- **Why this matters:** execFile and spawn pass arguments as an array directly to the OS kernel without shell interpretation.
+
+**Avoid (`❌ Anti-Pattern`):**
+```javascript
+child_process.exec(`convert ${userFile} output.png`);
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```javascript
+child_process.execFile('convert', [userFile, 'output.png']);
+```
+
+### `KS-015` · [HIGH] Permissive CORS wildcard origin combined with allow_credentials=True
+- **Root cause:** Agents scaffolding FastAPI or Express backends frequently combine allow_origins=['*'] with allow_credentials=True.
+- **Why this matters:** Explicit origin allowlists prevent cross-origin credential exposure.
+
+**Avoid (`❌ Anti-Pattern`):**
+```python
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)
+```
+
+**Prefer (`✅ Verified Pattern`):**
+```python
+app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)
 ```

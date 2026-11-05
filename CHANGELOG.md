@@ -2,6 +2,15 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [0.2.0] - 2026-11-05
+
+### Added
+- **Incremental Git-Diff & Staged-Only Scanner (`--staged` & `--diff <REF>`):** Parses `git diff -U0` hunks to restrict AST and Regex checks strictly to touched files and modified line numbers.
+- **Unified Patch Previews (`--patch-preview` & `kintsugi explain <ID>`):** Renders `difflib.unified_diff` replacement previews alongside findings.
+- **Expanded Multi-Agent Compiler (`--targets all`):** Added first-class support for **GitHub Copilot** (`.github/instructions/kintsugi-guardrails.instructions.md`) and **Windsurf** (`.windsurfrules`).
+- **Marketplace Skill Pack Bundler (`kintsugi package-skills`):** Packages vertical and complete guardrail suites into standalone `.zip` bundles with `SKILL.md` and `agensi-manifest.json`.
+- **Expanded Golden Scar Catalog (`KS-001`..`KS-018`):** Added verified guardrails for Node.js `child_process.exec` injection (`KS-013`), global `NODE_TLS_REJECT_UNAUTHORIZED` bypass (`KS-014`), permissive CORS wildcard with credentials (`KS-015`), Go `http.DefaultClient` unbounded timeout (`KS-016`), and Council-evolved supply-chain/extraction rules.
+
 ## [0.1.0] - 2026-11-04
 
 ### Added

@@ -3,7 +3,7 @@
 <!-- KINTSUGI:START -->
 ## Kintsugi Self-Evolved Guardrails (Auto-Compiled)
 
-> Managed by `kintsugi-harness`. Run `kintsugi scan .` before committing or opening PRs.
+> Managed by `kintsugi-harness`. Run `kintsugi scan .` or `kintsugi scan --staged` before committing.
 > Full paired anti-patterns (`❌ Bad` vs `✅ Good`) live in `.claude/skills/kintsugi-guardrails/SKILL.md`.
 
 | ID | Severity | Category | Anti-Pattern to Avoid |
@@ -13,12 +13,17 @@
 | `KS-006` | `CRITICAL` | `security` | Unsafe dynamic code execution or untrusted deserialization |
 | `KS-007` | `CRITICAL` | `security` | Raw SQL string interpolation via f-string or format |
 | `KS-012` | `CRITICAL` | `security` | Prompt-injection or system-override directive embedded in skill or fixture |
+| `KS-014` | `CRITICAL` | `security` | Global TLS certificate verification disabled in Node.js process |
 | `KS-003` | `HIGH` | `security` | Subprocess execution with shell=True |
 | `KS-005` | `HIGH` | `reliability` | Silent exception swallowing (bare except or except-pass) |
 | `KS-008` | `HIGH` | `reliability` | Unbounded synchronous HTTP call missing explicit timeout |
 | `KS-011` | `HIGH` | `security` | Non-cryptographic PRNG used for security token, nonce, or secret |
-| `KS-013` | `HIGH` | `Command Injection` | Potential shell command injection through interpolated exec command |
+| `KS-013` | `HIGH` | `security` | Potential shell command injection through interpolated exec command |
+| `KS-015` | `HIGH` | `security` | Permissive CORS wildcard origin combined with allow_credentials=True |
+| `KS-016` | `HIGH` | `reliability` | Go net/http DefaultClient call without bounded timeout |
+| `KS-017` | `HIGH` | `Path Traversal` | Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559) |
 | `KS-004` | `MEDIUM` | `correctness` | Python mutable default argument in function signature |
 | `KS-009` | `MEDIUM` | `quality` | Unfinished TODO stub or placeholder implementation shipped in module |
 | `KS-010` | `MEDIUM` | `reliability` | Headless browser launch without deterministic finally teardown |
+| `KS-018` | `MEDIUM` | `Build reproducibility` | Pin Docker base images to an immutable digest |
 <!-- KINTSUGI:END -->
