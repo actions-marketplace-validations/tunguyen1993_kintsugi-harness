@@ -1,0 +1,35 @@
+{
+  "id": "KL-EPI-003",
+  "title": "Buckingham Pi Dimensional Homogeneity, Radian Conversion & Mass Continuity Guard",
+  "domain": "research-epistemology",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "dimensional-analysis",
+    "buckingham-pi",
+    "continuity",
+    "mass-conservation",
+    "physics"
+  ],
+  "cognitive_trap": "Added quantities with incompatible SI dimensions (`pressure_pa + velocity_ms + elevation_mm`), passed degree angles directly into `math.sin(tilt_deg)`, or updated compartment density without antisymmetric mass balance (`rho < 0`).",
+  "mental_model": "Buckingham Pi & Continuity (`d_rho/dt + div(rho*u) = 0`): Normalize all additive terms to identical SI base units, convert degrees via `math.radians()`, and enforce antisymmetric positivity-preserving mass fluxes.",
+  "bad_code": "raw_sum = pressure_pa + velocity_ms + elevation_mm  # DIMENSIONAL_UNIT_MISMATCH",
+  "good_code": "head_m = pressure_pa / (rho_kg_m3 * g_accel) + (velocity_ms ** 2) / (2.0 * g_accel) + (elevation_mm * 1e-3) * math.sin(math.radians(tilt_deg))",
+  "regex_pattern": "DIMENSIONAL_UNIT_MISMATCH|MASS_CONTINUITY_VIOLATION",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "gpt-6-luna-wm"
+  ],
+  "reinforcement_count": 14,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T09:31:59Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "0599afd3d4cdbe9d",
+  "proof_attestation": "6c7177e548f61e114eddab68"
+}

@@ -1,0 +1,35 @@
+{
+  "id": "KL-EPI-002",
+  "title": "Symplectic Hamiltonian Integration & 1st Law Energy Conservation Guard",
+  "domain": "research-epistemology",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "physics",
+    "thermodynamics",
+    "symplectic",
+    "hamiltonian",
+    "verlet"
+  ],
+  "cognitive_trap": "Integrated a conservative Hamiltonian/orbital system with explicit Forward Euler (`x_next = x_pos + v_vel * dt_sec`), whose Jacobian determinant `det(J) = 1 + omega^2 * dt^2 > 1` pumps artificial energy into the system over long horizons.",
+  "mental_model": "First Law of Thermodynamics & Liouville's Theorem: Conservative dynamical systems must use a symplectic integrator (Velocity-Verlet / Leapfrog `v_half`) and verify bounded Hamiltonian energy `|E(t) - E(0)| <= tol`.",
+  "bad_code": "x_next = x_pos + v_vel * dt_sec + 0.0 * accel  # NON_SYMPLECTIC_EULER_DRIFT",
+  "good_code": "v_half = v_vel + 0.5 * accel_0 * dt_sec\nx_next = x_pos + v_half * dt_sec",
+  "regex_pattern": "NON_SYMPLECTIC_EULER_DRIFT",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6.1-terra-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6.1-terra-wm",
+    "gpt-6-luna-wm"
+  ],
+  "reinforcement_count": 15,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T09:31:59Z",
+  "domain_pillar": "life-and-business",
+  "structural_fingerprint": "dbcd57ea0a060e82",
+  "proof_attestation": "83f23ebb596296afbcabc41c"
+}

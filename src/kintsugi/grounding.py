@@ -81,9 +81,14 @@ class RepoAstGroundingEngine:
             ("TENANT_UNSCOPED_CACHE_SEAM", re.compile(r"\b(?:redis|cache)\.(?:get|set)\(\s*f?['\"](?!tenant:)[^'\"]*record:")),
             ("DYNAMIC_EXEC_OR_EVAL", re.compile(r"(?<!\.)\b(?:eval|exec|compile)\s*\(|\bos\.system\s*\(")),
             ("RAW_TEMPLATE_OR_HTML_RENDER", re.compile(r"(?:innerHTML|document\.write|dangerouslySetInnerHTML)")),
+            ("NON_SYMPLECTIC_ENERGY_DRIFT_SEAM", re.compile(r"NON_SYMPLECTIC_EULER_DRIFT|\bx_next\s*=\s*x_pos\s*\+\s*v_vel\s*\*\s*dt")),
+            ("DIMENSIONAL_UNIT_MISMATCH_SEAM", re.compile(r"DIMENSIONAL_UNIT_MISMATCH|\bpressure_pa\s*\+\s*velocity_ms|\bmath\.(?:sin|cos|tan)\(\s*[A-Za-z0-9_]*_deg\b")),
+            ("MASS_CONTINUITY_VIOLATION_SEAM", re.compile(r"MASS_CONTINUITY_VIOLATION|\brho_next\s*=.*-\s*unaccounted_sink")),
+            ("CAUSAL_ARROW_LOOKAHEAD_SEAM", re.compile(r"CAUSAL_ARROW_LOOKAHEAD_LEAK|SECOND_LAW_ENTROPY_VIOLATION|\b(?:series|signal_series)\[\s*(?:t|idx_t)\s*\+\s*[1-9]")),
+            ("CATASTROPHIC_CANCELLATION_SEAM", re.compile(r"CATASTROPHIC_CANCELLATION_SEAM|\bgamma\s*\*\*\s*2\s*-\s*1\.0\b")),
         ]
         guard_regex = re.compile(
-            r"\b(?:if\s+not\s+|if\s+.*==|require\(|assert\s+|is_relative_to|compare_digest|SafeLoader|weights_only=True)\b"
+            r"\b(?:if\s+not\s+|if\s+.*==|require\(|assert\s+|is_relative_to|compare_digest|SafeLoader|weights_only=True|math\.radians|math\.fsum|v_half)\b"
         )
 
         for f in self.files:
@@ -95,8 +100,29 @@ class RepoAstGroundingEngine:
             lines = text.splitlines()
             self.symbol_table["file_lines"][rel] = lines
 
+            docstring_lines: Set[int] = set()
+            py_tree: Optional[ast.AST] = None
+            if f.suffix.lower() == ".py":
+                try:
+                    py_tree = ast.parse(text)
+                    for node in ast.walk(py_tree):
+                        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                            if (
+                                node.body
+                                and isinstance(node.body[0], ast.Expr)
+                                and isinstance(getattr(node.body[0], "value", None), ast.Constant)
+                                and isinstance(node.body[0].value.value, str)
+                            ):
+                                ds_node = node.body[0]
+                                for ln_i in range(ds_node.lineno, getattr(ds_node, "end_lineno", ds_node.lineno) + 1):
+                                    docstring_lines.add(ln_i)
+                except SyntaxError:
+                    py_tree = None
+
             current_func: Optional[str] = None
             for idx, line in enumerate(lines, start=1):
+                if idx in docstring_lines:
+                    continue
                 m_def = re.match(r"^\s*(?:async\s+def|def|function|fn)\s+([A-Za-z_][A-Za-z0-9_]*)", line)
                 if m_def:
                     current_func = m_def.group(1)
@@ -104,7 +130,14 @@ class RepoAstGroundingEngine:
                 if guard_regex.search(line):
                     self.symbol_table["guards"][anchor] = line.strip()[:140]
                 stripped = line.strip()
-                if not stripped or stripped.startswith("#") or stripped.startswith("//") or "re.compile(" in stripped:
+                if (
+                    not stripped
+                    or stripped.startswith("#")
+                    or stripped.startswith("//")
+                    or stripped.startswith('"""')
+                    or stripped.startswith("'''")
+                    or "re.compile(" in stripped
+                ):
                     continue
                 if current_func is None and f.suffix.lower() in {".py", ".js", ".ts", ".go", ".rs"}:
                     continue
@@ -120,36 +153,35 @@ class RepoAstGroundingEngine:
                             }
                         )
 
-            for idx, line in enumerate(lines, start=1):
-                for m_fn in re.finditer(r"\b(?:def|function|fn)\s+([A-Za-z_][A-Za-z0-9_]*)", line):
-                    self.symbol_table["functions"].setdefault(m_fn.group(1), []).append(f"{rel}:{idx}")
-                for m_cls in re.finditer(r"\b(?:class|contract|interface|struct)\s+([A-Za-z_][A-Za-z0-9_]*)", line):
-                    self.symbol_table["classes"].setdefault(m_cls.group(1), []).append(f"{rel}:{idx}")
+            if py_tree is not None:
+                for node in ast.walk(py_tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        loc = f"{rel}:{node.lineno}"
+                        lst = self.symbol_table["functions"].setdefault(node.name, [])
+                        if loc not in lst:
+                            lst.append(loc)
+                        for arg in node.args.args + node.args.kwonlyargs:
+                            if arg.arg not in LANGUAGE_KEYWORDS:
+                                self.symbol_table["variables"].add(arg.arg)
+                    elif isinstance(node, ast.ClassDef):
+                        loc = f"{rel}:{node.lineno}"
+                        lst = self.symbol_table["classes"].setdefault(node.name, [])
+                        if loc not in lst:
+                            lst.append(loc)
+                    elif isinstance(node, ast.Name) and node.id not in LANGUAGE_KEYWORDS:
+                        self.symbol_table["variables"].add(node.id)
+                    elif isinstance(node, ast.Attribute) and node.attr not in LANGUAGE_KEYWORDS:
+                        self.symbol_table["variables"].add(node.attr)
+            else:
+                for idx, line in enumerate(lines, start=1):
+                    for m_fn in re.finditer(r"\b(?:def|function|fn)\s+([A-Za-z_][A-Za-z0-9_]*)", line):
+                        self.symbol_table["functions"].setdefault(m_fn.group(1), []).append(f"{rel}:{idx}")
+                    for m_cls in re.finditer(r"\b(?:class|contract|interface|struct)\s+([A-Za-z_][A-Za-z0-9_]*)", line):
+                        self.symbol_table["classes"].setdefault(m_cls.group(1), []).append(f"{rel}:{idx}")
 
-            for tok in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", text):
-                if tok not in LANGUAGE_KEYWORDS and tok.lower() not in LANGUAGE_KEYWORDS:
-                    self.symbol_table["variables"].add(tok)
-
-            if f.suffix.lower() == ".py":
-                try:
-                    tree = ast.parse(text)
-                    for node in ast.walk(tree):
-                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                            loc = f"{rel}:{node.lineno}"
-                            lst = self.symbol_table["functions"].setdefault(node.name, [])
-                            if loc not in lst:
-                                lst.append(loc)
-                        elif isinstance(node, ast.ClassDef):
-                            loc = f"{rel}:{node.lineno}"
-                            lst = self.symbol_table["classes"].setdefault(node.name, [])
-                            if loc not in lst:
-                                lst.append(loc)
-                        elif isinstance(node, ast.Name) and node.id not in LANGUAGE_KEYWORDS:
-                            self.symbol_table["variables"].add(node.id)
-                        elif isinstance(node, ast.Attribute) and node.attr not in LANGUAGE_KEYWORDS:
-                            self.symbol_table["variables"].add(node.attr)
-                except SyntaxError:
-                    continue
+                for tok in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", text):
+                    if tok not in LANGUAGE_KEYWORDS and tok.lower() not in LANGUAGE_KEYWORDS:
+                        self.symbol_table["variables"].add(tok)
 
     def get_code_window(self, rel_file: str, line_no: int, radius: int = 8) -> str:
         lines = self.symbol_table["file_lines"].get(rel_file, [])

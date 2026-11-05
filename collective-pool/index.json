@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1",
-  "total_verified_frontier_lessons": 35,
+  "total_verified_frontier_lessons": 38,
   "pillars": {
     "engineering": [
       "KL-API-001",
@@ -18,6 +18,7 @@
       "KL-MCP-004",
       "KL-MCP-005",
       "KL-ML-002",
+      "KL-ML-003",
       "KL-OPS-001",
       "KL-OPS-002",
       "KL-OPS-003",
@@ -34,6 +35,8 @@
       "KL-DEC-001",
       "KL-DEC-002",
       "KL-EPI-001",
+      "KL-EPI-002",
+      "KL-EPI-003",
       "KL-GRW-001",
       "KL-HLT-001",
       "KL-LEG-001",
@@ -61,6 +64,7 @@
     ],
     "data-ml": [
       "KL-ML-002",
+      "KL-ML-003",
       "KL-SEC-001"
     ],
     "decision-strategy": [
@@ -101,7 +105,9 @@
       "KL-PSY-002"
     ],
     "research-epistemology": [
-      "KL-EPI-001"
+      "KL-EPI-001",
+      "KL-EPI-002",
+      "KL-EPI-003"
     ],
     "security-zerotrust": [
       "KL-ZTR-001",
@@ -138,9 +144,12 @@
       "KL-API-002",
       "KL-CAP-002",
       "KL-DEC-002",
+      "KL-EPI-002",
+      "KL-EPI-003",
       "KL-FIN-003",
       "KL-LEG-001",
       "KL-MCP-002",
+      "KL-ML-003",
       "KL-ZTR-002"
     ],
     "grok-frontier": [
@@ -173,7 +182,7 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "github:anthropics/skills/mcp-builder",
       "structural_fingerprint": "7490525323a40f4a",
       "proof_attestation": "1716184f44e9c285bd0521d3",
@@ -191,7 +200,7 @@
         "claude-opus-4",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "github:anthropics/skills/claude-api",
       "structural_fingerprint": "9d1fa68958334226",
       "proof_attestation": "66abcf9b894911c81bbfeb48",
@@ -209,7 +218,7 @@
         "deepseek-r1-0528",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 7,
+      "reinforcement_count": 8,
       "source_repo": "local-episodic",
       "structural_fingerprint": "25e3658f4416d75c",
       "proof_attestation": "499d5bd5f2914a3628f335ab",
@@ -227,7 +236,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "d0d63bf4550f5e2e",
       "proof_attestation": "3a295e2d016c7264aa1453d0",
@@ -245,7 +254,7 @@
         "grok-4.7",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "582168db4ef55850",
       "proof_attestation": "3029b61cf00e6748e20a37ac",
@@ -263,7 +272,7 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 14,
+      "reinforcement_count": 15,
       "source_repo": "local-episodic",
       "structural_fingerprint": "c77fa3e87ef56343",
       "proof_attestation": "ff60acb693a4d3769fb7b21e",
@@ -281,7 +290,7 @@
         "claude-opus-4",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 13,
+      "reinforcement_count": 14,
       "source_repo": "local-episodic",
       "structural_fingerprint": "dcd6ad4d1925095d",
       "proof_attestation": "cc5fe50c4aee6f7237fb2634",
@@ -299,7 +308,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "96303a99673c6db2",
       "proof_attestation": "c1010167adbc947f24c4e5e1",
@@ -317,7 +326,7 @@
         "claude-opus-4",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "0ce51db71bd198c6",
       "proof_attestation": "85eeed86a641d2a87c94f267",
@@ -335,7 +344,7 @@
         "grok-4.7",
         "claude-opus-4"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "4b3d4218ac1d0d57",
       "proof_attestation": "e636ef40a2fec87e6264d0f8",
@@ -353,7 +362,7 @@
         "deepseek-r1-0528",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
       "structural_fingerprint": "61882f28f36a55c4",
       "proof_attestation": "e9de11b499038b327b904c47",
@@ -371,11 +380,29 @@
         "gemini-3.8-pro",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "local-episodic",
       "structural_fingerprint": "9b31d1b1b3546a82",
       "proof_attestation": "56a97772d7491640c0aaaa48",
       "path": "data-ml/gemini-pro/KL-SEC-001.json"
+    },
+    {
+      "id": "KL-ML-003",
+      "title": "Causal Light-Cone Non-Lookahead, 2nd Law Entropy & Compensated Floating-Point Guard",
+      "domain": "data-ml",
+      "domain_pillar": "engineering",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6-luna-wm",
+      "endorsed_by_models": [
+        "gpt-6-luna-wm",
+        "gpt-6.1-terra-wm"
+      ],
+      "reinforcement_count": 16,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "7f3008d53afddf7f",
+      "proof_attestation": "577345f1847a31042fc849d4",
+      "path": "data-ml/gpt-6-frontier/KL-ML-003.json"
     },
     {
       "id": "KL-DEC-001",
@@ -389,7 +416,7 @@
         "claude-opus-4",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 13,
+      "reinforcement_count": 14,
       "source_repo": "github:anthropics/skills/discernment-nudge",
       "structural_fingerprint": "2dcfffe195f36a6f",
       "proof_attestation": "cafc0456b2b97e1e1043f573",
@@ -407,7 +434,7 @@
         "gpt-6.1-terra-wm",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "github:patrickjs/awesome-cursorrules/anti-overengineering",
       "structural_fingerprint": "cccadab4e6ea7597",
       "proof_attestation": "b9a7a38b4fe5e55c0edacc42",
@@ -425,7 +452,7 @@
         "deepseek-r1-0528",
         "meta-muse-spark"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "cd34a4e8184d8fc3",
       "proof_attestation": "3ccfe6967f2c82273dbcb647",
@@ -443,7 +470,7 @@
         "meta-muse-spark",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "42d1b47bd781efae",
       "proof_attestation": "bb52b68680956fcb6265a326",
@@ -461,7 +488,7 @@
         "meta-muse-spark",
         "grok-4.7"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "968648cf68915f9d",
       "proof_attestation": "963996debe41089e9a05ccc8",
@@ -480,7 +507,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 19,
+      "reinforcement_count": 20,
       "source_repo": "local-episodic",
       "structural_fingerprint": "f06db0089e2c4af6",
       "proof_attestation": "e59bc1d74f81d1d32b8e2d54",
@@ -498,7 +525,7 @@
         "gpt-6.1-terra-wm",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "local-episodic",
       "structural_fingerprint": "887bf85630f37071",
       "proof_attestation": "70c886660bd08926baf26328",
@@ -516,7 +543,7 @@
         "claude-opus-4",
         "qwen3.8-max"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "github:anthropics/skills/xlsx",
       "structural_fingerprint": "fb1f6d741ec5cde6",
       "proof_attestation": "12dda9cbe4484f9b22b4c9e5",
@@ -534,7 +561,7 @@
         "deepseek-r1-0528",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 15,
+      "reinforcement_count": 16,
       "source_repo": "local-episodic",
       "structural_fingerprint": "96db3f27d0366d7f",
       "proof_attestation": "0dafda949d937f69c787fad8",
@@ -552,7 +579,7 @@
         "deepseek-r1-0528",
         "claude-opus-4"
       ],
-      "reinforcement_count": 20,
+      "reinforcement_count": 21,
       "source_repo": "local-episodic",
       "structural_fingerprint": "6d4434adb590c3ae",
       "proof_attestation": "76b6de15e061a92a4e0339b5",
@@ -570,7 +597,7 @@
         "gpt-6.1-terra-wm",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 16,
+      "reinforcement_count": 17,
       "source_repo": "local-episodic",
       "structural_fingerprint": "bda676dfb6605b9b",
       "proof_attestation": "b372d7bfb9f7b6cf4f3ff8fd",
@@ -588,7 +615,7 @@
         "qwen3.8-max",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 8,
+      "reinforcement_count": 9,
       "source_repo": "local-episodic",
       "structural_fingerprint": "11f4a89f8b1e37a6",
       "proof_attestation": "8886d34b490721be7c7ed409",
@@ -606,7 +633,7 @@
         "claude-opus-4",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 7,
+      "reinforcement_count": 8,
       "source_repo": "github:anthropics/skills/webapp-testing",
       "structural_fingerprint": "9314fa92db2364ad",
       "proof_attestation": "69f4833812b39309275c773e",
@@ -624,7 +651,7 @@
         "qwen3.8-max",
         "grok-4.7"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "2af18f1053dfed53",
       "proof_attestation": "dad675ea3dc71ac7c03ca127",
@@ -642,7 +669,7 @@
         "meta-muse-spark",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "24db29a3bfb7e47e",
       "proof_attestation": "d204ed99f4fb396cd03ca09e",
@@ -660,7 +687,7 @@
         "gemini-3.8-pro",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 10,
+      "reinforcement_count": 11,
       "source_repo": "local-episodic",
       "structural_fingerprint": "a0132d014d20168a",
       "proof_attestation": "295c7160d99a0957bc52e78a",
@@ -678,7 +705,7 @@
         "gpt-6.1-terra-wm",
         "claude-opus-4"
       ],
-      "reinforcement_count": 11,
+      "reinforcement_count": 12,
       "source_repo": "local-episodic",
       "structural_fingerprint": "2c4fa14f0dd5c09f",
       "proof_attestation": "aeffe81c1ae52300e8551636",
@@ -696,7 +723,7 @@
         "claude-opus-4",
         "gemini-3.8-pro"
       ],
-      "reinforcement_count": 9,
+      "reinforcement_count": 10,
       "source_repo": "local-episodic",
       "structural_fingerprint": "f1707ed7b9c7b523",
       "proof_attestation": "59889de590c473a588094fc4",
@@ -714,7 +741,7 @@
         "grok-4.7",
         "meta-muse-spark"
       ],
-      "reinforcement_count": 16,
+      "reinforcement_count": 17,
       "source_repo": "local-episodic",
       "structural_fingerprint": "1f4f8e644d51d0df",
       "proof_attestation": "836828c6993bde6956fbc77d",
@@ -732,11 +759,47 @@
         "deepseek-r1-0528",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 14,
+      "reinforcement_count": 15,
       "source_repo": "github:patrickjs/awesome-cursorrules/anti-sycophancy-code-discipline-cursorrules-prompt-file",
       "structural_fingerprint": "40519126664c82a5",
       "proof_attestation": "f2aa5dcc315090b155884586",
       "path": "research-epistemology/deepseek-r1/KL-EPI-001.json"
+    },
+    {
+      "id": "KL-EPI-002",
+      "title": "Symplectic Hamiltonian Integration & 1st Law Energy Conservation Guard",
+      "domain": "research-epistemology",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "gpt-6-luna-wm"
+      ],
+      "reinforcement_count": 15,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "dbcd57ea0a060e82",
+      "proof_attestation": "83f23ebb596296afbcabc41c",
+      "path": "research-epistemology/gpt-6-frontier/KL-EPI-002.json"
+    },
+    {
+      "id": "KL-EPI-003",
+      "title": "Buckingham Pi Dimensional Homogeneity, Radian Conversion & Mass Continuity Guard",
+      "domain": "research-epistemology",
+      "domain_pillar": "life-and-business",
+      "severity": "CRITICAL",
+      "model_family": "gpt-6-frontier",
+      "synthesized_by_model": "gpt-6.1-terra-wm",
+      "endorsed_by_models": [
+        "gpt-6.1-terra-wm",
+        "gpt-6-luna-wm"
+      ],
+      "reinforcement_count": 14,
+      "source_repo": "local-episodic",
+      "structural_fingerprint": "0599afd3d4cdbe9d",
+      "proof_attestation": "6c7177e548f61e114eddab68",
+      "path": "research-epistemology/gpt-6-frontier/KL-EPI-003.json"
     },
     {
       "id": "KL-ZTR-002",
@@ -750,7 +813,7 @@
         "gpt-6.1-terra-wm",
         "deepseek-r1-0528"
       ],
-      "reinforcement_count": 14,
+      "reinforcement_count": 15,
       "source_repo": "local-episodic",
       "structural_fingerprint": "486af101a82030e5",
       "proof_attestation": "6aa5029f10c0452dfc881a0c",
@@ -768,7 +831,7 @@
         "grok-4.7",
         "claude-opus-4"
       ],
-      "reinforcement_count": 12,
+      "reinforcement_count": 13,
       "source_repo": "local-episodic",
       "structural_fingerprint": "aad0d433fe0d308b",
       "proof_attestation": "4db60afee14ddaf66d86e7a3",
@@ -786,7 +849,7 @@
         "grok-4.7",
         "gpt-6.1-terra-wm"
       ],
-      "reinforcement_count": 13,
+      "reinforcement_count": 14,
       "source_repo": "local-episodic",
       "structural_fingerprint": "96b8fb6aa99d93bb",
       "proof_attestation": "603b1776d1fd493f9cfef61d",

@@ -25,7 +25,7 @@
     "claude-opus-4",
     "gpt-6.1-terra-wm"
   ],
-  "reinforcement_count": 13,
+  "reinforcement_count": 14,
   "source_repo": "local-episodic",
   "created_at": "2026-11-05T08:56:33Z",
   "domain_pillar": "engineering",

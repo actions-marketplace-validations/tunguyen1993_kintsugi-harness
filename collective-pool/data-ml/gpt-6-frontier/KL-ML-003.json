@@ -1,0 +1,35 @@
+{
+  "id": "KL-ML-003",
+  "title": "Causal Light-Cone Non-Lookahead, 2nd Law Entropy & Compensated Floating-Point Guard",
+  "domain": "data-ml",
+  "severity": "CRITICAL",
+  "languages": [
+    "python"
+  ],
+  "tags": [
+    "causality",
+    "second-law-thermodynamics",
+    "numerical-stability",
+    "catastrophic-cancellation",
+    "fsum"
+  ],
+  "cognitive_trap": "Accessed future time index `signal_series[idx_t + 1]` at step `idx_t` (violating relativistic causal arrow `t_cause <= t_effect`), decreased isolated entropy, or evaluated `gamma ** 2 - 1.0` at `v << c`.",
+  "mental_model": "Enforce strict past-only causal masks (`indices <= idx_t`), non-negative isolated entropy production (`dS >= 0`), algebraic factorization (`v_sq / (1.0 - v_sq)`), and Kahan `math.fsum()`.",
+  "bad_code": "pred_t = 0.5 * signal_series[idx_t] + 0.5 * signal_series[idx_t + 1]  # CAUSAL_ARROW_LOOKAHEAD_LEAK",
+  "good_code": "pred_t = 0.5 * signal_series[max(0, idx_t - 1)] + 0.5 * signal_series[idx_t]\ntotal_energy = math.fsum([rest_energy_j] + list(micro_fluxes))",
+  "regex_pattern": "CAUSAL_ARROW_LOOKAHEAD_LEAK|CATASTROPHIC_CANCELLATION_SEAM",
+  "ast_rule": null,
+  "synthesized_by_model": "gpt-6-luna-wm",
+  "model_family": "gpt-6-frontier",
+  "model_tier": "TIER_1_FRONTIER",
+  "endorsed_by_models": [
+    "gpt-6-luna-wm",
+    "gpt-6.1-terra-wm"
+  ],
+  "reinforcement_count": 16,
+  "source_repo": "local-episodic",
+  "created_at": "2026-11-05T09:31:59Z",
+  "domain_pillar": "engineering",
+  "structural_fingerprint": "7f3008d53afddf7f",
+  "proof_attestation": "577345f1847a31042fc849d4"
+}
