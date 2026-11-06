@@ -65,10 +65,12 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 | Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Native Rust Engine (`kintsugi-rs v1.3.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
+| **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
 | **Curated Core + Exclusive Pro Scars (`KS-001`..`KS-032`)** | 16 Core (`KS-001..016`) | 11 FinOps/Reliability (`KS-018,025,026,030,031` + Core) | 21 AppSec/MCP (`KS-017,019..024,027..029,032` + Core) | **All 32/32 (`KS-001..KS-032`)** |
 | **`@KML/1` Symbolic Machine-Language Wire (`scars.kml`)** | 16 rules (1,690 in OSS repo) | **844 `@KML/1` FinOps rules** | **862 `@KML/1` Security rules** | **All 1,706 `@KML/1` rules** |
 | **Deterministic Auto-Remediation (`kintsugi autofix --apply`)** | Dry-Run Diff Preview (`--dry-run`) | **4 In-Place Auto-Fix Codemods** | **8 In-Place Auto-Fix Codemods** | **All 12/12 In-Place Auto-Fix Codemods** |
-| **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Slash Workflows** | **4 Slash Workflows** | **4 Slash Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
+| **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **5 Slash Workflows** | **5 Slash Workflows** | **5 Slash Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`, `/kintsugi-multi-model-council`)** |
 | **Frontier Collective Pool (`collective_pool_lessons.json`)** | Included (`collective-pool/`) | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** |
 | **Delivery Formats** | `.zip` ([`free-skill-pack/`](free-skill-pack/)) | `.zip` + AEAD `.kpack` | `.zip` + AEAD `.kpack` | **`.zip` + AEAD `.kpack`** |
 
@@ -123,12 +125,35 @@ kintsugi autofix .
 ### 5. Install External or Pro Skill Packs (`kintsugi install-pack`)
 
 ```bash
-# Install a standalone .zip or .json Skill Pack (e.g., from Agensi.io)
-kintsugi install-pack kintsugi-enterprise-complete-pro-v0.3.0.zip
+# Install an encrypted .kpack or standalone .zip Skill Pack (e.g., from Agensi.io)
+kintsugi install-pack kintsugi-enterprise-complete-pro-v1.3.0.kpack --license-key <YOUR_LICENSE_KEY>
 kintsugi list-packs
 
 # Run unlocked in-place auto-remediation codemods
 kintsugi autofix . --apply
+```
+
+### 5B. Tier-Gated Multi-Model Co-Execution & BYOK Paid Frontier Council (`kintsugi swarm --guide`)
+
+Kintsugi guarantees your **Primary Anchor Model** always runs alongside dynamically discovered `$0` Free Co-Runners (and optional user-supplied BYOK Paid Frontier Council seats):
+
+```bash
+# 1. Inspect active tier & Bilingual Agent Onboarding Guide
+kintsugi swarm --guide
+
+# 2. Free Tier ($0): Runs Primary Model + 1 discovered $0 Free Co-Runner
+kintsugi swarm . --co-run
+
+# 3. Pro Tier ($15 / $19): Unlocks 2..5 parallel $0 Free Co-Runners with automatic 429 failover
+kintsugi swarm --authorize-auto-provision
+kintsugi swarm . --co-run --free-runners 4
+
+# 4. Enterprise Complete Pro ($29): Add your own BYOK Paid Frontier Council API keys (stored locally 0600)
+kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>
+kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>
+kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>
+kintsugi swarm --paid-council-status
+kintsugi swarm . --co-run --free-runners 3 --paid-council
 ```
 
 ### 6. Human-Like Cognitive Learning, Zero-GitHub-Account Relay & GitHub Skill Harvester (`kintsugi learn`)

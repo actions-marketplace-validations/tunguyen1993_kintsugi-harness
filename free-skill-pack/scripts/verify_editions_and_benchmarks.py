@@ -331,6 +331,9 @@ def verify_all_four_editions() -> Dict[str, Any]:
         )
         assert install_res["scars_in_pack"] == len(combined), install_res
         assert (ws_kp / ".kintsugi" / "packs" / "kintsugi-enterprise-complete-pro.kml").is_file()
+        assert install_res["co_execution_entitlement"]["tier_id"] == "ENTERPRISE_PAID_COUNCIL"
+        assert install_res["co_execution_entitlement"]["max_free_co_runners"] == 5
+        assert install_res["co_execution_entitlement"]["paid_council_byok_unlocked"] is True
 
     lessons = get_seed_frontier_lessons()
     return {
@@ -339,24 +342,28 @@ def verify_all_four_editions() -> Dict[str, Any]:
             "edition_0_core_guard_free_0usd": {
                 "status": "VERIFIED_PASS",
                 "core_scars": len(core_16),
+                "co_execution_tier": "FREE_STARTER (Primary + 1 Free Model)",
                 "runtime_gates_verified": 5,
             },
             "edition_1_finops_reliability_pro_15usd": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 11,
                 "kml_evolved_rules": 844,
+                "co_execution_tier": "PRO_MULTI_FREE (Primary + up to 5 Free Models)",
                 "autofix_codemods_verified": 4,
             },
             "edition_2_zero_trust_mcp_security_pro_19usd": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 21,
                 "kml_evolved_rules": 862,
+                "co_execution_tier": "PRO_MULTI_FREE (Primary + up to 5 Free Models)",
                 "autofix_codemods_verified": 8,
             },
             "edition_3_enterprise_complete_pro_29usd": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 32,
                 "kml_evolved_rules": 1706,
+                "co_execution_tier": "ENTERPRISE_PAID_COUNCIL (Primary + 5 Free Models + BYOK Paid Council)",
                 "autofix_codemods_verified": 12,
                 "frontier_lessons_verified": len(lessons),
                 "kpack_aead_encryption_verified": True,
