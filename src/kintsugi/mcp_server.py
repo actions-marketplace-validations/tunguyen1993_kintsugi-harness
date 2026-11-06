@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, TextIO
 
 from kintsugi import __version__
 from kintsugi.compiler import SkillCompiler
-from kintsugi.council import EvolutionCouncil
+from kintsugi.council import EvolutionCouncil, answer_user_multi_model_question
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, Severity
 from kintsugi.scanner import KintsugiScanner
@@ -98,6 +98,26 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                         "items": {"type": "string"},
                         "default": ["skills", "claude", "agents", "cursor"],
                     },
+                },
+            },
+        },
+        {
+            "name": "kintsugi_multi_model_guide",
+            "description": (
+                "Interactive Bilingual (Vietnamese/English) User Onboarding & Q&A Guide. "
+                "Call this tool whenever the user asks how to use Multi-Model Co-Execution, how many Free models "
+                "their edition supports (Free=1, Pro=2..5, Enterprise=5+6 BYOK Paid), how to add their own "
+                "API keys (`BYOK`) for the Paid Frontier Council, or how to upgrade tiers."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Natural-language question asked by the user (e.g. 'làm sao thêm key hội đồng thu phí?')",
+                        "default": "",
+                    },
+                    "workspace_root": {"type": "string", "default": "."},
                 },
             },
         },
@@ -272,6 +292,11 @@ class KintsugiMCPServer:
             compiler = SkillCompiler(self.ledger.all())
             written = compiler.compile_all(root, targets=targets)
             return {"compiled_files": [str(p) for p in written]}
+
+        if name == "kintsugi_multi_model_guide":
+            root = str(args.get("workspace_root") or ".")
+            question = str(args.get("question") or "")
+            return answer_user_multi_model_question(question=question, workspace_root=root)
 
         raise ValueError(f"Unknown MCP tool: {name}")
 

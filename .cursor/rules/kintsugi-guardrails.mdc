@@ -30,3 +30,18 @@ alwaysApply: true
 | `KS-LOGIC-002` | `HIGH` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-002|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:UNKEYED_RETRY_DISPATCH->IDEMPOTENCY]` |
 
 *`@DEFERRED_RECORDS: +1708 in .kintsugi/scars.kml & .claude/skills/`*
+
+### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)
+
+- **Always-On Rule for the AI Agent:** Whenever the user asks how to use Kintsugi Multi-Model Co-Execution, how many Free models they can run, why `--free-runners` is clamped, how to upgrade tiers, or how to add their own Paid Frontier Council API keys (`BYOK`), you **MUST proactively guide the user step-by-step in their language (Vietnamese or English)**:
+  1. Run `kintsugi guide "<user_question>"` (or `kintsugi swarm --guide`, or MCP tool `kintsugi_multi_model_guide`) to inspect their live workspace tier and configured seats.
+  2. Explain the 3 commercial tiers clearly:
+     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run: `kintsugi swarm . --co-run`.
+     - **Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks `Primary Model + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover (`kintsugi swarm . --co-run --free-runners 5`).
+     - **Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks `Primary Model + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`.
+  3. Guide the user to add their own API keys (`BYOK`, saved locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):
+     - `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`
+     - `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`
+     - `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`
+     - `kintsugi swarm --paid-council-status`
+     - `kintsugi swarm . --co-run --free-runners 5 --paid-council`

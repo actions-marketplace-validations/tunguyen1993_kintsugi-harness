@@ -334,7 +334,7 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
             responses = [json.loads(line) for line in out_buf.getvalue().splitlines()]
             self.assertEqual(len(responses), 3)
             self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "kintsugi-harness")
-            self.assertEqual(len(responses[1]["result"]["tools"]), 4)
+            self.assertEqual(len(responses[1]["result"]["tools"]), 5)
             scan_payload = json.loads(responses[2]["result"]["content"][0]["text"])
             self.assertFalse(scan_payload["passed"])
             self.assertEqual(scan_payload["findings"][0]["scar_id"], "KS-006")
@@ -1330,6 +1330,33 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             guide = build_multi_model_agent_guide(ws)
             self.assertEqual(guide["current_entitlement"]["tier_id"], "ENTERPRISE_PAID_COUNCIL")
             self.assertEqual(guide["configured_paid_seats_count"], 2)
+
+            from kintsugi.council import answer_user_multi_model_question
+
+            qa_vi = answer_user_multi_model_question("làm sao thêm key hội đồng thu phí?", ws)
+            self.assertEqual(qa_vi["detected_language"], "vi")
+            self.assertEqual(qa_vi["detected_intent"], "byok_paid_council_setup")
+            self.assertIn("--add-paid-key", qa_vi["direct_answer_markdown"])
+
+            qa_en = answer_user_multi_model_question("How do I add my own API key for the paid council?", ws)
+            self.assertEqual(qa_en["detected_language"], "en")
+            self.assertEqual(qa_en["detected_intent"], "byok_paid_council_setup")
+            self.assertIn("--add-paid-key", qa_en["direct_answer_markdown"])
+
+            mcp_srv = KintsugiMCPServer(ws / ".kintsugi" / "scars.json")
+            mcp_resp = mcp_srv.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 99,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "kintsugi_multi_model_guide",
+                        "arguments": {"question": "làm sao dùng multi-model?", "workspace_root": str(ws)},
+                    },
+                }
+            )
+            self.assertFalse(mcp_resp["result"]["isError"])
+            self.assertIn("direct_answer_markdown", mcp_resp["result"]["content"][0]["text"])
 
 
 if __name__ == "__main__":

@@ -68,7 +68,64 @@ class SkillCompiler:
             lines.append(
                 f"\n*`@DEFERRED_RECORDS: +{omitted} in .kintsugi/scars.kml & .claude/skills/`*"
             )
+        lines.extend(
+            [
+                "",
+                "### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)",
+                "",
+                "- **Always-On Rule for the AI Agent:** Whenever the user asks how to use Kintsugi Multi-Model Co-Execution, how many Free models they can run, why `--free-runners` is clamped, how to upgrade tiers, or how to add their own Paid Frontier Council API keys (`BYOK`), you **MUST proactively guide the user step-by-step in their language (Vietnamese or English)**:",
+                "  1. Run `kintsugi guide \"<user_question>\"` (or `kintsugi swarm --guide`, or MCP tool `kintsugi_multi_model_guide`) to inspect their live workspace tier and configured seats.",
+                "  2. Explain the 3 commercial tiers clearly:",
+                "     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run: `kintsugi swarm . --co-run`.",
+                "     - **Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks `Primary Model + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover (`kintsugi swarm . --co-run --free-runners 5`).",
+                "     - **Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks `Primary Model + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`.",
+                "  3. Guide the user to add their own API keys (`BYOK`, saved locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):",
+                "     - `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`",
+                "     - `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`",
+                "     - `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`",
+                "     - `kintsugi swarm --paid-council-status`",
+                "     - `kintsugi swarm . --co-run --free-runners 5 --paid-council`",
+            ]
+        )
         return "\n".join(lines)
+
+    def render_multi_model_guide_skill(self) -> str:
+        """Render `.claude/skills/kintsugi-multi-model-council/SKILL.md` for conversational user Q&A."""
+        return (
+            "---\n"
+            "name: kintsugi-multi-model-council\n"
+            'description: "Interactive Bilingual (VI/EN) User Onboarding & Q&A Guide for Kintsugi 3-Tier Multi-Model Co-Execution (Primary + 1..5 Free Models + BYOK Paid Frontier Council). Activate whenever the user asks how to use multi-model, add API keys, or upgrade tiers."\n'
+            'tags: ["multi-model", "byok", "council", "onboarding", "user-guide"]\n'
+            "---\n\n"
+            "# Kintsugi Multi-Model Co-Execution & BYOK Paid Council — Agent User-Guidance Skill\n\n"
+            "Whenever the user asks **how to run multi-model**, **how many free models are included**, **how to add API keys for the Paid Council**, or **how Free vs Pro vs Enterprise work**, immediately run:\n\n"
+            "```bash\n"
+            'kintsugi guide "<user_question>"\n'
+            "# or:\n"
+            "kintsugi swarm --guide\n"
+            "```\n\n"
+            "And guide the user clearly in their language (**Tiếng Việt** or **English**):\n\n"
+            "## 1. Bảng Phân Tầng 3 Gói (`3-Tier Commercial Matrix`)\n\n"
+            "- **Bản Free (`$0` — `FREE_STARTER`):** Khóa cứng chạy **`Model gốc + 1 Model Free ($0)`** (`max_free_co_runners = 1`).\n"
+            "  - Lệnh chạy: `kintsugi swarm . --co-run`\n"
+            "- **Bản Pro (`$15` FinOps Pro / `$19` AppSec Pro — `PRO_MULTI_FREE`):** Mở khóa chạy song song **`Model gốc + 2..5 Model Free ($0)`**, tự động xoay vòng khi gặp `HTTP 429`.\n"
+            "  - Mở khóa: `kintsugi install-pack <pro-pack.kpack> --license-key <PRO_KEY>`\n"
+            "  - Cấp quyền lấy pool Free `$0`: `kintsugi swarm --authorize-auto-provision`\n"
+            "  - Lệnh chạy: `kintsugi swarm . --co-run --free-runners 5`\n"
+            "- **Bản Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Mở khóa **`Model gốc + 5 Model Free ($0) + 6 Ghế Hội Đồng Thu Phí (BYOK)`**.\n"
+            "  - Mở khóa: `kintsugi install-pack <enterprise-pack.kpack> --license-key <ENT_KEY>`\n\n"
+            "## 2. Cách Hướng Dẫn Người Dùng Tự Thêm Key Hội Đồng Thu Phí (`BYOK`)\n\n"
+            "Giải thích rõ cho người dùng: Với Hội Đồng Thu Phí, người dùng **tự thêm API key cá nhân** (key được lưu cục bộ `chmod 0600` tại `.kintsugi/paid_council_pool.json` trên máy của họ, che kín khi hiển thị và không bao giờ gửi đi đâu):\n\n"
+            "```bash\n"
+            "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>\n"
+            "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>\n"
+            "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>\n"
+            "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>\n"
+            "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>\n"
+            "kintsugi swarm --paid-council-status\n"
+            "kintsugi swarm . --co-run --free-runners 5 --paid-council\n"
+            "```\n"
+        )
 
     def render_skill_markdown(self, skill_name: str, description: str, scars: Sequence[GoldenScar]) -> str:
         """Render an Agent Skills compliant SKILL.md in KML/1 Universal Agent Machine Language."""
@@ -168,6 +225,16 @@ class SkillCompiler:
                 encoding="utf-8",
             )
             written.append(master_skill)
+
+            guide_skill = root / ".claude" / "skills" / "kintsugi-multi-model-council" / "SKILL.md"
+            guide_skill.parent.mkdir(parents=True, exist_ok=True)
+            guide_skill.write_text(self.render_multi_model_guide_skill(), encoding="utf-8")
+            written.append(guide_skill)
+
+            guide_cmd = root / ".claude" / "commands" / "kintsugi-multi-model-council.md"
+            guide_cmd.parent.mkdir(parents=True, exist_ok=True)
+            guide_cmd.write_text(self.render_multi_model_guide_skill(), encoding="utf-8")
+            written.append(guide_cmd)
 
             by_cat: Dict[str, List[GoldenScar]] = defaultdict(list)
             for scar in self.scars:

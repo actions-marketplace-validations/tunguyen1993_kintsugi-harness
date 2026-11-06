@@ -21,6 +21,7 @@ from kintsugi.council import (
     FreePoolSlot,
     PaidFrontierCouncilBYOKRegistry,
     PrimaryPlusFreeCoExecutor,
+    answer_user_multi_model_question,
     build_multi_model_agent_guide,
 )
 from kintsugi.foresight import (
@@ -91,4 +92,7 @@ __all__ = [
     "BrierMomentShrinkagePool",
     "RedBlueAdversarialArena",
     "enforce_kl_high_001_promotion_guard",
+    "build_multi_model_agent_guide",
+    "answer_user_multi_model_question",
+    "resolve_workspace_co_execution_entitlement",
 ]

@@ -105,6 +105,7 @@ def render_kmi_index(scars: Sequence[GoldenScar], pack_name: str = "core") -> st
         bucket = [scar_to_micro_token(s) for s in ordered if s.severity == sev]
         if bucket:
             lines.append(f"{tiers[sev]}: " + " | ".join(bucket))
+    lines.append("@GUIDE: When user asks how to use Multi-Model / Paid Council / BYOK keys -> run `kintsugi guide \"<question>\"` or read `.claude/skills/kintsugi-multi-model-council/SKILL.md`")
     lines.append(KMI_BOUNDARY_END)
     return "\n".join(lines)
 

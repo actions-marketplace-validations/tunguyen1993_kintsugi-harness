@@ -783,7 +783,7 @@ def build_multi_model_agent_guide(workspace_root: str | Path = ".") -> Dict[str,
                 "execution_topology": "1 Primary Model + 2..5 Multi-Model Free Co-Runners (Auto 429 Rotation)",
                 "max_free_co_runners": 5,
                 "paid_council_byok": False,
-                "how_to_unlock": "kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.3.0.kpack --license-key <PRO_KEY>",
+                "how_to_unlock": "kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>",
             },
             {
                 "tier_id": "ENTERPRISE_PAID_COUNCIL",
@@ -791,7 +791,7 @@ def build_multi_model_agent_guide(workspace_root: str | Path = ".") -> Dict[str,
                 "execution_topology": "1 Primary Model + 2..5 Free Co-Runners + 1..6 Paid Frontier Council Seats (BYOK)",
                 "max_free_co_runners": 5,
                 "paid_council_byok": True,
-                "how_to_unlock": "kintsugi install-pack kintsugi-enterprise-complete-pro-v1.3.0.kpack --license-key <ENT_KEY>",
+                "how_to_unlock": "kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>",
             },
         ],
         "step_by_step_user_guide_vi": {
@@ -842,6 +842,221 @@ def build_multi_model_agent_guide(workspace_root: str | Path = ".") -> Dict[str,
             ),
         },
     }
+
+
+def answer_user_multi_model_question(
+    question: str = "",
+    workspace_root: str | Path = ".",
+) -> Dict[str, Any]:
+    """
+    Conversational User-Guidance & Q&A Responder (`v1.4.0`).
+
+    Whenever a user asks the AI Agent (or runs `kintsugi guide "<question>"` / `kintsugi swarm --ask "<question>"`)
+    how to use Multi-Model Co-Execution, how many Free models their edition supports, how to add their own
+    API keys (`BYOK`) for the Paid Frontier Council, or how to upgrade tiers, this function inspects the
+    live workspace state and returns a ready-to-present conversational Markdown guide in the user's language.
+    """
+    base_guide = build_multi_model_agent_guide(workspace_root)
+    ent = base_guide["current_entitlement"]
+    tier_id = str(ent.get("tier_id", "FREE_STARTER"))
+    max_free = int(ent.get("max_free_co_runners", 1))
+    paid_unlocked = bool(ent.get("paid_council_byok_unlocked", False))
+    paid_count = int(base_guide.get("configured_paid_seats_count", 0))
+    free_count = int(base_guide.get("discovered_free_models_count", 1))
+
+    q_clean = (question or "").strip()
+    q_low = q_clean.lower()
+
+    # Detect Vietnamese vs English
+    vi_markers = (
+        "làm sao", "như nào", "thế nào", "hướng dẫn", "thêm key", "hội đồng",
+        "miễn phí", "thu phí", "bản free", "nâng cấp", "mấy model", "chạy cùng",
+        "ở đâu", "an toàn", "cách dùng", "tại sao", "khoá", "khóa", "gói",
+    )
+    has_vi_chars = any(ord(ch) > 127 for ch in q_clean)
+    is_vi = has_vi_chars or any(m in q_low for m in vi_markers) or not q_clean
+    lang = "vi" if is_vi else "en"
+
+    # Classify question intent
+    if any(k in q_low for k in ("key", "byok", "thu phí", "paid", "opus", "gpt", "grok", "api")):
+        intent = "byok_paid_council_setup"
+    elif any(k in q_low for k in ("an toàn", "bảo mật", "lưu ở đâu", "safe", "security", "privacy", "where")):
+        intent = "key_security_and_privacy"
+    elif any(k in q_low for k in ("tại sao", "khoá", "khóa", "1 model", "nâng cấp", "tier", "pro", "enterprise", "upgrade", "clamp", "limit")):
+        intent = "tier_comparison_and_upgrade"
+    elif any(k in q_low for k in ("free", "miễn phí", "429", "failover", "provision")):
+        intent = "free_models_discovery_and_rotation"
+    else:
+        intent = "general_multi_model_onboarding"
+
+    faq_vi = [
+        {
+            "question": "1. Model gốc chạy cùng các model miễn phí và hội đồng thu phí như thế nào?",
+            "answer": (
+                "Trong Kintsugi v1.4.0, Model gốc (Primary Model) KHÔNG BAO GIỜ chạy đơn độc. "
+                "Nó luôn chạy song song với các Model Miễn Phí ($0) tự động tìm được (qua cổng local :8897, "
+                "`.kintsugi/free_agent_pool.json`, biến môi trường hoặc keyless endpoint) và kiểm chứng chéo kết quả bằng BFT + AST/Regex Gate."
+            ),
+        },
+        {
+            "question": "2. Bản Free ($0), Bản Pro ($15/$19) và Bản Enterprise ($29) khác nhau ra sao?",
+            "answer": (
+                "• Bản Free ($0 — `FREE_STARTER`): Khóa cứng chạy `Model gốc + 1 Model Free ($0)` (`max_free_co_runners = 1`).\n"
+                "• Bản Pro ($15 FinOps / $19 AppSec — `PRO_MULTI_FREE`): Mở khóa chạy `Model gốc + 2..5 Model Free ($0) song song`, tự động xoay vòng khi gặp lỗi HTTP 429.\n"
+                "• Bản Enterprise ($29 — `ENTERPRISE_PAID_COUNCIL`): Mở khóa `Model gốc + 5 Model Free ($0) + 6 Ghế Hội Đồng Agent Thu Phí (BYOK)`."
+            ),
+        },
+        {
+            "question": "3. Tôi tự thêm API Key cho Hội Đồng Agent Thu Phí (BYOK) bằng cách nào?",
+            "answer": (
+                "Với Hội Đồng Thu Phí, bạn tự thêm key cá nhân của mình (Anthropic, OpenAI, xAI Grok, Gemini, DeepSeek, OpenRouter) bằng lệnh:\n"
+                "  `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
+                "Kiểm tra trạng thái key: `kintsugi swarm --paid-council-status`\n"
+                "Xoá key bất kỳ lúc nào: `kintsugi swarm --remove-paid-key <provider_id>`"
+            ),
+        },
+        {
+            "question": "4. API Key tôi thêm vào được lưu ở đâu, có bị gửi đi đâu không?",
+            "answer": (
+                "100% lưu cục bộ trên máy của bạn tại `.kintsugi/paid_council_pool.json` với quyền bảo mật `chmod 0600` (chỉ user trên máy đọc được) "
+                "và tự động nằm trong `.gitignore`. Mọi lệnh hiển thị trạng thái đều che kín key (`sk-a...9f2a`). Kintsugi tuyệt đối không gửi key của bạn lên bất kỳ server trung gian nào."
+            ),
+        },
+    ]
+
+    faq_en = [
+        {
+            "question": "1. How does the Primary Model co-execute with Free Models and the Paid Council?",
+            "answer": (
+                "In Kintsugi v1.4.0, your Primary Anchor Model never runs alone. It always co-executes in parallel "
+                "with dynamically discovered $0 Free Co-Runners (from local gateway :8897, `.kintsugi/free_agent_pool.json`, "
+                "env vars, or keyless endpoints) and merges findings via BFT consensus + deterministic AST/Regex verification."
+            ),
+        },
+        {
+            "question": "2. What is the difference between Free ($0), Pro ($15/$19), and Enterprise ($29)?",
+            "answer": (
+                "• Free ($0 — `FREE_STARTER`): Locked to `Primary + 1 Free Model ($0)` (`max_free_co_runners = 1`).\n"
+                "• Pro ($15 FinOps / $19 AppSec — `PRO_MULTI_FREE`): Unlocks `Primary + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover.\n"
+                "• Enterprise ($29 — `ENTERPRISE_PAID_COUNCIL`): Unlocks `Primary + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`."
+            ),
+        },
+        {
+            "question": "3. How do I add my own API keys (BYOK) for the Paid Frontier Council?",
+            "answer": (
+                "Register your own API keys locally using:\n"
+                "  `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
+                "Check status: `kintsugi swarm --paid-council-status`\n"
+                "Remove a key: `kintsugi swarm --remove-paid-key <provider_id>`"
+            ),
+        },
+        {
+            "question": "4. Where are my BYOK API keys stored and are they private?",
+            "answer": (
+                "Keys are stored strictly on your local disk at `.kintsugi/paid_council_pool.json` with `chmod 0600` permissions "
+                "(owner-read/write only) and masked in all status outputs. Keys are never sent to any third-party relay."
+            ),
+        },
+    ]
+
+    if is_vi:
+        md_lines = [
+            "### 🧭 Hướng Dẫn Sử Dụng Multi-Model & Hội Đồng Agent (`Kintsugi v1.4.0`)",
+            "",
+            f"- **Trạng thái Workspace hiện tại của bạn:** `{tier_id}` ({ent.get('tier_label')}) · "
+            f"Tối đa **`{max_free}` Model Free** (`đã phát hiện {free_count} nguồn Free`) · "
+            f"Hội Đồng Thu Phí BYOK: **`{'ĐÃ MỞ KHÓA' if paid_unlocked else 'ĐANG KHÓA'}`** (`{paid_count}/6` ghế đã gắn key).",
+            f"- **Tóm tắt nhanh:** {base_guide['agent_explanation_vi']}",
+            "",
+            "#### 1. Cơ chế 3 Tầng (Free vs Pro vs Enterprise)",
+            "1. **Bản Free (`$0` — `FREE_STARTER`):** Model gốc luôn chạy kèm **1 Model Miễn Phí (`$0`)** (`max_free_co_runners = 1`).",
+            "   - Lệnh chạy ngay: `kintsugi swarm . --co-run`",
+            "2. **Bản Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Mở khóa chạy song song **2 đến 5 Model Miễn Phí (`$0`)**, tự động xoay vòng khi có model bị giới hạn `HTTP 429`.",
+            "   - Mở khóa gói: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
+            "   - Cấp quyền tự lấy pool Free `$0`: `kintsugi swarm --authorize-auto-provision`",
+            "   - Lệnh chạy 4–5 model Free: `kintsugi swarm . --co-run --free-runners 5`",
+            "3. **Bản Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Mở khóa **5 Model Free (`$0`) + 6 Ghế Hội Đồng Agent Thu Phí (`BYOK`)**.",
+            "   - Mở khóa gói: `kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>`",
+            "",
+            "#### 2. Cách Người Dùng Tự Thêm API Key Cho Hội Đồng Thu Phí (`BYOK`)",
+            "Với Hội Đồng Thu Phí, bạn tự thêm key cá nhân (lưu an toàn `chmod 0600` tại `.kintsugi/paid_council_pool.json` trên máy bạn):",
+            "```bash",
+            "# B1: Thêm 1 hoặc nhiều API key của bạn vào Hội Đồng Thu Phí",
+            "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
+            "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
+            "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>",
+            "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>",
+            "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>",
+            "",
+            "# B2: Kiểm tra danh sách ghế Hội Đồng Thu Phí đã sẵn sàng",
+            "kintsugi swarm --paid-council-status",
+            "",
+            "# B3: Chạy đồng thời Model Gốc + 5 Model Free + Hội Đồng Thu Phí",
+            "kintsugi swarm . --co-run --free-runners 5 --paid-council",
+            "```",
+        ]
+    else:
+        md_lines = [
+            "### 🧭 Multi-Model Co-Execution & BYOK Paid Council Guide (`Kintsugi v1.4.0`)",
+            "",
+            f"- **Your Active Workspace Tier:** `{tier_id}` ({ent.get('tier_label')}) · "
+            f"Max **`{max_free}` Free Co-Runner(s)** (`{free_count} discovered`) · "
+            f"BYOK Paid Council: **`{'UNLOCKED' if paid_unlocked else 'LOCKED'}`** (`{paid_count}/6` seats configured).",
+            f"- **Summary:** {base_guide['agent_explanation_en']}",
+            "",
+            "#### 1. How the 3 Commercial Tiers Work",
+            "1. **Free Tier (`$0` — `FREE_STARTER`):** Primary Model always runs alongside **1 Free Co-Runner (`$0`)** (`max_free_co_runners = 1`).",
+            "   - Run now: `kintsugi swarm . --co-run`",
+            "2. **Pro Tier (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks **2 to 5 parallel Free Co-Runners (`$0`)** with automatic HTTP 429 failover.",
+            "   - Unlock pack: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
+            "   - Authorize $0 pool discovery: `kintsugi swarm --authorize-auto-provision`",
+            "   - Run with 5 Free models: `kintsugi swarm . --co-run --free-runners 5`",
+            "3. **Enterprise Tier (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks **5 Free Models (`$0`) + 6-Seat Paid Frontier Council (`BYOK`)**.",
+            "   - Unlock pack: `kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>`",
+            "",
+            "#### 2. How to Add Your Own API Keys (`BYOK`) for the Paid Frontier Council",
+            "Your keys are stored strictly locally in `.kintsugi/paid_council_pool.json` (`chmod 0600`):",
+            "```bash",
+            "# Step 1: Register 1 or more of your own frontier API keys",
+            "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
+            "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
+            "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>",
+            "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>",
+            "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>",
+            "",
+            "# Step 2: Verify configured Paid Council seats",
+            "kintsugi swarm --paid-council-status",
+            "",
+            "# Step 3: Co-execute Primary Model + 5 Free Models + Paid Frontier Council",
+            "kintsugi swarm . --co-run --free-runners 5 --paid-council",
+            "```",
+        ]
+
+    recommended_cmds = [
+        "kintsugi swarm . --co-run",
+        "kintsugi swarm --paid-council-status",
+        "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
+        "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
+        "kintsugi swarm . --co-run --free-runners 5 --paid-council",
+    ]
+
+    result = dict(base_guide)
+    result.update(
+        {
+            "question": q_clean,
+            "detected_language": lang,
+            "detected_intent": intent,
+            "direct_answer_markdown": "\n".join(md_lines),
+            "recommended_commands": recommended_cmds,
+            "faq_catalog_vi": faq_vi,
+            "faq_catalog_en": faq_en,
+        }
+    )
+    return result
 
 
 class PrimaryPlusFreeCoExecutor:

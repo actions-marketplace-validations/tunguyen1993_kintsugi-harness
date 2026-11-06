@@ -1,29 +1,43 @@
 <!-- KINTSUGI:START -->
-## Kintsugi Self-Evolved Guardrails (Auto-Compiled)
+## Kintsugi Machine-Language Guardrail Index (`@KML/1`)
 
-> Managed by `kintsugi-harness`. Run `kintsugi scan .` or `kintsugi scan --staged` before committing.
-> Full paired anti-patterns (`❌ Bad` vs `✅ Good`) live in `.claude/skills/kintsugi-guardrails/SKILL.md`.
+> `@GATE: kintsugi scan --staged --fail-on HIGH | @CORPUS: .kintsugi/scars.kml | @SKILLS: .claude/skills/kintsugi-guardrails/SKILL.md`
 
-| ID | Severity | Category | Anti-Pattern to Avoid |
+| ID | SEV | CAT | KML/1 Symbolic Opcode (`@OP/1`) |
 | :--- | :--- | :--- | :--- |
-| `KS-001` | `CRITICAL` | `security` | Hardcoded API credential or private key literal |
-| `KS-002` | `CRITICAL` | `safety` | Destructive shell or irreversible git history wipe |
-| `KS-006` | `CRITICAL` | `security` | Unsafe dynamic code execution or untrusted deserialization |
-| `KS-007` | `CRITICAL` | `security` | Raw SQL string interpolation via f-string or format |
-| `KS-012` | `CRITICAL` | `security` | Prompt-injection or system-override directive embedded in skill or fixture |
-| `KS-014` | `CRITICAL` | `security` | Global TLS certificate verification disabled in Node.js process |
-| `KS-003` | `HIGH` | `security` | Subprocess execution with shell=True |
-| `KS-005` | `HIGH` | `reliability` | Silent exception swallowing (bare except or except-pass) |
-| `KS-008` | `HIGH` | `reliability` | Unbounded synchronous HTTP call missing explicit timeout |
-| `KS-011` | `HIGH` | `security` | Non-cryptographic PRNG used for security token, nonce, or secret |
-| `KS-013` | `HIGH` | `security` | Potential shell command injection through interpolated exec command |
-| `KS-015` | `HIGH` | `security` | Permissive CORS wildcard origin combined with allow_credentials=True |
-| `KS-016` | `HIGH` | `reliability` | Go net/http DefaultClient call without bounded timeout |
-| `KS-OSS-1000` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from Solrikk/Cripto-Boats (fetcher.py) |
-| `KS-OSS-1001` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from veighna-global/vnpy_bybit (run.py) |
-| `KS-OSS-1002` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from CryptoNawwa/nawwa_scalper_tool (exchange.py) |
-| `KS-OSS-1003` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from zabor-crypto/zaBor (main_backtest.py) |
-| `KS-OSS-1004` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from tfrmma/game-theory-trading-strats (RL_tuner.py) |
+| `KS-LOGIC-001` | `CRITICAL` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-001|SEV:CRITICAL|CAT:state-machine-logic|LANG:py|OP:NON_ATOMIC_STATE_MUTATION->COMPARE_A]` |
+| `KS-LOGIC-004` | `CRITICAL` | `concurrency-logic` | `@OP/1[ID:KS-LOGIC-004|SEV:CRITICAL|CAT:concurrency-logic|LANG:py|OP:CHECK_THEN_AWAIT_MUTATE->ASYNC_LOCK]` |
+| `KS-LOGIC-009` | `CRITICAL` | `numerical-logic` | `@OP/1[ID:KS-LOGIC-009|SEV:CRITICAL|CAT:numerical-logic|LANG:py|OP:PREMATURE_INTEGER_FLOOR_DIV->MULTIPL]` |
+| `KS-LOGIC-016` | `CRITICAL` | `causal-temporal-logic` | `@OP/1[ID:KS-LOGIC-016|SEV:CRITICAL|CAT:causal-temporal-logic|LANG:py|OP:FULL_CORPUS_SCALER_FIT_BEFORE_SPLIT-]` |
+| `KS-LOGIC-019` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-019|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:DIRECT_STRING_EQ_MAC_VERIFY->HMAC_CO]` |
+| `KS-LOGIC-020` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-020|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSCOPED_TOKEN_SUBJECT_TRUST->STRICT]` |
+| `KS-LOGIC-021` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-021|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSEPARATED_FIELD_CONCAT_HASH->LENGT]` |
+| `KS-LOGIC-022` | `CRITICAL` | `consensus-quorum-logic` | `@OP/1[ID:KS-LOGIC-022|SEV:CRITICAL|CAT:consensus-quorum-logic|LANG:py|OP:UNKEYED_VOTE_COUNT_QUORUM->UNIQUE_VO]` |
+| `KS-LOGIC-025` | `CRITICAL` | `resource-lifecycle-logic` | `@OP/1[ID:KS-LOGIC-025|SEV:CRITICAL|CAT:resource-lifecycle-logic|LANG:py|OP:DIRECT_IN_PLACE_STATE_OVERWRITE->WRI]` |
+| `KS-LOGIC-028` | `CRITICAL` | `path-canonicalization-logic` | `@OP/1[ID:KS-LOGIC-028|SEV:CRITICAL|CAT:path-canonicalization-lo|LANG:py|OP:STRING_STARTSWITH_PATH_PREFIX->RESOL]` |
+| `KS-LOGIC-031` | `CRITICAL` | `agent-epistemic-logic` | `@OP/1[ID:KS-LOGIC-031|SEV:CRITICAL|CAT:agent-epistemic-logic|LANG:py|OP:TRUST_LLM_SELF_REPORTED_PASS->INDEPE]` |
+| `KS-001` | `CRITICAL` | `security` | `@OP/1[ID:KS-001|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:secret!=literal->os.environ]` |
+| `KS-002` | `CRITICAL` | `safety` | `@OP/1[ID:KS-002|SEV:CRITICAL|CAT:safety|LANG:sh,py,js,ts|OP:sh!no_force_push_or_rm_rf]` |
+| `KS-006` | `CRITICAL` | `security` | `@OP/1[ID:KS-006|SEV:CRITICAL|CAT:security|LANG:py|OP:no_eval_exec_pickle->literal_eval]` |
+| `KS-007` | `CRITICAL` | `security` | `@OP/1[ID:KS-007|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:sql!fstring->param_query]` |
+| `KS-012` | `CRITICAL` | `security` | `@OP/1[ID:KS-012|SEV:CRITICAL|CAT:security|LANG:mark,py,js,ts|OP:prompt!no_system_override_injection]` |
+| `KS-014` | `CRITICAL` | `security` | `@OP/1[ID:KS-014|SEV:CRITICAL|CAT:security|LANG:js,ts,sh|OP:tls!rejectUnauthorized=true]` |
+| `KS-LOGIC-002` | `HIGH` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-002|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:UNKEYED_RETRY_DISPATCH->IDEMPOTENCY]` |
 
-*+1672 additional domain scars compiled in `.claude/skills/`.*
+*`@DEFERRED_RECORDS: +1708 in .kintsugi/scars.kml & .claude/skills/`*
+
+### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)
+
+- **Always-On Rule for the AI Agent:** Whenever the user asks how to use Kintsugi Multi-Model Co-Execution, how many Free models they can run, why `--free-runners` is clamped, how to upgrade tiers, or how to add their own Paid Frontier Council API keys (`BYOK`), you **MUST proactively guide the user step-by-step in their language (Vietnamese or English)**:
+  1. Run `kintsugi guide "<user_question>"` (or `kintsugi swarm --guide`, or MCP tool `kintsugi_multi_model_guide`) to inspect their live workspace tier and configured seats.
+  2. Explain the 3 commercial tiers clearly:
+     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run: `kintsugi swarm . --co-run`.
+     - **Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks `Primary Model + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover (`kintsugi swarm . --co-run --free-runners 5`).
+     - **Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks `Primary Model + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`.
+  3. Guide the user to add their own API keys (`BYOK`, saved locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):
+     - `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`
+     - `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`
+     - `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`
+     - `kintsugi swarm --paid-council-status`
+     - `kintsugi swarm . --co-run --free-runners 5 --paid-council`
 <!-- KINTSUGI:END -->

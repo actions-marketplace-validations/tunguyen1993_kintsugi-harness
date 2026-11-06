@@ -24,6 +24,7 @@ from kintsugi.council import (
     EvolutionCouncil,
     PaidFrontierCouncilBYOKRegistry,
     PrimaryPlusFreeCoExecutor,
+    answer_user_multi_model_question,
     build_multi_model_agent_guide,
     verify_candidate_scar,
 )
@@ -306,7 +307,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--remove-paid-key", metavar="PROVIDER_ID", default=None, help="Remove a stored Paid Frontier Council BYOK API key")
     p_swm.add_argument("--paid-council-status", action="store_true", help="Show Paid Frontier Council BYOK status and supported seats")
     p_swm.add_argument("--guide", action="store_true", help="Display the Bilingual Agent Onboarding & Tier-Upgrade Guide (Free vs Pro Multi-Free vs Enterprise Paid Council)")
+    p_swm.add_argument("--ask", metavar="QUESTION", default=None, help="Answer any user question in Vietnamese/English about Multi-Model Co-Execution, BYOK Paid Council keys, or Edition Tiers")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
+
+    p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (answers user questions about Multi-Model, Free Models, and BYOK Paid Council)")
+    p_gde.add_argument("question", nargs="*", help="Optional natural-language question from the user (e.g. 'làm sao thêm key hội đồng thu phí?')")
+    p_gde.add_argument("--workspace", default=".", help="Workspace root directory")
+    p_gde.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format (markdown for human/chat display, json for programmatic tools)")
 
     return parser
 
@@ -789,8 +796,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0 if arena_rep["all_attacks_neutralized"] else 1
         pool_mgr = ConsentGatedFreePoolManager(args.workspace)
         paid_reg = PaidFrontierCouncilBYOKRegistry(args.workspace)
+        if args.ask is not None:
+            print(json.dumps(answer_user_multi_model_question(args.ask, args.workspace), indent=2, ensure_ascii=False))
+            return 0
         if args.guide:
-            print(json.dumps(build_multi_model_agent_guide(args.workspace), indent=2, ensure_ascii=False))
+            print(json.dumps(answer_user_multi_model_question("", args.workspace), indent=2, ensure_ascii=False))
             return 0
         if args.paid_council_status:
             print(json.dumps(paid_reg.get_status(), indent=2, ensure_ascii=False))
@@ -847,6 +857,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"{s_rep['kmi_swarm_wire']}\n{s_rep['kmi_pool_wire']}")
             return 0
         print(json.dumps(s_rep, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "guide":
+        q_text = " ".join(args.question).strip() if args.question else ""
+        qa_res = answer_user_multi_model_question(q_text, args.workspace)
+        if args.format == "json":
+            print(json.dumps(qa_res, indent=2, ensure_ascii=False))
+        else:
+            print(qa_res["direct_answer_markdown"])
         return 0
 
     return 0
