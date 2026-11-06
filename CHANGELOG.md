@@ -2,6 +2,22 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.7.0] - 2026-11-07
+
+### Added
+- **Direction 5 — Cryptographically Signed Compliance & Change Evidence Bundles (`@PROOF_DAG/1` & `.kintsugi/audit.proof` — `src/kintsugi/compliance.py` & `kintsugi verify`):**
+  - Emits full-envelope HMAC-SHA256 signed compliance manifests binding exact patch digests (`patch_sha256`), source-bound `@LOGIC/2` SAT/MUS & Stratified Datalog proofs, `@RECURRENCE_SHIELD/1` (`CM-031`) entropy scans, and `@ZK_AST_DIFF/1` structural commitments to **5 mandatory regulatory controls**:
+    1. **SOC2 Type II `CC6.1`:** Logical Access Security & MFA Step-Up Enforcement.
+    2. **SOC2 Type II `CC6.6`:** Session Revocation After Credential Rotation & OTP Replay Prevention.
+    3. **SOC2 Type II `CC7.2`:** Outbound Secret & High-Entropy Leak Prevention (`CM-031`).
+    4. **ISO/IEC 27001:2022 `A.8.28`:** Zero-Knowledge Secure Coding & Structural AST Gate Preservation.
+    5. **EU AI Act `Article 15`:** Accuracy, Robustness & Fallacy-Free Automated Reasoning.
+  - Separates provisioned enterprise keys (`ENTERPRISE_PROVISIONED_SEAL` with `require_provisioned_key=True`) from local development keys (`LOCAL_DEV_ATTESTATION`) and invalidates immediately if any outer or inner field is modified.
+- **Scope- & Reachability-Aware Structural AST Commitment (`@ZK_AST_DIFF/1` — `ZeroKnowledgeASTDiffVerifier`):**
+  - Resolves `import` / `from ... import ... as ...` aliases, detects local gate shadowing (`def verify_mfa`), and performs control-flow reachability analysis so security gates placed after `return`/`raise` or inside `if False:` dead branches are rejected (`COUNTEREXAMPLE_FOUND`).
+- **Open Reproducible Autonomous Engineering Benchmark & Deterministic Replay Suite (`@EVAL_SUITE/1` — `ReproducibleEvalSuite` & `kintsugi eval`):**
+  - Evaluates 6 deterministic security & patch regression tasks (`EVAL-AUTH-001` .. `EVAL-MHS-006`) plus 3 benign negative controls with measured 3-arm ablations (`6/6 PASS 100.0%`, `0.0%` false-positive rate, `6/6` signed compliance proofs emitted).
+
 ## [1.6.0] - 2026-11-06
 
 ### Added

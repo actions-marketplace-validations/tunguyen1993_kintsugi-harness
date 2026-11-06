@@ -2,11 +2,11 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.6.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.7.0`)
 
-**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@LOGIC/2` 5-Pillar Neuro-Symbolic Logical Reasoning Engine, `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, `@USER_PERSONA/1` Adaptive Personalization, and self-evolving `SKILL.md` skills for AI coding agents.**
+**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@LOGIC/2` 5-Pillar Neuro-Symbolic Logical Reasoning Engine, `@PROOF_DAG/1` Cryptographically Signed Compliance Proofs (`.kintsugi/audit.proof`), `@ZK_AST_DIFF/1` Reachability-Aware AST Commitments, `@EVAL_SUITE/1` Reproducible Benchmark Suite, `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.6.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.7.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
@@ -28,7 +28,7 @@ Existing agent harnesses and rule repositories (`Superpowers`, static `.cursorru
 2. **Advisory Prose != Enforcement:** Markdown instructions are merely suggestions; agents still run `subprocess(..., shell=True)`, hardcode secrets, or execute destructive shell commands under pressure.
 3. **Slow Hook Latency:** Heavy linters add `300–1,500ms` of overhead on every tool call.
 
-**Kintsugi v1.4.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
+**Kintsugi v1.7.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
 
 ```mermaid
 flowchart LR
@@ -41,9 +41,9 @@ flowchart LR
 
 ---
 
-## Benchmark: Kintsugi v1.4.0 vs Other Agent Harnesses
+## Benchmark: Kintsugi v1.7.0 vs Other Agent Harnesses
 
-| Capability / Metric | **Kintsugi Harness (`v1.4.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
+| Capability / Metric | **Kintsugi Harness (`v1.7.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
 | :--- | :--- | :--- | :--- | :--- |
 | **Per-Turn Context Cost (18 Rules)** | **`~209 tokens` (`KMI/1` Wire Index)** | `~3,330 tokens` | `~4,500–9,000 tokens` | `0` (no agent awareness) |
 | **Tokens Saved per 50-Turn Session** | **`~156,050 tokens` (`93.7%` reduction)** | `0` (Baseline) | Negative (`-225k+ tokens`) | N/A |
@@ -54,7 +54,7 @@ flowchart LR
 
 ---
 
-## Open-Core Architecture & Edition Matrix (`v1.4.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
+## Open-Core Architecture & Edition Matrix (`v1.7.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
 
 Independent evaluators can verify all 4 editions, `@KML/1` compression ratios, Auto-Fix codemods, and `.kpack` AEAD cryptography in `1.3s` with:
 
@@ -64,19 +64,22 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
 | Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
 | :--- | :---: | :---: | :---: | :---: |
-| **Native Rust Engine (`kintsugi-rs v1.4.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Native Rust Engine (`kintsugi-rs v1.7.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
 | **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
 | **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
-| **Zero-Loss Anti-Overflow Conversation Compactor (`kintsugi compact` / `@COMPACT/1`)** | Included (`100% Anchor Retention`) | Included (`+ Multi-Free Co-Verify`) | Included (`+ Multi-Free Co-Verify`) | **Included (`+ Full Council Co-Verify`)** |
+| **`@LOGIC/2` 5-Pillar Neuro-Symbolic Reasoning & Login Verifier (`kintsugi logic`)** | Included (`DPLL SAT/MUS`, `Stratified Datalog`, `Difference Logic`, `Fallacy Guard`, `MHS`) | Included | Included | **Included (`+ Adversarial Council Arena`)** |
+| **`@PROOF_DAG/1` Signed Compliance Proofs & `@ZK_AST_DIFF/1` (`kintsugi verify`)** | Included (`LOCAL_DEV_ATTESTATION`) | Included (`+ FinOps Controls`) | Included (`+ AppSec/MCP Controls`) | **Included (`ENTERPRISE_PROVISIONED_SEAL` SOC2 / ISO27001 / EU AI Act)** |
+| **`@EVAL_SUITE/1` Open Reproducible Benchmark & Replay (`kintsugi eval`)** | Included (`6/6 Cases + 3-Arm Ablation`) | Included | Included | **Included** |
+| **Zero-Loss Anti-Overflow Conversation & Excel Compactor (`kintsugi compact` / `@COMPACT/2`)** | Included (`100% Anchor & Excel Sum Retention`) | Included (`+ Multi-Free Co-Verify`) | Included (`+ Multi-Free Co-Verify`) | **Included (`+ Full Council Co-Verify`)** |
 | **Curated Core + Exclusive Pro Scars (`KS-001`..`KS-032`)** | 16 Core (`KS-001..016`) | 11 FinOps/Reliability (`KS-018,025,026,030,031` + Core) | 21 AppSec/MCP (`KS-017,019..024,027..029,032` + Core) | **All 32/32 (`KS-001..KS-032`)** |
-| **`@KML/1` Symbolic Machine-Language Wire (`scars.kml`)** | 16 rules (1,690 in OSS repo) | **844 `@KML/1` FinOps rules** | **862 `@KML/1` Security rules** | **All 1,706 `@KML/1` rules** |
+| **`@KML/1` Symbolic Machine-Language Wire (`scars.kml`)** | 16 rules (1,726 in OSS repo) | **844 `@KML/1` FinOps rules** | **862 `@KML/1` Security rules** | **All 1,742 `@KML/1` rules** |
 | **Deterministic Auto-Remediation (`kintsugi autofix --apply`)** | Dry-Run Diff Preview (`--dry-run`) | **4 In-Place Auto-Fix Codemods** | **8 In-Place Auto-Fix Codemods** | **All 12/12 In-Place Auto-Fix Codemods** |
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **5 Slash Workflows** | **5 Slash Workflows** | **5 Slash Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`, `/kintsugi-multi-model-council`)** |
 | **Frontier Collective Pool (`collective_pool_lessons.json`)** | Included (`collective-pool/`) | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** |
 | **Delivery Formats** | `.zip` ([`free-skill-pack/`](free-skill-pack/)) | `.zip` + AEAD `.kpack` | `.zip` + AEAD `.kpack` | **`.zip` + AEAD `.kpack`** |
 
 > [!IMPORTANT]
-> **New in `v1.4.0` — 3-Tier Multi-Model Co-Execution & BYOK Paid Frontier Council (`Primary + Free Models + Paid Council`):**
+> **New in `v1.5.0`–`v1.7.0` — `@LOGIC/2` 5-Pillar Logical Reasoning, `@PROOF_DAG/1` Signed Compliance Proofs, `@COMPACT/2` Excel Compactor & 3-Tier Multi-Model Co-Execution:**
 > - **Always-On Co-Execution & Autonomous `$0` DeepSeek Free Token Harvester:** Your **Primary Model** never runs alone — Kintsugi automatically discovers available `$0` Free Co-Runner models and includes a **6-Step Zero-Touch DeepSeek Free Token Harvester (`kintsugi swarm --register-deepseek-free`)** that autonomously creates a disposable `mail.tm` inbox, verifies the signup magic link, mints a real `tj_...` API key for `deepseek-ai/DeepSeek-V4.1-Flash-1017` (`262K` context window, `$0` Unlimited Free, no credit card), verifies `HTTP 200 OK` live chat completion, and stores it in `.kintsugi/free_agent_pool.json` (`0600`).
 > - **Tier 0 (`$0` Free / OSS):** Locked to **`Primary + 1 Free Model ($0)`** (`max_free_co_runners = 1`). Passing `--free-runners 2..5` automatically clamps to `1` and displays the upgrade path.
 > - **Tier 1 & Tier 2 (`$15` FinOps Pro / `$19` AppSec Pro):** Unlocks **`Primary + up to 5 Parallel Free Models ($0)`** (`max_free_co_runners = 5`) with automatic HTTP `429` / timeout round-robin failover and `12.5x` Byzantine-Fault-Tolerant (`BFT`) error reduction.
@@ -135,12 +138,30 @@ kintsugi autofix .
 ### 5. Install External or Pro Skill Packs (`kintsugi install-pack`)
 
 ```bash
-# Install an encrypted .kpack or standalone .zip Skill Pack (e.g., from Agensi.io)
-kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <YOUR_LICENSE_KEY>
+# Install an encrypted .kpack or standalone .zip Skill Pack (e.g., from Agensi.io or GitHub Releases)
+kintsugi install-pack kintsugi-enterprise-complete-pro-v1.7.0.kpack --license-key <YOUR_LICENSE_KEY>
 kintsugi list-packs
 
 # Run unlocked in-place auto-remediation codemods
 kintsugi autofix . --apply
+```
+
+### 5A. `@LOGIC/2` 5-Pillar Logical Reasoning, `@PROOF_DAG/1` Signed Compliance Proofs & `@EVAL_SUITE/1` (`v1.6.0`–`v1.7.0`)
+
+```bash
+# 1. Run the 5-Pillar Neuro-Symbolic Reasoning Benchmark (DPLL SAT/MUS, Stratified Datalog, Difference Logic, Fallacy Guard, Reiter MHS)
+kintsugi logic --benchmark --wire
+
+# 2. Verify Formal Login / OAuth2 / MFA Step-Up / Session Revocation / OTP Replay State Machines
+kintsugi logic --login-verify
+
+# 3. Export & Verify a Cryptographically Signed Compliance Bundle (.kintsugi/audit.proof — SOC2 / ISO27001 / EU AI Act)
+kintsugi verify --export-audit .kintsugi/audit.proof --wire
+kintsugi verify --verify-proof .kintsugi/audit.proof
+
+# 4. Run the Open Reproducible 6-Case Evaluation & 3-Arm Ablation Suite
+kintsugi eval --wire
+kintsugi eval --replay EVAL-AUTH-001
 ```
 
 ### 5B. Tier-Gated Multi-Model Co-Execution & BYOK Paid Frontier Council (`kintsugi swarm --guide`)
