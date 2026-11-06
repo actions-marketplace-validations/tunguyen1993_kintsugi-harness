@@ -1826,6 +1826,116 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertTrue(forage_rep["ok"])
         self.assertGreaterEqual(forage_rep["harnesses_studied_count"], 5)
 
+    def test_v170_direction5_reproducible_eval_and_signed_compliance_proofs(self) -> None:
+        from kintsugi.compliance import (
+            ReproducibleEvalSuite,
+            SignedComplianceProofExporter,
+            ZeroKnowledgeASTDiffVerifier,
+        )
+
+        # 1. Provisioned Enterprise Key vs Dev Key & require_provisioned_key fail-closed guard
+        with self.assertRaises(ValueError):
+            SignedComplianceProofExporter(require_provisioned_key=True)
+        prov_key = "enterprise-audit-key-" + ("9" * 20)
+        ent_exporter = SignedComplianceProofExporter(signing_key=prov_key, require_provisioned_key=True)
+        self.assertEqual(ent_exporter.trust_level, "ENTERPRISE_PROVISIONED_SEAL")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            audit_file = Path(tmp) / ".kintsugi" / "audit.proof"
+            bundle = ent_exporter.generate_compliance_proof_bundle(output_path=audit_file, salt_hex="a" * 32)
+            self.assertTrue(bundle["ok"])
+            self.assertEqual(bundle["verdict"], "VERIFIED_WITHIN_SCOPE")
+            self.assertTrue(audit_file.exists())
+            # Returned bundle and persisted disk JSON must be 100% identical
+            disk_bundle = json.loads(audit_file.read_text(encoding="utf-8"))
+            self.assertEqual(bundle, disk_bundle)
+
+            v_ok = ent_exporter.verify_compliance_proof_bundle(bundle, require_provisioned_key=True)
+            self.assertTrue(v_ok["ok"])
+            self.assertEqual(v_ok["verified_controls_count"], 5)
+
+        # 2. Adversarial Gate Bypasses: Unreachable post-return, `if False:`, local shadowing, and empty source `""`
+        dev_exporter = SignedComplianceProofExporter()
+        unreachable_code = (
+            "def authenticate_request(u, s, t):\n"
+            "    revoke_session(s)\n"
+            "    check_otp_window(t)\n"
+            "    return True\n"
+            "    verify_mfa(u)\n"
+        )
+        b_unreach = dev_exporter.generate_compliance_proof_bundle(target_code=unreachable_code)
+        self.assertFalse(b_unreach["ok"])
+        self.assertEqual(b_unreach["verdict"], "COUNTEREXAMPLE_FOUND")
+        self.assertIn("verify_mfa", b_unreach["manifest"]["zk_ast_proof"]["unreachable_security_gates"])
+
+        if_false_code = (
+            "def authenticate_request(u, s, t):\n"
+            "    if False:\n"
+            "        verify_mfa(u)\n"
+            "    revoke_session(s)\n"
+            "    check_otp_window(t)\n"
+            "    return True\n"
+        )
+        b_iffalse = dev_exporter.generate_compliance_proof_bundle(target_code=if_false_code)
+        self.assertFalse(b_iffalse["ok"])
+
+        shadowed_code = (
+            "def verify_mfa(u):\n"
+            "    return True\n"
+            "def authenticate_request(u, s, t):\n"
+            "    verify_mfa(u)\n"
+            "    revoke_session(s)\n"
+            "    check_otp_window(t)\n"
+            "    return True\n"
+        )
+        b_shadow = dev_exporter.generate_compliance_proof_bundle(target_code=shadowed_code)
+        self.assertFalse(b_shadow["ok"])
+        self.assertIn("verify_mfa", b_shadow["manifest"]["zk_ast_proof"]["shadowed_security_gates"])
+
+        b_empty = dev_exporter.generate_compliance_proof_bundle(target_code="")
+        self.assertFalse(b_empty["ok"])
+
+        # 3. Positive Async, Import Alias, Keyword Difference & Compound Statement Commitment
+        aliased_async_code = (
+            "from auth_core import verify_mfa as enforce_mfa\n"
+            "async def authenticate_request(u, s, t):\n"
+            "    with db_tx():\n"
+            "        await enforce_mfa(u, strict=True)\n"
+            "        revoke_session(s)\n"
+            "        check_otp_window(t)\n"
+            "    return True\n"
+        )
+        b_alias = dev_exporter.generate_compliance_proof_bundle(target_code=aliased_async_code)
+        self.assertTrue(b_alias["ok"])
+        self.assertTrue(dev_exporter.verify_compliance_proof_bundle(b_alias, expected_patch_code=aliased_async_code)["ok"])
+
+        # Keyword value change (`strict=True` vs `strict=False`) must produce a distinct AST Merkle root
+        zk_v = ZeroKnowledgeASTDiffVerifier()
+        p_true = zk_v.build_zk_ast_proof("def f(u):\n    verify_mfa(u, strict=True)\n", salt_hex="c" * 32)
+        p_false = zk_v.build_zk_ast_proof("def f(u):\n    verify_mfa(u, strict=False)\n", salt_hex="c" * 32)
+        self.assertNotEqual(p_true["ast_merkle_root"], p_false["ast_merkle_root"])
+
+        # 4. Tamper Detection on Outer Envelope, Stale Patch, and Stripped Controls
+        tampered_wire = dict(b_alias)
+        tampered_wire["wire"] = "@PROOF_DAG/1[verdict=FORGED]"
+        self.assertEqual(
+            dev_exporter.verify_compliance_proof_bundle(tampered_wire)["reason"],
+            "TAMPERED_PROOF_SIGNATURE",
+        )
+        self.assertEqual(
+            dev_exporter.verify_compliance_proof_bundle(b_alias, expected_patch_code="def other(): pass")["reason"],
+            "STALE_PROOF_PATCH_DIGEST_MISMATCH",
+        )
+
+        # 5. Full 6-Case Reproducible Evaluation Suite & Ablation Verification
+        suite = ReproducibleEvalSuite()
+        eval_rep = suite.run_full_evaluation_suite(include_ablation=True)
+        self.assertTrue(eval_rep["ok"])
+        self.assertEqual(eval_rep["cases_passed"], 6)
+        self.assertEqual(eval_rep["total_cases"], 6)
+        self.assertEqual(eval_rep["false_positive_rate_pct"], 0.0)
+        self.assertEqual(eval_rep["signed_compliance_proofs_emitted"], 6)
+
 
 if __name__ == "__main__":
     unittest.main()
