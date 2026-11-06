@@ -2,11 +2,11 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.3.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.4.0`)
 
 **Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.3.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
@@ -54,7 +54,7 @@ flowchart LR
 
 ---
 
-## Open-Core Architecture & Edition Matrix (`v1.3.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
+## Open-Core Architecture & Edition Matrix (`v1.4.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
 
 Independent evaluators can verify all 4 editions, `@KML/1` compression ratios, Auto-Fix codemods, and `.kpack` AEAD cryptography in `1.3s` with:
 
@@ -64,7 +64,7 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
 | Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
 | :--- | :---: | :---: | :---: | :---: |
-| **Native Rust Engine (`kintsugi-rs v1.3.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Native Rust Engine (`kintsugi-rs v1.4.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
 | **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
 | **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
 | **Curated Core + Exclusive Pro Scars (`KS-001`..`KS-032`)** | 16 Core (`KS-001..016`) | 11 FinOps/Reliability (`KS-018,025,026,030,031` + Core) | 21 AppSec/MCP (`KS-017,019..024,027..029,032` + Core) | **All 32/32 (`KS-001..KS-032`)** |
@@ -126,7 +126,7 @@ kintsugi autofix .
 
 ```bash
 # Install an encrypted .kpack or standalone .zip Skill Pack (e.g., from Agensi.io)
-kintsugi install-pack kintsugi-enterprise-complete-pro-v1.3.0.kpack --license-key <YOUR_LICENSE_KEY>
+kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <YOUR_LICENSE_KEY>
 kintsugi list-packs
 
 # Run unlocked in-place auto-remediation codemods
