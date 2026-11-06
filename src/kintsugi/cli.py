@@ -187,7 +187,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_comp = sub.add_parser("compile", help="Compile Golden Scars into SKILL.md, CLAUDE.md, AGENTS.md, Cursor, Copilot, and Windsurf rules")
     p_comp.add_argument("--workspace", default=".", help="Target repository root")
     p_comp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
-    p_comp.add_argument("--compact", action="store_true", help="Emit ultra-low-token KMI/1 wire index (>93% token savings)")
+    p_comp.add_argument("--compact", action="store_true", help="Emit ultra-low-token KMI/1 wire index (>93%% token savings)")
     p_comp.add_argument(
         "--targets",
         default="skills,claude,agents,cursor",
@@ -226,6 +226,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # mcp
     p_mcp = sub.add_parser("mcp", help="Start Kintsugi stdio Model Context Protocol (MCP) server")
+    p_mcp.add_argument("mcp_action", nargs="?", default="serve", help="Optional action (default: serve)")
     p_mcp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
 
     # stats
