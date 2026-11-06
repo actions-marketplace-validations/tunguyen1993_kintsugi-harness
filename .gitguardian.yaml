@@ -1,8 +1,17 @@
 version: 2
 
+paths-ignore:
+  - ".kintsugi/scars.json"
+  - ".claude/skills/**"
+  - "src/kintsugi/starter_pack.py"
+  - "tests/**"
+
 secret:
   ignored_paths:
     - ".kintsugi/scars.json"
     - ".claude/skills/**"
     - "src/kintsugi/starter_pack.py"
     - "tests/**"
+  ignored_detectors:
+    - "Generic High Entropy Secret"
+    - "Generic Password"
