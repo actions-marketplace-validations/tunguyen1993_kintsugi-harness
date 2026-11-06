@@ -1,14 +1,14 @@
 ---
 name: kintsugi-core-guard-free
 description: Open-source deterministic verification guard for AI coding agents (Claude Code, Cursor, Codex CLI, Gemini CLI, OpenClaw). Catches hallucinated claims, runaway token loops, basic prompt injection, and IEEE-754 numerical cancellation before shipping.
-version: 1.3.0
+version: 1.5.0
 tier: free
 price_usd: 0
 license: Apache-2.0
 repository: https://github.com/tunguyen1993/kintsugi-harness/tree/opensource/free-skill-pack
 ---
 
-# Kintsugi Core Guard — Free Open-Source Skill Pack (`v1.3.0` · `@KML/1`)
+# Kintsugi Core Guard — Free Open-Source Skill Pack (`v1.5.0` · `@KML/1`)
 
 **Kintsugi Core Guard (`$0 Free Tier`)** is the open-source starter skill from [Kintsugi Harness](https://github.com/tunguyen1993/kintsugi-harness). It equips Claude Code, Cursor, Codex CLI, Windsurf, and Antigravity with 16 foundational AST/Regex guardrails (`KS-001`..`KS-016`), 5 deterministic runtime gates, and `@KML/1` Symbolic AST-IR machine-language rules.
 

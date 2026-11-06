@@ -1418,7 +1418,7 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
                     "step_index": 2,
                     "type": "TOOL_RESPONSE",
                     "tool_calls": [{"name": "read_file"}],
-                    "content": "Reading src/kintsugi/council.py\n" + ("# old line content\n" * 120),
+                    "content": "Reading src/kintsugi/council.py#L210-L280\n" + ("# old line content\n" * 120),
                 },
             ]
             # 12 redundant polling turns (CM-015)
@@ -1566,6 +1566,150 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             self.assertIn("CRITICAL_DISCREPANCY_MIDDLE_ROW_250_R120", xlsx_rep["checkpoint_markdown"])
             self.assertIn("149,400.00", xlsx_rep["checkpoint_markdown"])  # Exact SUM: 499*100 + 99500 = 149,400.00
             self.assertLess(xlsx_rep["processing_latency_ms"], 500.0)
+
+    def test_v150_council_audit_fixes_persona_and_anti_recurrence(self) -> None:
+        from kintsugi.cognition import (
+            compute_evolution_intelligence_report,
+            compute_structural_class_signature,
+        )
+        from kintsugi.compactor import (
+            ConversationCompactor,
+            ConversationTurn,
+            _stratified_select,
+            strip_conversation_noise,
+        )
+        from kintsugi.shield import scan_artifact_egress
+
+        # 1. _stratified_select boundary & duplicate backfill checks
+        self.assertEqual(_stratified_select([1, 2, 3, 4], 0), [])
+        self.assertEqual(_stratified_select([1, 2, 3, 4], -3), [])
+        self.assertEqual(_stratified_select(["a", "b", "b", "b", "c", "d", "e"], 5), ["a", "b", "c", "d", "e"])
+
+        # 2. Disjoint Line-Range File Reads MUST NOT supersede each other, while enclosing reads DO supersede
+        disjoint_turns = [
+            ConversationTurn(index=10, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L1-L50\n" + ("x = 1\n" * 200)),
+            ConversationTurn(index=20, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L400-L450\n" + ("y = 2\n" * 200)),
+        ]
+        cleaned_disjoint, rep_disjoint = strip_conversation_noise(disjoint_turns)
+        self.assertEqual(rep_disjoint.superseded_reads_pruned, 0)
+        self.assertFalse(cleaned_disjoint[0].is_noise)
+
+        # File edit between two reads of the same span MUST prevent supersession of pre-edit evidence
+        edit_between_turns = [
+            ConversationTurn(index=10, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L10-L40\n" + ("x = 1\n" * 200)),
+            ConversationTurn(index=15, role="tool", tool_name="edit_file", content="Made 1 replacement in src/kintsugi/core.py#L15-L20"),
+            ConversationTurn(index=20, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L1-L100\n" + ("x = 2\n" * 200)),
+        ]
+        _, rep_edit_between = strip_conversation_noise(edit_between_turns)
+        self.assertEqual(rep_edit_between.superseded_reads_pruned, 0)
+
+        # Enclosing read with NO edit in between MUST supersede and cite the true step number (#30)
+        enclosing_turns = [
+            ConversationTurn(index=12, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L10-L40\n" + ("x = 1\n" * 200)),
+            ConversationTurn(index=30, role="tool", tool_name="read_file", content="Reading src/kintsugi/core.py#L1-L100\n" + ("x = 1\n" * 200)),
+        ]
+        cleaned_enc, rep_enc = strip_conversation_noise(enclosing_turns)
+        self.assertEqual(rep_enc.superseded_reads_pruned, 1)
+        self.assertIn("step #30", cleaned_enc[0].content)
+
+        # 3. OpenXML .xlsx workbook.xml.rels out-of-order sheet mapping, <rPh> phonetic skip, accounting negatives & duplicate headers
+        import zipfile as _zf
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            xlsx_rels_path = ws / "reordered_accounting.xlsx"
+            with _zf.ZipFile(xlsx_rels_path, "w", compression=_zf.ZIP_DEFLATED) as zf:
+                zf.writestr(
+                    "xl/sharedStrings.xml",
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    "<sst><si><t>ORD-MIDDLE-NEEDLE</t><rPh><t>PHONETIC_NOISE</t></rPh></si></sst>",
+                )
+                zf.writestr(
+                    "xl/workbook.xml",
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                    "<sheets>"
+                    '<sheet name="Revenue_Ledger" sheetId="1" r:id="rId2"/>'
+                    "</sheets></workbook>",
+                )
+                zf.writestr(
+                    "xl/_rels/workbook.xml.rels",
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    "<Relationships>"
+                    '<Relationship Id="rId2" Target="worksheets/sheet2.xml"/>'
+                    "</Relationships>",
+                )
+                rows_xml = [
+                    '<row r="1">'
+                    '<c r="A1" t="inlineStr"><is><t>id</t></is></c>'
+                    '<c r="B1" t="inlineStr"><is><t>Amount</t></is></c>'
+                    '<c r="C1" t="inlineStr"><is><t>Amount</t></is></c>'
+                    '<c r="D1" t="inlineStr"><is><t>Status</t></is></c>'
+                    "</row>"
+                ]
+                for i in range(1, 21):
+                    r_no = i + 1
+                    if i == 10:
+                        # Accounting negative (250.00) -> -250.00 and sharedString index 0 (without PHONETIC_NOISE)
+                        rows_xml.append(
+                            f'<row r="{r_no}">'
+                            f'<c r="A{r_no}"><v>{i}</v></c>'
+                            f'<c r="B{r_no}" t="inlineStr"><is><t>(250.00)</t></is></c>'
+                            f'<c r="C{r_no}"><f>B{r_no}*2</f><v>-500.0</v></c>'
+                            f'<c r="D{r_no}" t="s"><v>0</v></c>'
+                            f"</row>"
+                        )
+                    else:
+                        rows_xml.append(
+                            f'<row r="{r_no}">'
+                            f'<c r="A{r_no}"><v>{i}</v></c>'
+                            f'<c r="B{r_no}"><v>100.0</v></c>'
+                            f'<c r="C{r_no}"><v>200.0</v></c>'
+                            f'<c r="D{r_no}" t="b"><v>1</v></c>'
+                            f"</row>"
+                        )
+                zf.writestr(
+                    "xl/worksheets/sheet2.xml",
+                    '<?xml version="1.0" encoding="UTF-8"?><worksheet><sheetData>'
+                    + "".join(rows_xml)
+                    + "</sheetData></worksheet>",
+                )
+
+            compactor = ConversationCompactor(ws)
+            raw_xlsx, lbl = compactor.discover_conversation_source(xlsx_rels_path)
+            self.assertNotIn("PHONETIC_NOISE", raw_xlsx)
+            self.assertIn("ORD-MIDDLE-NEEDLE", raw_xlsx)
+
+            rep = compactor.compact_text(raw_xlsx, source_label=lbl, persist=True)
+            tab_sum = rep["distilled_context"]["tabular_summaries"][0]
+            self.assertEqual(tab_sum["sheet_or_table"], "Revenue_Ledger (source: reordered_accounting.xlsx)")
+            self.assertEqual(tab_sum["headers"], ["id", "Amount", "Amount_2", "Status"])
+            # Sequential 'id' column must be skipped from numeric_aggregates
+            self.assertNotIn("id", tab_sum["numeric_aggregates"])
+            # 19 * 100.0 - 250.0 = 1650.0; 19 * 200.0 - 500.0 = 3300.0
+            self.assertEqual(tab_sum["numeric_aggregates"]["Amount"]["sum"], 1650.0)
+            self.assertEqual(tab_sum["numeric_aggregates"]["Amount_2"]["sum"], 3300.0)
+            self.assertTrue(Path(rep["saved_checkpoints"]["full_evidence"]).exists())
+
+            # 4. Evolution Intelligence Report (@EVOLUTION_IQ/1), @USER_PERSONA/1 & @RECURRENCE_SHIELD/1
+            iq_rep = compute_evolution_intelligence_report(ws)
+            self.assertTrue(iq_rep["ok"])
+            self.assertEqual(iq_rep["evolution_iq_score"], 100.0)
+            self.assertEqual(iq_rep["maturity_tier"], "LEVEL_5_AUTOPOIETIC_COGNITIVE_TWIN")
+
+            s1 = 'api_key = "' + "sk_live_" + "a1B2c3D4e5F6g7H8i9J0" + '"'
+            s2 = '{"token": "' + "tj_mock_" + "99887766aabbccddeeff" + '"}'
+            s3_letters_only = 'secret_key = "' + "AbCdEfGhIjKlMnOpQrStUvWxYz" + '"'
+            self.assertEqual(
+                compute_structural_class_signature(s1),
+                compute_structural_class_signature(s2),
+            )
+            self.assertEqual(
+                compute_structural_class_signature(s1),
+                compute_structural_class_signature(s3_letters_only),
+            )
+            self.assertEqual(scan_artifact_egress(s2)["decision"], "BLOCK")
+            self.assertEqual(scan_artifact_egress(s3_letters_only)["decision"], "BLOCK")
 
 
 if __name__ == "__main__":

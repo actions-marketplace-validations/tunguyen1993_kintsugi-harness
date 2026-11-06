@@ -21,6 +21,8 @@ venv/
 .kintsugi/metacognition_state.json
 .kintsugi/free_agent_pool.json
 .kintsugi/paid_frontier_council_keys.json
+.kintsugi/paid_council_pool.json
+.kintsugi/user_persona.json
 .kintsugi/context_checkpoints/
 .kintsugi/user_consent_ledger.json
 .kintsugi/swarm_merged_wisdom.json

@@ -23,13 +23,14 @@ import re
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 from kintsugi import __version__
 from kintsugi.compressor import estimate_tokens
+from kintsugi.shield import redact_high_entropy_secrets
 
 _T = TypeVar("_T")
 
@@ -38,13 +39,17 @@ COMPACT_BOUNDARY_END = "<!-- KINTSUGI:COMPACT/1 END -->"
 
 # Secret redaction patterns so compacted checkpoints never leak raw tokens
 _SECRET_PATTERNS: Tuple[Tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "sk-***REDACTED***"),
-    (re.compile(r"\btj_[A-Za-z0-9_-]{16,}\b"), "tj_***REDACTED***"),
-    (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "gh_***REDACTED***"),
-    (re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"), "github_pat_***REDACTED***"),
-    (re.compile(r"\bgsk_[A-Za-z0-9]{20,}\b"), "gsk_***REDACTED***"),
-    (re.compile(r"\bxai-[A-Za-z0-9_-]{16,}\b"), "xai-***REDACTED***"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AKIA***REDACTED***"),
+    (re.compile(r"\bsk-(?!proj-EXAMPLE_PLACEHOLDER|0{12,})[A-Za-z0-9_-]{16,}\b"), "sk-***REDACTED***"),
+    (re.compile(r"\btj_(?!0{12,})[A-Za-z0-9_-]{16,}\b"), "tj_***REDACTED***"),
+    (re.compile(r"\bgh[pousr]_(?!0{12,})[A-Za-z0-9]{20,}\b"), "gh_***REDACTED***"),
+    (re.compile(r"\bgithub_pat_(?!0{12,})[A-Za-z0-9_]{20,}\b"), "github_pat_***REDACTED***"),
+    (re.compile(r"\bgsk_(?!0{12,})[A-Za-z0-9]{20,}\b"), "gsk_***REDACTED***"),
+    (re.compile(r"\bxai-(?!0{12,})[A-Za-z0-9_-]{16,}\b"), "xai-***REDACTED***"),
+    (re.compile(r"\bhf_(?!0{12,})[A-Za-z0-9]{20,}\b"), "hf_***REDACTED***"),
+    (re.compile(r"\bbyok_(?!0{12,}|paid_council)[A-Za-z0-9_-]{16,}\b"), "byok_***REDACTED***"),
+    (re.compile(r"\bAIza(?!0{12,})[0-9A-Za-z_-]{30,}\b"), "AIza***REDACTED***"),
+    (re.compile(r"\bxox[baprs]-(?!0{12,})[0-9A-Za-z-]{12,}\b"), "xox-***REDACTED***"),
+    (re.compile(r"\bAKIA(?!0{12,})[0-9A-Z]{16}\b"), "AKIA***REDACTED***"),
     (re.compile(r"\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b"), "jwt_***REDACTED***"),
 )
 
@@ -70,32 +75,115 @@ def _stratified_select(items: Sequence[_T], max_count: int) -> List[_T]:
     evenly-spaced Middle landmarks (25%, 50%, 75%, ...) + Late (Tail) items
     so zero zone suffers from memory amnesia.
     """
+    if max_count <= 0:
+        return []
     n = len(items)
-    if n <= max_count or max_count <= 0:
+    if n <= max_count:
         return list(items)
-    if max_count <= 2:
-        return [items[0], items[-1]][:max_count]
+    if max_count == 1:
+        return [items[0]]
+    if max_count == 2:
+        return [items[0], items[-1]]
     head_k = max(1, max_count // 3)
     tail_k = max(1, max_count // 3)
     mid_k = max(1, max_count - head_k - tail_k)
     mid_pool = items[head_k : n - tail_k]
     mid_selected: List[_T] = []
+    used_mid_indices: set[int] = set()
     if mid_pool:
         step = len(mid_pool) / float(mid_k)
         for i in range(mid_k):
-            idx = min(len(mid_pool) - 1, int(round((i + 0.5) * step - 0.5)))
+            idx = min(len(mid_pool) - 1, max(0, int(round((i + 0.5) * step - 0.5))))
             val = mid_pool[idx]
-            if val not in mid_selected:
+            if idx not in used_mid_indices and val not in mid_selected:
+                used_mid_indices.add(idx)
                 mid_selected.append(val)
+        # Backfill deterministically if duplicate values reduced `mid_selected` below `mid_k`
+        if len(mid_selected) < mid_k:
+            for bf_idx, bf_val in enumerate(mid_pool):
+                if bf_idx not in used_mid_indices and bf_val not in mid_selected:
+                    used_mid_indices.add(bf_idx)
+                    mid_selected.append(bf_val)
+                    if len(mid_selected) >= mid_k:
+                        break
+        # Preserve chronological order across all selected middle indices
+        mid_selected = [mid_pool[i] for i in sorted(used_mid_indices)]
     return list(items[:head_k]) + mid_selected + list(items[n - tail_k :])
 
 
 def redact_secrets(text: str) -> str:
-    """Mask any raw API tokens before persisting a conversation checkpoint."""
+    """Mask any raw API tokens AND contextual high-entropy secrets before persisting a checkpoint."""
     out = str(text or "")
     for pat, repl in _SECRET_PATTERNS:
         out = pat.sub(repl, out)
-    return out
+    return redact_high_entropy_secrets(out)
+
+
+@dataclass
+class UserPreferenceItem:
+    """Provenance-backed user preference or standing constraint in `@USER_PERSONA/1`."""
+
+    preference_id: str
+    key: str
+    value: str
+    source_turn_id: int
+    source_type: str = "explicit"  # "explicit" | "confirmed" | "inferred"
+    scope: str = "workspace"       # "session" | "workspace" | "global"
+    confidence: float = 0.98
+    updated_at: str = ""
+    status: str = "active"         # "active" | "tombstoned"
+
+
+@dataclass
+class UserPersonaProfile:
+    """
+    Adaptive User Personalization & Cognitive Twin Profile (`@USER_PERSONA/1`).
+    Learned strictly from user-authored turns (never from tool output or untrusted repo files).
+    """
+
+    profile_id: str = "owner_cognitive_twin_v1"
+    schema_version: str = "USER_PERSONA/1"
+    version: int = 1
+    preferred_language: str = "vi"
+    communication_style: str = "direct, concise, evidence-verified"
+    standing_constraints: List[str] = field(default_factory=list)
+    workflow_preferences: List[str] = field(default_factory=list)
+    frustration_watchouts: List[str] = field(default_factory=list)
+    preferences: List[Dict[str, Any]] = field(default_factory=list)
+    tombstones: List[str] = field(default_factory=list)
+    updated_at: str = ""
+
+    def digest(self) -> str:
+        basis = json.dumps(
+            {
+                "lang": self.preferred_language,
+                "style": self.communication_style,
+                "constraints": self.standing_constraints,
+                "workflows": self.workflow_preferences,
+                "watchouts": self.frustration_watchouts,
+                "preferences": self.preferences,
+                "tombstones": self.tombstones,
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        return hashlib.sha256(basis.encode("utf-8")).hexdigest()[:12]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "profile_id": self.profile_id,
+            "schema_version": self.schema_version,
+            "version": self.version,
+            "digest": self.digest(),
+            "preferred_language": self.preferred_language,
+            "communication_style": self.communication_style,
+            "standing_constraints": list(self.standing_constraints),
+            "workflow_preferences": list(self.workflow_preferences),
+            "frustration_watchouts": list(self.frustration_watchouts),
+            "preferences": list(self.preferences),
+            "tombstones": list(self.tombstones),
+            "updated_at": self.updated_at,
+        }
 
 
 @dataclass
@@ -147,7 +235,7 @@ class NoiseFilterReport:
 
 @dataclass
 class DistilledContext:
-    """Zero-loss core context extracted from a conversation."""
+    """Structured core context extracted from a conversation with full completeness accounting."""
 
     user_intents: List[str] = field(default_factory=list)
     active_objective: str = ""
@@ -160,6 +248,9 @@ class DistilledContext:
     endpoints_and_ips: List[str] = field(default_factory=list)
     active_daemons: List[str] = field(default_factory=list)
     tabular_summaries: List[Dict[str, Any]] = field(default_factory=list)
+    user_persona: Optional[UserPersonaProfile] = None
+    recurrence_watchouts: List[str] = field(default_factory=list)
+    completeness_manifest: Dict[str, Any] = field(default_factory=dict)
     pending_next_steps: List[str] = field(default_factory=list)
 
 
@@ -337,27 +428,72 @@ def _col_letters_to_index(cell_ref: str) -> int:
     return max(0, idx - 1)
 
 
+MAX_XLSX_FILE_BYTES = 50 * 1024 * 1024
+MAX_XLSX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+MAX_XLSX_MEMBER_COUNT = 256
+
+
 def parse_xlsx_file(xlsx_path: Path) -> str:
     """
     Pure-stdlib streaming OpenXML `.xlsx` reader (`zipfile` + `xml.etree.ElementTree`).
-    Converts all worksheets in an `.xlsx` workbook into structured TSV blocks (`### EXCEL_SHEET: <name>`)
-    with zero external dependencies (`openpyxl`/`pandas` not required).
+    Resolves worksheet relationships via `xl/_rels/workbook.xml.rels`, enforces Zip-Bomb
+    resource limits, skips phonetic `<rPh>` runs, preserves cached formula `<v>` / `<f>`,
+    and converts worksheets into structured TSV blocks (`### EXCEL_SHEET: <name>`).
     """
     if not xlsx_path.exists() or not zipfile.is_zipfile(xlsx_path):
         return ""
+    try:
+        if xlsx_path.stat().st_size > MAX_XLSX_FILE_BYTES:
+            return f"Tool: [KINTSUGI_XLSX_LIMIT_EXCEEDED: `{xlsx_path.name}` exceeds {MAX_XLSX_FILE_BYTES} bytes]"
+    except OSError:
+        return ""
+
     blocks: List[str] = [
         f"User: Analyze long Excel workbook `{xlsx_path.name}` ({xlsx_path.as_posix()}) without losing middle rows or column totals."
     ]
     with zipfile.ZipFile(xlsx_path, "r") as zf:
-        names = set(zf.namelist())
+        infos = zf.infolist()
+        if len(infos) > MAX_XLSX_MEMBER_COUNT:
+            return f"Tool: [KINTSUGI_XLSX_LIMIT_EXCEEDED: `{xlsx_path.name}` has {len(infos)} archive members > {MAX_XLSX_MEMBER_COUNT}]"
+        total_uncompressed = sum(info.file_size for info in infos)
+        if total_uncompressed > MAX_XLSX_UNCOMPRESSED_BYTES:
+            return f"Tool: [KINTSUGI_XLSX_LIMIT_EXCEEDED: `{xlsx_path.name}` uncompressed size {total_uncompressed} > {MAX_XLSX_UNCOMPRESSED_BYTES}]"
+
+        names = {info.filename for info in infos}
         shared_strings: List[str] = []
         if "xl/sharedStrings.xml" in names:
             try:
                 ss_root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
-                for si in ss_root.iter():
-                    if si.tag.endswith("}si") or si.tag == "si":
-                        texts = [node.text or "" for node in si.iter() if node.tag.endswith("}t") or node.tag == "t"]
-                        shared_strings.append("".join(texts))
+                for si in ss_root:
+                    if not (si.tag.endswith("}si") or si.tag == "si"):
+                        continue
+                    texts: List[str] = []
+                    for child in si:
+                        c_tag = child.tag.split("}")[-1]
+                        if c_tag == "t":
+                            texts.append(child.text or "")
+                        elif c_tag == "r":
+                            for r_node in child:
+                                if r_node.tag.split("}")[-1] == "t":
+                                    texts.append(r_node.text or "")
+                        # Explicitly skip `rPh` (phonetic guide runs) so phonetic text never corrupts cell strings
+                    shared_strings.append("".join(texts))
+            except ET.ParseError as exc:
+                _ = str(exc)
+
+        # Resolve `r:id` -> worksheet target via `xl/_rels/workbook.xml.rels`
+        rel_targets: Dict[str, str] = {}
+        if "xl/_rels/workbook.xml.rels" in names:
+            try:
+                rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+                for rel_el in rels_root.iter():
+                    if rel_el.tag.endswith("}Relationship") or rel_el.tag == "Relationship":
+                        rid = rel_el.attrib.get("Id", "")
+                        target = rel_el.attrib.get("Target", "").lstrip("/")
+                        if rid and target:
+                            if not target.startswith("xl/"):
+                                target = f"xl/{target}"
+                            rel_targets[rid] = target
             except ET.ParseError as exc:
                 _ = str(exc)
 
@@ -369,7 +505,14 @@ def parse_xlsx_file(xlsx_path: Path) -> str:
                 for elem in wb_root.iter():
                     if elem.tag.endswith("}sheet") or elem.tag == "sheet":
                         s_name = elem.attrib.get("name") or f"Sheet{s_idx}"
-                        candidate = f"xl/worksheets/sheet{s_idx}.xml"
+                        rid = ""
+                        for attr_k, attr_v in elem.attrib.items():
+                            if attr_k.endswith("}id") or attr_k in {"r:id", "id"}:
+                                rid = attr_v
+                                break
+                        candidate = rel_targets.get(rid, "") if rid else ""
+                        if not candidate or candidate not in names:
+                            candidate = f"xl/worksheets/sheet{s_idx}.xml"
                         if candidate in names:
                             sheet_titles.append((s_name, candidate))
                         s_idx += 1
@@ -406,12 +549,18 @@ def parse_xlsx_file(xlsx_path: Path) -> str:
                         val_str = "".join(t_parts)
                     else:
                         v_nodes = [n.text or "" for n in c_el if n.tag.endswith("}v") or n.tag == "v"]
+                        f_nodes = [n.text or "" for n in c_el if n.tag.endswith("}f") or n.tag == "f"]
                         raw_v = v_nodes[0] if v_nodes else ""
+                        raw_f = f_nodes[0] if f_nodes else ""
                         if c_type == "s" and raw_v.isdigit():
                             s_i = int(raw_v)
                             val_str = shared_strings[s_i] if 0 <= s_i < len(shared_strings) else raw_v
-                        else:
+                        elif c_type == "b":
+                            val_str = "TRUE" if raw_v in {"1", "true", "TRUE"} else ("FALSE" if raw_v in {"0", "false", "FALSE"} else raw_v)
+                        elif raw_v != "":
                             val_str = raw_v
+                        elif raw_f:
+                            val_str = f"[FORMULA:={raw_f}]"
                     row_cells[col_i] = val_str.replace("\t", " ").replace("\n", " ").strip()
                 if max_col >= 0:
                     ordered = [row_cells.get(ci, "") for ci in range(max_col + 1)]
@@ -438,21 +587,51 @@ def _parse_delimited_row(line: str, delimiter: str) -> List[str]:
         return [c.strip() for c in line.split(",")]
 
 
+def _coerce_numeric_cell(raw_cell: str) -> Optional[float]:
+    """
+    Parse financial/tabular numeric cells including currency (`$1,250.50`),
+    accounting negatives (`(1,250.50)` -> `-1250.50`), and percentages (`45.2%`),
+    while rejecting ISO dates (`2026-11-07`) or version strings.
+    """
+    s = (raw_cell or "").strip()
+    if not s:
+        return None
+    is_accounting_neg = s.startswith("(") and s.endswith(")") and len(s) > 2
+    if is_accounting_neg:
+        s = "-" + s[1:-1].strip()
+    s = s.replace("$", "").replace(",", "").replace("%", "").strip()
+    if not s or s[0] not in "0123456789-+":
+        return None
+    # Reject ISO dates like 2026-11-07 (multiple hyphens)
+    if s.count("-") > 1 or "/" in s or ":" in s:
+        return None
+    if not any(ch.isdigit() for ch in s):
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+_ID_COLUMN_NAMES = {"id", "index", "idx", "row_id", "rowid", "step", "seq", "no"}
+
+
 def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple[str, List[Dict[str, Any]], int]:
     """
     Single-pass O(N) Tabular & Excel Sheet Distiller (`@TABULAR_EXCEL_MEMORY`):
     Detects long CSV, TSV, Markdown pipe tables, or `### EXCEL_SHEET:` blocks (`>= 12` data rows)
-    and distills them into a zero-loss structured summary preserving:
-      1. Exact column schema (`headers`), `total_rows`, and `total_columns`.
-      2. Exact numeric column statistics (`SUM`, `MIN` + row ID, `MAX` + row ID, `AVG`) across 100% of rows.
-      3. 100% of High-Signal / Anomaly / Needle rows located ANYWHERE in the sheet (including 20%-80% Middle).
+    and distills them into a structured summary while preserving surrounding non-table prose:
+      1. Exact disambiguated column schema (`headers`), `total_rows`, and `total_columns`.
+      2. Exact numeric column statistics (`SUM`, `MIN` + row ID, `MAX` + row ID, `AVG`) across 100% of rows
+         (including accounting negatives `(1,250.50)` and excluding sequential ID columns).
+      3. High-Signal / Anomaly / Needle rows located ANYWHERE in the sheet (including 20%-80% Middle).
       4. Stratified Multi-Zone Landmark rows (`0% Start`, `25%`, `50% Middle`, `75%`, `100% End`).
     """
-    if not text or len(text) < 400:
+    if not text or len(text) < 320:
         return text, [], 0
 
     lines = text.splitlines()
-    if len(lines) < 14:
+    if len(lines) < 12:
         return text, [], 0
 
     # Split into potential sheet chunks if `### EXCEL_SHEET:` markers exist
@@ -476,31 +655,70 @@ def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple
 
     for sheet_label, c_lines in chunks:
         non_empty = [l for l in c_lines if l.strip() and not l.strip().startswith(("Tool:", "Reading ", "Showing "))]
-        if len(non_empty) < 12:
+        if len(non_empty) < 11:
             out_blocks.append("\n".join(c_lines))
             continue
 
-        sample_head = non_empty[:8]
-        tab_cnt = sum(1 for l in sample_head if l.count("\t") >= 2)
-        pipe_cnt = sum(1 for l in sample_head if l.count("|") >= 3)
-        comma_cnt = sum(1 for l in sample_head if l.count(",") >= 2)
-
+        # Locate the first tabular line and preserve any leading/trailing non-table prose
         delimiter = ""
-        if tab_cnt >= 4:
-            delimiter = "\t"
-        elif pipe_cnt >= 4:
-            delimiter = "|"
-        elif comma_cnt >= 4:
-            delimiter = ","
+        table_start_idx = 0
+        for cand_idx, cand_ln in enumerate(non_empty[:10]):
+            window = non_empty[cand_idx : cand_idx + 8]
+            if len(window) < 5:
+                break
+            tab_cnt = sum(1 for l in window if l.count("\t") >= 1)
+            pipe_cnt = sum(1 for l in window if l.count("|") >= 2)
+            comma_cnt = sum(1 for l in window if l.count(",") >= 1 and not l.strip().startswith(("#", "//", "- ")))
+            if tab_cnt >= 5:
+                delimiter = "\t"
+                table_start_idx = cand_idx
+                break
+            if pipe_cnt >= 5:
+                delimiter = "|"
+                table_start_idx = cand_idx
+                break
+            if comma_cnt >= 5:
+                delimiter = ","
+                table_start_idx = cand_idx
+                break
 
         if not delimiter:
             out_blocks.append("\n".join(c_lines))
             continue
 
-        # Parse header + data rows in single streaming pass
-        headers = _parse_delimited_row(non_empty[0], delimiter)
-        num_cols = len(headers)
+        leading_prose = [l for l in non_empty[:table_start_idx] if l.strip()]
+        table_candidates = non_empty[table_start_idx:]
+
+        # Parse header + disambiguate duplicate header names
+        raw_headers = _parse_delimited_row(table_candidates[0], delimiter)
+        num_cols = len(raw_headers)
         if num_cols < 2:
+            out_blocks.append("\n".join(c_lines))
+            continue
+
+        headers: List[str] = []
+        seen_hdr_counts: Dict[str, int] = {}
+        for ci, h_raw in enumerate(raw_headers):
+            base_h = (h_raw or f"Col_{ci}").strip()
+            cnt_h = seen_hdr_counts.get(base_h, 0) + 1
+            seen_hdr_counts[base_h] = cnt_h
+            headers.append(base_h if cnt_h == 1 else f"{base_h}_{cnt_h}")
+
+        # Separate table data rows from any trailing prose lines
+        raw_data_lines: List[str] = []
+        trailing_prose: List[str] = []
+        in_trailing = False
+        for l in table_candidates[1:]:
+            if delimiter == "|" and set(l.replace("|", "").strip()) <= {"-", ":", " "}:
+                continue
+            if not in_trailing and l.count(delimiter) >= 1:
+                raw_data_lines.append(l)
+            else:
+                in_trailing = True
+                trailing_prose.append(l)
+
+        n_data = len(raw_data_lines)
+        if n_data < 10:
             out_blocks.append("\n".join(c_lines))
             continue
 
@@ -509,15 +727,8 @@ def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple
             ci: [0, 0.0, float("inf"), "", float("-inf"), ""] for ci in range(num_cols)
         }
         data_rows_count = 0
-        anomaly_rows: List[str] = []
+        all_anomaly_rows: List[str] = []
         landmark_candidates: Dict[int, str] = {}
-        raw_data_lines = [
-            l for l in non_empty[1:] if not (delimiter == "|" and set(l.replace("|", "").strip()) <= {"-", ":", " "})
-        ]
-        n_data = len(raw_data_lines)
-        if n_data < 10:
-            out_blocks.append("\n".join(c_lines))
-            continue
 
         landmark_indices = {
             0: "0%_START",
@@ -533,41 +744,37 @@ def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple
                 continue
             data_rows_count += 1
             row_key = cells[0] if cells else f"Row#{data_rows_count}"
-            compact_row_str = " | ".join(f"{headers[i] if i < num_cols else f'C{i}'}={cells[i]}" for i in range(min(len(cells), num_cols)))
+            compact_row_str = " | ".join(
+                f"{headers[i] if i < num_cols else f'C{i}'}={cells[i]}" for i in range(min(len(cells), num_cols))
+            )
 
             if r_idx in landmark_indices:
                 landmark_candidates[r_idx] = f"[Row #{data_rows_count} · {landmark_indices[r_idx]}] {compact_row_str[:240]}"
 
             if _TABULAR_ANOMALY_RE.search(r_line) or _FILE_ANCHOR_RE.search(r_line):
-                if len(anomaly_rows) < 18:
-                    anomaly_rows.append(f"[Row #{data_rows_count}] {compact_row_str[:260]}")
+                all_anomaly_rows.append(f"[Row #{data_rows_count}] {compact_row_str[:260]}")
 
             for ci in range(min(len(cells), num_cols)):
-                raw_val = cells[ci].replace("$", "").replace(",", "").replace("%", "").strip()
-                if not raw_val:
-                    continue
-                # Fast check before float conversion
-                if raw_val[0] in "0123456789-+" and any(ch.isdigit() for ch in raw_val):
-                    try:
-                        fval = float(raw_val)
-                        st = col_stats[ci]
-                        st[0] += 1
-                        st[1] += fval
-                        if fval < st[2]:
-                            st[2] = fval
-                            st[3] = f"{row_key} (Row #{data_rows_count})"
-                        if fval > st[4]:
-                            st[4] = fval
-                            st[5] = f"{row_key} (Row #{data_rows_count})"
-                    except ValueError as exc:
-                        _ = str(exc)
+                fval = _coerce_numeric_cell(cells[ci])
+                if fval is not None:
+                    st = col_stats[ci]
+                    st[0] += 1
+                    st[1] += fval
+                    if fval < st[2]:
+                        st[2] = fval
+                        st[3] = f"{row_key} (Row #{data_rows_count})"
+                    if fval > st[4]:
+                        st[4] = fval
+                        st[5] = f"{row_key} (Row #{data_rows_count})"
 
         numeric_aggregates: Dict[str, Dict[str, Any]] = {}
         for ci, st in col_stats.items():
             cnt = st[0]
             if cnt >= max(3, data_rows_count // 2):
                 col_name = headers[ci] or f"Col_{ci}"
-                # Skip pure sequential ID columns if header is 'id' or 'index'
+                # Skip pure sequential identifier columns (`id`, `index`, `row_id`) unless it's a 2-column table where Col_1 is metric
+                if ci == 0 and col_name.lower() in _ID_COLUMN_NAMES and num_cols > 1:
+                    continue
                 numeric_aggregates[col_name] = {
                     "count": cnt,
                     "sum": round(st[1], 4),
@@ -578,14 +785,17 @@ def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple
                     "max_at": st[5],
                 }
 
+        retained_anomalies = _stratified_select(all_anomaly_rows, 24)
         landmarks_list = [landmark_candidates[k] for k in sorted(landmark_candidates.keys())]
         summary_obj = {
             "sheet_or_table": sheet_label,
             "total_rows": data_rows_count,
+            "source_lines_count": n_data,
             "total_columns": num_cols,
             "headers": headers,
             "numeric_aggregates": numeric_aggregates,
-            "anomaly_and_needle_rows": anomaly_rows,
+            "total_anomaly_rows_detected": len(all_anomaly_rows),
+            "anomaly_and_needle_rows": retained_anomalies,
             "stratified_landmarks": landmarks_list,
         }
         summaries.append(summary_obj)
@@ -593,17 +803,26 @@ def distill_tabular_text(text: str, default_label: str = "TabularData") -> Tuple
 
         agg_parts = [
             f"`{cname}`: SUM=`{ag['sum']:,.2f}`, AVG=`{ag['avg']:,.2f}`, MIN=`{ag['min']:,.2f}` @{ag['min_at']}, MAX=`{ag['max']:,.2f}` @{ag['max_at']}"
-            for cname, ag in list(numeric_aggregates.items())[:6]
+            for cname, ag in list(numeric_aggregates.items())[:8]
         ]
-        distilled_txt_lines = [
-            f"[KINTSUGI_TABULAR_DISTILLED: `{sheet_label}` | {data_rows_count:,} rows × {num_cols} cols | Columns: {', '.join(headers)}]",
-            "  • Numeric Aggregates: " + (" ; ".join(agg_parts) if agg_parts else "none"),
-            "  • Stratified Landmarks (0%..50%..100%): " + " || ".join(landmarks_list),
-        ]
-        if anomaly_rows:
-            distilled_txt_lines.append("  • High-Signal / Anomaly Rows Retained (100% Middle Recall):")
-            for ar in anomaly_rows:
+        distilled_txt_lines: List[str] = []
+        if leading_prose:
+            distilled_txt_lines.extend(leading_prose)
+        distilled_txt_lines.extend(
+            [
+                f"[KINTSUGI_TABULAR_DISTILLED: `{sheet_label}` | {data_rows_count:,} rows × {num_cols} cols | Columns: {', '.join(headers)}]",
+                "  • Numeric Aggregates: " + (" ; ".join(agg_parts) if agg_parts else "none"),
+                "  • Stratified Landmarks (0%..50%..100%): " + " || ".join(landmarks_list),
+            ]
+        )
+        if retained_anomalies:
+            distilled_txt_lines.append(
+                f"  • High-Signal / Anomaly Rows Retained ({len(retained_anomalies)}/{len(all_anomaly_rows)} across Early/Middle/Late):"
+            )
+            for ar in retained_anomalies:
                 distilled_txt_lines.append(f"    - {ar}")
+        if trailing_prose:
+            distilled_txt_lines.extend(trailing_prose)
         out_blocks.append("\n".join(distilled_txt_lines))
 
     return "\n\n".join(out_blocks), summaries, total_rows_distilled
@@ -686,30 +905,120 @@ def _is_file_read_turn(t: ConversationTurn) -> bool:
     return False
 
 
+def _is_file_edit_turn(t: ConversationTurn) -> bool:
+    """Return True when a turn modifies a file on disk (`edit_file`, `write_file`, replacement summary)."""
+    if t.tool_name in {"edit_file", "write_file", "Edit", "Write", "MultiEdit"}:
+        return True
+    s_txt = t.content.lstrip()
+    if "Made " in s_txt[:220] and " replacement" in s_txt[:220]:
+        return True
+    if "Wrote " in s_txt[:220] or "Created file " in s_txt[:220]:
+        return True
+    return False
+
+
+def _parse_anchor_span(anchor: str) -> Tuple[str, Optional[int], Optional[int]]:
+    """
+    Parse `path/to/file.py#L10-L50` or `path/to/file.py` into `(base_file, start_line, end_line)`.
+    Also inspects `Showing lines X-Y of Z` inside read output if passed.
+    """
+    clean = anchor.strip("`'\".,;:()")
+    if "#L" not in clean:
+        return clean, None, None
+    base_file, span_part = clean.split("#L", 1)
+    parts = re.findall(r"\d+", span_part)
+    if not parts:
+        return base_file, None, None
+    start_ln = int(parts[0])
+    end_ln = int(parts[1]) if len(parts) > 1 else start_ln
+    return base_file, min(start_ln, end_ln), max(start_ln, end_ln)
+
+
+def _extract_read_span_from_turn(t: ConversationTurn) -> Optional[Tuple[str, Optional[int], Optional[int]]]:
+    """Extract `(base_file, start_line, end_line)` from a file-read turn, respecting `Showing lines A-B`."""
+    anchors = _FILE_ANCHOR_RE.findall(t.content)
+    if not anchors:
+        return None
+    base_file, s_ln, e_ln = _parse_anchor_span(anchors[0])
+    if s_ln is None:
+        m_show = re.search(r"Showing lines\s+(\d+)\s*-\s*(\d+)\s+of\s+(\d+)", t.content[:260])
+        if m_show:
+            s_ln = int(m_show.group(1))
+            e_ln = int(m_show.group(2))
+            total_ln = int(m_show.group(3))
+            if s_ln <= 1 and e_ln >= total_ln:
+                return base_file, None, None
+    return base_file, s_ln, e_ln
+
+
+def _span_supersedes(
+    earlier_span: Tuple[Optional[int], Optional[int]],
+    later_span: Tuple[Optional[int], Optional[int]],
+) -> bool:
+    """
+    Return True ONLY when `later_span` completely covers `earlier_span`:
+    - If `later_span` is `(None, None)` (full-file read), it covers any span of the same revision.
+    - If both spans have line bounds `(s1, e1)` and `(s2, e2)`, requires `s2 <= s1 and e1 <= e2`.
+    - Disjoint ranges (`L1-L50` vs `L400-L450`) NEVER supersede each other!
+    """
+    s1, e1 = earlier_span
+    s2, e2 = later_span
+    if s2 is None and e2 is None:
+        return True
+    if s1 is None or e1 is None or s2 is None or e2 is None:
+        return False
+    return s2 <= s1 and e1 <= e2
+
+
 def strip_conversation_noise(turns: Sequence[ConversationTurn]) -> Tuple[List[ConversationTurn], NoiseFilterReport]:
     """
     Execute the 4-Stage Deterministic Noise Stripper:
-      Stage 1: Collapse repetitive polling / duplicate status checks (`CM-015` guard).
-      Stage 2: Prune superseded intermediate file reads (keep latest read per file).
-      Stage 3: Fold verbose CLI / test / build logs (>18 lines or >1400 chars).
+      Stage 1: Collapse repetitive polling / duplicate status checks (`CM-015` guard, preserving state transitions & errors).
+      Stage 2: Prune superseded intermediate file reads ONLY when a later read at the same file revision
+               completely encloses the earlier `[start_line, end_line]` span (disjoint ranges are 100% preserved).
+      Stage 2B: Distill long Excel / CSV / TSV / Markdown tabular dumps while preserving surrounding prose.
+      Stage 3: Fold verbose CLI / test / build logs (>18 lines or >1400 chars), protecting distilled tables.
       Stage 4: Trim exploratory thinking chaff while protecting 100% of user turns.
     """
     report = NoiseFilterReport(total_turns_in=len(turns))
     report.raw_tokens = sum(estimate_tokens(t.raw_text()) for t in turns)
 
-    # Identify latest read turn index for each base file path to prune earlier multi-hundred-line dumps
-    # while preserving every exact `file#Lstart-Lend` anchor in `@HARD_ANCHORS` and in the placeholder tag.
-    latest_file_read_turn: Dict[str, int] = {}
+    # Track file read spans and file edit boundaries so we NEVER drop pre-edit evidence or disjoint line ranges
+    read_records: Dict[int, Tuple[str, Optional[int], Optional[int]]] = {}
+    edit_turn_indices_by_file: Dict[str, List[int]] = {}
     for idx, t in enumerate(turns):
-        if _is_file_read_turn(t):
-            anchors = _FILE_ANCHOR_RE.findall(t.content)
-            if len(t.content) > 900 and anchors:
-                anchor_key = anchors[0].strip("`'\".,;:()")
-                base_file = anchor_key.split("#")[0]
-                latest_file_read_turn[base_file] = idx
+        if _is_file_edit_turn(t):
+            for fa in _FILE_ANCHOR_RE.findall(t.content):
+                bf, _, _ = _parse_anchor_span(fa)
+                edit_turn_indices_by_file.setdefault(bf, []).append(idx)
+        elif _is_file_read_turn(t) and len(t.content) > 900:
+            span_info = _extract_read_span_from_turn(t)
+            if span_info is not None:
+                read_records[idx] = span_info
+
+    superseded_by_step: Dict[int, Tuple[str, str, int]] = {}
+    for earlier_idx, (bf, s1, e1) in read_records.items():
+        edits_on_file = edit_turn_indices_by_file.get(bf, [])
+        for later_idx in range(len(turns) - 1, earlier_idx, -1):
+            if later_idx not in read_records:
+                continue
+            bf2, s2, e2 = read_records[later_idx]
+            if bf2 != bf:
+                continue
+            # Do not supersede if the file was edited between `earlier_idx` and `later_idx`
+            if any(earlier_idx < ed_idx < later_idx for ed_idx in edits_on_file):
+                continue
+            if _span_supersedes((s1, e1), (s2, e2)):
+                span_label = f"{bf}#L{s1}-L{e1}" if (s1 is not None and e1 is not None) else bf
+                superseded_by_step[earlier_idx] = (span_label, bf, turns[later_idx].index)
+                break
 
     cleaned: List[ConversationTurn] = []
     prev_signature: Optional[str] = None
+    transition_re = re.compile(
+        r"(?:error|exception|traceback|failed|finished with result|command exited with code [1-9]|pass_100)",
+        re.IGNORECASE,
+    )
 
     for idx, orig in enumerate(turns):
         t = ConversationTurn(
@@ -729,45 +1038,52 @@ def strip_conversation_noise(turns: Sequence[ConversationTurn]) -> Tuple[List[Co
                 prev_signature = None
             continue
 
-        # Stage 1: Collapse consecutive polling / identical status checks (scoped by task ID & tool_name)
+        # Stage 1: Collapse consecutive identical polling checks (never collapse turns with errors or state transitions)
         poll_markers = ("manage_task", '"Action": "status"', "git status", "polling", "waiting for background")
         is_poll = any(m in t.content for m in poll_markers) or t.tool_name == "manage_task"
+        has_transition = bool(transition_re.search(t.content))
         task_ids_in_turn = ",".join(sorted(set(_TASK_ID_RE.findall(t.content))))
-        poll_sig = f"{t.role}:POLL:{t.tool_name}:{task_ids_in_turn}"
+        poll_kind = t.tool_name or ("git_status" if "git status" in t.content else "status_poll")
+        poll_sig = f"{t.role}:POLL:{poll_kind}:{task_ids_in_turn}:T={int(has_transition)}"
         sig = f"{t.role}:{t.tool_name}:{hashlib.sha256(t.content.encode('utf-8')).hexdigest()[:12]}"
-        if (is_poll and prev_signature == poll_sig) or (sig == prev_signature):
+        if not has_transition and ((is_poll and prev_signature == poll_sig) or (sig == prev_signature)):
             report.polling_loops_collapsed += 1
             if cleaned:
                 cleaned[-1].collapsed_count += 1
-                cleaned[-1].content = redact_secrets(orig.content)
+                cleaned[-1].content = t.content
+                cleaned[-1].created_at = t.created_at or cleaned[-1].created_at
             continue
-        prev_signature = poll_sig if is_poll else sig
+        prev_signature = poll_sig if (is_poll and not has_transition) else sig
 
-        # Stage 2: Prune superseded large file reads while retaining the exact range anchor in the tag
-        if _is_file_read_turn(t):
-            anchors = _FILE_ANCHOR_RE.findall(t.content)
-            if len(t.content) > 900 and anchors:
-                anchor_key = anchors[0].strip("`'\".,;:()")
-                base_file = anchor_key.split("#")[0]
-                newer_idx = latest_file_read_turn.get(base_file, idx)
-                if newer_idx > idx:
-                    report.superseded_reads_pruned += 1
-                    t.content = f"[KINTSUGI_SUPERSEDED_READ: `{anchor_key}` superseded by newer read of `{base_file}` at step #{newer_idx}]"
-                    t.is_noise = True
-                    t.noise_reason = "superseded_file_read"
+        # Stage 2: Prune superseded large file reads ONLY when verified by `_span_supersedes` and no intermediate edit
+        if idx in superseded_by_step:
+            span_label, base_file, newer_step_no = superseded_by_step[idx]
+            report.superseded_reads_pruned += 1
+            t.content = (
+                f"[KINTSUGI_SUPERSEDED_READ: `{span_label}` superseded by enclosing read of `{base_file}` at step #{newer_step_no}]"
+            )
+            t.is_noise = True
+            t.noise_reason = "superseded_file_read"
 
-        # Stage 2B: Distill long Excel / CSV / TSV / Markdown tabular dumps while preserving 100% schema, aggregates & middle anomalies
-        if not t.is_noise and len(t.content) > 400:
+        # Stage 2B: Distill long Excel / CSV / TSV / Markdown tabular dumps while preserving schema, aggregates & middle anomalies
+        was_tabular_distilled = False
+        if not t.is_noise and len(t.content) > 320:
             distilled_tab, tab_summaries, rows_cnt = distill_tabular_text(
                 t.content, default_label=f"Step_{t.index}_Table"
             )
             if tab_summaries:
                 t.content = distilled_tab
+                was_tabular_distilled = True
                 report.tabular_tables_distilled += len(tab_summaries)
                 report.tabular_rows_distilled += rows_cnt
 
-        # Stage 3: Fold verbose logs in tool/system/assistant outputs
-        if not t.is_noise and (t.role in {"tool", "system"} or len(t.content) > 1800):
+        # Stage 3: Fold verbose logs in tool/system/assistant outputs (never fold distilled tabular summaries!)
+        if (
+            not t.is_noise
+            and not was_tabular_distilled
+            and "[KINTSUGI_TABULAR_DISTILLED:" not in t.content
+            and (t.role in {"tool", "system"} or len(t.content) > 1800)
+        ):
             folded_content, was_folded = _fold_verbose_log(t.content)
             if was_folded:
                 t.content = folded_content
@@ -788,12 +1104,210 @@ def strip_conversation_noise(turns: Sequence[ConversationTurn]) -> Tuple[List[Co
     return cleaned, report
 
 
-def extract_core_context(turns: Sequence[ConversationTurn]) -> DistilledContext:
+_VIETNAMESE_DIACRITIC_RE = re.compile(
+    r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+    re.IGNORECASE,
+)
+
+_FRUSTRATION_OR_RECURRENCE_RE = re.compile(
+    r"(?:tại sao.*(?:lặp lại|2 lần|hai lần|nhiều lần)|tránh gặp.*như hôm nay|không mất context|"
+    r"chống tràn nén|sửa lại các điểm yếu|why.*(?:twice|again|repeat)|never.*(?:twice|repeat)|"
+    r"lỗi này tới 2 lần|bị giảm sút|bị delay)",
+    re.IGNORECASE,
+)
+
+_STANDING_CONSTRAINT_PATTERNS: Tuple[Tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"(?:hội đồng agent|agent council|free và thu phí|multi[- ]?model)", re.IGNORECASE),
+        "council_co_review",
+        "Mandatory Dual-Council Review (Free Agent Council Tier 2 + Paid Frontier Council Tier 1) on architecture & upgrades",
+    ),
+    (
+        re.compile(r"(?:test đầy đủ|kiểm chứng|verify|검증|benchmark)", re.IGNORECASE),
+        "verified_testing_before_release",
+        "Run full empirical tests, edge-case benchmarks, and pre-push security checks (`PASS 100%`) before shipping",
+    ),
+    (
+        re.compile(r"(?:excel|bảng|tabular|conversation đầy|chống tràn nén|không mất context)", re.IGNORECASE),
+        "zero_amnesia_compaction_and_excel",
+        "Preserve 100% of Early/Middle/Late intents, hard anchors, and Excel/tabular aggregates + middle anomalies without latency spikes",
+    ),
+    (
+        re.compile(r"(?:chợ|marketplace|github|update các bản mới nhất)", re.IGNORECASE),
+        "sync_github_and_marketplaces",
+        "Keep GitHub releases, tags, and all marketplace skill packs/manifests synchronized to the latest verified version",
+    ),
+    (
+        re.compile(r"(?:cá nhân hoá|thông minh hơn|tiến hoá|personaliz)", re.IGNORECASE),
+        "adaptive_user_personalization",
+        "Continuously adapt to user workflow habits, language, standing constraints, and anti-recurrence watchouts (`@USER_PERSONA/1`)",
+    ),
+)
+
+
+def extract_and_update_user_persona(
+    turns: Sequence[ConversationTurn],
+    workspace_root: Optional[Path] = None,
+    *,
+    persist: bool = False,
+) -> UserPersonaProfile:
     """
-    Deterministically extract 100% of Hard Anchors, User Intents, Completed Milestones,
-    Errors & Verified Fixes, Tabular/Excel Summaries, Active Daemons, and Next Steps.
+    Build or update the Adaptive User Personalization & Cognitive Twin Profile (`@USER_PERSONA/1`)
+    strictly from **user-authored turns** (`t.role == "user"`) after secret redaction.
+    Never ingests tool outputs or untrusted repository files into user persona state.
+    """
+    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    profile = UserPersonaProfile(updated_at=now_iso)
+
+    persona_path: Optional[Path] = None
+    if workspace_root is not None:
+        persona_path = Path(workspace_root) / ".kintsugi" / "user_persona.json"
+        if persona_path.exists():
+            try:
+                loaded = json.loads(persona_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    profile.profile_id = str(loaded.get("profile_id") or profile.profile_id)
+                    profile.version = int(loaded.get("version") or 1)
+                    profile.preferred_language = str(loaded.get("preferred_language") or "vi")
+                    profile.communication_style = str(loaded.get("communication_style") or profile.communication_style)
+                    profile.tombstones = list(loaded.get("tombstones") or [])
+                    tomb_set = set(profile.tombstones)
+                    profile.standing_constraints = [
+                        c for c in (loaded.get("standing_constraints") or []) if c not in tomb_set
+                    ]
+                    profile.workflow_preferences = [
+                        w for w in (loaded.get("workflow_preferences") or []) if w not in tomb_set
+                    ]
+                    profile.frustration_watchouts = [
+                        f for f in (loaded.get("frustration_watchouts") or []) if f not in tomb_set
+                    ]
+                    profile.preferences = [
+                        p
+                        for p in (loaded.get("preferences") or [])
+                        if isinstance(p, dict) and p.get("key") not in tomb_set and p.get("status") != "tombstoned"
+                    ]
+            except (OSError, ValueError, TypeError) as exc:
+                _ = str(exc)
+
+    tomb_set = set(profile.tombstones)
+    vi_turns = 0
+    en_turns = 0
+    pref_by_key: Dict[str, Dict[str, Any]] = {
+        str(p.get("key")): dict(p) for p in profile.preferences if isinstance(p, dict) and p.get("key")
+    }
+
+    for t in turns:
+        if t.role != "user":
+            continue
+        u_txt = _clean_user_request_text(t.content)
+        if not u_txt:
+            continue
+
+        if _VIETNAMESE_DIACRITIC_RE.search(u_txt):
+            vi_turns += 1
+        elif re.search(r"[a-zA-Z]{4,}", u_txt):
+            en_turns += 1
+
+        # Detect standing constraints & workflow preferences from explicit user instructions
+        for pat, key_slug, desc in _STANDING_CONSTRAINT_PATTERNS:
+            if key_slug in tomb_set or desc in tomb_set:
+                continue
+            if pat.search(u_txt):
+                if desc not in profile.standing_constraints:
+                    profile.standing_constraints.append(desc)
+                pref_by_key[key_slug] = asdict(
+                    UserPreferenceItem(
+                        preference_id=f"PREF-{key_slug.upper()}",
+                        key=key_slug,
+                        value=desc,
+                        source_turn_id=t.index,
+                        source_type="explicit",
+                        scope="workspace",
+                        confidence=0.99,
+                        updated_at=now_iso,
+                        status="active",
+                    )
+                )
+
+        # Detect frustration triggers / repeated-error watchouts so the agent never repeats them
+        if _FRUSTRATION_OR_RECURRENCE_RE.search(u_txt):
+            one_line = " ".join(u_txt.splitlines()).strip()[:220]
+            watchout_entry = f"[Step #{t.index} User Watchout] {one_line}"
+            if watchout_entry not in profile.frustration_watchouts and watchout_entry not in tomb_set:
+                profile.frustration_watchouts.append(watchout_entry)
+            w_key = f"watchout_step_{t.index}"
+            if w_key not in tomb_set:
+                pref_by_key[w_key] = asdict(
+                    UserPreferenceItem(
+                        preference_id=f"WATCHOUT-{t.index}",
+                        key=w_key,
+                        value=one_line,
+                        source_turn_id=t.index,
+                        source_type="explicit",
+                        scope="workspace",
+                        confidence=1.0,
+                        updated_at=now_iso,
+                        status="active",
+                    )
+                )
+
+    if vi_turns > 0 and vi_turns >= en_turns:
+        profile.preferred_language = "vi"
+    elif en_turns > vi_turns:
+        profile.preferred_language = "en"
+
+    if "language" not in tomb_set:
+        pref_by_key["language"] = asdict(
+            UserPreferenceItem(
+                preference_id="PREF-LANGUAGE",
+                key="language",
+                value=profile.preferred_language,
+                source_turn_id=turns[-1].index if turns else 0,
+                source_type="explicit" if (vi_turns + en_turns) > 0 else "inferred",
+                scope="workspace",
+                confidence=0.99 if (vi_turns + en_turns) > 0 else 0.80,
+                updated_at=now_iso,
+                status="active",
+            )
+        )
+
+    profile.preferences = list(pref_by_key.values())
+    profile.updated_at = now_iso
+
+    if persist and persona_path is not None:
+        persona_path.parent.mkdir(parents=True, exist_ok=True)
+        profile.version += 1
+        persona_path.write_text(
+            json.dumps(profile.to_dict(), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        try:
+            os.chmod(persona_path, 0o600)
+        except OSError as exc:
+            _ = str(exc)
+
+    return profile
+
+
+def extract_core_context(
+    turns: Sequence[ConversationTurn],
+    workspace_root: Optional[Path] = None,
+    *,
+    persist_persona: bool = False,
+) -> DistilledContext:
+    """
+    Deterministically extract Hard Anchors, User Intents, User Persona (`@USER_PERSONA/1`),
+    Anti-Recurrence Watchouts (`@RECURRENCE_SHIELD/1`), Completed Milestones, Errors & Fixes,
+    Tabular/Excel Summaries, Active Daemons, and Next Steps across 100% of conversation zones.
     """
     ctx = DistilledContext()
+    ctx.user_persona = extract_and_update_user_persona(
+        turns,
+        workspace_root=workspace_root,
+        persist=persist_persona,
+    )
+    ctx.recurrence_watchouts = list(ctx.user_persona.frustration_watchouts)
+
     seen_files: set[str] = set()
     seen_symbols: set[str] = set()
     seen_commits: set[str] = set()
@@ -806,32 +1320,35 @@ def extract_core_context(turns: Sequence[ConversationTurn]) -> DistilledContext:
     for t in turns:
         raw_combined = redact_secrets(f"{t.content}\n{t.thinking}")
 
-        # Extract any tabular/Excel datasets from this turn before bounded regex scanning
-        if len(t.content) > 400 and len(ctx.tabular_summaries) < 12:
+        # Extract any tabular/Excel datasets from this turn
+        if len(t.content) > 320 and len(ctx.tabular_summaries) < 24:
             _, tab_sums, _ = distill_tabular_text(t.content, default_label=f"Step_{t.index}_Sheet")
             for ts in tab_sums:
-                if len(ctx.tabular_summaries) < 12:
+                if len(ctx.tabular_summaries) < 24:
                     ctx.tabular_summaries.append(ts)
 
-        # Fast-path stratified scan window for massive >24KB single-turn blobs to guarantee low latency
-        if len(raw_combined) > 24_000:
+        # Scan full turn text up to 512KB so zero middle-of-turn anchors (>24KB) are ever missed!
+        if len(raw_combined) <= 512_000:
+            combined = raw_combined
+        else:
             mid = len(raw_combined) // 2
+            q1 = len(raw_combined) // 4
+            q3 = (3 * len(raw_combined)) // 4
             sig_lines = [
                 ln
                 for ln in raw_combined.splitlines()
-                if _TABULAR_ANOMALY_RE.search(ln) or "Fixed by" in ln or "PASS 100%" in ln
-            ][:40]
-            combined = (
-                raw_combined[:8_000]
-                + "\n"
-                + raw_combined[max(0, mid - 4_000) : mid + 4_000]
-                + "\n"
-                + raw_combined[-8_000:]
-                + "\n"
-                + "\n".join(sig_lines)
+                if _TABULAR_ANOMALY_RE.search(ln) or _FILE_ANCHOR_RE.search(ln) or "Fixed by" in ln or "PASS 100%" in ln
+            ][:120]
+            combined = "\n".join(
+                [
+                    raw_combined[:64_000],
+                    raw_combined[max(0, q1 - 16_000) : q1 + 16_000],
+                    raw_combined[max(0, mid - 32_000) : mid + 32_000],
+                    raw_combined[max(0, q3 - 16_000) : q3 + 16_000],
+                    raw_combined[-64_000:],
+                    "\n".join(sig_lines),
+                ]
             )
-        else:
-            combined = raw_combined
 
         # 1. User Intents
         if t.role == "user":
@@ -883,11 +1400,11 @@ def extract_core_context(turns: Sequence[ConversationTurn]) -> DistilledContext:
                 ctx.active_daemons.append(tid)
         for m_dm in re.findall(r"\b([A-Za-z0-9_.-]+\.(?:js|py|mjs))\b[^\n]{0,40}?\bport\s+(\d{2,5})\b", combined):
             dm_label = f"{m_dm[0]}:{m_dm[1]}"
-            if dm_label not in seen_daemons and len(ctx.active_daemons) < 8:
+            if dm_label not in seen_daemons and len(ctx.active_daemons) < 12:
                 seen_daemons.add(dm_label)
                 ctx.active_daemons.append(dm_label)
 
-        # 8. Errors & Verified Fixes
+        # 8. Errors & Verified Fixes (deduplicate by SHA-256 of normalized full line so shared 80-char prefixes never collide)
         for ln in combined.splitlines():
             s_ln = ln.strip()
             if any(
@@ -901,14 +1418,17 @@ def extract_core_context(turns: Sequence[ConversationTurn]) -> DistilledContext:
                     "HTTP 429",
                     "Fixed by",
                     "Caused by",
+                    "GitGuardian",
+                    "OUTBOUND_PUSH_BLOCKED",
                 )
             ):
-                key = s_ln[:80]
-                if key not in seen_errors:
-                    seen_errors.add(key)
+                err_hash = hashlib.sha256(s_ln.encode("utf-8")).hexdigest()[:16]
+                if err_hash not in seen_errors:
+                    seen_errors.add(err_hash)
                     ctx.errors_and_fixes.append(
                         {
                             "step": str(t.index),
+                            "id": f"ERR-{err_hash[:8]}",
                             "summary": s_ln[:420],
                         }
                     )
@@ -940,11 +1460,34 @@ def extract_core_context(turns: Sequence[ConversationTurn]) -> DistilledContext:
                         seen_milestones.add(short_m)
                         ctx.completed_milestones.append(short_m)
 
-    # Anti-'Lost-in-the-Middle' Stratified Retention across Early + Middle + Late zones
-    if len(ctx.errors_and_fixes) > 12:
-        ctx.errors_and_fixes = _stratified_select(ctx.errors_and_fixes, 12)
-    if len(ctx.completed_milestones) > 16:
-        ctx.completed_milestones = _stratified_select(ctx.completed_milestones, 16)
+    # Record full completeness counts BEFORE any view-level stratified budgeting
+    ctx.completeness_manifest = {
+        "schema": "CompletenessManifest/1",
+        "full_turn_scan_limit_bytes": 512_000,
+        "total_extracted": {
+            "user_intents": len(ctx.user_intents),
+            "files_and_anchors": len(ctx.files_and_anchors),
+            "commits_and_tags": len(ctx.commits_and_tags),
+            "rules_enforced": len(ctx.rules_enforced),
+            "symbols_and_commands": len(ctx.symbols_and_commands),
+            "endpoints_and_ips": len(ctx.endpoints_and_ips),
+            "active_daemons": len(ctx.active_daemons),
+            "tabular_summaries": len(ctx.tabular_summaries),
+            "errors_and_fixes": len(ctx.errors_and_fixes),
+            "completed_milestones": len(ctx.completed_milestones),
+            "recurrence_watchouts": len(ctx.recurrence_watchouts),
+        },
+        "view_caps": {
+            "user_intents": 20,
+            "files_and_anchors": 30,
+            "commits_and_tags": 18,
+            "rules_enforced": 20,
+            "tabular_summaries": 8,
+            "errors_and_fixes": 12,
+            "completed_milestones": 16,
+        },
+        "recoverable_evidence_file": ".kintsugi/context_checkpoints/latest_full_evidence.json",
+    }
 
     # Derive pending next steps
     if ctx.active_objective:
@@ -964,39 +1507,63 @@ def render_compacted_markdown(
     pressure_ratio: float = 0.0,
 ) -> str:
     """
-    Render a clean, zero-loss Markdown Resumption Checkpoint that preserves 100% of
-    main points, user intents, hard anchors, tabular/Excel memory, and error fixes across
-    Early, Middle, and Late zones.
+    Render a clean, completeness-accounted Markdown Resumption Checkpoint that preserves
+    main points, user intents, `@USER_PERSONA/1`, `@RECURRENCE_SHIELD/1` watchouts,
+    hard anchors, tabular/Excel memory, and error fixes across Early, Middle, and Late zones.
     """
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     saved_pct = round(noise_report.noise_ratio * 100.0, 1)
 
     lines = [
-        f"# 🛡️ Kintsugi Zero-Loss Anti-Overflow Checkpoint (`@COMPACT/1` · `{now_iso}`)",
+        f"# 🛡️ Kintsugi Zero-Loss Anti-Overflow Checkpoint (`@COMPACT/2` · `{now_iso}`)",
         "",
         f"- **Watermark State:** `{watermark_state}` (`pressure={pressure_ratio * 100:.1f}%`)",
         f"- **Token Compression:** `{noise_report.raw_tokens:,}` raw tokens $\\rightarrow$ `{noise_report.clean_tokens:,}` clean tokens "
         f"(**`-{saved_pct}%` noise stripped** | `{noise_report.polling_loops_collapsed}` polling loops collapsed | "
-        f"`{noise_report.verbose_logs_folded}` verbose logs folded | `{noise_report.superseded_reads_pruned}` duplicate reads pruned | "
+        f"`{noise_report.verbose_logs_folded}` verbose logs folded | `{noise_report.superseded_reads_pruned}` enclosing duplicate reads pruned | "
         f"`{noise_report.tabular_rows_distilled:,}` Excel/tabular rows distilled)",
+        "- **Canonical Full Evidence Store:** `.kintsugi/context_checkpoints/latest_full_evidence.json` (`100%` uncapped items recoverable)",
         "",
         "## 1. Ý Chính & Yêu Cầu Cốt Lõi Của User (`@USER_INTENTS` — Stratified Early/Middle/Late Preserved)",
     ]
 
     if ctx.user_intents:
-        for idx, intent in enumerate(_stratified_select(ctx.user_intents, 20), start=1):
+        shown_intents = _stratified_select(ctx.user_intents, 20)
+        for idx, intent in enumerate(shown_intents, start=1):
             one_line = " ".join(intent.splitlines()).strip()
             lines.append(f"{idx}. {one_line}")
+        if len(ctx.user_intents) > len(shown_intents):
+            lines.append(
+                f"- *(+{len(ctx.user_intents) - len(shown_intents)} additional intents preserved in `latest_full_evidence.json`)*"
+            )
         lines.append(f"\n> **Mục tiêu đang thực thi (`Active Objective`):** {ctx.active_objective}")
     else:
         lines.append("- *(No explicit user turns recorded in input slice)*")
+
+    if ctx.user_persona is not None:
+        p = ctx.user_persona
+        lines.extend(
+            [
+                "",
+                "## 1B. Hồ Sơ Cá Nhân Hóa & Chốt Chặn Chống Tái Diễn Lỗi (`@USER_PERSONA/1` & `@RECURRENCE_SHIELD/1`)",
+                f"- **Persona Profile:** `{p.profile_id}` (`v={p.version}`, `digest={p.digest()}`, `preferred_language={p.preferred_language}`, `style={p.communication_style}`)",
+            ]
+        )
+        if p.standing_constraints:
+            lines.append(
+                "- **Standing User Constraints:** " + " ; ".join(f"`{c}`" for c in p.standing_constraints[:8])
+            )
+        if ctx.recurrence_watchouts:
+            lines.append("- **Anti-Recurrence Watchouts (Must Never Repeat):**")
+            for rw in ctx.recurrence_watchouts[-6:]:
+                lines.append(f"  - ⚠️ {rw}")
 
     lines.extend(["", "## 2. Kết Quả & Cột Mốc Đã Hoàn Thành (`@COMPLETED_MILESTONES`)"])
     if ctx.completed_milestones:
         for m in _stratified_select(ctx.completed_milestones, 14):
             lines.append(f"- {m}")
     else:
-        lines.append("- Workspace initialized and guarded by Kintsugi `@COMPACT/1`.")
+        lines.append("- Workspace initialized and guarded by Kintsugi `@COMPACT/2`.")
 
     lines.extend(["", "## 3. Mỏ Neo Kỹ Thuật Bất Biến (`@HARD_ANCHORS` — Anti-Lost-in-the-Middle Pinning)"])
     lines.append(
@@ -1013,7 +1580,7 @@ def render_compacted_markdown(
     )
     lines.append(
         f"- **CLI Flags & Symbols ({len(ctx.symbols_and_commands)}):** "
-        + (", ".join(f"`{s}`" for s in _stratified_select(ctx.symbols_and_commands, 16)) or "`none`")
+        + (", ".join(f"`{s}`" for r_s in [_stratified_select(ctx.symbols_and_commands, 16)] for s in r_s) or "`none`")
     )
     lines.append(
         f"- **Endpoints, Ports & Pinned IPs ({len(ctx.endpoints_and_ips)}):** "
@@ -1036,27 +1603,27 @@ def render_compacted_markdown(
                 f"- **Sheet/Table `{ts['sheet_or_table']}`:** `{ts['total_rows']:,}` rows $\\times$ `{ts['total_columns']}` cols | "
                 f"Columns: `{', '.join(ts['headers'])}`"
             )
-            for cname, ag in list(ts.get("numeric_aggregates", {}).items())[:6]:
+            for cname, ag in list(ts.get("numeric_aggregates", {}).items())[:8]:
                 lines.append(
                     f"  - **Column `{cname}` (`n={ag['count']:,}`):** `SUM={ag['sum']:,.2f}` | `AVG={ag['avg']:,.2f}` | "
                     f"`MIN={ag['min']:,.2f}` (`{ag['min_at']}`) | `MAX={ag['max']:,.2f}` (`{ag['max_at']}`)"
                 )
             for lm in ts.get("stratified_landmarks", []):
                 lines.append(f"  - **Landmark:** `{lm}`")
-            for anom in ts.get("anomaly_and_needle_rows", [])[:12]:
+            for anom in ts.get("anomaly_and_needle_rows", [])[:16]:
                 lines.append(f"  - **Anomaly/Needle Row:** `{anom}`")
 
     lines.extend(["", "## 4. Lỗi Đã Gặp & Cách Khắc Phục Đã Kiểm Chứng (`@ERRORS_AND_FIXES`)"])
     if ctx.errors_and_fixes:
-        for ef in _stratified_select(ctx.errors_and_fixes, 10):
+        for ef in _stratified_select(ctx.errors_and_fixes, 12):
             lines.append(f"- **[Step {ef['step']}]:** {ef['summary']}")
     else:
-        lines.append("- `0` unresolved runtime errors in compacted window.")
+        lines.append("- None recorded in this input slice.")
 
     if recent_turns:
         lines.extend(["", "## 5. Các Bước Trao Đổi Gần Nhất Sau Khi Lọc Nhiễu (`@RECENT_CLEAN_WINDOW`)"])
         for rt in recent_turns[-4:]:
-            snippet = " ".join(rt.content.splitlines()).strip()[:260]
+            snippet = " ".join(redact_secrets(rt.content).splitlines()).strip()[:260]
             lines.append(f"- **[Step {rt.index} · `{rt.role.upper()}`]:** {snippet}")
 
     lines.extend(["", "## 6. Bước Tiếp Theo (`@NEXT_STEPS`)"])
@@ -1078,7 +1645,7 @@ def render_compact_wire(
     """
     basis = "|".join(ctx.user_intents + ctx.files_and_anchors + ctx.commits_and_tags)
     sha8 = hashlib.sha256(basis.encode("utf-8")).hexdigest()[:8]
-    obj_slug = re.sub(r"\s+", " ", (ctx.active_objective or "IDLE").strip())[:110]
+    obj_slug = re.sub(r"\s+", " ", (ctx.active_objective or "IDLE").strip())[:100]
     unique_fnames: List[str] = []
     for f in ctx.files_and_anchors:
         bn = Path(f.split("#")[0]).name
@@ -1090,20 +1657,26 @@ def render_compact_wire(
     commits_short = ",".join(ctx.commits_and_tags[:5]) or "HEAD"
     rules_short = ",".join(ctx.rules_enforced[:8]) or "CORE"
     daemons_short = ",".join(d[:24] for d in ctx.active_daemons[:3]) or "none"
+    persona_tag = (
+        f"{ctx.user_persona.preferred_language}:v{ctx.user_persona.version}:{ctx.user_persona.digest()[:6]}"
+        if ctx.user_persona
+        else "default"
+    )
     return (
         f"@COMPACT/1|v={__version__}|state={watermark_state}|turns={noise_report.total_turns_in}->{noise_report.turns_retained}|"
         f"tok={noise_report.raw_tokens}->{noise_report.clean_tokens}|rows={noise_report.tabular_rows_distilled}|sha8={sha8}|"
-        f"commits=[{commits_short}]|rules=[{rules_short}]|files=[{files_short}]|"
+        f"persona={persona_tag}|commits=[{commits_short}]|rules=[{rules_short}]|files=[{files_short}]|"
         f"daemons=[{daemons_short}]|obj=«{obj_slug}»"
     )
 
 
 class ConversationCompactor:
     """
-    High-level Anti-Overflow Conversation Compactor & Watermark Auto-Guard.
+    High-level Anti-Overflow Conversation Compactor, User Persona Twin & Watermark Auto-Guard.
 
     Monitors context pressure, automatically strips noise, distills long Excel/tabular files,
-    verifies 100% multi-zone hard-anchor retention, and persists zero-loss checkpoints.
+    updates `@USER_PERSONA/1`, verifies multi-zone hard-anchor retention, and persists
+    both budgeted checkpoints and full canonical evidence (`latest_full_evidence.json`).
     """
 
     def __init__(
@@ -1186,13 +1759,18 @@ class ConversationCompactor:
         co_run: bool = False,
     ) -> Dict[str, Any]:
         """
-        Run the full Anti-Overflow Compaction pipeline on `raw_text`, verify zero-loss
-        multi-zone anchor & tabular retention, measure processing latency, and persist checkpoint.
+        Run the full Anti-Overflow Compaction pipeline on `raw_text`, verify multi-zone
+        anchor & tabular retention, update `@USER_PERSONA/1`, measure processing latency,
+        and persist both the budgeted checkpoint and full canonical evidence.
         """
         t_start = time.perf_counter()
         turns = parse_conversation_source(raw_text)
         clean_turns, noise_rep = strip_conversation_noise(turns)
-        ctx = extract_core_context(turns)
+        ctx = extract_core_context(
+            turns,
+            workspace_root=self.workspace_root,
+            persist_persona=persist,
+        )
 
         pressure_ratio = round(noise_rep.raw_tokens / float(self.max_context_tokens), 4)
         if pressure_ratio >= self.hard_watermark:
@@ -1221,12 +1799,13 @@ class ConversationCompactor:
                 completion_fn=self._completion_fn,
             )
             sys_prompt = (
-                "You are the Kintsugi @COMPACT/1 Free Agent Council Co-Distiller. "
-                "Verify that the compacted checkpoint preserves 100% of user intents, hard anchors, "
-                "tabular/Excel middle-row anomalies & column totals, and error fixes, and return a concise 2-sentence verification summary."
+                "You are the Kintsugi @COMPACT/2 Free Agent Council Co-Distiller. "
+                "Verify that the compacted checkpoint preserves user intents, @USER_PERSONA/1 constraints, "
+                "hard anchors, tabular/Excel middle-row anomalies & column totals, and error fixes, and return a concise 2-sentence verification summary."
             )
             usr_prompt = (
                 f"Active Objective: {ctx.active_objective}\n"
+                f"User Persona: {ctx.user_persona.to_dict() if ctx.user_persona else {}}\n"
                 f"User Intents ({len(ctx.user_intents)}): {_stratified_select(ctx.user_intents, 6)}\n"
                 f"Files Pinned ({len(ctx.files_and_anchors)}): {_stratified_select(ctx.files_and_anchors, 10)}\n"
                 f"Commits Pinned: {_stratified_select(ctx.commits_and_tags, 6)}\n"
@@ -1298,17 +1877,42 @@ class ConversationCompactor:
             md_path = self.checkpoints_dir / "latest_checkpoint.md"
             kml_path = self.checkpoints_dir / "latest_checkpoint.kml"
             json_path = self.checkpoints_dir / "latest_checkpoint.json"
+            full_evidence_path = self.checkpoints_dir / "latest_full_evidence.json"
 
             md_path.write_text(checkpoint_md, encoding="utf-8")
             kml_path.write_text(compact_wire + "\n", encoding="utf-8")
+            full_evidence_payload = {
+                "schema": "CanonicalEvidenceStore/1",
+                "active_objective": ctx.active_objective,
+                "user_persona": ctx.user_persona.to_dict() if ctx.user_persona else None,
+                "recurrence_watchouts": ctx.recurrence_watchouts,
+                "completeness_manifest": ctx.completeness_manifest,
+                "all_user_intents": ctx.user_intents,
+                "all_completed_milestones": ctx.completed_milestones,
+                "all_files_and_anchors": ctx.files_and_anchors,
+                "all_commits_and_tags": ctx.commits_and_tags,
+                "all_rules_enforced": ctx.rules_enforced,
+                "all_symbols_and_commands": ctx.symbols_and_commands,
+                "all_endpoints_and_ips": ctx.endpoints_and_ips,
+                "all_active_daemons": ctx.active_daemons,
+                "all_tabular_summaries": ctx.tabular_summaries,
+                "all_errors_and_fixes": ctx.errors_and_fixes,
+            }
+            full_evidence_path.write_text(
+                json.dumps(full_evidence_payload, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
             try:
                 os.chmod(md_path, 0o600)
                 os.chmod(kml_path, 0o600)
+                os.chmod(full_evidence_path, 0o600)
             except OSError as exc:
                 _ = str(exc)
             saved_paths["markdown"] = str(md_path)
             saved_paths["kml_wire"] = str(kml_path)
             saved_paths["json"] = str(json_path)
+            saved_paths["full_evidence"] = str(full_evidence_path)
+            saved_paths["user_persona"] = str(self.workspace_root / ".kintsugi" / "user_persona.json")
 
         if inject_agents_md:
             for doc_name in ("CLAUDE.md", "AGENTS.md"):
@@ -1320,6 +1924,7 @@ class ConversationCompactor:
                         f"### Active Session Memory Capsule (`@COMPACT/1` — Auto-Updated)\n"
                         f"- **Wire:** `{compact_wire}`\n"
                         f"- **Full Resumption Checkpoint:** `.kintsugi/context_checkpoints/latest_checkpoint.md`\n"
+                        f"- **Full Canonical Evidence:** `.kintsugi/context_checkpoints/latest_full_evidence.json`\n"
                         f"{COMPACT_BOUNDARY_END}"
                     )
                     pat = re.compile(
@@ -1335,7 +1940,7 @@ class ConversationCompactor:
 
         payload: Dict[str, Any] = {
             "ok": True,
-            "protocol": "@COMPACT/1 (Zero-Loss Anti-Overflow Conversation Compactor)",
+            "protocol": "@COMPACT/2 (Completeness-Accounted Anti-Overflow Conversation & Excel Compactor + @USER_PERSONA/1)",
             "source": source_label,
             "watermark_state": watermark_state,
             "auto_compaction_triggered": watermark_state in {"YELLOW_PREEMPTIVE", "RED_AUTO_COMPACT"},
@@ -1374,10 +1979,14 @@ class ConversationCompactor:
                 "rules_pinned_count": len(ctx.rules_enforced),
                 "tabular_sheets_distilled_count": len(ctx.tabular_summaries),
                 "errors_and_fixes_count": len(ctx.errors_and_fixes),
+                "recurrence_watchouts_count": len(ctx.recurrence_watchouts),
             },
+            "completeness_manifest": ctx.completeness_manifest,
+            "user_persona": ctx.user_persona.to_dict() if ctx.user_persona else None,
             "distilled_context": {
                 "active_objective": ctx.active_objective,
                 "user_intents": _stratified_select(ctx.user_intents, 20),
+                "recurrence_watchouts": ctx.recurrence_watchouts,
                 "completed_milestones": _stratified_select(ctx.completed_milestones, 14),
                 "files_and_anchors": _stratified_select(ctx.files_and_anchors, 30),
                 "commits_and_tags": _stratified_select(ctx.commits_and_tags, 18),
@@ -1386,7 +1995,7 @@ class ConversationCompactor:
                 "endpoints_and_ips": _stratified_select(ctx.endpoints_and_ips, 12),
                 "active_daemons": _stratified_select(ctx.active_daemons, 8),
                 "tabular_summaries": ctx.tabular_summaries[:8],
-                "errors_and_fixes": _stratified_select(ctx.errors_and_fixes, 10),
+                "errors_and_fixes": _stratified_select(ctx.errors_and_fixes, 12),
                 "pending_next_steps": ctx.pending_next_steps,
             },
             "saved_checkpoints": saved_paths,
@@ -1402,6 +2011,10 @@ class ConversationCompactor:
                 json.dumps(json_out, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
+            try:
+                os.chmod(saved_paths["json"], 0o600)
+            except OSError as exc:
+                _ = str(exc)
 
         return payload
 

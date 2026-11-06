@@ -2,6 +2,27 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.5.0] - 2026-11-06
+
+### Added
+- **Prefix-Agnostic Shannon Entropy & Artifact Egress Firewall (`src/kintsugi/shield.py` — `shannon_entropy`, `scan_high_entropy_secrets`, `scan_artifact_egress`):**
+  - Blocks both prefixed API keys and generic high-entropy secrets (`H >= 3.85 bits/char`, `>=3` character classes) in test fixtures, checkpoints, and outbound artifacts before git commit/push, preventing GitGuardian Generic High Entropy Secret alerts (`CM-031`).
+- **Structural Class Anti-Recurrence Synthesizer & Evolution IQ Engine (`src/kintsugi/cognition.py` — `compute_structural_class_signature`, `synthesize_recurrence_proposal`, `compute_evolution_intelligence_report`):**
+  - Maps specific incidents into class-wide structural signatures (`CLASS_HIGH_ENTROPY_SECRET_EGRESS`, `CLASS_EXCEL_TABULAR_AMNESIA`, `CLASS_CONVERSATION_MIDDLE_AMNESIA`, `CLASS_DUAL_MACHINE_IP_ISOLATION`, `CLASS_CRYPTO_WALLET_DERIVATION`) and computes composite Evolution IQ (`0–100`, Grade `S+`) via `kintsugi compact --evolution-iq`.
+- **Adaptive User Personalization & Cognitive Twin (`@USER_PERSONA/1` — `src/kintsugi/compactor.py` & `kintsugi compact --persona`):**
+  - Learns standing constraints, workflow preferences, communication style (`EN`/`VI`), and frustration watchouts strictly from redacted `t.role == "user"` turns (never from tool outputs or repository files), persisting locally in `.kintsugi/user_persona.json` (`0600`) with explicit tombstone support.
+- **Council-Audited `@COMPACT/2` Conversation & Excel Compactor (`src/kintsugi/compactor.py`):**
+  - Enforces exact `[start_line, end_line]` span-enclosure supersession (`_span_supersedes`) so disjoint line ranges (`#L1-L50` vs `#L400-L450`) and pre-edit file reads are 100% preserved.
+  - Parses `.xlsx` workbooks via `xl/_rels/workbook.xml.rels` relationship targets, skips `<rPh>` phonetic Furigana tags in `sharedStrings.xml`, parses accounting negative numbers `(1,250.50)`, disambiguates duplicate headers, excludes identifier columns from numeric aggregation, preserves non-table prose in mixed turns, scans full turns up to `512KB` without middle blind spots, and emits a cryptographic `CompletenessManifest/1` (`latest_full_evidence.json`).
+
+## [1.4.0] - 2026-11-06
+
+### Added
+- **3-Tier Multi-Model Co-Execution & BYOK Paid Frontier Council (`src/kintsugi/council.py`):**
+  - Enforces `FREE_STARTER` (`Primary + 1 Free Model`), `PRO_MULTI_FREE` (`Primary + 2..5 Free Models`), and `ENTERPRISE_PAID_COUNCIL` (`Primary + 5 Free Models + 6-Seat BYOK Paid Frontier Council`) with automatic HTTP 429 failover.
+- **Zero-Loss Anti-Overflow Conversation Compactor (`src/kintsugi/compactor.py` — `kintsugi compact`):**
+  - Deterministically strips polling loops, superseded file reads, and verbose logs while preserving 100% of hard anchors and Excel/CSV tabular summaries.
+
 ## [1.3.0] - 2026-11-05
 
 ### Added

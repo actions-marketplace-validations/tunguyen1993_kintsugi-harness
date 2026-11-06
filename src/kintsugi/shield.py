@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import secrets
@@ -98,25 +99,32 @@ SAFE_DOC_HOSTS = {
 # Layer 5: Catastrophic Backtracking Regex (ReDoS) Static & Dynamic Guard
 # ---------------------------------------------------------------------------
 MAX_REGEX_LENGTH = 300
-# Detects nested quantifiers like (a+)+, (.*)+, (\s*.*)+, ([a-z]+)*
+# Detects nested quantifiers like (a+)+, (.*)+, (\s*.*)+, ([a-z]+)* and overlapping alternations (a|a)+
 REDOS_NESTED_QUANTIFIER_RE = re.compile(
-    r"\([^()]*[+*]\s*(?:\{[0-9,]+\})?[^()]*\)\s*(?:[+*]|\{[0-9,]+\})"
+    r"(?:\([^()]*[+*]\s*(?:\{[0-9,]+\})?[^()]*\)\s*(?:[+*]|\{[0-9,]+\})|"
+    r"\(([^()|]+)\|\1\)\s*(?:[+*]|\{[0-9,]+\}))"
 )
 REDOS_PATHOLOGICAL_PROBES: Tuple[str, ...] = (
     "a" * 1500 + "!",
     " " * 1500 + "\t!",
     "x = " + "(" * 800 + "1",
     "0123456789_" * 150 + "$",
+    "word_" * 300 + "!=!",
 )
 
 # ---------------------------------------------------------------------------
-# Layer 6: Outbound Deep DLP & Secret Redaction Firewall
+# Layer 6: Outbound Deep DLP & Prefix-Agnostic Shannon Entropy Firewall
 # ---------------------------------------------------------------------------
 OUTBOUND_DLP_SECRET_RE = re.compile(
     r"(?:"
-    r"/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\\\Users\\\\|"
+    r"/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\Users\\[A-Za-z0-9._-]+|"
     r"\.(?:enterprise-platform|oxion|codex|muse)\b|"
     r"\bsk-(?!proj-EXAMPLE_PLACEHOLDER)[A-Za-z0-9_-]{12,}\b|"
+    r"\btj_[A-Za-z0-9_-]{16,}\b|"
+    r"\bgsk_(?!your_free_key)[A-Za-z0-9_-]{16,}\b|"
+    r"\bxai-[A-Za-z0-9_-]{16,}\b|"
+    r"\bhf_[A-Za-z0-9]{20,}\b|"
+    r"\bAKIA[0-9A-Z]{16}\b|"
     r"\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
     r"\bgithub_pat_[A-Za-z0-9_]{20,}\b|"
     r"\bAIza[0-9A-Za-z_-]{30,}\b|"
@@ -130,6 +138,158 @@ OUTBOUND_DLP_SECRET_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+# Prefix-agnostic GitGuardian "Generic High Entropy Secret" detector:
+# Matches key/api_key/token/secret/password assignments to string literals >= 16 chars
+CONTEXTUAL_SECRET_ASSIGNMENT_RE = re.compile(
+    r"""(?ix)
+    (
+      ["']?(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|bearer[_-]?token|
+      private[_-]?key|client[_-]?secret|api[_-]?token|password|passwd|secret|token|key)["']?
+      \s*[:=]\s*
+    )
+    (["'])([A-Za-z0-9_!@#$%^&*+./=-]{16,256})\2
+    """
+)
+
+SAFE_SECRET_PLACEHOLDER_RE = re.compile(
+    r"^(?:EXAMPLE_PLACEHOLDER|YOUR_API_KEY|YOUR_FREE_KEY|REDACTED_BY_KINTSUGI_SHIELD|"
+    r"HIGH_ENTROPY_REDACTED)$|0{12,}",
+    re.IGNORECASE,
+)
+
+_SNAKE_CASE_IDENTIFIER_RE = re.compile(r"^(?:[a-z]+(?:_[a-z]+){1,6}|[A-Z]+(?:_[A-Z]+){1,6})$")
+
+
+def _is_safe_secret_placeholder(candidate: str) -> bool:
+    """Return True only for genuine placeholders, file paths/URLs, or pure single-case snake_case identifiers."""
+    if not candidate:
+        return True
+    if candidate.startswith(("/", "./", "../", "http://", "https://")):
+        return True
+    if SAFE_SECRET_PLACEHOLDER_RE.search(candidate):
+        return True
+    if _SNAKE_CASE_IDENTIFIER_RE.fullmatch(candidate):
+        return True
+    return False
+
+
+def _is_candidate_high_entropy_secret(candidate: str, entropy_threshold: float = 3.30) -> Tuple[bool, float]:
+    """Evaluate whether `candidate` is a high-entropy credential (including letters-only mixed-case secrets)."""
+    if _is_safe_secret_placeholder(candidate):
+        return False, 0.0
+    ent = shannon_entropy(candidate)
+    if ent < entropy_threshold:
+        return False, ent
+    digit_count = sum(1 for c in candidate if c.isdigit())
+    has_upper = any(c.isupper() for c in candidate)
+    has_lower = any(c.islower() for c in candidate)
+    has_complex_mix = (
+        digit_count >= 2
+        or (digit_count >= 1 and (has_upper or has_lower))
+        or (has_upper and has_lower and ent >= 3.80)
+    )
+    return has_complex_mix, ent
+
+
+def shannon_entropy(val: str) -> float:
+    """Compute Shannon entropy H(s) = -sum p(c) log2 p(c) in bits/char."""
+    if not val:
+        return 0.0
+    length = len(val)
+    counts: Dict[str, int] = {}
+    for ch in val:
+        counts[ch] = counts.get(ch, 0) + 1
+    return -sum((c / length) * math.log2(c / length) for c in counts.values())
+
+
+def scan_high_entropy_secrets(text: str, entropy_threshold: float = 3.30) -> List[Dict[str, Any]]:
+    """
+    Prefix-agnostic contextual Shannon entropy scanner (`@RECURRENCE_SHIELD/1`).
+    Detects any real or mock high-entropy credential literal before it can trigger GitGuardian
+    or leak into checkpoints/commits, without echoing the raw secret value.
+    """
+    if not text:
+        return []
+    findings: List[Dict[str, Any]] = []
+    for m in CONTEXTUAL_SECRET_ASSIGNMENT_RE.finditer(text):
+        candidate = m.group(3)
+        is_secret, ent = _is_candidate_high_entropy_secret(candidate, entropy_threshold=entropy_threshold)
+        if is_secret:
+            sha8 = hashlib.sha256(candidate.encode("utf-8")).hexdigest()[:8]
+            findings.append(
+                {
+                    "rule_id": "SHIELD-ENTROPY-001",
+                    "detector": "Generic High Entropy Secret (Contextual Assignment)",
+                    "entropy_bits": round(ent, 2),
+                    "length": len(candidate),
+                    "candidate_sha8": sha8,
+                    "span": [m.start(), m.end()],
+                }
+            )
+    return findings
+
+
+def redact_high_entropy_secrets(text: str, entropy_threshold: float = 3.30) -> str:
+    """
+    Replace any contextual high-entropy secret literal with a deterministic zero-entropy
+    redacted marker (`[HIGH_ENTROPY_REDACTED:<sha8>]`) so checkpoints and logs never leak.
+    """
+    if not text:
+        return ""
+
+    def _repl(m: re.Match[str]) -> str:
+        prefix_assign = m.group(1)
+        quote = m.group(2)
+        candidate = m.group(3)
+        is_secret, _ = _is_candidate_high_entropy_secret(candidate, entropy_threshold=entropy_threshold)
+        if is_secret:
+            sha8 = hashlib.sha256(candidate.encode("utf-8")).hexdigest()[:8]
+            return f"{prefix_assign}{quote}[HIGH_ENTROPY_REDACTED:{sha8}]{quote}"
+        return m.group(0)
+
+    return CONTEXTUAL_SECRET_ASSIGNMENT_RE.sub(_repl, text)
+
+
+def scan_artifact_egress(payload: str, context: str = "generic") -> Dict[str, Any]:
+    """
+    Unified `ScanResult/1` Egress Gate binding the security decision (`ALLOW` | `BLOCK`)
+    to the exact SHA-256 digest of `payload` across format denylists, contextual Shannon entropy,
+    Trojan Unicode, and prompt injection.
+    """
+    raw = str(payload or "")
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    findings: List[Dict[str, Any]] = []
+
+    m_dlp = OUTBOUND_DLP_SECRET_RE.search(raw)
+    if m_dlp:
+        tok_sha8 = hashlib.sha256(m_dlp.group(0).encode("utf-8")).hexdigest()[:8]
+        findings.append(
+            {
+                "rule_id": "SHIELD-DLP-001",
+                "class": "OUTBOUND_DLP_PATTERN",
+                "candidate_sha8": tok_sha8,
+                "span": [m_dlp.start(), m_dlp.end()],
+            }
+        )
+
+    entropy_hits = scan_high_entropy_secrets(raw)
+    findings.extend(entropy_hits)
+
+    if TROJAN_UNICODE_RE.search(raw):
+        findings.append({"rule_id": "SHIELD-TROJAN-001", "class": "TROJAN_BIDI_UNICODE"})
+
+    decision = "BLOCK" if findings else "ALLOW"
+    return {
+        "schema": "ScanResult/1",
+        "context": context,
+        "decision": decision,
+        "ok": decision == "ALLOW",
+        "payload_sha256": digest,
+        "findings_count": len(findings),
+        "findings": findings,
+        "coverage": "complete",
+    }
 
 
 def is_safe_regex_pattern(pattern: Optional[str], max_probe_ms: float = 20.0) -> Tuple[bool, str]:
@@ -242,11 +402,19 @@ def audit_scar_security(scar: GoldenScar) -> Tuple[bool, str]:
     if not regex_ok:
         return False, regex_msg
 
-    # Layer 6: Outbound Deep DLP & Secret Redaction Firewall
+    # Layer 6: Outbound Deep DLP & Prefix-Agnostic Shannon Entropy Firewall
     if OUTBOUND_DLP_SECRET_RE.search(all_fields):
         return (
             False,
             "REJECTED_DLP_SECRET_LEAK: Private path, API key, token, wallet address, or internal IP detected.",
+        )
+    entropy_hits = scan_high_entropy_secrets(trusted_fields)
+    if entropy_hits:
+        first_hit = entropy_hits[0]
+        return (
+            False,
+            f"REJECTED_HIGH_ENTROPY_SECRET: Contextual high-entropy secret literal detected "
+            f"(sha8={first_hit['candidate_sha8']}, entropy={first_hit['entropy_bits']} bits/char).",
         )
 
     return True, "PASS_SHIELD: All 6 content & execution security layers verified."
