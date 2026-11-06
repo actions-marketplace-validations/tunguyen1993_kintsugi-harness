@@ -391,6 +391,7 @@ class FreeCoRunnerPoolRegistry:
 
         # 3. Source 3: Environment Free Keys
         env_specs = [
+            ("deepseek_tokenjuice_free", "DEEPSEEK_FREE_API_KEY", "deepseek-ai/DeepSeek-V4.1-Flash-1017", "deepseek-r1", "https://api.tokenjuice.ai/v1"),
             ("groq_free", "GROQ_API_KEY", "llama-3.3-70b-versatile", "meta-llama-3.3", "https://api.groq.com/openai/v1"),
             ("cerebras_free", "CEREBRAS_API_KEY", "llama-3.3-70b", "cerebras-llama-qwen", "https://api.cerebras.ai/v1"),
             ("openrouter_free", "OPENROUTER_API_KEY", "deepseek/deepseek-r1:free", "deepseek-r1", "https://openrouter.ai/api/v1"),
@@ -418,7 +419,7 @@ class FreeCoRunnerPoolRegistry:
         keyless_specs = [
             (
                 "pollinations_keyless_free",
-                "openai-large",
+                "openai-fast",
                 "pollinations-independent",
                 "https://text.pollinations.ai/openai",
             ),
@@ -878,7 +879,25 @@ def answer_user_multi_model_question(
     lang = "vi" if is_vi else "en"
 
     # Classify question intent
-    if any(k in q_low for k in ("key", "byok", "thu phí", "paid", "opus", "gpt", "grok", "api")):
+    if any(
+        k in q_low
+        for k in (
+            "tràn",
+            "nén",
+            "đầy",
+            "mất context",
+            "nhiễu",
+            "ý chính",
+            "compact",
+            "overflow",
+            "checkpoint",
+            "conversation",
+        )
+    ):
+        intent = "anti_overflow_context_compaction"
+    elif any(k in q_low for k in ("deepseek", "đăng ký", "tự đăng ký", "register", "harvest", "tokenjuice")):
+        intent = "autonomous_deepseek_free_registration"
+    elif any(k in q_low for k in ("key", "byok", "thu phí", "paid", "opus", "gpt", "grok", "api")):
         intent = "byok_paid_council_setup"
     elif any(k in q_low for k in ("an toàn", "bảo mật", "lưu ở đâu", "safe", "security", "privacy", "where")):
         intent = "key_security_and_privacy"
@@ -924,6 +943,25 @@ def answer_user_multi_model_question(
                 "và tự động nằm trong `.gitignore`. Mọi lệnh hiển thị trạng thái đều che kín key (`sk-a...9f2a`). Kintsugi tuyệt đối không gửi key của bạn lên bất kỳ server trung gian nào."
             ),
         },
+        {
+            "question": "5. Agent có tự động đăng ký tài khoản và lấy API Key DeepSeek Free ($0) được không?",
+            "answer": (
+                "CÓ. Chạy lệnh `kintsugi swarm --register-deepseek-free` (hoặc `--register-deepseek-free --deepseek-count 3`), Agent sẽ tự động: "
+                "(1) Tạo hộp thư tạm `mail.tm`, (2) Gửi Magic Link đăng ký TokenJuice 262K (`deepseek-ai/DeepSeek-V4.1-Flash-1017`), "
+                "(3) Đọc mail lấy mã xác thực, (4) Tự động mint API Key `tj_...` thật ($0, không cần thẻ), "
+                "(5) Gọi test trực tiếp `POST /v1/chat/completions` đạt `HTTP 200 OK` và lưu vào `.kintsugi/free_agent_pool.json` (`0600`)."
+            ),
+        },
+        {
+            "question": "6. Khi 1 conversation đầy, làm sao chống tràn nén, giữ 100% ý chính và loại bỏ nhiễu?",
+            "answer": (
+                "Chạy `kintsugi compact --inject-agents` (hoặc gọi MCP tool `kintsugi_compact_context`). Hệ thống `@COMPACT/1` sẽ: "
+                "(1) Theo dõi áp lực token qua 2 ngưỡng (`70%` Soft Watermark / `85%` Hard Watermark), "
+                "(2) Tự động loại bỏ 4 lớp nhiễu (log build/test dài >18 dòng, vòng lặp poll trùng lặp, các lần đọc file cũ đã bị ghi đè, suy nghĩ nháp thừa), "
+                "(3) Khóa cứng 100% Ý chính của User (`@USER_INTENTS`), Mỏ neo kỹ thuật (`@HARD_ANCHORS`: `file:line`, commit/tag, rule ID, IP/port, daemon) & Lỗi đã sửa (`@ERRORS_AND_FIXES`), "
+                "(4) Lưu bản tóm tắt đầy đủ vào `.kintsugi/context_checkpoints/latest_checkpoint.md` kèm chuỗi siêu nén `<180 token` `@COMPACT/1` trong `CLAUDE.md` / `AGENTS.md`."
+            ),
+        },
     ]
 
     faq_en = [
@@ -961,6 +999,25 @@ def answer_user_multi_model_question(
                 "(owner-read/write only) and masked in all status outputs. Keys are never sent to any third-party relay."
             ),
         },
+        {
+            "question": "5. Can the Agent automatically register and mint a real $0 DeepSeek Free API key?",
+            "answer": (
+                "YES. Run `kintsugi swarm --register-deepseek-free` (or `--register-deepseek-free --deepseek-count 3`), and the Agent will autonomously: "
+                "(1) create a disposable `mail.tm` inbox, (2) request a signup magic link from TokenJuice 262K (`deepseek-ai/DeepSeek-V4.1-Flash-1017`), "
+                "(3) extract the verification token, (4) mint a live `tj_...` API key ($0, no credit card), "
+                "(5) verify a live `HTTP 200 OK` chat completion, and save it to `.kintsugi/free_agent_pool.json` (`0600`)."
+            ),
+        },
+        {
+            "question": "6. How does Anti-Overflow Conversation Compaction (@COMPACT/1) prevent losing context when a chat fills up?",
+            "answer": (
+                "Run `kintsugi compact --inject-agents` (or call MCP tool `kintsugi_compact_context`). The `@COMPACT/1` engine: "
+                "(1) monitors token pressure against soft (`70%`) and hard (`85%`) watermarks, "
+                "(2) strips 4 classes of noise (verbose build/test logs, duplicate polling loops, superseded file reads, exploratory chaff), "
+                "(3) locks 100% of `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules, IPs, daemons), and `@ERRORS_AND_FIXES`, and "
+                "(4) persists both `.kintsugi/context_checkpoints/latest_checkpoint.md` and a `<180-token` `@COMPACT/1` wire capsule into `CLAUDE.md` / `AGENTS.md`."
+            ),
+        },
     ]
 
     if is_vi:
@@ -974,6 +1031,7 @@ def answer_user_multi_model_question(
             "",
             "#### 1. Cơ chế 3 Tầng (Free vs Pro vs Enterprise)",
             "1. **Bản Free (`$0` — `FREE_STARTER`):** Model gốc luôn chạy kèm **1 Model Miễn Phí (`$0`)** (`max_free_co_runners = 1`).",
+            "   - Tự động đăng ký & lấy API Key DeepSeek Free (`262K` context, `$0`): `kintsugi swarm --register-deepseek-free`",
             "   - Lệnh chạy ngay: `kintsugi swarm . --co-run`",
             "2. **Bản Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Mở khóa chạy song song **2 đến 5 Model Miễn Phí (`$0`)**, tự động xoay vòng khi có model bị giới hạn `HTTP 429`.",
             "   - Mở khóa gói: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
@@ -998,6 +1056,15 @@ def answer_user_multi_model_question(
             "# B3: Chạy đồng thời Model Gốc + 5 Model Free + Hội Đồng Thu Phí",
             "kintsugi swarm . --co-run --free-runners 5 --paid-council",
             "```",
+            "",
+            "#### 3. Cơ Chế Chống Tràn Nén Khi Conversation Đầy (`@COMPACT/1` — Zero-Loss Context Distillation)",
+            "- **Tự động lọc 4 lớp gây nhiễu:** Gấp gọn log CLI/build/test dài, gộp các vòng lặp poll trùng lặp (`manage_task`/`git status`), cắt bỏ các lần đọc file cũ đã bị ghi đè và suy nghĩ nháp thừa.",
+            "- **Giữ 100% Ý chính & Mỏ neo kỹ thuật:** Bảo toàn tuyệt đối mọi yêu cầu của User (`@USER_INTENTS`), đường dẫn `file:line`, mã commit/tag, rule ID, IP/port, daemon đang chạy (`@HARD_ANCHORS`) và các lỗi đã sửa (`@ERRORS_AND_FIXES`).",
+            "```bash",
+            "# Tự động nén hội thoại đang chạy, lưu checkpoint và nhúng capsule <180 token vào CLAUDE.md / AGENTS.md",
+            "kintsugi compact --inject-agents",
+            "kintsugi compact --wire",
+            "```",
         ]
     else:
         md_lines = [
@@ -1010,6 +1077,7 @@ def answer_user_multi_model_question(
             "",
             "#### 1. How the 3 Commercial Tiers Work",
             "1. **Free Tier (`$0` — `FREE_STARTER`):** Primary Model always runs alongside **1 Free Co-Runner (`$0`)** (`max_free_co_runners = 1`).",
+            "   - Auto-register & mint a live $0 DeepSeek Free API key (`262K` context): `kintsugi swarm --register-deepseek-free`",
             "   - Run now: `kintsugi swarm . --co-run`",
             "2. **Pro Tier (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks **2 to 5 parallel Free Co-Runners (`$0`)** with automatic HTTP 429 failover.",
             "   - Unlock pack: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
@@ -1034,13 +1102,22 @@ def answer_user_multi_model_question(
             "# Step 3: Co-execute Primary Model + 5 Free Models + Paid Frontier Council",
             "kintsugi swarm . --co-run --free-runners 5 --paid-council",
             "```",
+            "",
+            "#### 3. Anti-Overflow Conversation Compaction (`@COMPACT/1` — Zero-Loss Context Distillation)",
+            "- **Strips 4 classes of noise:** Folds verbose build/test logs, collapses duplicate polling loops, prunes superseded file reads, and trims exploratory chaff.",
+            "- **Locks 100% of Hard Anchors:** Preserves all `@USER_INTENTS`, `file:line` anchors, git commits/tags, rule IDs, pinned IPs/ports, active daemons, and `@ERRORS_AND_FIXES`.",
+            "```bash",
+            "kintsugi compact --inject-agents",
+            "kintsugi compact --wire",
+            "```",
         ]
 
     recommended_cmds = [
+        "kintsugi compact --inject-agents",
+        "kintsugi swarm --register-deepseek-free",
         "kintsugi swarm . --co-run",
         "kintsugi swarm --paid-council-status",
         "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
-        "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
         "kintsugi swarm . --co-run --free-runners 5 --paid-council",
     ]
 
@@ -1287,6 +1364,7 @@ class PrimaryPlusFreeCoExecutor:
         *,
         is_paid_byok: bool = False,
         bft_weight: float = 1.0,
+        exclude_slot_ids: Sequence[str] = (),
     ) -> Dict[str, Any]:
         t0 = time.perf_counter()
         try:
@@ -1308,6 +1386,45 @@ class PrimaryPlusFreeCoExecutor:
                 "content": reply,
             }
         except Exception as exc:  # noqa: BLE001
+            # When running against a live gateway without KINTSUGI_PRIMARY_MODEL set,
+            # automatically bind primary_anchor to a distinct free pool model so 2/2 seats succeed.
+            if seat_role == "primary_anchor" and endpoint.model == "primary-anchor-model":
+                backups = self.free_registry.select_co_runners(
+                    count=1,
+                    exclude_slot_ids=list(exclude_slot_ids),
+                    prefer_distinct_families=True,
+                )
+                if backups:
+                    b_slot = backups[0]
+                    b_ep = b_slot.to_endpoint(role="primary_anchor")
+                    try:
+                        t_retry = time.perf_counter()
+                        reply = self._complete(b_ep, system_prompt, user_prompt)
+                        lat_ms = round((time.perf_counter() - t_retry) * 1000.0, 2)
+                        self.free_registry.mark_success(b_slot.slot_id, lat_ms)
+                        return {
+                            "seat_role": seat_role,
+                            "slot_id": b_slot.slot_id,
+                            "provider_id": b_slot.provider_id,
+                            "model": b_slot.model,
+                            "model_family": b_slot.model_family,
+                            "source": "PRIMARY_ANCHOR_AUTO_BOUND",
+                            "is_paid_byok": False,
+                            "bft_weight": bft_weight,
+                            "status": "SUCCEEDED",
+                            "latency_ms": lat_ms,
+                            "rotations_used": 1,
+                            "rotation_history": [
+                                {
+                                    "from_slot": f"{endpoint.provider_id}:{endpoint.model}",
+                                    "to_slot": b_slot.slot_id,
+                                    "reason": str(exc)[:120],
+                                }
+                            ],
+                            "content": reply,
+                        }
+                    except Exception as retry_exc:  # noqa: BLE001
+                        exc = retry_exc
             return {
                 "seat_role": seat_role,
                 "slot_id": f"{endpoint.provider_id}:{endpoint.model}",
@@ -1360,6 +1477,7 @@ class PrimaryPlusFreeCoExecutor:
                 user_prompt,
                 is_paid_byok=False,
                 bft_weight=1.15,
+                exclude_slot_ids=assigned_free_ids,
             )
             fut_map[fut_primary] = 0
 

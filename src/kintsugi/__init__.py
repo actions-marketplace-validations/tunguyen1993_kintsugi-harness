@@ -12,6 +12,12 @@ from kintsugi.cognition import (
     classify_model_provenance,
     verify_frontier_sync_gate,
 )
+from kintsugi.compactor import (
+    ConversationCompactor,
+    extract_core_context,
+    parse_conversation_source,
+    strip_conversation_noise,
+)
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_jit_stub, render_kmi_index
 from kintsugi.council import (
@@ -59,6 +65,7 @@ from kintsugi.swarm import (
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
     enforce_kl_high_001_promotion_guard,
+    harvest_deepseek_free_api_key,
 )
 
 __all__ = [
@@ -92,7 +99,12 @@ __all__ = [
     "BrierMomentShrinkagePool",
     "RedBlueAdversarialArena",
     "enforce_kl_high_001_promotion_guard",
+    "harvest_deepseek_free_api_key",
     "build_multi_model_agent_guide",
     "answer_user_multi_model_question",
     "resolve_workspace_co_execution_entitlement",
+    "ConversationCompactor",
+    "parse_conversation_source",
+    "strip_conversation_noise",
+    "extract_core_context",
 ]

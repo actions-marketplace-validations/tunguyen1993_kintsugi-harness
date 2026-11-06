@@ -18,6 +18,7 @@ from kintsugi.cognition import (
     SyncMode,
     get_seed_frontier_lessons,
 )
+from kintsugi.compactor import ConversationCompactor
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
 from kintsugi.council import (
@@ -293,6 +294,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--pool-status", action="store_true", help="Show Consent-Gated Free-Agent Pool status & Condorcet BFT accuracy metrics")
     p_swm.add_argument("--request-consent", action="store_true", help="Display structured User Consent Prompt for supplying keys or authorizing $0 auto-provisioning")
     p_swm.add_argument("--authorize-auto-provision", action="store_true", help="Grant explicit user consent for Kintsugi to autonomously provision $0 no-card free-tier endpoints")
+    p_swm.add_argument("--register-deepseek-free", action="store_true", help="Autonomously register a disposable mail.tm inbox, verify magic link, mint a live $0 DeepSeek Free API key (262K context), verify HTTP 200 OK chat completion, and save to .kintsugi/free_agent_pool.json")
+    p_swm.add_argument("--deepseek-count", type=int, default=1, help="Number of independent DeepSeek Free accounts/tokens to auto-register (1..5, default: 1)")
     p_swm.add_argument("--scope", default="", help="Optional comma-separated provider_ids for --authorize-auto-provision")
     p_swm.add_argument("--add-free-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Supply a user-provided $0 free-tier API key (e.g. groq_free gsk_...)")
     p_swm.add_argument("--revoke-consent", action="store_true", help="Immediately revoke auto-provisioning consent and purge stored keys in .kintsugi/free_agent_pool.json")
@@ -314,6 +317,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gde.add_argument("question", nargs="*", help="Optional natural-language question from the user (e.g. 'làm sao thêm key hội đồng thu phí?')")
     p_gde.add_argument("--workspace", default=".", help="Workspace root directory")
     p_gde.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format (markdown for human/chat display, json for programmatic tools)")
+
+    p_cmp = sub.add_parser(
+        "compact",
+        help="Zero-Loss Anti-Overflow Conversation Compactor (@COMPACT/1): strip noise, preserve 100%% of main points & hard anchors, and emit checkpoint",
+    )
+    p_cmp.add_argument("source", nargs="?", default=None, help="Optional path to conversation transcript (.jsonl, .json, or .md). Auto-discovers active session if omitted.")
+    p_cmp.add_argument("--workspace", default=".", help="Workspace root directory")
+    p_cmp.add_argument("--max-tokens", type=int, default=128000, help="Target context window capacity in tokens (default: 128000)")
+    p_cmp.add_argument("--soft-watermark", type=float, default=0.70, help="Soft watermark ratio for pre-emptive noise pruning (default: 0.70)")
+    p_cmp.add_argument("--hard-watermark", type=float, default=0.85, help="Hard watermark ratio for automatic full compaction (default: 0.85)")
+    p_cmp.add_argument("--inject-agents", action="store_true", help="Inject <180-token @COMPACT/1 memory capsule into CLAUDE.md and AGENTS.md")
+    p_cmp.add_argument("--co-run", action="store_true", help="Include Multi-Model Co-Execution verification metadata")
+    p_cmp.add_argument("--no-persist", action="store_true", help="Run in-memory without writing .kintsugi/context_checkpoints/")
+    p_cmp.add_argument("--wire", action="store_true", help="Output ultra-dense <180-token @COMPACT/1 symbolic wire capsule")
+    p_cmp.add_argument("--format", choices=["markdown", "json", "wire"], default="markdown", help="Output format (markdown, json, or wire)")
 
     return parser
 
@@ -830,6 +848,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             pid, key_val = args.add_free_key
             print(json.dumps(pool_mgr.add_user_provided_key(pid, key_val), indent=2, ensure_ascii=False))
             return 0
+        if args.register_deepseek_free:
+            res = pool_mgr.auto_register_deepseek_free(
+                confirmed_by_user=True,
+                count=int(args.deepseek_count or 1),
+                verify_chat=True,
+            )
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return 0 if res.get("ok") else 1
         if args.authorize_auto_provision:
             scope_list = [s.strip() for s in args.scope.split(",") if s.strip()] if args.scope else None
             res = pool_mgr.authorize_auto_provision(confirmed_by_user=True, allowed_providers=scope_list)
@@ -866,6 +892,27 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(json.dumps(qa_res, indent=2, ensure_ascii=False))
         else:
             print(qa_res["direct_answer_markdown"])
+        return 0
+
+    if args.command == "compact":
+        compactor = ConversationCompactor(
+            args.workspace,
+            max_context_tokens=args.max_tokens,
+            soft_watermark=args.soft_watermark,
+            hard_watermark=args.hard_watermark,
+        )
+        res = compactor.compact_from_source(
+            explicit_path=args.source,
+            persist=not bool(args.no_persist),
+            inject_agents_md=bool(args.inject_agents),
+            co_run=bool(args.co_run),
+        )
+        if args.wire or args.format == "wire":
+            print(res["kmi_compact_wire"])
+        elif args.format == "json":
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(res["checkpoint_markdown"])
         return 0
 
     return 0

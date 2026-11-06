@@ -20,6 +20,8 @@ venv/
 .kintsugi/dlp_denylist.txt
 .kintsugi/metacognition_state.json
 .kintsugi/free_agent_pool.json
+.kintsugi/paid_frontier_council_keys.json
+.kintsugi/context_checkpoints/
 .kintsugi/user_consent_ledger.json
 .kintsugi/swarm_merged_wisdom.json
 .kintsugi/swarm_negative_tabu.json

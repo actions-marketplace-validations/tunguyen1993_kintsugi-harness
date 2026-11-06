@@ -67,6 +67,7 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 | **Native Rust Engine (`kintsugi-rs v1.4.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
 | **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
 | **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
+| **Zero-Loss Anti-Overflow Conversation Compactor (`kintsugi compact` / `@COMPACT/1`)** | Included (`100% Anchor Retention`) | Included (`+ Multi-Free Co-Verify`) | Included (`+ Multi-Free Co-Verify`) | **Included (`+ Full Council Co-Verify`)** |
 | **Curated Core + Exclusive Pro Scars (`KS-001`..`KS-032`)** | 16 Core (`KS-001..016`) | 11 FinOps/Reliability (`KS-018,025,026,030,031` + Core) | 21 AppSec/MCP (`KS-017,019..024,027..029,032` + Core) | **All 32/32 (`KS-001..KS-032`)** |
 | **`@KML/1` Symbolic Machine-Language Wire (`scars.kml`)** | 16 rules (1,690 in OSS repo) | **844 `@KML/1` FinOps rules** | **862 `@KML/1` Security rules** | **All 1,706 `@KML/1` rules** |
 | **Deterministic Auto-Remediation (`kintsugi autofix --apply`)** | Dry-Run Diff Preview (`--dry-run`) | **4 In-Place Auto-Fix Codemods** | **8 In-Place Auto-Fix Codemods** | **All 12/12 In-Place Auto-Fix Codemods** |
@@ -76,11 +77,12 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
 > [!IMPORTANT]
 > **New in `v1.4.0` — 3-Tier Multi-Model Co-Execution & BYOK Paid Frontier Council (`Primary + Free Models + Paid Council`):**
-> - **Always-On Co-Execution:** Your **Primary Model** never runs alone — Kintsugi automatically discovers available `$0` Free Co-Runner models (via local gateway `:8897`, `.kintsugi/free_agent_pool.json`, env keys, or keyless `$0` community endpoints) and runs them in parallel alongside the Primary Model.
+> - **Always-On Co-Execution & Autonomous `$0` DeepSeek Free Token Harvester:** Your **Primary Model** never runs alone — Kintsugi automatically discovers available `$0` Free Co-Runner models and includes a **6-Step Zero-Touch DeepSeek Free Token Harvester (`kintsugi swarm --register-deepseek-free`)** that autonomously creates a disposable `mail.tm` inbox, verifies the signup magic link, mints a real `tj_...` API key for `deepseek-ai/DeepSeek-V4.1-Flash-1017` (`262K` context window, `$0` Unlimited Free, no credit card), verifies `HTTP 200 OK` live chat completion, and stores it in `.kintsugi/free_agent_pool.json` (`0600`).
 > - **Tier 0 (`$0` Free / OSS):** Locked to **`Primary + 1 Free Model ($0)`** (`max_free_co_runners = 1`). Passing `--free-runners 2..5` automatically clamps to `1` and displays the upgrade path.
 > - **Tier 1 & Tier 2 (`$15` FinOps Pro / `$19` AppSec Pro):** Unlocks **`Primary + up to 5 Parallel Free Models ($0)`** (`max_free_co_runners = 5`) with automatic HTTP `429` / timeout round-robin failover and `12.5x` Byzantine-Fault-Tolerant (`BFT`) error reduction.
 > - **Tier 3 (`$29` Enterprise Complete Pro):** Unlocks **`Primary + 5 Free Models ($0) + 6-Seat Paid Frontier Council (`BYOK`)`** (`Claude Opus 4.6`, `GPT-5.4 Thinking`, `Grok 4`, `Gemini 2.5 Pro`, `DeepSeek R1`, `OpenRouter Frontier`).
 > - **How the Agent Guides Users (`BYOK` — Bring Your Own Key):** Paid Frontier Council seats require users to supply their own API keys (stored strictly locally at `.kintsugi/paid_council_pool.json` with `chmod 0600` permissions). Run **`kintsugi swarm --guide`** (or slash command **`/kintsugi-multi-model-council`**, or MCP tool **`kintsugi_multi_model_guide`**) at any time for an interactive bilingual (`EN/VI`) setup walkthrough.
+> - **Zero-Loss Anti-Overflow Conversation Compactor (`@COMPACT/1` — `kintsugi compact`):** When a long coding conversation fills up (`>=70%` soft / `>=85%` hard watermark), `kintsugi compact --inject-agents` (and MCP tool `kintsugi_compact_context`) automatically strips 4 classes of conversation noise (verbose build/test logs, duplicate polling loops, superseded file reads, and exploratory monologue) while locking **100% of Hard Anchors** (`@USER_INTENTS`, `file:line` anchors, git SHAs/tags, rule IDs, pinned IPs/ports, active daemons, and `@ERRORS_AND_FIXES`) into `.kintsugi/context_checkpoints/latest_checkpoint.md` and a `<180-token` `@COMPACT/1` symbolic wire capsule in `CLAUDE.md` / `AGENTS.md`.
 
 ---
 
@@ -149,7 +151,8 @@ Kintsugi guarantees your **Primary Anchor Model** always runs alongside dynamica
 # 1. Inspect active tier & Bilingual Agent Onboarding Guide
 kintsugi swarm --guide
 
-# 2. Free Tier ($0): Runs Primary Model + 1 discovered $0 Free Co-Runner
+# 2. Free Tier ($0): Auto-register a live $0 DeepSeek-V4.1-Flash (262K) API key & run Primary + 1 Free Model
+kintsugi swarm --register-deepseek-free
 kintsugi swarm . --co-run
 
 # 3. Pro Tier ($15 / $19): Unlocks 2..5 parallel $0 Free Co-Runners with automatic 429 failover
@@ -162,6 +165,10 @@ kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>
 kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>
 kintsugi swarm --paid-council-status
 kintsugi swarm . --co-run --free-runners 3 --paid-council
+
+# 5. Zero-Loss Anti-Overflow Conversation Compaction (@COMPACT/1 — strips noise & locks 100% of main points):
+kintsugi compact --inject-agents
+kintsugi compact --wire
 ```
 
 ### 6. Human-Like Cognitive Learning, Zero-GitHub-Account Relay & GitHub Skill Harvester (`kintsugi learn`)

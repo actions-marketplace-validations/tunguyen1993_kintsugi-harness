@@ -76,7 +76,7 @@ class SkillCompiler:
                 "- **Always-On Rule for the AI Agent:** Whenever the user asks how to use Kintsugi Multi-Model Co-Execution, how many Free models they can run, why `--free-runners` is clamped, how to upgrade tiers, or how to add their own Paid Frontier Council API keys (`BYOK`), you **MUST proactively guide the user step-by-step in their language (Vietnamese or English)**:",
                 "  1. Run `kintsugi guide \"<user_question>\"` (or `kintsugi swarm --guide`, or MCP tool `kintsugi_multi_model_guide`) to inspect their live workspace tier and configured seats.",
                 "  2. Explain the 3 commercial tiers clearly:",
-                "     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run: `kintsugi swarm . --co-run`.",
+                "     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run `kintsugi swarm --register-deepseek-free` to auto-register a live $0 DeepSeek Free API key (262K context), then `kintsugi swarm . --co-run`.",
                 "     - **Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks `Primary Model + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover (`kintsugi swarm . --co-run --free-runners 5`).",
                 "     - **Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks `Primary Model + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`.",
                 "  3. Guide the user to add their own API keys (`BYOK`, saved locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):",
@@ -85,6 +85,7 @@ class SkillCompiler:
                 "     - `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`",
                 "     - `kintsugi swarm --paid-council-status`",
                 "     - `kintsugi swarm . --co-run --free-runners 5 --paid-council`",
+                "  4. **Anti-Overflow Conversation Compaction (`@COMPACT/1`):** When a conversation approaches context overflow (`>=70%` soft / `>=85%` hard watermark) or when the user asks to compress/save context without losing main points, immediately run `kintsugi compact --inject-agents` (or call MCP tool `kintsugi_compact_context`) to strip 4 classes of noise (verbose logs, polling loops, superseded file reads, thinking chaff) while locking 100% of `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules, IPs), and `@ERRORS_AND_FIXES` into `.kintsugi/context_checkpoints/latest_checkpoint.md` and `.kintsugi/context_checkpoints/latest_checkpoint.kml`.",
             ]
         )
         return "\n".join(lines)
@@ -94,15 +95,15 @@ class SkillCompiler:
         return (
             "---\n"
             "name: kintsugi-multi-model-council\n"
-            'description: "Interactive Bilingual (VI/EN) User Onboarding & Q&A Guide for Kintsugi 3-Tier Multi-Model Co-Execution (Primary + 1..5 Free Models + BYOK Paid Frontier Council). Activate whenever the user asks how to use multi-model, add API keys, or upgrade tiers."\n'
-            'tags: ["multi-model", "byok", "council", "onboarding", "user-guide"]\n'
+            'description: "Interactive Bilingual (VI/EN) User Onboarding & Q&A Guide for Kintsugi 3-Tier Multi-Model Co-Execution (Primary + 1..5 Free Models + BYOK Paid Frontier Council) and Zero-Loss Anti-Overflow Conversation Compaction (@COMPACT/1). Activate whenever the user asks how to use multi-model, add API keys, upgrade tiers, or prevent context overflow."\n'
+            'tags: ["multi-model", "byok", "council", "onboarding", "user-guide", "anti-overflow", "compact"]\n'
             "---\n\n"
-            "# Kintsugi Multi-Model Co-Execution & BYOK Paid Council — Agent User-Guidance Skill\n\n"
-            "Whenever the user asks **how to run multi-model**, **how many free models are included**, **how to add API keys for the Paid Council**, or **how Free vs Pro vs Enterprise work**, immediately run:\n\n"
+            "# Kintsugi Multi-Model Co-Execution, BYOK Paid Council & Anti-Overflow Compaction — Agent Skill\n\n"
+            "Whenever the user asks **how to run multi-model**, **how many free models are included**, **how to add API keys for the Paid Council**, **how Free vs Pro vs Enterprise work**, or **how to prevent context overflow / auto-compact conversations**, immediately run:\n\n"
             "```bash\n"
             'kintsugi guide "<user_question>"\n'
-            "# or:\n"
-            "kintsugi swarm --guide\n"
+            "# or to auto-compact the active conversation with zero context loss:\n"
+            "kintsugi compact --inject-agents\n"
             "```\n\n"
             "And guide the user clearly in their language (**Tiếng Việt** or **English**):\n\n"
             "## 1. Bảng Phân Tầng 3 Gói (`3-Tier Commercial Matrix`)\n\n"
@@ -124,6 +125,14 @@ class SkillCompiler:
             "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>\n"
             "kintsugi swarm --paid-council-status\n"
             "kintsugi swarm . --co-run --free-runners 5 --paid-council\n"
+            "```\n\n"
+            "## 3. Cơ Chế Chống Tràn Nén & Giữ 100% Ý Chính (`@COMPACT/1` — Zero-Loss Anti-Overflow)\n\n"
+            "Khi hội thoại dài dần hoặc chạm ngưỡng cảnh báo (`70%` Soft Watermark / `85%` Hard Watermark), chạy lệnh:\n\n"
+            "```bash\n"
+            "# Tự động lọc bỏ 4 nguồn gây nhiễu (log dài, vòng lặp poll, đọc trùng file, nháp thừa)\n"
+            "# và khóa cứng 100% Ý chính (@USER_INTENTS), Mỏ neo kỹ thuật (@HARD_ANCHORS) & Lỗi đã sửa (@ERRORS_AND_FIXES):\n"
+            "kintsugi compact --inject-agents\n"
+            "kintsugi compact --wire\n"
             "```\n"
         )
 

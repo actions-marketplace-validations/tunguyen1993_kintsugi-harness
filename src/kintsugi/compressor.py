@@ -65,12 +65,28 @@ COMPACT_SIGNATURES: Dict[str, str] = {
 }
 
 
+_TOKEN_WORD_RE = re.compile(r"\w+|[^\w\s]")
+
+
 def estimate_tokens(text: str) -> int:
-    """Fast deterministic BPE token approximation (~4 chars/token or word count)."""
+    """Fast deterministic BPE token approximation (~4 chars/token or word count, O(1) bounded for huge blobs)."""
     if not text:
         return 0
-    chars_est = (len(text) + 3) // 4
-    words_est = len(re.findall(r"\w+|[^\w\s]", text))
+    n_chars = len(text)
+    chars_est = (n_chars + 3) // 4
+    if n_chars <= 16_384:
+        words_est = len(_TOKEN_WORD_RE.findall(text))
+    else:
+        # Stratified 3-slice sample (head + middle + tail = 12,288 chars) for sub-millisecond speed on multi-MB inputs
+        slice_len = 4_096
+        mid = n_chars // 2
+        sample = (
+            text[:slice_len]
+            + text[max(0, mid - slice_len // 2) : mid + slice_len // 2]
+            + text[n_chars - slice_len :]
+        )
+        sample_words = len(_TOKEN_WORD_RE.findall(sample))
+        words_est = int(sample_words * (n_chars / float(len(sample))))
     return max(chars_est, int(words_est * 0.78))
 
 
@@ -105,7 +121,9 @@ def render_kmi_index(scars: Sequence[GoldenScar], pack_name: str = "core") -> st
         bucket = [scar_to_micro_token(s) for s in ordered if s.severity == sev]
         if bucket:
             lines.append(f"{tiers[sev]}: " + " | ".join(bucket))
-    lines.append("@GUIDE: When user asks how to use Multi-Model / Paid Council / BYOK keys -> run `kintsugi guide \"<question>\"` or read `.claude/skills/kintsugi-multi-model-council/SKILL.md`")
+    lines.append(
+        '@GUIDE: When user asks how to use Multi-Model / Paid Council / BYOK keys / Anti-Overflow -> run `kintsugi guide "<question>"` or `kintsugi compact`'
+    )
     lines.append(KMI_BOUNDARY_END)
     return "\n".join(lines)
 

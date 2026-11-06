@@ -334,7 +334,7 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
             responses = [json.loads(line) for line in out_buf.getvalue().splitlines()]
             self.assertEqual(len(responses), 3)
             self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "kintsugi-harness")
-            self.assertEqual(len(responses[1]["result"]["tools"]), 5)
+            self.assertEqual(len(responses[1]["result"]["tools"]), 6)
             scan_payload = json.loads(responses[2]["result"]["content"][0]["text"])
             self.assertFalse(scan_payload["passed"])
             self.assertEqual(scan_payload["findings"][0]["scar_id"], "KS-006")
@@ -652,10 +652,11 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertTrue(blocked["auto_provision_blocked_until_user_consent"])
 
             # 3. User supplies 1 free key -> state becomes USER_PROVIDED_KEY, secret is masked
-            st1 = pool_mgr.add_user_provided_key("groq_free", "gsk_live_user_supplied_987654")
+            mock_free_k = "gsk_" + ("0" * 20) + "987654"  # ggignore
+            st1 = pool_mgr.add_user_provided_key("groq_free", mock_free_k)
             self.assertEqual(st1["state"], "USER_PROVIDED_KEY")
             self.assertEqual(st1["distinct_model_families_count"], 1)
-            self.assertNotIn("gsk_live_user_supplied_987654", st1["active_providers"][0]["masked_key"])
+            self.assertNotIn(mock_free_k, st1["active_providers"][0]["masked_key"])
 
             # 4. User explicitly grants auto-provision consent -> VERIFIED_ACTIVE_POOL (12.5x error reduction)
             st_auth = pool_mgr.authorize_auto_provision(confirmed_by_user=True)
@@ -1120,7 +1121,7 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
         self.assertIn("REJECTED_REDOS_RISK", msg5)
 
         # 6. Outbound Secret / API Key / Private Path Leak (`sk-...`, `/workspace/project`)
-        fake_sk = "sk-" + "ProjSecretKey1234567890abcdef"
+        fake_sk = "sk-" + ("0" * 24)  # ggignore
         ok6, msg6 = audit_scar_security(
             make_scar(good_code=f"TOKEN = '{fake_sk}'")
         )
@@ -1297,14 +1298,16 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             self.assertEqual(plan_no_keys["paid_council_status"], "AWAITING_USER_BYOK_KEYS")
 
             # User adds 2 BYOK keys (`anthropic_opus` and `openai_frontier`)
-            st_paid = paid_reg.add_paid_key("anthropic_opus", "byok_user_key_anthropic_123456")
-            st_paid = paid_reg.add_paid_key("openai_frontier", "byok_user_key_openai_654321")
+            mock_ant_k = "byok_" + ("0" * 16) + "_123456"  # ggignore
+            mock_oai_k = "byok_" + ("0" * 16) + "_654321"  # ggignore
+            st_paid = paid_reg.add_paid_key("anthropic_opus", mock_ant_k)
+            st_paid = paid_reg.add_paid_key("openai_frontier", mock_oai_k)
             self.assertEqual(st_paid["paid_council_state"], "ACTIVE_READY")
             self.assertEqual(st_paid["configured_paid_seats_count"], 2)
             # Secret keys must be masked in public status
             for seat_info in st_paid["configured_paid_seats"]:
-                self.assertNotIn("anthropic_123456", seat_info["masked_key"])
-                self.assertNotIn("openai_654321", seat_info["masked_key"])
+                self.assertNotIn(mock_ant_k, seat_info["masked_key"])
+                self.assertNotIn(mock_oai_k, seat_info["masked_key"])
 
             trace = FailureTrace(
                 source="ci",
@@ -1357,6 +1360,212 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             )
             self.assertFalse(mcp_resp["result"]["isError"])
             self.assertIn("direct_answer_markdown", mcp_resp["result"]["content"][0]["text"])
+
+            # Verify Autonomous DeepSeek Free 6-Step Harvester & Pool Persistence
+            mock_tj_minted = "tj_" + ("0" * 20) + "9988"  # ggignore
+            def _mock_harvester_http(url: str, *, method: str = "GET", payload=None, headers=None, timeout_sec: float = 15.0):
+                if url.endswith("/domains"):
+                    return 200, {"hydra:member": [{"domain": "fldubai.com"}]}, []
+                if url.endswith("/accounts"):
+                    return 201, {"id": "acc_01"}, []
+                if url.endswith("/token"):
+                    return 200, {"token": "mt_" + ("0" * 12)}, []  # ggignore
+                if url.endswith("/send-magic-link"):
+                    return 204, {}, []
+                if url.endswith("/messages"):
+                    return 200, {"hydra:member": [{"id": "msg_01"}]}, []
+                if "/messages/msg_01" in url:
+                    return 200, {"text": "Sign in at https://tokenjuice.ai/auth/verify#token=" + ("0" * 16)}, []  # ggignore
+                if url.endswith("/auth/verify"):
+                    return 204, {}, ["tj_session=" + ("0" * 16) + "; Path=/; HttpOnly"]  # ggignore
+                if url.endswith("/api-key"):
+                    return 200, {"key": mock_tj_minted}, []  # ggignore
+                if url.endswith("/chat/completions"):
+                    return 200, {"choices": [{"message": {"content": "READY"}}]}, []
+                return 404, {}, []
+
+            from kintsugi.swarm import ConsentGatedFreePoolManager
+
+            pool_mgr = ConsentGatedFreePoolManager(ws)
+            ds_reg = pool_mgr.auto_register_deepseek_free(
+                confirmed_by_user=True,
+                count=2,
+                verify_chat=True,
+                http_fn=_mock_harvester_http,
+            )
+            self.assertTrue(ds_reg["ok"])
+            self.assertEqual(ds_reg["minted_count"], 2)
+            self.assertTrue(ds_reg["minted_tokens"][0]["verified_live_200_ok"])
+            self.assertNotIn(mock_tj_minted, ds_reg["minted_tokens"][0]["masked_key"])
+
+            qa_ds = answer_user_multi_model_question("agent có khả năng tự đăng ký token lấy api của deepseek free chưa", ws)
+            self.assertEqual(qa_ds["detected_intent"], "autonomous_deepseek_free_registration")
+            self.assertIn("--register-deepseek-free", qa_ds["direct_answer_markdown"])
+
+            # Verify Zero-Loss Anti-Overflow Conversation Compactor (@COMPACT/1)
+            from kintsugi.compactor import ConversationCompactor
+
+            (ws / "CLAUDE.md").write_text("# CLAUDE.md\n", encoding="utf-8")
+            (ws / "AGENTS.md").write_text("# AGENTS.md\n", encoding="utf-8")
+
+            noisy_steps = [
+                {
+                    "step_index": 1,
+                    "type": "USER_INPUT",
+                    "content": "<USER_REQUEST>Nâng cấp src/kintsugi/council.py#L202-L355 và đẩy bản v1.4.0 theo R123 và KS-005</USER_REQUEST>",
+                },
+                {
+                    "step_index": 2,
+                    "type": "TOOL_RESPONSE",
+                    "tool_calls": [{"name": "read_file"}],
+                    "content": "Reading src/kintsugi/council.py\n" + ("# old line content\n" * 120),
+                },
+            ]
+            # 12 redundant polling turns (CM-015)
+            for p_idx in range(3, 15):
+                noisy_steps.append(
+                    {
+                        "step_index": p_idx,
+                        "type": "TOOL_RESPONSE",
+                        "tool_calls": [{"name": "manage_task"}],
+                        "content": '{"Action": "status", "TaskId": "task-4672", "state": "running on port 8897"}',
+                    }
+                )
+            # Newer read of the same file (supersedes step 2)
+            noisy_steps.append(
+                {
+                    "step_index": 15,
+                    "type": "TOOL_RESPONSE",
+                    "tool_calls": [{"name": "read_file"}],
+                    "content": "Reading src/kintsugi/council.py#L202-L355\n" + ("# updated verified line\n" * 90),
+                }
+            )
+            # Verbose build/test log with 1 error + fix + accidental secret token
+            mock_leaked_tok = "tj_" + ("0" * 24) + "abcdef"  # ggignore
+            noisy_steps.append(
+                {
+                    "step_index": 16,
+                    "type": "TOOL_RESPONSE",
+                    "content": "\n".join(
+                        [f"building crate line {i}..." for i in range(60)]
+                        + [
+                            "AssertionError: 5 != 6 in tests/test_kintsugi.py — Fixed by updating MCP tool count to 6",
+                            f"Temp token leaked in log: {mock_leaked_tok}",
+                            "Ran 34 tests in 8.0s — PASS 100% on commit fde1a2b (tag v1.4.0) at 203.0.113.1",
+                        ]
+                    ),
+                }
+            )
+            noisy_steps.append(
+                {
+                    "step_index": 17,
+                    "type": "USER_INPUT",
+                    "content": "<USER_REQUEST>giờ sẽ còn 1 phần khá quan trọng như khi 1 conversation đầy cần cơ thế chống tràn nén để không mất context nắm được các ý chính loại bỏ các phần gây nhiễu tự nén</USER_REQUEST>",
+                }
+            )
+            noisy_steps.append(
+                {
+                    "step_index": 18,
+                    "type": "PLANNER_RESPONSE",
+                    "thinking": ("Exploring options. " * 40) + "We must implement src/kintsugi/compactor.py to enforce R123.",
+                    "content": "Đã nâng cấp xong cơ chế chống tràn nén @COMPACT/1 (PASS 100%, commit fde1a2b, tag v1.4.0).",
+                }
+            )
+
+            raw_jsonl = "\n".join(json.dumps(s, ensure_ascii=False) for s in noisy_steps)
+            compactor = ConversationCompactor(
+                ws,
+                max_context_tokens=2000,
+                soft_watermark=0.50,
+                hard_watermark=0.75,
+                completion_fn=failover_completion,
+            )
+            c_rep = compactor.compact_text(raw_jsonl, source_label="test_session.jsonl", persist=True, inject_agents_md=True, co_run=True)
+
+            self.assertTrue(c_rep["ok"])
+            self.assertTrue(c_rep["co_execution_summary"]["live_executed"])
+            self.assertGreaterEqual(c_rep["co_execution_summary"]["free_co_runners_succeeded"], 1)
+            self.assertIn("@FREE_COUNCIL_CO_DISTILL", c_rep["checkpoint_markdown"])
+            self.assertGreaterEqual(c_rep["noise_filter_report"]["polling_loops_collapsed"], 10)
+            self.assertGreaterEqual(c_rep["noise_filter_report"]["superseded_reads_pruned"], 1)
+            self.assertGreaterEqual(c_rep["noise_filter_report"]["verbose_logs_folded"], 1)
+            self.assertTrue(c_rep["zero_loss_verification"]["zero_loss_verified"])
+            self.assertEqual(c_rep["zero_loss_verification"]["anchor_retention_rate"], 1.0)
+            self.assertIn("src/kintsugi/council.py#L202-L355", c_rep["checkpoint_markdown"])
+            self.assertIn("v1.4.0", c_rep["checkpoint_markdown"])
+            self.assertIn("R123", c_rep["checkpoint_markdown"])
+            self.assertNotIn(mock_leaked_tok, c_rep["checkpoint_markdown"])
+            self.assertIn("@COMPACT/1", (ws / "CLAUDE.md").read_text(encoding="utf-8"))
+            self.assertIn("@COMPACT/1", (ws / "AGENTS.md").read_text(encoding="utf-8"))
+
+            qa_cmp = answer_user_multi_model_question(
+                "khi 1 conversation đầy cần cơ thế chống tràn nén để không mất context",
+                ws,
+            )
+            self.assertEqual(qa_cmp["detected_intent"], "anti_overflow_context_compaction")
+            self.assertIn("kintsugi compact", qa_cmp["direct_answer_markdown"])
+
+            mcp_cmp = mcp_srv.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 100,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "kintsugi_compact_context",
+                        "arguments": {"raw_conversation": raw_jsonl, "workspace_root": str(ws)},
+                    },
+                }
+            )
+            self.assertFalse(mcp_cmp["result"]["isError"])
+            self.assertIn("@COMPACT/1", mcp_cmp["result"]["content"][0]["text"])
+
+            # Verify Long .xlsx Excel Workbook Distillation (@TABULAR_EXCEL_MEMORY) & Anti-Lost-in-the-Middle Recall
+            import zipfile as _zf
+
+            xlsx_test_path = ws / "financial_ledger_1000rows.xlsx"
+            with _zf.ZipFile(xlsx_test_path, "w", compression=_zf.ZIP_DEFLATED) as zf:
+                zf.writestr(
+                    "xl/workbook.xml",
+                    '<?xml version="1.0" encoding="UTF-8"?><workbook><sheets><sheet name="Ledger_Q4" sheetId="1"/></sheets></workbook>',
+                )
+                row_xml = [
+                    '<row r="1">'
+                    '<c r="A1" t="inlineStr"><is><t>Order_ID</t></is></c>'
+                    '<c r="B1" t="inlineStr"><is><t>Region</t></is></c>'
+                    '<c r="C1" t="inlineStr"><is><t>Amount_USD</t></is></c>'
+                    '<c r="D1" t="inlineStr"><is><t>Audit_Status</t></is></c>'
+                    "</row>"
+                ]
+                for r_i in range(1, 501):
+                    r_num = r_i + 1
+                    amt = 100.0
+                    status_str = "NORMAL_SETTLED"
+                    if r_i == 250:  # Exact 50% Dead-Center Middle Needle
+                        amt = 99500.0
+                        status_str = "CRITICAL_DISCREPANCY_MIDDLE_ROW_250_R120"
+                    row_xml.append(
+                        f'<row r="{r_num}">'
+                        f'<c r="A{r_num}" t="inlineStr"><is><t>ORD-{r_i:04d}</t></is></c>'
+                        f'<c r="B{r_num}" t="inlineStr"><is><t>APAC</t></is></c>'
+                        f'<c r="C{r_num}"><v>{amt}</v></c>'
+                        f'<c r="D{r_num}" t="inlineStr"><is><t>{status_str}</t></is></c>'
+                        f"</row>"
+                    )
+                zf.writestr(
+                    "xl/worksheets/sheet1.xml",
+                    '<?xml version="1.0" encoding="UTF-8"?><worksheet><sheetData>'
+                    + "".join(row_xml)
+                    + "</sheetData></worksheet>",
+                )
+
+            raw_xlsx_txt, xlsx_label = compactor.discover_conversation_source(xlsx_test_path)
+            xlsx_rep = compactor.compact_text(raw_xlsx_txt, source_label=xlsx_label, persist=False)
+            self.assertTrue(xlsx_rep["ok"])
+            self.assertEqual(xlsx_rep["noise_filter_report"]["tabular_rows_distilled"], 500)
+            self.assertIn("@TABULAR_EXCEL_MEMORY", xlsx_rep["checkpoint_markdown"])
+            self.assertIn("CRITICAL_DISCREPANCY_MIDDLE_ROW_250_R120", xlsx_rep["checkpoint_markdown"])
+            self.assertIn("149,400.00", xlsx_rep["checkpoint_markdown"])  # Exact SUM: 499*100 + 99500 = 149,400.00
+            self.assertLess(xlsx_rep["processing_latency_ms"], 500.0)
 
 
 if __name__ == "__main__":
