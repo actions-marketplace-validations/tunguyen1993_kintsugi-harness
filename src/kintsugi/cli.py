@@ -320,15 +320,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_cmp = sub.add_parser(
         "compact",
-        help="Zero-Loss Anti-Overflow Conversation Compactor (@COMPACT/1): strip noise, preserve 100%% of main points & hard anchors, and emit checkpoint",
+        help="Anti-Overflow Conversation & Excel Compactor (@COMPACT/2 + @USER_PERSONA/1 + @RECURRENCE_SHIELD/1)",
     )
-    p_cmp.add_argument("source", nargs="?", default=None, help="Optional path to conversation transcript (.jsonl, .json, or .md). Auto-discovers active session if omitted.")
+    p_cmp.add_argument("source", nargs="?", default=None, help="Optional path to conversation transcript (.jsonl, .json, .md) or Excel/tabular file (.xlsx, .csv, .tsv). Auto-discovers active session if omitted.")
     p_cmp.add_argument("--workspace", default=".", help="Workspace root directory")
     p_cmp.add_argument("--max-tokens", type=int, default=128000, help="Target context window capacity in tokens (default: 128000)")
     p_cmp.add_argument("--soft-watermark", type=float, default=0.70, help="Soft watermark ratio for pre-emptive noise pruning (default: 0.70)")
     p_cmp.add_argument("--hard-watermark", type=float, default=0.85, help="Hard watermark ratio for automatic full compaction (default: 0.85)")
     p_cmp.add_argument("--inject-agents", action="store_true", help="Inject <180-token @COMPACT/1 memory capsule into CLAUDE.md and AGENTS.md")
     p_cmp.add_argument("--co-run", action="store_true", help="Include Multi-Model Co-Execution verification metadata")
+    p_cmp.add_argument("--evolution-iq", action="store_true", help="Compute and display the 5-Pillar Evolution Intelligence Report (@EVOLUTION_IQ/1 + @RECURRENCE_SHIELD/1)")
+    p_cmp.add_argument("--persona", action="store_true", help="Display the learned Adaptive User Persona & Cognitive Twin Profile (@USER_PERSONA/1)")
     p_cmp.add_argument("--no-persist", action="store_true", help="Run in-memory without writing .kintsugi/context_checkpoints/")
     p_cmp.add_argument("--wire", action="store_true", help="Output ultra-dense <180-token @COMPACT/1 symbolic wire capsule")
     p_cmp.add_argument("--format", choices=["markdown", "json", "wire"], default="markdown", help="Output format (markdown, json, or wire)")
@@ -895,6 +897,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "compact":
+        if getattr(args, "evolution_iq", False):
+            from kintsugi.cognition import compute_evolution_intelligence_report
+
+            iq_rep = compute_evolution_intelligence_report(args.workspace)
+            print(json.dumps(iq_rep, indent=2, ensure_ascii=False))
+            return 0
         compactor = ConversationCompactor(
             args.workspace,
             max_context_tokens=args.max_tokens,
@@ -907,6 +915,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             inject_agents_md=bool(args.inject_agents),
             co_run=bool(args.co_run),
         )
+        if getattr(args, "persona", False):
+            print(json.dumps(res.get("user_persona") or {}, indent=2, ensure_ascii=False))
+            return 0
         if args.wire or args.format == "wire":
             print(res["kmi_compact_wire"])
         elif args.format == "json":

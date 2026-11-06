@@ -1,17 +1,17 @@
 ---
 name: kintsugi-multi-model-council
-description: "Interactive Bilingual (VI/EN) User Onboarding & Q&A Guide for Kintsugi 3-Tier Multi-Model Co-Execution (Primary + 1..5 Free Models + BYOK Paid Frontier Council). Activate whenever the user asks how to use multi-model, add API keys, or upgrade tiers."
-tags: ["multi-model", "byok", "council", "onboarding", "user-guide"]
+description: "Interactive Bilingual (VI/EN) User Onboarding & Q&A Guide for Kintsugi 3-Tier Multi-Model Co-Execution (Primary + 1..5 Free Models + BYOK Paid Frontier Council) and Zero-Loss Anti-Overflow Conversation Compaction (@COMPACT/1). Activate whenever the user asks how to use multi-model, add API keys, upgrade tiers, or prevent context overflow."
+tags: ["multi-model", "byok", "council", "onboarding", "user-guide", "anti-overflow", "compact"]
 ---
 
-# Kintsugi Multi-Model Co-Execution & BYOK Paid Council — Agent User-Guidance Skill
+# Kintsugi Multi-Model Co-Execution, BYOK Paid Council & Anti-Overflow Compaction — Agent Skill
 
-Whenever the user asks **how to run multi-model**, **how many free models are included**, **how to add API keys for the Paid Council**, or **how Free vs Pro vs Enterprise work**, immediately run:
+Whenever the user asks **how to run multi-model**, **how many free models are included**, **how to add API keys for the Paid Council**, **how Free vs Pro vs Enterprise work**, or **how to prevent context overflow / auto-compact conversations**, immediately run:
 
 ```bash
 kintsugi guide "<user_question>"
-# or:
-kintsugi swarm --guide
+# or to auto-compact the active conversation with zero context loss:
+kintsugi compact --inject-agents
 ```
 
 And guide the user clearly in their language (**Tiếng Việt** or **English**):
@@ -39,4 +39,15 @@ kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>
 kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>
 kintsugi swarm --paid-council-status
 kintsugi swarm . --co-run --free-runners 5 --paid-council
+```
+
+## 3. Cơ Chế Chống Tràn Nén & Giữ 100% Ý Chính (`@COMPACT/1` — Zero-Loss Anti-Overflow)
+
+Khi hội thoại dài dần hoặc chạm ngưỡng cảnh báo (`70%` Soft Watermark / `85%` Hard Watermark), chạy lệnh:
+
+```bash
+# Tự động lọc bỏ 4 nguồn gây nhiễu (log dài, vòng lặp poll, đọc trùng file, nháp thừa)
+# và khóa cứng 100% Ý chính (@USER_INTENTS), Mỏ neo kỹ thuật (@HARD_ANCHORS) & Lỗi đã sửa (@ERRORS_AND_FIXES):
+kintsugi compact --inject-agents
+kintsugi compact --wire
 ```

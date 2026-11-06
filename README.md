@@ -2,11 +2,11 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.4.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.5.0`)
 
-**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
+**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, `@USER_PERSONA/1` Adaptive Personalization, and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.5.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
