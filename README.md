@@ -28,7 +28,7 @@ Existing agent harnesses and rule repositories (`Superpowers`, static `.cursorru
 2. **Advisory Prose != Enforcement:** Markdown instructions are merely suggestions; agents still run `subprocess(..., shell=True)`, hardcode secrets, or execute destructive shell commands under pressure.
 3. **Slow Hook Latency:** Heavy linters add `300–1,500ms` of overhead on every tool call.
 
-**Kintsugi v0.3.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `9.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `93.7%` of context tokens)**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
+**Kintsugi v1.4.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
 
 ```mermaid
 flowchart LR
@@ -41,9 +41,9 @@ flowchart LR
 
 ---
 
-## Benchmark: Kintsugi v0.3.0 vs Other Agent Harnesses
+## Benchmark: Kintsugi v1.4.0 vs Other Agent Harnesses
 
-| Capability / Metric | **Kintsugi Harness (`v0.3.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
+| Capability / Metric | **Kintsugi Harness (`v1.4.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
 | :--- | :--- | :--- | :--- | :--- |
 | **Per-Turn Context Cost (18 Rules)** | **`~209 tokens` (`KMI/1` Wire Index)** | `~3,330 tokens` | `~4,500–9,000 tokens` | `0` (no agent awareness) |
 | **Tokens Saved per 50-Turn Session** | **`~156,050 tokens` (`93.7%` reduction)** | `0` (Baseline) | Negative (`-225k+ tokens`) | N/A |
@@ -73,6 +73,14 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 | **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **5 Slash Workflows** | **5 Slash Workflows** | **5 Slash Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`, `/kintsugi-multi-model-council`)** |
 | **Frontier Collective Pool (`collective_pool_lessons.json`)** | Included (`collective-pool/`) | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** |
 | **Delivery Formats** | `.zip` ([`free-skill-pack/`](free-skill-pack/)) | `.zip` + AEAD `.kpack` | `.zip` + AEAD `.kpack` | **`.zip` + AEAD `.kpack`** |
+
+> [!IMPORTANT]
+> **New in `v1.4.0` — 3-Tier Multi-Model Co-Execution & BYOK Paid Frontier Council (`Primary + Free Models + Paid Council`):**
+> - **Always-On Co-Execution:** Your **Primary Model** never runs alone — Kintsugi automatically discovers available `$0` Free Co-Runner models (via local gateway `:8897`, `.kintsugi/free_agent_pool.json`, env keys, or keyless `$0` community endpoints) and runs them in parallel alongside the Primary Model.
+> - **Tier 0 (`$0` Free / OSS):** Locked to **`Primary + 1 Free Model ($0)`** (`max_free_co_runners = 1`). Passing `--free-runners 2..5` automatically clamps to `1` and displays the upgrade path.
+> - **Tier 1 & Tier 2 (`$15` FinOps Pro / `$19` AppSec Pro):** Unlocks **`Primary + up to 5 Parallel Free Models ($0)`** (`max_free_co_runners = 5`) with automatic HTTP `429` / timeout round-robin failover and `12.5x` Byzantine-Fault-Tolerant (`BFT`) error reduction.
+> - **Tier 3 (`$29` Enterprise Complete Pro):** Unlocks **`Primary + 5 Free Models ($0) + 6-Seat Paid Frontier Council (`BYOK`)`** (`Claude Opus 4.6`, `GPT-5.4 Thinking`, `Grok 4`, `Gemini 2.5 Pro`, `DeepSeek R1`, `OpenRouter Frontier`).
+> - **How the Agent Guides Users (`BYOK` — Bring Your Own Key):** Paid Frontier Council seats require users to supply their own API keys (stored strictly locally at `.kintsugi/paid_council_pool.json` with `chmod 0600` permissions). Run **`kintsugi swarm --guide`** (or slash command **`/kintsugi-multi-model-council`**, or MCP tool **`kintsugi_multi_model_guide`**) at any time for an interactive bilingual (`EN/VI`) setup walkthrough.
 
 ---
 
