@@ -109,7 +109,11 @@ class KintsugiMCPServer:
                     "id": msg_id,
                     "result": {
                         "protocolVersion": MCP_PROTOCOL_VERSION,
-                        "capabilities": {"tools": {}},
+                        "capabilities": {
+                            "tools": {},
+                            "resources": {},
+                            "prompts": {},
+                        },
                         "serverInfo": {
                             "name": "kintsugi-harness",
                             "version": __version__,
@@ -125,6 +129,27 @@ class KintsugiMCPServer:
                     "jsonrpc": "2.0",
                     "id": msg_id,
                     "result": {"tools": _tool_definitions()},
+                }
+
+            if method == "resources/list":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {"resources": []},
+                }
+
+            if method == "resources/templates/list":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {"resourceTemplates": []},
+                }
+
+            if method == "prompts/list":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {"prompts": []},
                 }
 
             if method == "tools/call":
