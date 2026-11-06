@@ -1711,6 +1711,121 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             self.assertEqual(scan_artifact_egress(s2)["decision"], "BLOCK")
             self.assertEqual(scan_artifact_egress(s3_letters_only)["decision"], "BLOCK")
 
+    def test_v160_five_pillar_neuro_symbolic_logical_reasoning_engine(self) -> None:
+        from kintsugi.logic import (
+            AbductiveHittingSetDiagnoser,
+            DifferenceLogicSolver,
+            DPLLSatSolver,
+            FormalFallacyAndCoTAuditor,
+            LoginAuthLogicVerifier,
+            StratifiedDatalogEngine,
+            forage_github_star_harnesses_with_gemini_grok,
+            run_gemini38_luna_vs_free_council_logic_arena,
+            run_logical_reasoning_benchmark,
+        )
+
+        # 1. Full 5-Pillar Benchmark
+        bench = run_logical_reasoning_benchmark()
+        self.assertTrue(bench["ok"])
+        self.assertIn("status=PASS_100", bench["wire"])
+
+        # 2. DPLL Edge Cases: Empty CNF -> SAT, Empty Clause -> UNSAT, Tautology -> SAT,
+        #    Bijective Integer/Named Variable Allocation, Duplicate Clause ID Rejection, & Strict Model Verifier
+        empty_solver = DPLLSatSolver()
+        self.assertEqual(empty_solver.solve()["status"], "SAT")
+        empty_clause_solver = DPLLSatSolver()
+        empty_clause_solver.add_clause([], clause_id="C_EMPTY")
+        ec_res = empty_clause_solver.solve(extract_mus_on_unsat=True)
+        self.assertEqual(ec_res["status"], "UNSAT")
+        self.assertEqual(ec_res["unsat_core"]["mus_clause_ids"], ["C_EMPTY"])
+        self.assertTrue(ec_res["unsat_core"]["subset_minimality_verified"])
+
+        # Council #2 Finding #1: Integer literal [2] + named ["~b"] must NOT alias to the same ID
+        bij_solver = DPLLSatSolver()
+        bij_solver.add_clause([2], clause_id="C_INT2")
+        bij_solver.add_clause(["~b"], clause_id="C_NEGB")
+        bij_res = bij_solver.solve()
+        self.assertEqual(bij_res["status"], "SAT")
+        self.assertTrue(bij_res["model_verified"])
+        with self.assertRaises(ValueError):
+            bij_solver.add_clause([True])  # Boolean literal rejected
+        with self.assertRaises(ValueError):
+            bij_solver.add_clause(["a"], clause_id="C_INT2")  # Duplicate clause_id rejected
+        self.assertFalse(bij_solver.verify_model({}))  # Incomplete model rejected
+
+        # 3. Stratified Datalog Edge Cases: Unsafe variable rejection, Unstratified negation cycle rejection,
+        #    Forged Proof DAG rejection, & Non-ground negated query rejection
+        dl_unsafe = StratifiedDatalogEngine()
+        with self.assertRaises(ValueError):
+            dl_unsafe.add_rule("leaked(?X, ?Y)", ["source(?X)"])  # ?Y is unbound in positive body
+        with self.assertRaises(ValueError):
+            dl_unsafe.add_rule("safe(?X)", ["source(?X)", "not sanitized(?Z)"])  # ?Z unbound in negation
+        with self.assertRaises(ValueError):
+            dl_unsafe.parse_atom("not not p(a)")  # Double negation rejected
+        with self.assertRaises(ValueError):
+            dl_unsafe.parse_atom("p(a,,b)")  # Empty argument rejected
+
+        # Quoted uppercase constant ('Alice') is treated as ground constant, not variable
+        dl_quote = StratifiedDatalogEngine()
+        dl_quote.add_fact("admin('Alice')", fact_id="F_ALICE")
+        self.assertTrue(dl_quote.query("admin('Alice')")["entailed"])
+        self.assertFalse(dl_quote.verify_proof_dag({"invented(a)": {"fact": "invented(a)", "kind": "EDB_AXIOM"}}, set()))
+        self.assertEqual(dl_quote.query("not admin(?X)")["status"], "FLOUNDERED_NON_GROUND_NEGATED_QUERY")
+
+        dl_unstrat = StratifiedDatalogEngine()
+        dl_unstrat.add_fact("node(a)")
+        dl_unstrat.add_rule("p(?X)", ["node(?X)", "not q(?X)"], rule_id="R1")
+        dl_unstrat.add_rule("q(?X)", ["node(?X)", "not p(?X)"], rule_id="R2")
+        unstrat_res = dl_unstrat.forward_chain()
+        self.assertFalse(unstrat_res["ok"])
+        self.assertEqual(unstrat_res["status"], "UNSTRATIFIED_NEGATION_CYCLE")
+
+        # 4. Difference Logic: Disconnected component negative cycle + exact rational strict `<` & tight slack
+        diff = DifferenceLogicSolver()
+        diff.add_constraint("a", "b", "<=", 5, constraint_id="AB")
+        diff.add_constraint("x", "y", "<", 0, constraint_id="XY_STRICT")
+        diff.add_constraint("y", "x", "<=", 0, constraint_id="YX_LE")
+        d_res = diff.solve()
+        self.assertEqual(d_res["status"], "UNSAT")
+        self.assertTrue(d_res["negative_cycle_certificate"]["negative_sum_verified"])
+        self.assertEqual(set(d_res["negative_cycle_certificate"]["minimal_conflict_ids"]), {"XY_STRICT", "YX_LE"})
+        with self.assertRaises(ValueError):
+            diff.add_constraint("__ZERO__", "a", "<=", 1)  # Reserved zero node rejected
+
+        # 5. Formal Fallacy Auditor: Denying the Antecedent & Ex Falso Quodlibet
+        aud = FormalFallacyAndCoTAuditor()
+        da_rep = aud.audit_argument(
+            implications=[("has_admin_role", "can_read_logs")],
+            asserted_literals=["~has_admin_role"],
+            claimed_conclusion="~can_read_logs",
+        )
+        self.assertEqual(da_rep["status"], "FALLACY_OR_CONTRADICTION_DETECTED")
+        self.assertEqual(da_rep["findings"][0]["fallacy_id"], "FALLACY_DENYING_THE_ANTECEDENT")
+
+        ex_falso = aud.audit_argument(
+            implications=[("A", "B")],
+            asserted_literals=["A", "~B"],
+            claimed_conclusion="arbitrary_claim",
+        )
+        self.assertFalse(ex_falso["premises_consistent"])
+        self.assertEqual(ex_falso["findings"][0]["fallacy_id"], "CONTRADICTORY_PREMISES_EX_FALSO")
+
+        # 6. Abductive Hitting-Set Diagnoser: Unexplained symptom detection
+        abd = AbductiveHittingSetDiagnoser()
+        unexp = abd.diagnose({"symptom_1": ["cause_a"], "symptom_2": []})
+        self.assertEqual(unexp["status"], "UNEXPLAINED_SYMPTOM")
+        self.assertEqual(unexp["uncovered_symptoms"], ["symptom_2"])
+
+        # 7. Login & Authentication State-Machine Verifier + Adversarial Arena + GitHub Star-Harness Forager
+        login_rep = LoginAuthLogicVerifier().verify_login_security_suite()
+        self.assertTrue(login_rep["ok"])
+        arena_rep = run_gemini38_luna_vs_free_council_logic_arena()
+        self.assertTrue(arena_rep["ok"])
+        self.assertEqual(arena_rep["kintsugi_harness_team_score"], "5/5 (100.0%)")
+        forage_rep = forage_github_star_harnesses_with_gemini_grok(live_github_probe=False)
+        self.assertTrue(forage_rep["ok"])
+        self.assertGreaterEqual(forage_rep["harnesses_studied_count"], 5)
+
 
 if __name__ == "__main__":
     unittest.main()

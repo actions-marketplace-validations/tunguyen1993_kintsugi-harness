@@ -335,6 +335,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cmp.add_argument("--wire", action="store_true", help="Output ultra-dense <180-token @COMPACT/1 symbolic wire capsule")
     p_cmp.add_argument("--format", choices=["markdown", "json", "wire"], default="markdown", help="Output format (markdown, json, or wire)")
 
+    p_log = sub.add_parser(
+        "logic",
+        help="5-Pillar Neuro-Symbolic Logical Reasoning Engine (@LOGIC/2: DPLL SAT/MUS, Stratified Datalog + Proof DAG, Difference Logic, Fallacy Guard, Abductive MHS, Login Auth & GitHub Forager)",
+    )
+    p_log.add_argument("--benchmark", action="store_true", help="Run the 5-Pillar @LOGIC/2 verification benchmark suite")
+    p_log.add_argument("--login-verify", action="store_true", help="Run the Formal Login & Authentication State-Machine Verifier (MFA Step-Up, Session Revocation, OTP Window, Fallacy Guard)")
+    p_log.add_argument("--arena", action="store_true", help="Run the 5-Round Adversarial Logic & Login Arena: (Gemini-3.8B + GPT-6-Luna + Kintsugi @LOGIC/2) vs Raw Free Agent Council")
+    p_log.add_argument("--forage-github-harnesses", action="store_true", help="Release Gemini-3.8B + Grok 4.7 to study high-star GitHub agent harnesses (Claude Code, DeepSeek R1, OpenHands, Aider, Cline)")
+    p_log.add_argument("--wire", action="store_true", help="Output compact @LOGIC/2 symbolic wire summary")
+
     return parser
 
 
@@ -925,6 +935,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             print(res["checkpoint_markdown"])
         return 0
+
+    if args.command == "logic":
+        from kintsugi.logic import (
+            LoginAuthLogicVerifier,
+            forage_github_star_harnesses_with_gemini_grok,
+            run_gemini38_luna_vs_free_council_logic_arena,
+            run_logical_reasoning_benchmark,
+        )
+
+        if getattr(args, "login_verify", False):
+            rep = LoginAuthLogicVerifier().verify_login_security_suite()
+        elif getattr(args, "arena", False):
+            rep = run_gemini38_luna_vs_free_council_logic_arena()
+        elif getattr(args, "forage_github_harnesses", False):
+            rep = forage_github_star_harnesses_with_gemini_grok(live_github_probe=True)
+        else:
+            rep = run_logical_reasoning_benchmark()
+
+        if getattr(args, "wire", False) and "wire" in rep:
+            print(rep["wire"])
+        else:
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+        return 0 if rep.get("ok") else 1
 
     return 0
 

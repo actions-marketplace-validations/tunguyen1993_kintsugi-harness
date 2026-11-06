@@ -2,6 +2,16 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.6.0] - 2026-11-06
+
+### Added
+- **5-Pillar Neuro-Symbolic Logical Reasoning Engine (`@LOGIC/2` — `src/kintsugi/logic.py` & `kintsugi logic --benchmark`):**
+  1. **`DPLLSatSolver` (Propositional SAT/UNSAT & Subset-Minimal Unsatisfiable Core `MUS`):** Deterministic DPLL solver with Unit Propagation, reason-clause tracking, total model completion & independent verification, and deletion-filtered Subset-Minimal Unsatisfiable Core (`MUS`) extraction with `subset_minimality_verified` proof certificates.
+  2. **`StratifiedDatalogEngine` (First-Order Horn-Clause & Stratified Negation-as-Failure Reasoner):** Enforces Datalog Range-Restriction (`Safety`), predicate arity consistency, and exact Stratification via Strongly Connected Components (rejecting unstratified negative recursion cycles). Executes Semi-Naive Least-Fixed-Point Forward Chaining and Cycle-Safe Backward Chaining with Proof-Carrying Derivation DAGs (`ProofDAG/1`) and Closed-World Negation Certificates.
+  3. **`DifferenceLogicSolver` (Multi-Variable Relational & Difference Logic $x_i - x_j \le c$):** Uses exact rational + symbolic infinitesimal lexicographic arithmetic `(Fraction, int)` over a super-sourced potential graph (handling strict `<`, `<=`, `>=`, and `==` with zero IEEE-754 floating-point roundoff). Emits verified rational potential assignments on `SAT` and exact negative-weight directed cycle certificates + subset-minimal conflict cores on `UNSAT`.
+  4. **`FormalFallacyAndCoTAuditor` (`@FALLACY_GUARD/1` — Formal Argument & CoT Verifier):** Audits structured reasoning steps for Affirming the Consequent, Denying the Antecedent, Circular Reasoning (`Petitio Principii`), Contradictory Premises (`Ex Falso Quodlibet`), and Non-Exhaustive Case Partitions, emitting concrete countermodels when invalid.
+  5. **`AbductiveHittingSetDiagnoser` (Reiter's Subset-Minimal Hitting-Set Root-Cause Abduction):** Computes all subset-minimal hitting-set diagnoses over observed symptoms, certifying both symptom coverage and element-by-element necessity (`H \ {h}` witness).
+
 ## [1.5.0] - 2026-11-06
 
 ### Added
