@@ -338,8 +338,52 @@ class DisjointScarHoldoutVerifier:
         if generator_model.strip().lower() == verifier_model.strip().lower():
             verifier_model = f"{verifier_model}-disjoint-verifier"
 
+        if not scar.regex_pattern and scar.ast_rule:
+            from .scanner import KintsugiScanner
+            ast_scanner = KintsugiScanner([scar])
+            raw_bad = scar.bad_code.strip()
+            raw_good = scar.good_code.strip()
+            indented_bad = "\n".join(f"    {ln}" for ln in raw_bad.splitlines())
+            pos_samples: List[str] = [
+                raw_bad,
+                f"{raw_bad}  # holdout_context_shift",
+                re.sub(r"(?<![=!<>])\s*=\s*(?!=)", " = ", raw_bad),
+                f"def _holdout_wrapper():\n{indented_bad}\n",
+            ]
+            neg_samples: List[str] = [
+                raw_good,
+                re.sub(r"(?<![=!<>])\s*=\s*(?!=)", " = ", raw_good),
+            ] + list(cls.SAFE_PARAPHRASE_HOLD_NEGATIVES)
+            tp_hits = sum(
+                1 for sample in pos_samples
+                if len(ast_scanner.scan_text(sample, file_path="holdout.py", language="python")) > 0
+            )
+            fp_hits = sum(
+                1 for sample in neg_samples
+                if len(ast_scanner.scan_text(sample, file_path="holdout.py", language="python")) > 0
+            )
+            holdout_recall = round(tp_hits / max(1, len(pos_samples)), 4)
+            recall_drop = round(max(0.0, 1.0 - holdout_recall), 4)
+            denom = tp_hits + fp_hits
+            holdout_precision = round(tp_hits / denom, 4) if denom > 0 else 0.0
+            passed = holdout_precision >= 0.95 and recall_drop <= 0.05 and fp_hits == 0
+            return {
+                "passed": passed,
+                "reason": "DISJOINT_AST_HOLDOUT_VERIFIED" if passed else "AST_HOLDOUT_FAILURE",
+                "generator_model": generator_model,
+                "verifier_model": verifier_model,
+                "disjoint_tiers": generator_model != verifier_model,
+                "positive_holdout_count": len(pos_samples),
+                "negative_holdout_count": len(neg_samples),
+                "holdout_tp": tp_hits,
+                "paraphrase_negative_fp_count": fp_hits,
+                "holdout_precision": holdout_precision,
+                "holdout_recall": holdout_recall,
+                "recall_drop": recall_drop,
+            }
+
         try:
-            compiled = re.compile(scar.regex_pattern, re.MULTILINE)
+            compiled = re.compile(scar.regex_pattern or "", re.MULTILINE)
         except re.error as exc:
             return {
                 "passed": False,
