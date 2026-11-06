@@ -345,6 +345,24 @@ def _build_parser() -> argparse.ArgumentParser:
     p_log.add_argument("--forage-github-harnesses", action="store_true", help="Release Gemini-3.8B + Grok 4.7 to study high-star GitHub agent harnesses (Claude Code, DeepSeek R1, OpenHands, Aider, Cline)")
     p_log.add_argument("--wire", action="store_true", help="Output compact @LOGIC/2 symbolic wire summary")
 
+    p_ver = sub.add_parser(
+        "verify",
+        help="Proof-Carrying Change & Signed Compliance Verifier (@PROOF_DAG/1 + @ZK_AST_DIFF/1 + SOC2/ISO27001/EU-AI-Act .kintsugi/audit.proof)",
+    )
+    p_ver.add_argument("--target", default=None, help="Optional Python file path to verify and bind into the compliance proof bundle")
+    p_ver.add_argument("--export-audit", default=None, help="Optional path to export signed .kintsugi/audit.proof JSON bundle")
+    p_ver.add_argument("--verify-proof", default=None, help="Path to an existing .kintsugi/audit.proof bundle to verify cryptographically")
+    p_ver.add_argument("--zk-diff", action="store_true", help="Emit only the Zero-Knowledge AST Structural Proof (@ZK_AST_DIFF/1)")
+    p_ver.add_argument("--wire", action="store_true", help="Output compact @PROOF_DAG/1 symbolic wire header")
+
+    p_evl = sub.add_parser(
+        "eval",
+        help="Open Reproducible Autonomous Engineering Benchmark & Deterministic Replay Suite (@EVAL_SUITE/1)",
+    )
+    p_evl.add_argument("--replay", default=None, metavar="CASE_ID", help="Replay a specific benchmark case (e.g. EVAL-AUTH-001 .. EVAL-MHS-006)")
+    p_evl.add_argument("--no-ablation", action="store_true", help="Omit ablation table from output")
+    p_evl.add_argument("--wire", action="store_true", help="Output compact @EVAL_SUITE/1 symbolic wire summary")
+
     return parser
 
 
@@ -954,6 +972,58 @@ def main(argv: Optional[List[str]] = None) -> int:
             rep = run_logical_reasoning_benchmark()
 
         if getattr(args, "wire", False) and "wire" in rep:
+            print(rep["wire"])
+        else:
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+        return 0 if rep.get("ok") else 1
+
+    if args.command == "verify":
+        from kintsugi.compliance import SignedComplianceProofExporter, ZeroKnowledgeASTDiffVerifier
+
+        exporter = SignedComplianceProofExporter()
+        target_code = None
+        if getattr(args, "target", None):
+            target_code = Path(args.target).read_text(encoding="utf-8")
+        if getattr(args, "verify_proof", None):
+            loaded = json.loads(Path(args.verify_proof).read_text(encoding="utf-8"))
+            v_res = exporter.verify_compliance_proof_bundle(loaded, expected_patch_code=target_code)
+            print(json.dumps(v_res, indent=2, ensure_ascii=False))
+            return 0 if v_res.get("ok") else 1
+        if getattr(args, "zk_diff", False):
+            zk_res = ZeroKnowledgeASTDiffVerifier().build_zk_ast_proof(
+                target_code
+                or (
+                    "def authenticate_request(account_id, active_sess, otp_elapsed):\n"
+                    "    verify_mfa(account_id)\n"
+                    "    revoke_session(active_sess)\n"
+                    "    check_otp_window(otp_elapsed)\n"
+                    "    return True\n"
+                )
+            )
+            print(json.dumps(zk_res, indent=2, ensure_ascii=False))
+            return 0 if zk_res.get("ok") else 1
+
+        out_path = Path(args.export_audit) if getattr(args, "export_audit", None) else None
+        bundle = exporter.generate_compliance_proof_bundle(
+            target_code=target_code,
+            output_path=out_path,
+        )
+        if getattr(args, "wire", False):
+            print(bundle["wire"])
+        else:
+            print(json.dumps(bundle, indent=2, ensure_ascii=False))
+        return 0 if bundle.get("ok") else 1
+
+    if args.command == "eval":
+        from kintsugi.compliance import ReproducibleEvalSuite
+
+        suite = ReproducibleEvalSuite()
+        if getattr(args, "replay", None):
+            rep = suite.replay_eval_case(args.replay)
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+            return 0 if rep.get("ok") else 1
+        rep = suite.run_full_evaluation_suite(include_ablation=not bool(getattr(args, "no_ablation", False)))
+        if getattr(args, "wire", False):
             print(rep["wire"])
         else:
             print(json.dumps(rep, indent=2, ensure_ascii=False))
