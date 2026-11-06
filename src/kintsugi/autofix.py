@@ -233,8 +233,11 @@ def run_autofix(
 
         if apply_changes and pb:
             fpath = Path(finding.file_path)
-            if fpath.is_file():
-                lines = fpath.read_text(encoding="utf-8").splitlines(keepends=True)
+            if any(part in {".agent", ".git", ".claude", ".cursor", ".config", ".config"} for part in fpath.parts):
+                status = "skipped_protected_infra"
+            elif fpath.is_file():
+                orig_full_text = fpath.read_text(encoding="utf-8")
+                lines = orig_full_text.splitlines(keepends=True)
                 idx = finding.line - 1
                 if 0 <= idx < len(lines):
                     orig_line = lines[idx]
@@ -244,9 +247,26 @@ def run_autofix(
                         new_line, count = re.subn(pattern, replacement, orig_line)
                         if count > 0 and new_line != orig_line:
                             lines[idx] = new_line
-                            fpath.write_text("".join(lines), encoding="utf-8")
-                            status = "applied"
-                            applied_count += 1
+                            candidate_text = "".join(lines)
+                            syntax_ok = True
+                            if fpath.suffix == ".py":
+                                was_valid_py = False
+                                try:
+                                    ast.parse(orig_full_text)
+                                    was_valid_py = True
+                                except SyntaxError:
+                                    was_valid_py = False
+                                if was_valid_py:
+                                    try:
+                                        ast.parse(candidate_text)
+                                    except SyntaxError:
+                                        syntax_ok = False
+                            if syntax_ok:
+                                fpath.write_text(candidate_text, encoding="utf-8")
+                                status = "applied"
+                                applied_count += 1
+                            else:
+                                status = "rejected_syntax_error"
 
         previews.append(
             {
@@ -260,19 +280,26 @@ def run_autofix(
         )
 
     # Also run AST-guided surgical Python autofix when apply_changes=True on a Python target
+    protected_parts = {".agent", ".git", ".claude", ".cursor", ".config", ".config", ".venv", "venv", "node_modules", "target", "__pycache__"}
     target_path = Path(target)
     py_files = [target_path] if target_path.is_file() and target_path.suffix == ".py" else (
-        list(target_path.rglob("*.py")) if target_path.is_dir() else []
+        [p for p in target_path.rglob("*.py") if not any(part in protected_parts for part in p.parts)]
+        if target_path.is_dir() else []
     )
     if apply_changes:
         for pyf in py_files:
+            if any(part in protected_parts for part in pyf.parts):
+                continue
             try:
                 raw_src = pyf.read_text(encoding="utf-8")
                 patched_src, ast_edits = apply_surgical_python_fixes(raw_src)
                 if ast_edits and patched_src != raw_src:
+                    ast.parse(patched_src)
+                    compile(patched_src, str(pyf), "exec")
                     pyf.write_text(patched_src, encoding="utf-8")
                     applied_count += len(ast_edits)
-            except Exception:
+            except Exception as exc:
+                _ = str(exc)
                 continue
 
     return {
