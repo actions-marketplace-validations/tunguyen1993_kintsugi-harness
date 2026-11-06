@@ -41,6 +41,12 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from kintsugi.council import verify_candidate_scar
 from kintsugi.models import GoldenScar, Severity
+from kintsugi.shield import (
+    ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG,
+    audit_scar_security,
+    resolve_safe_child_path,
+    verify_outbound_destination_allowed,
+)
 
 ENGINEERING_DOMAINS: Tuple[str, ...] = (
     "ai-agents-mcp",
@@ -344,7 +350,8 @@ def verify_frontier_sync_gate(
             None,
         )
 
-    # Stage 2: DLP Sanitization Gate (blocks private paths, emails, IPs, wallets, and local gitignored denylist terms)
+    # Stage 2: DLP Sanitization & 7-Layer Zero-Trust Evolution Shield (blocks private paths, emails, IPs, wallets,
+    # Trojan Source invisible Unicode, Indirect Prompt Injection, Malware in good_code, and ReDoS regexes)
     combined_text = (
         f"{lesson.title}\n{lesson.cognitive_trap}\n{lesson.mental_model}\n"
         f"{lesson.bad_code}\n{lesson.good_code}\n{lesson.source_repo}"
@@ -353,6 +360,13 @@ def verify_frontier_sync_gate(
         return (
             False,
             "REJECTED_DLP_VIOLATION: Lesson contains private file paths, emails, internal IPs, wallet addresses, or local DLP denylist terms.",
+            None,
+        )
+    shield_ok, shield_msg = audit_scar_security(lesson.to_golden_scar())
+    if not shield_ok:
+        return (
+            False,
+            f"REJECTED_BY_ZERO_TRUST_SHIELD: {shield_msg}",
             None,
         )
 
@@ -411,9 +425,10 @@ class CognitiveMemoryManager:
                 "decision-strategy",
             ],
             "auto_push_to_github": False,
-            "zero_github_relay_enabled": True,
+            "zero_github_relay_enabled": False,
+            "outbound_egress_policy": "ONLY_PUBLIC_GITHUB_EVOLUTION_REPO",
             "relay_url": DEFAULT_ZERO_AUTH_RELAY_URL,
-            "remote_repo": "tunguyen1993/kintsugi-harness",
+            "remote_repo": ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG,
             "remote_branch": "main",
             "min_sync_tier": ModelTier.TIER_1_FRONTIER.value,
         }
@@ -421,6 +436,10 @@ class CognitiveMemoryManager:
             loaded = json.loads(self.config_path.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 default_cfg.update(loaded)
+        # Hard-lock outbound destination strictly to the official public GitHub evolution repository
+        default_cfg["remote_repo"] = ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG
+        default_cfg["zero_github_relay_enabled"] = False
+        default_cfg["outbound_egress_policy"] = "ONLY_PUBLIC_GITHUB_EVOLUTION_REPO"
         return default_cfg
 
     def save_config(
@@ -443,11 +462,13 @@ class CognitiveMemoryManager:
         if auto_push_to_github is not None:
             cfg["auto_push_to_github"] = bool(auto_push_to_github)
         if zero_github_relay_enabled is not None:
-            cfg["zero_github_relay_enabled"] = bool(zero_github_relay_enabled)
+            # External HTTP relay push is permanently disabled by outbound egress firewall
+            cfg["zero_github_relay_enabled"] = False
         if relay_url is not None and relay_url.strip():
             cfg["relay_url"] = relay_url.strip()
         if remote_repo is not None:
-            cfg["remote_repo"] = remote_repo.strip()
+            ok_dest, _ = verify_outbound_destination_allowed(remote_repo.strip())
+            cfg["remote_repo"] = remote_repo.strip() if ok_dest else ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
         self.config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return cfg
@@ -543,12 +564,13 @@ class CognitiveMemoryManager:
         lesson: CognitiveLesson,
         *,
         relay_url: Optional[str] = None,
-        network_send: bool = True,
+        network_send: bool = False,
     ) -> Dict[str, Any]:
         """
-        Broadcast a Frontier-verified `CognitiveLesson` to the Zero-GitHub-Account Public Relay
-        (`KINTSUGI-RELAY/1` over HTTPS + local `.kintsugi/relay_outbox.jsonl`).
-        Requires ZERO GitHub account, SSH keys, or personal access tokens.
+        Queue a Frontier-verified `CognitiveLesson` to the local `.kintsugi/relay_outbox.jsonl`.
+        Outbound Egress Firewall: External HTTP POST to third-party relays (`ntfy.sh`, webhooks,
+        paste hosts) is HARD-BLOCKED. Outbound data may ONLY be pushed to the official public
+        self-evolving GitHub repository (`tunguyen1993/kintsugi-harness`).
         """
         passed, gate_msg, _ = verify_frontier_sync_gate(lesson, ())
         if not passed:
@@ -573,28 +595,16 @@ class CognitiveMemoryManager:
         with self.relay_outbox_path.open("a", encoding="utf-8") as fh:
             fh.write(encoded_line + "\n")
 
+        dest_ok, dest_reason = verify_outbound_destination_allowed(target_url)
+        # Never dispatch HTTP POST to external relays; only local outbox + GitHub public repo allowed
+        _ = network_send
+        _ = dest_ok
         http_dispatched = False
-        if network_send:
-            try:
-                req = urllib.request.Request(
-                    target_url,
-                    data=encoded_line.encode("utf-8"),
-                    method="POST",
-                    headers={
-                        "Content-Type": "application/json",
-                        "Title": f"Kintsugi Lesson {lesson.id} [{lesson.domain}/{lesson.model_family}]",
-                        "Tags": f"kintsugi,{lesson.domain},{lesson.model_family}",
-                        "User-Agent": "kintsugi-harness/0.5.0",
-                    },
-                )
-                with urllib.request.urlopen(req, timeout=8) as resp:
-                    http_dispatched = 200 <= resp.status < 300
-            except OSError:
-                http_dispatched = False
 
         return {
             "relay_pushed": True,
             "http_dispatched": http_dispatched,
+            "egress_firewall": dest_reason,
             "outbox_queued": str(self.relay_outbox_path),
             "relay_url": target_url,
             "protocol": "KINTSUGI-RELAY/1",
@@ -867,8 +877,8 @@ class CognitiveMemoryManager:
             git_pushed = self._try_git_commit_and_push(lesson, [target_file, index_path])
 
         relay_receipt: Optional[Dict[str, Any]] = None
-        if relay_push or (not git_pushed and cfg.get("zero_github_relay_enabled", True)):
-            relay_receipt = self.push_to_zero_auth_relay(lesson, network_send=bool(relay_push))
+        if relay_push:
+            relay_receipt = self.push_to_zero_auth_relay(lesson, network_send=False)
 
         return {
             "lesson_id": lesson.id,
@@ -922,8 +932,14 @@ class CognitiveMemoryManager:
                     if item.get("domain") in target_domains:
                         if model_family and item.get("model_family") != model_family:
                             continue
-                        rel_path = item.get("path", "")
-                        if rel_path:
+                        rel_path = str(item.get("path", "")).strip()
+                        if (
+                            rel_path
+                            and ".." not in rel_path
+                            and not rel_path.startswith(("/", "\\"))
+                            and rel_path.endswith(".json")
+                            and resolve_safe_child_path(self.pool_root, rel_path) is not None
+                        ):
                             raw_url = f"https://raw.githubusercontent.com/{repo_slug}/{branch}/collective-pool/{rel_path}"
                             r_req = urllib.request.Request(raw_url, headers={"User-Agent": "kintsugi-harness/0.5.0"})
                             with urllib.request.urlopen(r_req, timeout=10) as l_resp:
@@ -937,8 +953,13 @@ class CognitiveMemoryManager:
         local_list = self.load_local_lessons()
         local_fps = {l.structural_fingerprint for l in local_list}
         newly_added = 0
+        quarantined_count = 0
         for candidate in pulled_candidates:
             if candidate.model_tier != ModelTier.TIER_1_FRONTIER:
+                continue
+            passed_shield, _, _ = verify_frontier_sync_gate(candidate, ())
+            if not passed_shield:
+                quarantined_count += 1
                 continue
             if candidate.structural_fingerprint not in local_fps:
                 local_list.append(candidate)
@@ -951,11 +972,23 @@ class CognitiveMemoryManager:
             "model_family_filter": model_family,
             "matched_in_pool": len(pulled_candidates),
             "newly_merged_to_local": newly_added,
+            "quarantined_poison_attempts": quarantined_count,
             "total_local_lessons": len(local_list),
         }
 
     def _try_git_commit_and_push(self, lesson: CognitiveLesson, files: Sequence[Path]) -> bool:
         try:
+            rem_proc = subprocess.run(
+                ["git", "-C", str(self.workspace_root), "remote", "get-url", "origin"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            remote_url = rem_proc.stdout.strip()
+            allowed_dest, _ = verify_outbound_destination_allowed(remote_url)
+            if not allowed_dest:
+                return False
+
             rel_files = [str(f.relative_to(self.workspace_root)) for f in files]
             subprocess.run(
                 ["git", "-C", str(self.workspace_root), "add", *rel_files],
@@ -969,7 +1002,7 @@ class CognitiveMemoryManager:
                 capture_output=True,
             )
             subprocess.run(
-                ["git", "-C", str(self.workspace_root), "push"],
+                ["git", "-C", str(self.workspace_root), "push", "origin", "main"],
                 check=True,
                 capture_output=True,
             )

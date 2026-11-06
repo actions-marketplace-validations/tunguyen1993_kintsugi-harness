@@ -2,15 +2,16 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.3.0`)
 
-**Sub-millisecond Rust + Python `PreToolUse` guardrails, `KMI/1` ultra-low-token skill compression (`93.7%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
+**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.2.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.3.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
-[![Token Savings: 93.7%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.7%25-00C853)](src/kintsugi/compressor.py)
-[![Rust Engine: 9.6 µs](https://img.shields.io/badge/Rust_Core-9.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Frontier Pool: 40 Verified](https://img.shields.io/badge/Collective_Pool-40_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
+[![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
+[![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
+[![Rust Engine: 7.6 µs](https://img.shields.io/badge/Rust_Core-7.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
+[![Frontier Pool: 41 Verified](https://img.shields.io/badge/Collective_Pool-41_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
@@ -53,22 +54,23 @@ flowchart LR
 
 ---
 
-## Open-Core Architecture (Community Open-Source vs Pro Skill Packs)
+## Open-Core Architecture & Edition Matrix (`v1.3.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
 
-| Feature | **Open-Source Core (GitHub — Apache-2.0 / MIT)** | **Kintsugi Pro Skill Packs (`$5–$9` on Agensi.io)** |
-| :--- | :--- | :--- |
-| **Native Rust Engine (`kintsugi-rs`) & Python AST/Regex Scanner** | Included (`100% Open Source`) | Included |
-| **`KMI/1` Ultra-Low-Token Compiler (`--compact` & `token-report`)** | Included (`93.7%` token savings) | Included + Pre-tuned Domain Profiles |
-| **Posture Auditor (`kintsugi audit` — Grade `A+` to `F` + Badge)** | Included | Included + Executive Compliance Checks |
-| **6-Target Compiler (Claude, Cursor, Copilot, Windsurf, Codex, MCP)** | Included | Included |
-| **15 Universal Domains (7 Engineering + 8 Real-Life/Business)** | **40 Frontier Pool Lessons (`collective-pool/`)** | **Full Unlocked Enterprise + Life/Business Guardrails** |
-| **Neuro-Symbolic 3-State AST Symbol Grounding Gate (`kintsugi ground`)** | **Included (`<5ms` `VERIFIED` / `REFUTED` / `UNKNOWN` + Alpha-Normalized AST Quotient `ASTQ/1` + Taint Graph)** | **Included + Cross-Boundary & Scientific Seam Auditing** |
-| **3-Horizon Causal Foresight, Metacognition & Autopoiesis (`kintsugi foresight`)** | **Included (`T+1` / `T+2` / `T+3` + `@FORESIGHT/1` + `@DREAM/1` + `DisjointScarHoldoutVerifier` + `--scientific-corpus`)** | **Included + Proactive Pre-Emptive Action Queue** |
-| **Shadow-Clone Parallel Epistemic Swarm & BFT Merge (`kintsugi swarm`)** | **Included (`K=4` Orthogonal Clones + Covariance-Aware $N_{\text{eff}}$ BFT + Anti-Sycophancy Probe + Oracle Micro-Probes)** | **Included + Multi-Model Council Clone Orchestration** |
-| **Verified Golden Scars Included** | **18 Community Core Scars (`KS-001`..`KS-018`)** | **All 32 Enterprise Scars (`KS-001`..`KS-032`)** (MCP Tool-Poisoning, Trojan Source Unicode, JWT/CORS/XXE, Agent FinOps) |
-| **Auto-Remediation (`kintsugi autofix`)** | Dry-Run Unified Diff Previews (`--dry-run`) | **Full In-Place Codemod Rewrites (`--apply`, 12 Playbooks)** |
-| **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Ready Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
-| **Volume Pricing (Agensi.io)** | **Free (`MIT / Apache-2.0`)** | **FinOps (`$5`) · Zero-Trust MCP (`$7`) · Complete All-in-One (`$9`)** |
+Independent evaluators can verify all 4 editions, `@KML/1` compression ratios, Auto-Fix codemods, and `.kpack` AEAD cryptography in `1.3s` with:
+
+```bash
+python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
+```
+
+| Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
+| :--- | :---: | :---: | :---: | :---: |
+| **Native Rust Engine (`kintsugi-rs v1.3.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Curated Core + Exclusive Pro Scars (`KS-001`..`KS-032`)** | 16 Core (`KS-001..016`) | 11 FinOps/Reliability (`KS-018,025,026,030,031` + Core) | 21 AppSec/MCP (`KS-017,019..024,027..029,032` + Core) | **All 32/32 (`KS-001..KS-032`)** |
+| **`@KML/1` Symbolic Machine-Language Wire (`scars.kml`)** | 16 rules (1,690 in OSS repo) | **844 `@KML/1` FinOps rules** | **862 `@KML/1` Security rules** | **All 1,706 `@KML/1` rules** |
+| **Deterministic Auto-Remediation (`kintsugi autofix --apply`)** | Dry-Run Diff Preview (`--dry-run`) | **4 In-Place Auto-Fix Codemods** | **8 In-Place Auto-Fix Codemods** | **All 12/12 In-Place Auto-Fix Codemods** |
+| **Interactive Slash Commands (`.claude/commands/*.md`)** | Manual CLI | **4 Slash Workflows** | **4 Slash Workflows** | **4 Slash Workflows (`/kintsugi-audit`, `/kintsugi-autofix`, `/kintsugi-mcp-shield`, `/kintsugi-release-gate`)** |
+| **Frontier Collective Pool (`collective_pool_lessons.json`)** | Included (`collective-pool/`) | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** | **41 Pre-Bundled Frontier Lessons** |
+| **Delivery Formats** | `.zip` ([`free-skill-pack/`](free-skill-pack/)) | `.zip` + AEAD `.kpack` | `.zip` + AEAD `.kpack` | **`.zip` + AEAD `.kpack`** |
 
 ---
 

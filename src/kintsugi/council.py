@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from kintsugi.models import FailureTrace, GoldenScar, Severity
 from kintsugi.scanner import KintsugiScanner
+from kintsugi.shield import audit_scar_security
 
 
 @dataclass
@@ -37,9 +38,13 @@ class AgentEndpoint:
 
 def verify_candidate_scar(scar: GoldenScar) -> Tuple[bool, str]:
     """
-    Deterministic self-check gate: a GoldenScar is only accepted if its executable
-    AST/Regex rule catches `scar.bad_code` AND stays silent on `scar.good_code`.
+    Deterministic self-check gate: a GoldenScar is only accepted if:
+    1. It passes the 7-Layer Zero-Trust Evolution Shield (`audit_scar_security`).
+    2. Its executable AST/Regex rule catches `scar.bad_code` AND stays silent on `scar.good_code`.
     """
+    shield_ok, shield_msg = audit_scar_security(scar)
+    if not shield_ok:
+        return False, f"Security shield rejected scar: {shield_msg}"
     if not scar.regex_pattern and not scar.ast_rule:
         return False, "Candidate scar must define either `regex_pattern` or `ast_rule`."
     if not scar.bad_code.strip() or not scar.good_code.strip():

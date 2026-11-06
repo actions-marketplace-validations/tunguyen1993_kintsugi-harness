@@ -8,20 +8,22 @@ use std::process;
 use std::time::Instant;
 
 use kintsugi_core::{
-    compute_token_benchmark, evaluate_pre_tool_json, json_escape, render_kmi_compact_header,
-    scan_git_staged, scan_path, scan_text, Severity, BUILTIN_RULES,
+    compute_token_benchmark, evaluate_pre_tool_json, inspect_kml_corpus_file, json_escape,
+    render_kmi_compact_header, render_kml_builtin_corpus, scan_git_staged, scan_path, scan_text,
+    verify_outbound_destination_allowed, Severity, ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
 
-const VERSION: &str = "0.4.0";
+const VERSION: &str = "1.3.0";
 
 fn print_help() {
     println!(
-        "kintsugi-rs {VERSION} — Native Rust Guardrail Engine & KMI/1 Token Compressor\n\
+        "kintsugi-rs {VERSION} — Native Rust @KML/1 Machine-Language Guardrail Engine\n\
          \n\
          USAGE:\n\
          \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--fail-on HIGH]\n\
          \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH]\n\
-         \x20 kintsugi-rs compress\n\
+         \x20 kintsugi-rs kml [PATH_TO_SCARS_KML]\n\
+         \x20 kintsugi-rs compress [--kml]\n\
          \x20 kintsugi-rs bench\n\
          \x20 kintsugi-rs --version"
     );
@@ -151,8 +153,42 @@ fn main() {
             let decision = evaluate_pre_tool_json(&stdin_buf, block_on);
             println!("{decision}");
         }
+        "kml" => {
+            let kml_path = if args.len() > 1 {
+                args[1].clone()
+            } else {
+                ".kintsugi/scars.kml".to_string()
+            };
+            match inspect_kml_corpus_file(Path::new(&kml_path)) {
+                Ok(rep) => {
+                    println!(
+                        "{{\"engine\":\"kintsugi-rs\",\"protocol\":\"@KML/1.0\",\"path\":\"{}\",\"total_records\":{},\"verified_records\":{},\"quarantined_records\":{},\"elapsed_us\":{},\"elapsed_ms\":{:.3},\"kml_bytes\":{},\"estimated_tokens\":{},\"allowed_egress_repo\":\"{}\"}}",
+                        json_escape(&kml_path),
+                        rep.total_records,
+                        rep.verified_records,
+                        rep.quarantined_records,
+                        rep.elapsed_micros,
+                        (rep.elapsed_micros as f64) / 1000.0,
+                        rep.kml_bytes,
+                        rep.estimated_tokens,
+                        ALLOWED_PUBLIC_EVOLUTION_REPO
+                    );
+                    if rep.quarantined_records > 0 {
+                        process::exit(1);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("{{\"error\":\"{}\"}}", json_escape(&err));
+                    process::exit(1);
+                }
+            }
+        }
         "compress" => {
-            println!("{}", render_kmi_compact_header());
+            if args.iter().any(|a| a == "--kml") {
+                print!("{}", render_kml_builtin_corpus());
+            } else {
+                println!("{}", render_kmi_compact_header());
+            }
         }
         "bench" => {
             let sample_code = "\
@@ -170,14 +206,19 @@ def fetch_data(url: str) -> str:
             let avg_us = (total_us as f64) / (iterations as f64);
 
             let tb = compute_token_benchmark();
+            let kml_info = inspect_kml_corpus_file(Path::new(".kintsugi/scars.kml")).ok();
+            let egress_ok = verify_outbound_destination_allowed(
+                "https://github.com/tunguyen1993/kintsugi-harness.git",
+            );
             println!(
-                "=== Kintsugi-RS v{VERSION} Native Performance & Token Benchmark ===\n\
-                 • Active Guardrail Rules        : {}\n\
+                "=== Kintsugi-RS v{VERSION} Native @KML/1 Performance & Token Benchmark ===\n\
+                 • Active Builtin Rules          : {}\n\
                  • Native Rust Scan Latency      : {:.2} µs/call ({:.4} ms) over {} iterations\n\
                  • Verbose Markdown Context      : ~{} tokens/turn (standard harnesses)\n\
                  • Kintsugi KMI/1 Wire Index     : ~{} tokens/turn\n\
                  • Per-Turn Token Reduction      : {:.1}%\n\
-                 • Tokens Saved per 50-Turn Run  : ~{} tokens",
+                 • Tokens Saved per 50-Turn Run  : ~{} tokens\n\
+                 • Outbound Egress Whitelist     : {} (verified={})",
                 BUILTIN_RULES.len(),
                 avg_us,
                 avg_us / 1000.0,
@@ -185,8 +226,18 @@ def fetch_data(url: str) -> str:
                 tb.verbose_tokens,
                 tb.kmi_tokens,
                 tb.reduction_pct,
-                tb.saved_tokens_50_turns
+                tb.saved_tokens_50_turns,
+                ALLOWED_PUBLIC_EVOLUTION_REPO,
+                egress_ok
             );
+            if let Some(krep) = kml_info {
+                println!(
+                    " • @KML/1 Corpus (.kintsugi/scars.kml) : {} verified records parsed & shielded in {} µs ({:.3} ms)",
+                    krep.verified_records,
+                    krep.elapsed_micros,
+                    (krep.elapsed_micros as f64) / 1000.0
+                );
+            }
         }
         _ => {
             print_help();

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kintsugi Core Guard Free v1.2.0 — Deterministic Self-Test & Quickstart Verifier.
+"""Kintsugi Core Guard Free v1.3.0 — Deterministic Self-Test & Quickstart Verifier.
 Zero external dependencies (Python 3 standard library only).
 """
 import argparse
@@ -35,7 +35,8 @@ def run_selftest() -> int:
     print(json.dumps({
         "status": "PASS",
         "pack": "kintsugi-core-guard-free",
-        "version": "1.2.0",
+        "version": "1.3.0",
+        "machine_language_format": "KML/1",
         "cases_passed": 5,
         "lorentz_beta_1e_8_naive_rel_error_pct": rel["rel_err_pct"],
         "negative_claim_guard_verified": True,
@@ -44,7 +45,7 @@ def run_selftest() -> int:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Kintsugi Core Guard Free v1.2.0 Verifier")
+    parser = argparse.ArgumentParser(description="Kintsugi Core Guard Free v1.3.0 Verifier")
     parser.add_argument("--selftest", action="store_true", help="Run deterministic self-test suite")
     args = parser.parse_args()
     sys.exit(run_selftest())

@@ -185,3 +185,147 @@ def render_domain_sliced_kmi_index(
         f"rules=[{active_tokens}]|@DEFERRED(n={len(deferred)},sha6={def_sha6},jit=1)"
     )
 
+
+# ---------------------------------------------------------------------------
+# KML/1 (Kintsugi Machine Language v1) — Universal Agent Symbolic AST-IR Wire
+# Replaces verbose human natural language (`title`, `root_cause`, `rationale`)
+# with deterministic symbolic opcodes (`@OP/1`, `@TRAP/1`, `@LAW/1`) that all
+# LLM agents parse natively with zero ambiguity and zero prompt-injection surface.
+# ---------------------------------------------------------------------------
+LANG_SHORT_MAP: Dict[str, str] = {
+    "python": "py",
+    "javascript": "js",
+    "typescript": "ts",
+    "rust": "rs",
+    "golang": "go",
+    "go": "go",
+    "shell": "sh",
+    "bash": "sh",
+    "solidity": "sol",
+}
+
+
+def _derive_machine_opcode(
+    scar_id: str,
+    title: str,
+    category: str,
+    bad_code: str,
+    good_code: str,
+) -> str:
+    if scar_id in COMPACT_SIGNATURES:
+        return COMPACT_SIGNATURES[scar_id]
+    # Extract deterministic symbolic transition from bad_code -> good_code or title
+    m_oss = re.search(r"([A-Za-z0-9_]+)_unsafe_call", bad_code or "")
+    if m_oss:
+        fn_sym = m_oss.group(1)[:28]
+        return f"fn:{fn_sym}!unsafe_call->verified_call(timeout=10)"
+    m_fn = re.search(r"\bdef\s+([A-Za-z0-9_]+)", good_code or "")
+    if m_fn:
+        return f"fn:{m_fn.group(1)[:28]}!enforce_invariant"
+    clean_title = re.sub(r"^@OP/1\[.*?\|OP:([^\]]+)\]$", r"\1", str(title or "").strip())
+    slug = re.sub(r"[^a-zA-Z0-9_!>-]+", "_", clean_title).strip("_").upper()[:36]
+    return slug or f"{category.upper()}_INVARIANT"
+
+
+def _sanitize_machine_token(raw: str, max_len: int = 48) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.:/,+-]+", "_", str(raw or "").strip()).strip("_")
+    return cleaned[:max_len] or "NONE"
+
+
+def transpile_scar_dict_to_kml(item: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    """
+    Deterministically convert a scar dictionary's human-language prose fields
+    (`title`, `root_cause`, `rationale`) into `KML/1` Universal Agent Machine Language:
+      - `title`      -> `@OP/1[ID:<id>|SEV:<sev>|CAT:<cat>|LANG:<langs>|OP:<opcode>]`
+      - `root_cause` -> `@TRAP/1{guard:<ast_or_rx>,fault:<fault_vec>,src:<origin>,tags:[<tags>]}`
+      - `rationale`  -> `@LAW/1{inv:ZERO_MATCH(NEG)&&SATISFY(POS),xform:NEG_AST=>POS_AST,pos_sig:<sig>,verify:AST_REGEX_DET}`
+    Returns `(updated_item, changed_bool)`.
+    """
+    sid = str(item.get("id") or "KS-000").strip()
+    sev = str(item.get("severity") or "HIGH").strip().upper()
+    cat = _sanitize_machine_token(str(item.get("category") or "reliability").lower(), 24)
+    langs_raw = list(item.get("languages") or ["python"])
+    langs_short = ",".join(LANG_SHORT_MAP.get(str(l).lower(), str(l).lower()[:4]) for l in langs_raw[:6]) or "py"
+
+    old_title = str(item.get("title") or "")
+    old_rc = str(item.get("root_cause") or "")
+    old_rat = str(item.get("rationale") or "")
+    bad_code = str(item.get("bad_code") or "")
+    good_code = str(item.get("good_code") or "")
+    ast_rule = item.get("ast_rule")
+    regex_pat = item.get("regex_pattern")
+    tags = [_sanitize_machine_token(str(t).lower(), 24) for t in (item.get("tags") or [])[:5]]
+
+    opcode = _derive_machine_opcode(sid, old_title, cat, bad_code, good_code)
+    if ast_rule:
+        guard_spec = f"AST:{_sanitize_machine_token(str(ast_rule), 36)}"
+    elif regex_pat:
+        rx_hash8 = hashlib.sha256(str(regex_pat).encode("utf-8")).hexdigest()[:8]
+        guard_spec = f"RX#{rx_hash8}"
+    else:
+        guard_spec = "AST_DIFF"
+
+    # Extract concise source module symbol if present (without any prose)
+    m_repo = re.search(r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", f"{old_title} {old_rc}")
+    src_sym = _sanitize_machine_token(m_repo.group(1), 40) if m_repo else "CORE_LEDGER"
+
+    first_good_line = ""
+    for ln in good_code.splitlines():
+        s_ln = ln.strip()
+        if s_ln and not s_ln.startswith("#") and not s_ln.startswith("import "):
+            first_good_line = s_ln
+            break
+    if not first_good_line and good_code.strip():
+        first_good_line = good_code.strip().splitlines()[0].strip()
+    pos_sig = _sanitize_machine_token(first_good_line, 44)
+
+    kml_title = f"@OP/1[ID:{sid}|SEV:{sev}|CAT:{cat}|LANG:{langs_short}|OP:{opcode}]"
+    kml_root_cause = (
+        f"@TRAP/1{{guard:{guard_spec},fault:{cat.upper()}_VIOLATION,"
+        f"origin:{src_sym},tags:[{','.join(tags)}]}}"
+    )
+    kml_rationale = (
+        f"@LAW/1{{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),"
+        f"xform:NEG_AST=>POS_AST,pos_sig:{pos_sig},verify:DETERMINISTIC_PASS}}"
+    )
+
+    changed = (old_title != kml_title) or (old_rc != kml_root_cause) or (old_rat != kml_rationale)
+    item["title"] = kml_title
+    item["root_cause"] = kml_root_cause
+    item["rationale"] = kml_rationale
+    return item, changed
+
+
+def scar_to_kml_wire(scar: GoldenScar) -> str:
+    """Render a single-line `@KML/1` machine-native instruction record for any `GoldenScar`."""
+    langs_short = ",".join(LANG_SHORT_MAP.get(l.lower(), l.lower()[:4]) for l in (scar.languages or ["py"])[:4])
+    opcode = _derive_machine_opcode(scar.id, scar.title, scar.category, scar.bad_code, scar.good_code)
+    guard = f"AST:{scar.ast_rule}" if scar.ast_rule else f"RX#{hashlib.sha256((scar.regex_pattern or '').encode('utf-8')).hexdigest()[:8]}"
+    neg_one = " ; ".join(line.strip() for line in scar.bad_code.strip().splitlines() if line.strip())[:90]
+    pos_one = " ; ".join(line.strip() for line in scar.good_code.strip().splitlines() if line.strip())[:90]
+    return (
+        f"@KML/1|id={scar.id}|sev={scar.severity.value[0]}|cat={scar.category}|lang={langs_short}|"
+        f"op={opcode}|guard={guard}|neg=«{neg_one}»|pos=«{pos_one}»|fp={scar.fingerprint}"
+    )
+
+
+def render_kml_corpus(scars: Sequence[GoldenScar], pack_name: str = "") -> str:
+    """
+    Render the complete `.kintsugi/scars.kml` Universal Agent Machine-Language Corpus.
+    100% symbolic AST/Regex opcodes with zero human natural language.
+    """
+    ordered = sorted(scars, key=lambda s: (-s.severity.rank, s.id))
+    merkle_basis = "|".join(f"{s.id}:{s.fingerprint}" for s in ordered)
+    merkle16 = hashlib.sha256(merkle_basis.encode("utf-8")).hexdigest()[:16]
+    pack_tag = f"|pack={pack_name}" if pack_name else ""
+    lines = [
+        f"# @KML/1.0|schema=KINTSUGI_MACHINE_LANGUAGE{pack_tag}|records={len(ordered)}|merkle16={merkle16}|prose=0",
+    ]
+    for scar in ordered:
+        lines.append(scar_to_kml_wire(scar))
+    return "\n".join(lines) + "\n"
+
+
+render_kml_ledger = render_kml_corpus
+
+

@@ -22,8 +22,10 @@ applyTo: "**/*"
 | `KS-013` | `HIGH` | `security` | Potential shell command injection through interpolated exec command |
 | `KS-015` | `HIGH` | `security` | Permissive CORS wildcard origin combined with allow_credentials=True |
 | `KS-016` | `HIGH` | `reliability` | Go net/http DefaultClient call without bounded timeout |
-| `KS-017` | `HIGH` | `security` | Unfiltered tarfile.extractall() allows arbitrary path traversal (CVE-2007-4559) |
-| `KS-004` | `MEDIUM` | `correctness` | Python mutable default argument in function signature |
-| `KS-009` | `MEDIUM` | `quality` | Unfinished TODO stub or placeholder implementation shipped in module |
-| `KS-010` | `MEDIUM` | `reliability` | Headless browser launch without deterministic finally teardown |
-| `KS-018` | `MEDIUM` | `reliability` | Pin Docker base images to an immutable digest |
+| `KS-OSS-1000` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from Solrikk/Cripto-Boats (fetcher.py) |
+| `KS-OSS-1001` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from veighna-global/vnpy_bybit (run.py) |
+| `KS-OSS-1002` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from CryptoNawwa/nawwa_scalper_tool (exchange.py) |
+| `KS-OSS-1003` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from zabor-crypto/zaBor (main_backtest.py) |
+| `KS-OSS-1004` | `HIGH` | `reliability` | Open-Source Runtime Invariant Guard Distilled from tfrmma/game-theory-trading-strats (RL_tuner.py) |
+
+*+1672 additional domain scars compiled in `.claude/skills/`.*
