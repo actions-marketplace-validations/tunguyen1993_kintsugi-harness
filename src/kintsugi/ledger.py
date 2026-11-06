@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from kintsugi.models import GoldenScar, Severity
+from kintsugi.shield import audit_scar_security
 from kintsugi.starter_pack import get_starter_scars
 
 
@@ -19,6 +20,7 @@ class ScarLedger:
         self.path = Path(path)
         self._scars: Dict[str, GoldenScar] = {}
         self._fingerprints: Dict[str, str] = {}
+        self.quarantined: List[Tuple[str, str]] = []
         if self.path.exists():
             self.load()
 
@@ -27,8 +29,13 @@ class ScarLedger:
         entries = raw.get("scars", []) if isinstance(raw, dict) else raw
         self._scars.clear()
         self._fingerprints.clear()
+        self.quarantined.clear()
         for item in entries:
             scar = GoldenScar.from_dict(item)
+            ok, reason = audit_scar_security(scar)
+            if not ok:
+                self.quarantined.append((scar.id, reason))
+                continue
             self._scars[scar.id] = scar
             self._fingerprints[scar.fingerprint] = scar.id
 
@@ -68,7 +75,15 @@ class ScarLedger:
         """
         Insert a new GoldenScar or merge with an existing identical fingerprint
         so repeated failures strengthen hit counters instead of bloating context.
+        Enforces the 7-Layer Zero-Trust Evolution Shield (`audit_scar_security`).
         """
+        if not scar.id or scar.id in self._scars:
+            if scar.id not in self._scars:
+                scar.id = self.next_id()
+        ok, reason = audit_scar_security(scar)
+        if not ok:
+            raise ValueError(f"Zero-Trust Evolution Shield blocked scar '{scar.id}': {reason}")
+
         existing_id = self._fingerprints.get(scar.fingerprint)
         if existing_id and existing_id in self._scars:
             existing = self._scars[existing_id]
@@ -78,9 +93,6 @@ class ScarLedger:
                     existing.verified_by.append(verifier)
             return False, existing
 
-        if not scar.id or scar.id in self._scars:
-            if scar.id not in self._scars:
-                scar.id = self.next_id()
         self._scars[scar.id] = scar
         self._fingerprints[scar.fingerprint] = scar.id
         return True, scar

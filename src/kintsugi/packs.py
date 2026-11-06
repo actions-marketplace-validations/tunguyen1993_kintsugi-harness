@@ -20,6 +20,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from kintsugi.compressor import render_kml_ledger
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import GoldenScar
 
@@ -224,6 +225,7 @@ def install_skill_pack(
             manifest_data: Dict[str, Any] = {}
             scars_list: List[Dict[str, Any]] = []
             playbooks_list: List[Dict[str, Any]] = []
+            kml_wire_text: Optional[str] = None
 
             for member in names:
                 base = Path(member).name
@@ -232,6 +234,8 @@ def install_skill_pack(
                 elif base == "scars.json":
                     raw_scars = json.loads(zf.read(member).decode("utf-8"))
                     scars_list = raw_scars.get("scars", []) if isinstance(raw_scars, dict) else raw_scars
+                elif base == "scars.kml":
+                    kml_wire_text = zf.read(member).decode("utf-8")
                 elif base == "autofix_playbooks.json":
                     raw_pb = json.loads(zf.read(member).decode("utf-8"))
                     playbooks_list = raw_pb.get("playbooks", []) if isinstance(raw_pb, dict) else raw_pb
@@ -248,11 +252,14 @@ def install_skill_pack(
                     skill_dest.write_bytes(zf.read(member))
 
             pack_slug = manifest_data.get("name", src.stem)
+            if kml_wire_text:
+                (packs_dir / f"{pack_slug}.kml").write_text(kml_wire_text, encoding="utf-8")
             pack_payload = {
                 "name": pack_slug,
                 "title": manifest_data.get("title", pack_slug),
-                "version": manifest_data.get("version", "1.2.0"),
+                "version": manifest_data.get("version", "1.3.0"),
                 "tier": manifest_data.get("tier", "premium"),
+                "machine_language_format": manifest_data.get("machine_language_format", "KML/1"),
                 "scars": scars_list,
                 "autofix_playbooks": playbooks_list,
                 "slash_commands": sorted(extracted_commands),
@@ -283,6 +290,11 @@ def install_skill_pack(
         if is_new:
             added_scars += 1
     ledger.save()
+    try:
+        kml_dest = Path(ledger_path).with_suffix(".kml")
+        kml_dest.write_text(render_kml_ledger(ledger.all()), encoding="utf-8")
+    except OSError as exc:
+        _ = str(exc)
 
     return {
         "pack_id": pack_payload["name"],

@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 
-from kintsugi.compressor import render_kmi_index
+from kintsugi.compressor import render_kmi_index, render_kml_corpus, scar_to_kml_wire
 from kintsugi.models import GoldenScar
 
 BOUNDARY_START = "<!-- KINTSUGI:START -->"
@@ -49,30 +49,29 @@ class SkillCompiler:
         self.compact_kmi = compact_kmi
 
     def render_root_governance_block(self) -> str:
-        """Render either KMI/1 ultra-low-token index (~12 tokens/rule) or compact table."""
+        """Render KMI/1 ultra-low-token index or KML/1 Machine-Native Opcode Table."""
         if self.compact_kmi:
             return render_kmi_index(self.scars)
         top_scars = self.scars[: self.max_scars_in_root_doc]
         lines = [
-            "## Kintsugi Self-Evolved Guardrails (Auto-Compiled)",
+            "## Kintsugi Machine-Language Guardrail Index (`@KML/1`)",
             "",
-            "> Managed by `kintsugi-harness`. Run `kintsugi scan .` or `kintsugi scan --staged` before committing.",
-            "> Full paired anti-patterns (`❌ Bad` vs `✅ Good`) live in `.claude/skills/kintsugi-guardrails/SKILL.md`.",
+            "> `@GATE: kintsugi scan --staged --fail-on HIGH | @CORPUS: .kintsugi/scars.kml | @SKILLS: .claude/skills/kintsugi-guardrails/SKILL.md`",
             "",
-            "| ID | Severity | Category | Anti-Pattern to Avoid |",
+            "| ID | SEV | CAT | KML/1 Symbolic Opcode (`@OP/1`) |",
             "| :--- | :--- | :--- | :--- |",
         ]
         for s in top_scars:
-            lines.append(f"| `{s.id}` | `{s.severity.value}` | `{s.category}` | {s.title} |")
+            lines.append(f"| `{s.id}` | `{s.severity.value}` | `{s.category}` | `{s.title}` |")
         if len(self.scars) > len(top_scars):
             omitted = len(self.scars) - len(top_scars)
             lines.append(
-                f"\n*+{omitted} additional domain scars compiled in `.claude/skills/`.*"
+                f"\n*`@DEFERRED_RECORDS: +{omitted} in .kintsugi/scars.kml & .claude/skills/`*"
             )
         return "\n".join(lines)
 
     def render_skill_markdown(self, skill_name: str, description: str, scars: Sequence[GoldenScar]) -> str:
-        """Render an Agent Skills compliant SKILL.md (Agensi.io / Claude Code / Codex standard)."""
+        """Render an Agent Skills compliant SKILL.md in KML/1 Universal Agent Machine Language."""
         all_tags = sorted({t for s in scars for t in s.tags})[:10]
         tags_yaml = ", ".join(f'"{t}"' for t in all_tags)
         lines = [
@@ -82,34 +81,30 @@ class SkillCompiler:
             f"tags: [{tags_yaml}]",
             "---",
             "",
-            f"# {skill_name}",
-            "",
-            "Use this skill before writing, refactoring, or reviewing code in this repository.",
-            "Every rule below was compiled from a verified failure trace and is enforced deterministically via `kintsugi scan`.",
-            "",
-            "## Verification Gate",
+            f"# {skill_name} (`@KML/1` Machine-Native AST-IR)",
             "",
             "```bash",
             "kintsugi scan --staged --fail-on HIGH",
             "```",
             "",
-            "## Verified Golden Scars (`❌ Anti-Pattern` vs `✅ Verified Fix`)",
+            "## `@KML/1` Symbolic Guardrail Specifications (`NEG_AST => POS_AST`)",
             "",
         ]
         for scar in scars:
             lang_hint = scar.languages[0] if scar.languages else "text"
             lines.extend(
                 [
-                    f"### `{scar.id}` · [{scar.severity.value}] {scar.title}",
-                    f"- **Root cause:** {scar.root_cause}",
-                    f"- **Why this matters:** {scar.rationale}",
+                    f"### `{scar.id}` · `{scar.title}`",
+                    f"- `@WIRE`: `{scar_to_kml_wire(scar)}`",
+                    f"- `@TRAP`: `{scar.root_cause}`",
+                    f"- `@LAW`: `{scar.rationale}`",
                     "",
-                    "**Avoid (`❌ Anti-Pattern`):**",
+                    "`@NEG_AST` (`❌ FORBIDDEN`):",
                     f"```{lang_hint}",
                     scar.bad_code.rstrip(),
                     "```",
                     "",
-                    "**Prefer (`✅ Verified Pattern`):**",
+                    "`@POS_AST` (`✅ REQUIRED`):",
                     f"```{lang_hint}",
                     scar.good_code.rstrip(),
                     "```",
@@ -157,6 +152,11 @@ class SkillCompiler:
         written: List[Path] = []
 
         if "skills" in target_set:
+            kml_file = root / ".kintsugi" / "scars.kml"
+            kml_file.parent.mkdir(parents=True, exist_ok=True)
+            kml_file.write_text(render_kml_corpus(self.scars), encoding="utf-8")
+            written.append(kml_file)
+
             master_skill = root / ".claude" / "skills" / "kintsugi-guardrails" / "SKILL.md"
             master_skill.parent.mkdir(parents=True, exist_ok=True)
             master_skill.write_text(
