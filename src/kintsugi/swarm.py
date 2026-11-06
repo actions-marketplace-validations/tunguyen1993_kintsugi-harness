@@ -564,6 +564,12 @@ class ConsentGatedFreePoolManager:
             f"err_red={metrics['current_error_reduction_multiplier']}|billing=$0|consent={consent_short}"
         )
 
+        from .council import PaidFrontierCouncilBYOKRegistry, build_multi_model_agent_guide
+        from .packs import resolve_workspace_co_execution_entitlement
+
+        entitlement = resolve_workspace_co_execution_entitlement(self.workspace_root)
+        paid_status = PaidFrontierCouncilBYOKRegistry(self.workspace_root).get_status()
+
         out: Dict[str, Any] = {
             "state": state_name,
             "kmi_pool_wire": pool_wire,
@@ -576,6 +582,9 @@ class ConsentGatedFreePoolManager:
             "target_clones": target_clones,
             "condorcet_bft_accuracy_metrics": metrics,
             "active_providers": active_list,
+            "co_execution_entitlement": entitlement,
+            "paid_frontier_council_status": paid_status,
+            "agent_onboarding_guide": build_multi_model_agent_guide(self.workspace_root),
         }
         if len(distinct_families) < target_clones:
             out["user_consent_request"] = self.build_user_consent_prompt(target_clones=target_clones)

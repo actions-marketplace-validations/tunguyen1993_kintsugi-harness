@@ -74,7 +74,7 @@ GOOD_CODE_MALWARE_RE = re.compile(
     r"\bctypes\s*\.\s*(?:CDLL|windll|cast|memmove)\b|"
     r"\bpty\s*\.\s*spawn\s*\(|"
     r"\b(?:eth_sendRawTransaction|eth_sendTransaction|transferWithAuthorization|solana\s+transfer)\b|"
-    r"(?:\.ssh/id_rsa|\.codex/auth\.json|\.oxion/|\.basedagents/|/etc/shadow|/etc/passwd)"
+    r"(?:\.ssh/id_rsa|\.config/auth\.json|\.config/|\.config/|/etc/shadow|/etc/passwd)"
     r")",
     re.IGNORECASE,
 )
@@ -115,7 +115,7 @@ REDOS_PATHOLOGICAL_PROBES: Tuple[str, ...] = (
 OUTBOUND_DLP_SECRET_RE = re.compile(
     r"(?:"
     r"/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\\\Users\\\\|"
-    r"\.(?:basedagents|oxion|codex|muse)\b|"
+    r"\.(?:enterprise-platform|oxion|codex|muse)\b|"
     r"\bsk-(?!proj-EXAMPLE_PLACEHOLDER)[A-Za-z0-9_-]{12,}\b|"
     r"\bgh[pousr]_[A-Za-z0-9]{20,}\b|"
     r"\bgithub_pat_[A-Za-z0-9_]{20,}\b|"

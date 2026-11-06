@@ -260,6 +260,9 @@ def install_skill_pack(
                 "version": manifest_data.get("version", "1.3.0"),
                 "tier": manifest_data.get("tier", "premium"),
                 "machine_language_format": manifest_data.get("machine_language_format", "KML/1"),
+                "co_execution_tier": manifest_data.get("co_execution_tier"),
+                "max_free_co_runners": manifest_data.get("max_free_co_runners"),
+                "paid_council_byok_unlocked": manifest_data.get("paid_council_byok_unlocked"),
                 "scars": scars_list,
                 "autofix_playbooks": playbooks_list,
                 "slash_commands": sorted(extracted_commands),
@@ -272,6 +275,9 @@ def install_skill_pack(
             "title": raw.get("title", pack_slug),
             "version": raw.get("version", "0.3.0"),
             "tier": raw.get("tier", "community"),
+            "co_execution_tier": raw.get("co_execution_tier"),
+            "max_free_co_runners": raw.get("max_free_co_runners"),
+            "paid_council_byok_unlocked": raw.get("paid_council_byok_unlocked"),
             "scars": raw.get("scars", []),
             "autofix_playbooks": raw.get("autofix_playbooks", []),
             "slash_commands": raw.get("slash_commands", []),
@@ -296,12 +302,107 @@ def install_skill_pack(
     except OSError as exc:
         _ = str(exc)
 
+    entitlement = resolve_workspace_co_execution_entitlement(ws)
     return {
         "pack_id": pack_payload["name"],
         "tier": pack_payload["tier"],
+        "co_execution_entitlement": entitlement,
         "scars_in_pack": len(pack_payload.get("scars", [])),
         "newly_unlocked_scars": added_scars,
         "autofix_playbooks": len(pack_payload.get("autofix_playbooks", [])),
         "slash_commands": pack_payload.get("slash_commands", []),
         "installed_to": str(dest_file),
     }
+
+
+def resolve_workspace_co_execution_entitlement(workspace_root: str | Path = ".") -> Dict[str, Any]:
+    """
+    Resolve the workspace's 3-Tier Multi-Model Co-Execution entitlement from `.kintsugi/packs/`:
+
+    1. `FREE_STARTER` ($0 Open Source / Free Starter Pack):
+       - Hard-locked to `Primary Anchor + 1 Free Model` (`max_free_co_runners = 1`).
+       - Multi-Model Free Swarm (`>=2` free co-runners) and Paid Frontier Council are locked.
+    2. `PRO_MULTI_FREE` ($15 Agent FinOps Pro / $19 Zero-Trust AppSec Pro):
+       - Unlocks `Primary Anchor + Multi-Model Free Swarm` (`max_free_co_runners = 5` independent free models
+         running in parallel with automatic 429 round-robin failover).
+       - Paid Frontier Council remains locked (requires $29 Enterprise Complete Pro).
+    3. `ENTERPRISE_PAID_COUNCIL` ($29 Enterprise Complete Pro):
+       - Unlocks `Primary Anchor + Multi-Model Free Swarm (up to 5 free models) + BYOK Paid Frontier Agent Council`
+         (`paid_council_byok_unlocked = True`, up to 6 paid frontier seats configured with the user's own API keys).
+    """
+    packs_dir = get_packs_dir(workspace_root)
+    highest_rank = 0
+    matched_pack_id = "kintsugi-core-guard-free"
+
+    if packs_dir.exists():
+        for manifest_file in sorted(packs_dir.glob("*.json")):
+            try:
+                data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            slug = str(data.get("name", manifest_file.stem)).lower()
+            tier_val = str(data.get("tier", "community")).lower()
+            co_tier = str(data.get("co_execution_tier") or "").upper()
+            paid_flag = bool(data.get("paid_council_byok_unlocked", False))
+
+            if (
+                "enterprise-complete-pro" in slug
+                or co_tier == "ENTERPRISE_PAID_COUNCIL"
+                or paid_flag
+                or tier_val == "enterprise"
+            ):
+                if highest_rank < 2:
+                    highest_rank = 2
+                    matched_pack_id = str(data.get("name", manifest_file.stem))
+            elif (
+                "security-pro" in slug
+                or "finops-reliability-pro" in slug
+                or co_tier == "PRO_MULTI_FREE"
+                or tier_val in {"premium", "pro", "pro-encrypted", "pro-encrypted-v1.3.0-kml1"}
+            ):
+                if highest_rank < 1:
+                    highest_rank = 1
+                    matched_pack_id = str(data.get("name", manifest_file.stem))
+
+    if highest_rank == 2:
+        return {
+            "tier_id": "ENTERPRISE_PAID_COUNCIL",
+            "tier_rank": 2,
+            "tier_label": "Enterprise Complete Pro ($29)",
+            "unlocked_by_pack": matched_pack_id,
+            "primary_anchor_always_on": True,
+            "min_free_co_runners": 1,
+            "max_free_co_runners": 5,
+            "multi_free_unlocked": True,
+            "paid_council_byok_unlocked": True,
+            "max_paid_council_seats": 6,
+            "paid_council_key_policy": "USER_BYOK_REQUIRED",
+        }
+    if highest_rank == 1:
+        return {
+            "tier_id": "PRO_MULTI_FREE",
+            "tier_rank": 1,
+            "tier_label": "Pro Multi-Model Free ($15 FinOps Pro / $19 AppSec Pro)",
+            "unlocked_by_pack": matched_pack_id,
+            "primary_anchor_always_on": True,
+            "min_free_co_runners": 1,
+            "max_free_co_runners": 5,
+            "multi_free_unlocked": True,
+            "paid_council_byok_unlocked": False,
+            "max_paid_council_seats": 0,
+            "paid_council_key_policy": "LOCKED_UPGRADE_TO_ENTERPRISE_29",
+        }
+    return {
+        "tier_id": "FREE_STARTER",
+        "tier_rank": 0,
+        "tier_label": "Free Open-Source Starter ($0)",
+        "unlocked_by_pack": matched_pack_id,
+        "primary_anchor_always_on": True,
+        "min_free_co_runners": 1,
+        "max_free_co_runners": 1,
+        "multi_free_unlocked": False,
+        "paid_council_byok_unlocked": False,
+        "max_paid_council_seats": 0,
+        "paid_council_key_policy": "LOCKED_UPGRADE_TO_ENTERPRISE_29",
+    }
+

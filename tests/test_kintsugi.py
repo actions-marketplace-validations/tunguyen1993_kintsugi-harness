@@ -1146,5 +1146,191 @@ class TestFederatedCognitiveLearning(unittest.TestCase):
             self.assertEqual(loaded.quarantined[0][0], "KS-802")
 
 
+class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
+    """
+    Verify the 3-Tier Commercial Multi-Model Co-Execution Gate (`v1.3.0`):
+      - Tier 0 (`FREE_STARTER` $0): Primary Anchor + hard-locked 1 Free Model (clamps >1 free models & blocks Paid Council).
+      - Tier 1 (`PRO_MULTI_FREE` $15/$19): Primary Anchor + 2..5 Free Models in parallel with automatic 429 round-robin failover.
+      - Tier 2 (`ENTERPRISE_PAID_COUNCIL` $29): Primary Anchor + 2..5 Free Models + BYOK Paid Frontier Agent Council.
+    """
+
+    def test_three_tier_entitlement_gate_failover_and_byok_paid_council(self) -> None:
+        from kintsugi.cli import _build_parser
+        from kintsugi.council import (
+            FreeCoRunnerPoolRegistry,
+            PaidFrontierCouncilBYOKRegistry,
+            PrimaryPlusFreeCoExecutor,
+            build_multi_model_agent_guide,
+        )
+        from kintsugi.packs import resolve_workspace_co_execution_entitlement
+
+        # 0. Verify Python 3.15 argparse help-string formatting across all CLI subparsers
+        parser = _build_parser()
+        fmt = parser._get_formatter()
+        for action in parser._actions:
+            if action.help:
+                fmt._expand_help(action)
+            if hasattr(action, "choices") and isinstance(action.choices, dict):
+                for sub_p in action.choices.values():
+                    sub_fmt = sub_p._get_formatter()
+                    for sub_act in sub_p._actions:
+                        if sub_act.help:
+                            sub_fmt._expand_help(sub_act)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+            free_reg = FreeCoRunnerPoolRegistry(ws, probe_local_gateway=False)
+            paid_reg = PaidFrontierCouncilBYOKRegistry(ws)
+
+            valid_scar_json = json.dumps(
+                {
+                    "title": "Block unsafe yaml.load without SafeLoader",
+                    "severity": "CRITICAL",
+                    "category": "security",
+                    "languages": ["python"],
+                    "tags": ["yaml", "co-evolved"],
+                    "root_cause": "yaml.load permits arbitrary object instantiation",
+                    "bad_code": "import yaml\ncfg = yaml.load(stream)",
+                    "good_code": "import yaml\ncfg = yaml.safe_load(stream)",
+                    "rationale": "Use yaml.safe_load()",
+                    "regex_pattern": r"\byaml\.load\s*\(",
+                    "ast_rule": "py_unsafe_dynamic_exec",
+                }
+            )
+
+            # ------------------------------------------------------------------
+            # TIER 0: FREE_STARTER ($0) — Hard-locked to Primary + 1 Free Model
+            # ------------------------------------------------------------------
+            ent0 = resolve_workspace_co_execution_entitlement(ws)
+            self.assertEqual(ent0["tier_id"], "FREE_STARTER")
+            self.assertEqual(ent0["max_free_co_runners"], 1)
+            self.assertFalse(ent0["paid_council_byok_unlocked"])
+
+            executor_t0 = PrimaryPlusFreeCoExecutor(
+                ws,
+                free_registry=free_reg,
+                paid_registry=paid_reg,
+                completion_fn=lambda ep, sp, up: valid_scar_json,
+            )
+            # Requesting 4 free models + paid council on FREE tier MUST clamp to 1 free model and 0 paid seats
+            rep_t0 = executor_t0.co_execute_prompt(
+                "sys",
+                "user",
+                num_free_runners=4,
+                include_paid_council=True,
+            )
+            self.assertEqual(rep_t0["entitlement"]["tier_id"], "FREE_STARTER")
+            self.assertEqual(rep_t0["free_co_runners_succeeded"], 1)
+            self.assertEqual(rep_t0["paid_council_seats_succeeded"], 0)
+            self.assertEqual(rep_t0["seats_total"], 2)  # 1 Primary + 1 Free
+            self.assertEqual(rep_t0["paid_council_status"], "LOCKED_REQUIRES_ENTERPRISE_PRO_29")
+            self.assertGreaterEqual(len(rep_t0["tier_enforcement_notices"]), 2)
+            self.assertIn("step_by_step_user_guide_vi", rep_t0["agent_onboarding_guide"])
+
+            # ------------------------------------------------------------------
+            # TIER 1: PRO_MULTI_FREE ($15 / $19) — Unlocks 2..5 Free Models + 429 Failover
+            # ------------------------------------------------------------------
+            packs_dir = ws / ".kintsugi" / "packs"
+            packs_dir.mkdir(parents=True, exist_ok=True)
+            (packs_dir / "kintsugi-zero-trust-mcp-security-pro.json").write_text(
+                json.dumps(
+                    {
+                        "name": "kintsugi-zero-trust-mcp-security-pro",
+                        "tier": "premium",
+                        "co_execution_tier": "PRO_MULTI_FREE",
+                        "max_free_co_runners": 5,
+                        "paid_council_byok_unlocked": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            ent1 = resolve_workspace_co_execution_entitlement(ws)
+            self.assertEqual(ent1["tier_id"], "PRO_MULTI_FREE")
+            self.assertEqual(ent1["max_free_co_runners"], 5)
+            self.assertFalse(ent1["paid_council_byok_unlocked"])
+
+            # Simulate HTTP 429 on the first free model to verify automatic round-robin failover
+            failed_once = {"triggered": False}
+
+            def failover_completion(ep: AgentEndpoint, sp: str, up: str) -> str:
+                if ep.role == "free_corunner_1" and not failed_once["triggered"]:
+                    failed_once["triggered"] = True
+                    raise RuntimeError("HTTP 429 Too Many Requests: free rate limit reached")
+                return valid_scar_json
+
+            executor_t1 = PrimaryPlusFreeCoExecutor(
+                ws,
+                free_registry=FreeCoRunnerPoolRegistry(ws, probe_local_gateway=False),
+                paid_registry=paid_reg,
+                completion_fn=failover_completion,
+            )
+            rep_t1 = executor_t1.co_execute_prompt("sys", "user", num_free_runners=3, include_paid_council=True)
+            self.assertEqual(rep_t1["entitlement"]["tier_id"], "PRO_MULTI_FREE")
+            self.assertEqual(rep_t1["free_co_runners_succeeded"], 3)
+            self.assertEqual(rep_t1["paid_council_seats_succeeded"], 0)
+            self.assertEqual(rep_t1["seats_total"], 4)  # 1 Primary + 3 Free
+            seat1 = next(r for r in rep_t1["seat_results"] if r["seat_role"] == "free_corunner_1")
+            self.assertEqual(seat1["status"], "SUCCEEDED")
+            self.assertEqual(seat1["rotations_used"], 1)
+
+            # ------------------------------------------------------------------
+            # TIER 2: ENTERPRISE_PAID_COUNCIL ($29) + User BYOK Paid Frontier Keys
+            # ------------------------------------------------------------------
+            (packs_dir / "kintsugi-enterprise-complete-pro.json").write_text(
+                json.dumps(
+                    {
+                        "name": "kintsugi-enterprise-complete-pro",
+                        "tier": "enterprise",
+                        "co_execution_tier": "ENTERPRISE_PAID_COUNCIL",
+                        "max_free_co_runners": 5,
+                        "paid_council_byok_unlocked": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            ent2 = resolve_workspace_co_execution_entitlement(ws)
+            self.assertEqual(ent2["tier_id"], "ENTERPRISE_PAID_COUNCIL")
+            self.assertTrue(ent2["paid_council_byok_unlocked"])
+
+            # Before adding BYOK keys, status is AWAITING_USER_BYOK_KEYS
+            plan_no_keys = executor_t1.resolve_execution_plan(requested_free_runners=3, include_paid_council=True)
+            self.assertEqual(plan_no_keys["paid_council_status"], "AWAITING_USER_BYOK_KEYS")
+
+            # User adds 2 BYOK keys (`anthropic_opus` and `openai_frontier`)
+            st_paid = paid_reg.add_paid_key("anthropic_opus", "byok_user_key_anthropic_123456")
+            st_paid = paid_reg.add_paid_key("openai_frontier", "byok_user_key_openai_654321")
+            self.assertEqual(st_paid["paid_council_state"], "ACTIVE_READY")
+            self.assertEqual(st_paid["configured_paid_seats_count"], 2)
+            # Secret keys must be masked in public status
+            for seat_info in st_paid["configured_paid_seats"]:
+                self.assertNotIn("anthropic_123456", seat_info["masked_key"])
+                self.assertNotIn("openai_654321", seat_info["masked_key"])
+
+            trace = FailureTrace(
+                source="ci",
+                error_summary="Unsafe yaml.load call without SafeLoader",
+                raw_trace="cfg = yaml.load(stream)",
+                language="python",
+            )
+            scar, co_rep = executor_t1.co_evolve_scar(
+                trace,
+                scar_id="KS-950",
+                num_free_runners=3,
+                include_paid_council=True,
+            )
+            self.assertEqual(co_rep["execution_mode"], "primary+free+paid-frontier-council")
+            self.assertEqual(co_rep["free_co_runners_succeeded"], 3)
+            self.assertEqual(co_rep["paid_council_seats_succeeded"], 2)
+            self.assertEqual(co_rep["seats_total"], 6)  # 1 Primary + 3 Free + 2 Paid BYOK
+            self.assertTrue(any(v.startswith("primary:") for v in scar.verified_by))
+            self.assertTrue(any(v.startswith("free-corunner:") for v in scar.verified_by))
+            self.assertTrue(any(v.startswith("paid-council:") for v in scar.verified_by))
+            self.assertIn("tier:ENTERPRISE_PAID_COUNCIL", scar.verified_by)
+
+            guide = build_multi_model_agent_guide(ws)
+            self.assertEqual(guide["current_entitlement"]["tier_id"], "ENTERPRISE_PAID_COUNCIL")
+            self.assertEqual(guide["configured_paid_seats_count"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

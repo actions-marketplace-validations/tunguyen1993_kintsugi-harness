@@ -20,7 +20,13 @@ from kintsugi.cognition import (
 )
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_kmi_index
-from kintsugi.council import EvolutionCouncil, verify_candidate_scar
+from kintsugi.council import (
+    EvolutionCouncil,
+    PaidFrontierCouncilBYOKRegistry,
+    PrimaryPlusFreeCoExecutor,
+    build_multi_model_agent_guide,
+    verify_candidate_scar,
+)
 from kintsugi.foresight import (
     AnalogicalTransferEngine,
     AutopoieticSynthesizer,
@@ -201,6 +207,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # evolve
     p_evo = sub.add_parser("evolve", help="Evolve a new self-verified Golden Scar from a failure log or snippet pair")
+    p_evo.add_argument("--workspace", default=".", help="Workspace root for .kintsugi tier entitlement")
     p_evo.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_evo.add_argument("--summary", required=True, help="One-line failure summary")
     p_evo.add_argument("--from-log", default=None, help="Path to traceback/CI log file")
@@ -208,6 +215,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_evo.add_argument("--bad-code", default="", help="Offending code snippet")
     p_evo.add_argument("--good-code", default="", help="Verified replacement snippet")
     p_evo.add_argument("--compile-workspace", default=None, help="Auto-recompile skills in workspace after evolving")
+    p_evo.add_argument(
+        "--co-run",
+        action="store_true",
+        help="Run Primary Anchor model alongside discovered $0 Free Co-Runner(s) (1 on Free tier, up to 5 on Pro/Enterprise)",
+    )
+    p_evo.add_argument(
+        "--free-runners",
+        type=int,
+        default=None,
+        help="Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)",
+    )
+    p_evo.add_argument(
+        "--paid-council",
+        action="store_true",
+        help="Include user-supplied BYOK Paid Frontier Council seats (requires Enterprise Complete Pro)",
+    )
 
     # verify-ledger
     p_ver = sub.add_parser("verify-ledger", help="Run true-positive & zero-false-positive self-check across every scar in the ledger")
@@ -276,6 +299,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--evolution-proof", action="store_true", help="Run 5-Wave Closed-Loop Self-Learning & Self-Healing Proof (Epoch 0 Breach -> Scar Synthesis -> Autofix -> Epoch 5 Unseen Variant Immunity)")
     p_swm.add_argument("--forage-internet", action="store_true", help="Release DeepSeek Free + Gemini 3.8B pair onto the controlled internet sandbox (OSV.dev, GitHub Advisories, ArXiv) and run the 3.8B-vs-Opus-5.5 Evolution Gauntlet")
     p_swm.add_argument("--provider-benchmarks", action="store_true", help="Run the 8-Facet Official AI Provider Benchmark Suite (SWE-bench Verified, LiveCodeBench, GPQA Diamond, AIME/MATH-500, CyberSecEval 3, TAU-bench/BFCL, SimpleQA/FACTS, IFEval)")
+    p_swm.add_argument("--co-run", action="store_true", help="Execute Tier-Gated Multi-Model Co-Execution (Primary Model + 1..5 Free Models + optional BYOK Paid Council)")
+    p_swm.add_argument("--free-runners", type=int, default=None, help="Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)")
+    p_swm.add_argument("--paid-council", action="store_true", help="Include user-supplied BYOK Paid Frontier Council seats (requires Enterprise Complete Pro)")
+    p_swm.add_argument("--add-paid-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Add user-owned BYOK API key for the Paid Frontier Council (e.g. anthropic_opus <YOUR_API_KEY>)")
+    p_swm.add_argument("--remove-paid-key", metavar="PROVIDER_ID", default=None, help="Remove a stored Paid Frontier Council BYOK API key")
+    p_swm.add_argument("--paid-council-status", action="store_true", help="Show Paid Frontier Council BYOK status and supported seats")
+    p_swm.add_argument("--guide", action="store_true", help="Display the Bilingual Agent Onboarding & Tier-Upgrade Guide (Free vs Pro Multi-Free vs Enterprise Paid Council)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     return parser
@@ -587,7 +617,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "evolve":
-        ledger = _load_or_seed_ledger(args.ledger)
+        ledger = _load_or_seed_ledger(args.ledger, args.workspace)
         raw_log = ""
         if args.from_log:
             raw_log = Path(args.from_log).read_text(encoding="utf-8")
@@ -599,8 +629,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             offending_snippet=args.bad_code,
             fixed_snippet=args.good_code,
         )
-        council = EvolutionCouncil()
-        scar, msg = council.evolve(trace, scar_id=ledger.next_id())
+        council = EvolutionCouncil(workspace_root=args.workspace)
+        if args.co_run or args.free_runners is not None or args.paid_council:
+            scar, co_rep = council.evolve_with_co_runners(
+                trace,
+                scar_id=ledger.next_id(),
+                num_free_runners=args.free_runners,
+                include_paid_council=bool(args.paid_council),
+            )
+            msg = co_rep["kmi_corun_wire"]
+        else:
+            scar, msg = council.evolve(trace, scar_id=ledger.next_id())
         is_new, stored = ledger.upsert(scar)
         ledger.save()
         status = "Created" if is_new else "Merged duplicate into"
@@ -749,6 +788,31 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(json.dumps(arena_rep, indent=2, ensure_ascii=False))
             return 0 if arena_rep["all_attacks_neutralized"] else 1
         pool_mgr = ConsentGatedFreePoolManager(args.workspace)
+        paid_reg = PaidFrontierCouncilBYOKRegistry(args.workspace)
+        if args.guide:
+            print(json.dumps(build_multi_model_agent_guide(args.workspace), indent=2, ensure_ascii=False))
+            return 0
+        if args.paid_council_status:
+            print(json.dumps(paid_reg.get_status(), indent=2, ensure_ascii=False))
+            return 0
+        if args.add_paid_key:
+            pid, key_val = args.add_paid_key
+            print(json.dumps(paid_reg.add_paid_key(pid, key_val), indent=2, ensure_ascii=False))
+            return 0
+        if args.remove_paid_key:
+            print(json.dumps(paid_reg.remove_paid_key(args.remove_paid_key), indent=2, ensure_ascii=False))
+            return 0
+        if args.co_run or args.free_runners is not None or args.paid_council:
+            co_exec = PrimaryPlusFreeCoExecutor(args.workspace)
+            plan = co_exec.resolve_execution_plan(
+                requested_free_runners=args.free_runners,
+                include_paid_council=bool(args.paid_council),
+            )
+            plan.pop("_free_slot_objects", None)
+            plan.pop("_paid_slot_objects", None)
+            plan["agent_onboarding_guide"] = build_multi_model_agent_guide(args.workspace)
+            print(json.dumps(plan, indent=2, ensure_ascii=False))
+            return 0
         if args.revoke_consent:
             print(json.dumps(pool_mgr.revoke_consent(), indent=2, ensure_ascii=False))
             return 0

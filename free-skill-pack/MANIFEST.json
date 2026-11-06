@@ -15,5 +15,8 @@
     "enterprise_regular_value_usd": 49
   },
   "machine_language_format": "KML/1",
-  "scars_count": 16
+  "scars_count": 16,
+  "co_execution_tier": "FREE_STARTER",
+  "max_free_co_runners": 1,
+  "paid_council_byok_unlocked": false
 }

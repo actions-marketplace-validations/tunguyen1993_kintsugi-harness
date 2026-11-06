@@ -54,7 +54,11 @@ def _tool_definitions() -> list[Dict[str, Any]]:
         },
         {
             "name": "kintsugi_record_failure",
-            "description": "Compile a runtime/test failure into a new self-verified Golden Scar and persist it into `.kintsugi/scars.json`.",
+            "description": (
+                "Compile a runtime/test failure into a new self-verified Golden Scar and persist it into `.kintsugi/scars.json`. "
+                "Supports Tier-Gated Multi-Model Co-Execution (`co_run=True`): runs Primary Model + 1 Free Model on Free tier ($0), "
+                "Primary + 2..5 Free Models on Pro tier ($15/$19), and Primary + Free Models + BYOK Paid Frontier Council on Enterprise Pro ($29)."
+            ),
             "inputSchema": {
                 "type": "object",
                 "required": ["error_summary", "raw_trace"],
@@ -64,6 +68,21 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                     "language": {"type": "string", "default": "python"},
                     "offending_snippet": {"type": "string"},
                     "fixed_snippet": {"type": "string"},
+                    "workspace_root": {"type": "string", "default": "."},
+                    "co_run": {
+                        "type": "boolean",
+                        "description": "Always run Primary Anchor model alongside discovered $0 Free model(s)",
+                        "default": False,
+                    },
+                    "free_runners": {
+                        "type": "integer",
+                        "description": "Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)",
+                    },
+                    "paid_council": {
+                        "type": "boolean",
+                        "description": "Include user-supplied BYOK Paid Frontier Council seats (requires Enterprise Complete Pro $29)",
+                        "default": False,
+                    },
                 },
             },
         },
@@ -213,6 +232,7 @@ class KintsugiMCPServer:
             return {"count": len(scars), "scars": [s.to_dict() for s in scars]}
 
         if name == "kintsugi_record_failure":
+            ws_root = str(args.get("workspace_root") or ".")
             trace = FailureTrace(
                 source="mcp",
                 error_summary=str(args["error_summary"]),
@@ -221,7 +241,22 @@ class KintsugiMCPServer:
                 offending_snippet=str(args.get("offending_snippet") or ""),
                 fixed_snippet=str(args.get("fixed_snippet") or ""),
             )
-            council = EvolutionCouncil()
+            council = EvolutionCouncil(workspace_root=ws_root)
+            if args.get("co_run") or args.get("free_runners") is not None or args.get("paid_council"):
+                scar, co_rep = council.evolve_with_co_runners(
+                    trace,
+                    scar_id=self.ledger.next_id(),
+                    num_free_runners=args.get("free_runners"),
+                    include_paid_council=bool(args.get("paid_council", False)),
+                )
+                is_new, stored = self.ledger.upsert(scar)
+                self.ledger.save()
+                return {
+                    "is_new": is_new,
+                    "verification": co_rep["kmi_corun_wire"],
+                    "scar": stored.to_dict(),
+                    "co_execution_report": co_rep,
+                }
             scar, check_msg = council.evolve(trace, scar_id=self.ledger.next_id())
             is_new, stored = self.ledger.upsert(scar)
             self.ledger.save()

@@ -14,7 +14,15 @@ from kintsugi.cognition import (
 )
 from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_jit_stub, render_kmi_index
-from kintsugi.council import EvolutionCouncil
+from kintsugi.council import (
+    PAID_FRONTIER_COUNCIL_CATALOG,
+    EvolutionCouncil,
+    FreeCoRunnerPoolRegistry,
+    FreePoolSlot,
+    PaidFrontierCouncilBYOKRegistry,
+    PrimaryPlusFreeCoExecutor,
+    build_multi_model_agent_guide,
+)
 from kintsugi.foresight import (
     AnalogicalTransferEngine,
     AutopoieticSynthesizer,
@@ -34,6 +42,7 @@ from kintsugi.packs import (
     encrypt_pro_kpack_bytes,
     install_skill_pack,
     list_installed_packs,
+    resolve_workspace_co_execution_entitlement,
 )
 from kintsugi.scanner import KintsugiScanner
 from kintsugi.swarm import (
