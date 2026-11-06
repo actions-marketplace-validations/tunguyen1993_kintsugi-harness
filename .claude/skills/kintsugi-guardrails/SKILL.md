@@ -12,6 +12,198 @@ kintsugi scan --staged --fail-on HIGH
 
 ## `@KML/1` Symbolic Guardrail Specifications (`NEG_AST => POS_AST`)
 
+### `KS-LOGIC-001` · `@OP/1[ID:KS-LOGIC-001|SEV:CRITICAL|CAT:state-machine-logic|LANG:py|OP:NON_ATOMIC_STATE_MUTATION->COMPARE_A]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-001|sev=C|cat=state-machine-logic|lang=py|op=NON_ATOMIC_STATE_MUTATION->COMPARE_A|guard=RX#1702b294|neg=«if order.status == 'PENDING':  # NON_ATOMIC_STATE_TRANSITION ; order.status = 'PAID' ; set»|pos=«if atomic_compare_and_swap(order, expected='PENDING', target='PAID'): ; settle_ledger(orde»|fp=204f24f3c1ccaea8`
+- `@TRAP`: `@TRAP/1{guard:RX#1702b294,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,state-machine,idempotency,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_atomic_compare_and_swap_order,_expected_P,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if order.status == 'PENDING':  # NON_ATOMIC_STATE_TRANSITION
+    order.status = 'PAID'
+     settle_ledger(order)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if atomic_compare_and_swap(order, expected='PENDING', target='PAID'):
+    settle_ledger(order)
+```
+
+### `KS-LOGIC-004` · `@OP/1[ID:KS-LOGIC-004|SEV:CRITICAL|CAT:concurrency-logic|LANG:py|OP:CHECK_THEN_AWAIT_MUTATE->ASYNC_LOCK]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-004|sev=C|cat=concurrency-logic|lang=py|op=CHECK_THEN_AWAIT_MUTATE->ASYNC_LOCK|guard=RX#e3f29dd6|neg=«if quota_remaining >= cost: ; await verify_remote_policy(user_id)  # ASYNC_AWAIT_TOCTOU_IN»|pos=«async with quota_lock: ; if quota_remaining >= cost: ; await verify_remote_policy(user_id)»|fp=07bacf73780df5a1`
+- `@TRAP`: `@TRAP/1{guard:RX#e3f29dd6,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,asyncio-toctou,await-interleaving,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:async_with_quota_lock:,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if quota_remaining >= cost:
+    await verify_remote_policy(user_id)  # ASYNC_AWAIT_TOCTOU_INTERLEAVING
+    quota_remaining -= cost
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+async with quota_lock:
+    if quota_remaining >= cost:
+        await verify_remote_policy(user_id)
+        quota_remaining -= cost
+```
+
+### `KS-LOGIC-009` · `@OP/1[ID:KS-LOGIC-009|SEV:CRITICAL|CAT:numerical-logic|LANG:py|OP:PREMATURE_INTEGER_FLOOR_DIV->MULTIPL]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-009|sev=C|cat=numerical-logic|lang=py|op=PREMATURE_INTEGER_FLOOR_DIV->MULTIPL|guard=RX#3225cdd4|neg=«fee_units = (amount_units // 10000) * bps_rate  # PREMATURE_FLOOR_DIVISION_LOSS»|pos=«fee_units = (amount_units * bps_rate) // 10000»|fp=5da5ffbf9360f58b`
+- `@TRAP`: `@TRAP/1{guard:RX#3225cdd4,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,integer-division-roundin,basis-points,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:fee_units_amount_units_bps_rate_//_10000,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+fee_units = (amount_units // 10000) * bps_rate  # PREMATURE_FLOOR_DIVISION_LOSS
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+fee_units = (amount_units * bps_rate) // 10000
+```
+
+### `KS-LOGIC-016` · `@OP/1[ID:KS-LOGIC-016|SEV:CRITICAL|CAT:causal-temporal-logic|LANG:py|OP:FULL_CORPUS_SCALER_FIT_BEFORE_SPLIT-]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-016|sev=C|cat=causal-temporal-logic|lang=py|op=FULL_CORPUS_SCALER_FIT_BEFORE_SPLIT-|guard=RX#cf97d2a8|neg=«X_scaled = scaler.fit_transform(X_all)  # PRE_SPLIT_GLOBAL_NORMALIZATION_LEAK ; X_train, X»|pos=«X_train_raw, X_test_raw = split_temporal(X_all) ; X_train = scaler.fit_transform(X_train_r»|fp=2f97b675fef06394`
+- `@TRAP`: `@TRAP/1{guard:RX#cf97d2a8,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lookahead-bias,train-test-leakage,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:X_train_raw,_X_test_raw_split_temporal_X_all,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+X_scaled = scaler.fit_transform(X_all)  # PRE_SPLIT_GLOBAL_NORMALIZATION_LEAK
+X_train, X_test = split_temporal(X_scaled)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+X_train_raw, X_test_raw = split_temporal(X_all)
+X_train = scaler.fit_transform(X_train_raw)
+X_test = scaler.transform(X_test_raw)
+```
+
+### `KS-LOGIC-019` · `@OP/1[ID:KS-LOGIC-019|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:DIRECT_STRING_EQ_MAC_VERIFY->HMAC_CO]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-019|sev=C|cat=crypto-auth-logic|lang=py|op=DIRECT_STRING_EQ_MAC_VERIFY->HMAC_CO|guard=RX#b40ad976|neg=«if computed_hmac_hex == header_signature_hex:  # NON_CONSTANT_TIME_SIGNATURE_EQUALITY ; al»|pos=«if hmac.compare_digest(computed_hmac_hex, header_signature_hex): ; allow_request()»|fp=85762c2b23a7c55d`
+- `@TRAP`: `@TRAP/1{guard:RX#b40ad976,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,timing-side-channel,constant-time-compare,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_hmac.compare_digest_computed_hmac_hex,_he,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if computed_hmac_hex == header_signature_hex:  # NON_CONSTANT_TIME_SIGNATURE_EQUALITY
+    allow_request()
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if hmac.compare_digest(computed_hmac_hex, header_signature_hex):
+    allow_request()
+```
+
+### `KS-LOGIC-020` · `@OP/1[ID:KS-LOGIC-020|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSCOPED_TOKEN_SUBJECT_TRUST->STRICT]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-020|sev=C|cat=crypto-auth-logic|lang=py|op=UNSCOPED_TOKEN_SUBJECT_TRUST->STRICT|guard=RX#4e3f56c3|neg=«if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts:  # MISSING_TENANT_SCOPE_BINDI»|pos=«if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts and jwt_claims.get('tenant_id'»|fp=dc015707cdaa1873`
+- `@TRAP`: `@TRAP/1{guard:RX#4e3f56c3,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cross-tenant-auth,audience-binding,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_jwt_claims.get_sub_and_jwt_claims.get_exp,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts:  # MISSING_TENANT_SCOPE_BINDING_CHECK
+    return load_tenant_vault(req.tenant_id)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts and jwt_claims.get('tenant_id') == req.tenant_id:
+    return load_tenant_vault(req.tenant_id)
+```
+
+### `KS-LOGIC-021` · `@OP/1[ID:KS-LOGIC-021|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSEPARATED_FIELD_CONCAT_HASH->LENGT]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-021|sev=C|cat=crypto-auth-logic|lang=py|op=UNSEPARATED_FIELD_CONCAT_HASH->LENGT|guard=RX#0e5b679c|neg=«digest = hashlib.sha256((role + resource + action).encode()).hexdigest()  # AMBIGUOUS_CONC»|pos=«digest = hashlib.sha256(json.dumps([role, resource, action]).encode()).hexdigest()»|fp=c5b2c40cda9fb807`
+- `@TRAP`: `@TRAP/1{guard:RX#0e5b679c,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,hash-length-extension,canonical-delimiter,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:digest_hashlib.sha256_json.dumps_role,_resou,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+digest = hashlib.sha256((role + resource + action).encode()).hexdigest()  # AMBIGUOUS_CONCATENATION_HASH_COLLISION
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+digest = hashlib.sha256(json.dumps([role, resource, action]).encode()).hexdigest()
+```
+
+### `KS-LOGIC-022` · `@OP/1[ID:KS-LOGIC-022|SEV:CRITICAL|CAT:consensus-quorum-logic|LANG:py|OP:UNKEYED_VOTE_COUNT_QUORUM->UNIQUE_VO]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-022|sev=C|cat=consensus-quorum-logic|lang=py|op=UNKEYED_VOTE_COUNT_QUORUM->UNIQUE_VO|guard=RX#03cb86b7|neg=«if sum(1 for v in votes if v.approve) >= quorum_threshold:  # UNKEYED_DUPLICATE_VOTE_QUORU»|pos=«unique_approvers = {v.voter_id for v in votes if v.approve and v.voter_id inallowlisted_va»|fp=d8196da9a5e7b222`
+- `@TRAP`: `@TRAP/1{guard:RX#03cb86b7,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,byzantine-quorum,sybil-dedup,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:unique_approvers_v.voter_id_for_v_in_votes_i,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if sum(1 for v in votes if v.approve) >= quorum_threshold:  # UNKEYED_DUPLICATE_VOTE_QUORUM_BYPASS
+    commit_block()
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+unique_approvers = {v.voter_id for v in votes if v.approve and v.voter_id inallowlisted_validators}
+if len(unique_approvers) >= quorum_threshold:
+    commit_block()
+```
+
+### `KS-LOGIC-025` · `@OP/1[ID:KS-LOGIC-025|SEV:CRITICAL|CAT:resource-lifecycle-logic|LANG:py|OP:DIRECT_IN_PLACE_STATE_OVERWRITE->WRI]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-025|sev=C|cat=resource-lifecycle-logic|lang=py|op=DIRECT_IN_PLACE_STATE_OVERWRITE->WRI|guard=RX#1dcc747f|neg=«with open(state_json_path, 'w') as f:  # NON_ATOMIC_INPLACE_STATE_TRUNCATION ; json.dump(s»|pos=«tmp_path = f'{state_json_path}.tmp' ; with open(tmp_path, 'w') as f: ; json.dump(state_pay»|fp=2fffd75688c2c8a7`
+- `@TRAP`: `@TRAP/1{guard:RX#1dcc747f,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,non-atomic-file-write,crash-truncation,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:tmp_path_f_state_json_path_.tmp,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+with open(state_json_path, 'w') as f:  # NON_ATOMIC_INPLACE_STATE_TRUNCATION
+    json.dump(state_payload, f)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+tmp_path = f'{state_json_path}.tmp'
+with open(tmp_path, 'w') as f:
+    json.dump(state_payload, f)
+    f.flush()
+os.replace(tmp_path, state_json_path)
+```
+
+### `KS-LOGIC-028` · `@OP/1[ID:KS-LOGIC-028|SEV:CRITICAL|CAT:path-canonicalization-lo|LANG:py|OP:STRING_STARTSWITH_PATH_PREFIX->RESOL]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-028|sev=C|cat=path-canonicalization-logic|lang=py|op=STRING_STARTSWITH_PATH_PREFIX->RESOL|guard=RX#6d4af46d|neg=«if str(candidate_path).startswith(str(base_dir)):  # STRING_STARTSWITH_PATH_PREFIX_BYPASS »|pos=«if candidate_path.resolve().is_relative_to(base_dir.resolve()): ; return open_artifact(can»|fp=c83f239221c84cc1`
+- `@TRAP`: `@TRAP/1{guard:RX#6d4af46d,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,prefix-traversal-bypass,is-relative-to,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_candidate_path.resolve_.is_relative_to_ba,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if str(candidate_path).startswith(str(base_dir)):  # STRING_STARTSWITH_PATH_PREFIX_BYPASS
+    return open_artifact(candidate_path)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if candidate_path.resolve().is_relative_to(base_dir.resolve()):
+    return open_artifact(candidate_path.resolve())
+```
+
+### `KS-LOGIC-031` · `@OP/1[ID:KS-LOGIC-031|SEV:CRITICAL|CAT:agent-epistemic-logic|LANG:py|OP:TRUST_LLM_SELF_REPORTED_PASS->INDEPE]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-031|sev=C|cat=agent-epistemic-logic|lang=py|op=TRUST_LLM_SELF_REPORTED_PASS->INDEPE|guard=RX#e7e93e90|neg=«if 'TESTS_PASSED' in agent_response_text:  # UNVERIFIED_LLM_SELF_REPORTED_SUCCESS ; mark_t»|pos=«if test_proc.returncode == 0 and verify_test_artifacts_exist(): ; mark_task_completed()»|fp=bf34787d836909d1`
+- `@TRAP`: `@TRAP/1{guard:RX#e7e93e90,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unverified-tool-claim,grounding-gate,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_test_proc.returncode_0_and_verify_test_ar,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if 'TESTS_PASSED' in agent_response_text:  # UNVERIFIED_LLM_SELF_REPORTED_SUCCESS
+    mark_task_completed()
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if test_proc.returncode == 0 and verify_test_artifacts_exist():
+    mark_task_completed()
+```
+
 ### `KS-001` · `@OP/1[ID:KS-001|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:secret!=literal->os.environ]`
 - `@WIRE`: `@KML/1|id=KS-001|sev=C|cat=security|lang=py,js,ts,go|op=secret!=literal->os.environ|guard=RX#26eb207e|neg=«API_TOKEN = "sk-proj-EXAMPLE_PLACEHOLDER_00000000000000"  # ggignore»|pos=«import os ; API_TOKEN = os.environ["OPENAI_API_KEY"]»|fp=2e021810bc018a71`
 - `@TRAP`: `@TRAP/1{guard:RX#26eb207e,fault:SECURITY_VIOLATION,origin:OP/1,tags:[secrets,credentials,dlp,security]}`
@@ -103,6 +295,397 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 `@POS_AST` (`✅ REQUIRED`):
 ```javascript
 const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });
+```
+
+### `KS-LOGIC-002` · `@OP/1[ID:KS-LOGIC-002|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:UNKEYED_RETRY_DISPATCH->IDEMPOTENCY]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-002|sev=H|cat=state-machine-logic|lang=py|op=UNKEYED_RETRY_DISPATCH->IDEMPOTENCY|guard=RX#de887c65|neg=«for attempt in range(max_retries): ; resp = post_webhook(payload)  # UNKEYED_RETRY_SIDE_EF»|pos=«for attempt in range(max_retries): ; resp = post_webhook(payload, idempotency_key= derive_»|fp=8fbafb3c85dc067c`
+- `@TRAP`: `@TRAP/1{guard:RX#de887c65,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,retry-idempotency,duplicate-payout,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:for_attempt_in_range_max_retries_:,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+for attempt in range(max_retries):
+    resp = post_webhook(payload)  # UNKEYED_RETRY_SIDE_EFFECT
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+for attempt in range(max_retries):
+    resp = post_webhook(payload, idempotency_key= derive_idempotency_key(payload))
+```
+
+### `KS-LOGIC-003` · `@OP/1[ID:KS-LOGIC-003|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:fn:apply_event!enforce_invariant]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-003|sev=H|cat=state-machine-logic|lang=py|op=fn:apply_event!enforce_invariant|guard=RX#db2b2ff9|neg=«def apply_event(entity, evt): ; entity.balance = evt.new_balance  # STALE_EVENT_OVERWRITE_»|pos=«def apply_event(entity, evt): ; if evt.sequence_id > entity.last_sequence_id: ; entity.bal»|fp=3434110ac9e90140`
+- `@TRAP`: `@TRAP/1{guard:RX#db2b2ff9,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,out-of-order-event,monotonic-version,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:def_apply_event_entity,_evt_:,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+def apply_event(entity, evt):
+    entity.balance = evt.new_balance  # STALE_EVENT_OVERWRITE_LOGIC
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+def apply_event(entity, evt):
+    if evt.sequence_id > entity.last_sequence_id:
+        entity.balance = evt.new_balance
+        entity.last_sequence_id = evt.sequence_id
+```
+
+### `KS-LOGIC-005` · `@OP/1[ID:KS-LOGIC-005|SEV:HIGH|CAT:concurrency-logic|LANG:py|OP:UNREFERENCED_CREATE_TASK->STRONG_REF]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-005|sev=H|cat=concurrency-logic|lang=py|op=UNREFERENCED_CREATE_TASK->STRONG_REF|guard=RX#92fc4754|neg=«asyncio.create_task(flush_audit_batch(records))  # UNREFERENCED_ASYNCIO_CREATE_TASK_GC»|pos=«task = asyncio.create_task(flush_audit_batch(records)) ; background_tasks.add(task) ; task»|fp=019d5e138d503712`
+- `@TRAP`: `@TRAP/1{guard:RX#92fc4754,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,task-orphan,background-task-gc,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:task_asyncio.create_task_flush_audit_batch_r,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+asyncio.create_task(flush_audit_batch(records))  # UNREFERENCED_ASYNCIO_CREATE_TASK_GC
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+task = asyncio.create_task(flush_audit_batch(records))
+background_tasks.add(task)
+task.add_done_callback(background_tasks.discard)
+```
+
+### `KS-LOGIC-006` · `@OP/1[ID:KS-LOGIC-006|SEV:HIGH|CAT:concurrency-logic|LANG:py|OP:UNORDERED_DUAL_LOCK_ACQUIRE->CANONIC]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-006|sev=H|cat=concurrency-logic|lang=py|op=UNORDERED_DUAL_LOCK_ACQUIRE->CANONIC|guard=RX#516e9b11|neg=«with lock_map[src_id], lock_map[dst_id]:  # AB_BA_LOCK_INVERSION_DEADLOCK ; transfer_units»|pos=«first_id, second_id = sorted((src_id, dst_id)) ; with lock_map[first_id], lock_map[second_»|fp=bd1422d6aa487cff`
+- `@TRAP`: `@TRAP/1{guard:RX#516e9b11,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lock-order-deadlock,canonical-lock-sort,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:first_id,_second_id_sorted_src_id,_dst_id,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+with lock_map[src_id], lock_map[dst_id]:  # AB_BA_LOCK_INVERSION_DEADLOCK
+    transfer_units(src_id, dst_id, qty)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+first_id, second_id = sorted((src_id, dst_id))
+with lock_map[first_id], lock_map[second_id]:
+    transfer_units(src_id, dst_id, qty)
+```
+
+### `KS-LOGIC-007` · `@OP/1[ID:KS-LOGIC-007|SEV:HIGH|CAT:numerical-logic|LANG:py|OP:NAIVE_EXP_SOFTMAX->SHIFTED_MAX_LOGSU]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-007|sev=H|cat=numerical-logic|lang=py|op=NAIVE_EXP_SOFTMAX->SHIFTED_MAX_LOGSU|guard=RX#6b45d960|neg=«probs = [math.exp(z) / sum(math.exp(x) for x in logits) for z in logits]  # UNSHIFTED_EXP_»|pos=«m = max(logits) ; exps = [math.exp(z - m) for z in logits] ; z_sum = sum(exps) ; probs = [»|fp=c68443c3c0a526fe`
+- `@TRAP`: `@TRAP/1{guard:RX#6b45d960,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,logsumexp,softmax-overflow,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:m_max_logits,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+probs = [math.exp(z) / sum(math.exp(x) for x in logits) for z in logits]  # UNSHIFTED_EXP_SOFTMAX_OVERFLOW
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+m = max(logits)
+exps = [math.exp(z - m) for z in logits]
+z_sum = sum(exps)
+probs = [e / z_sum for e in exps]
+```
+
+### `KS-LOGIC-008` · `@OP/1[ID:KS-LOGIC-008|SEV:HIGH|CAT:numerical-logic|LANG:py|OP:SINGLE_PASS_VARIANCE_DIFF->WELFORD_O]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-008|sev=H|cat=numerical-logic|lang=py|op=SINGLE_PASS_VARIANCE_DIFF->WELFORD_O|guard=RX#35fb0ebf|neg=«var = (sum(x * x for x in xs) / n) - (sum(xs) / n) ** 2  # CATASTROPHIC_VARIANCE_CANCELLAT»|pos=«mean = sum(xs) / n ; var = sum((x - mean) ** 2 for x in xs) / n»|fp=a86148e6ecc9cfcc`
+- `@TRAP`: `@TRAP/1{guard:RX#35fb0ebf,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,kahan-summation,catastrophic-cancellatio,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:mean_sum_xs_/_n,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+var = (sum(x * x for x in xs) / n) - (sum(xs) / n) ** 2  # CATASTROPHIC_VARIANCE_CANCELLATION
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+mean = sum(xs) / n
+var = sum((x - mean) ** 2 for x in xs) / n
+```
+
+### `KS-LOGIC-010` · `@OP/1[ID:KS-LOGIC-010|SEV:HIGH|CAT:boundary-logic|LANG:py|OP:TIMESTAMP_ONLY_PAGINATION->COMPOSITE]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-010|sev=H|cat=boundary-logic|lang=py|op=TIMESTAMP_ONLY_PAGINATION->COMPOSITE|guard=RX#fcbcb2ca|neg=«rows = db.query('SELECT * FROM events WHERE created_at > ? ORDER BY created_at LIMIT 100',»|pos=«rows = db.query('SELECT * FROM events WHERE (created_at, id) > (?, ?) ORDER BY created_at,»|fp=230cf0357ce9c1f7`
+- `@TRAP`: `@TRAP/1{guard:RX#fcbcb2ca,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cursor-pagination,tie-breaker-key,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:rows_db.query_SELECT_FROM_events_WHERE_creat,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+rows = db.query('SELECT * FROM events WHERE created_at > ? ORDER BY created_at LIMIT 100', [last_ts])  # NON_UNIQUE_TIMESTAMP_PAGINATION_SKIP
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+rows = db.query('SELECT * FROM events WHERE (created_at, id) > (?, ?) ORDER BY created_at, id LIMIT 100', [last_ts, last_id])
+```
+
+### `KS-LOGIC-012` · `@OP/1[ID:KS-LOGIC-012|SEV:HIGH|CAT:boundary-logic|LANG:py|OP:INCLUSIVE_BOTH_ENDS_CHUNKING->HALF_O]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-012|sev=H|cat=boundary-logic|lang=py|op=INCLUSIVE_BOTH_ENDS_CHUNKING->HALF_O|guard=RX#8a6ff049|neg=«chunks = [items[i : i + step + 1] for i in range(0, len(items), step)]  # OVERLAPPING_CHUN»|pos=«chunks = [items[i : i + step] for i in range(0, len(items), step)]»|fp=c77a2751ee536f99`
+- `@TRAP`: `@TRAP/1{guard:RX#8a6ff049,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,sliding-window,half-open-interval,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:chunks_items_i_:_i_+_step_for_i_in_range_0,_,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+chunks = [items[i : i + step + 1] for i in range(0, len(items), step)]  # OVERLAPPING_CHUNK_BOUNDARY_DUPLICATION
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+chunks = [items[i : i + step] for i in range(0, len(items), step)]
+```
+
+### `KS-LOGIC-013` · `@OP/1[ID:KS-LOGIC-013|SEV:HIGH|CAT:closure-aliasing-logic|LANG:py|OP:LATE_BINDING_LOOP_LAMBDA->DEFAULT_AR]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-013|sev=H|cat=closure-aliasing-logic|lang=py|op=LATE_BINDING_LOOP_LAMBDA->DEFAULT_AR|guard=RX#8c072a29|neg=«handlers = [lambda evt: dispatch(evt, route_id) for route_id in routes]  # LATE_BINDING_LO»|pos=«handlers = [lambda evt, r=route_id: dispatch(evt, r) for route_id in routes]»|fp=5e1472f378d91828`
+- `@TRAP`: `@TRAP/1{guard:RX#8c072a29,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,late-binding-closure,lambda-capture,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:handlers_lambda_evt,_r_route_id:_dispatch_ev,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+handlers = [lambda evt: dispatch(evt, route_id) for route_id in routes]  # LATE_BINDING_LOOP_CLOSURE_CAPTURE
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+handlers = [lambda evt, r=route_id: dispatch(evt, r) for route_id in routes]
+```
+
+### `KS-LOGIC-014` · `@OP/1[ID:KS-LOGIC-014|SEV:HIGH|CAT:closure-aliasing-logic|LANG:py|OP:LIST_MULTIPLY_NESTED_ROW_ALIASING->L]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-014|sev=H|cat=closure-aliasing-logic|lang=py|op=LIST_MULTIPLY_NESTED_ROW_ALIASING->L|guard=RX#eafd5c14|neg=«grid = [[0] * cols] * rows  # ALIASED_NESTED_LIST_MULTIPLICATION»|pos=«grid = [[0] * cols for _ in range(rows)]»|fp=34cfdb56d8bea8f6`
+- `@TRAP`: `@TRAP/1{guard:RX#eafd5c14,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,shallow-row-multiplicati,matrix-aliasing,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:grid_0_cols_for___in_range_rows,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+grid = [[0] * cols] * rows  # ALIASED_NESTED_LIST_MULTIPLICATION
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+grid = [[0] * cols for _ in range(rows)]
+```
+
+### `KS-LOGIC-017` · `@OP/1[ID:KS-LOGIC-017|SEV:HIGH|CAT:causal-temporal-logic|LANG:py|OP:WALL_CLOCK_TIME_ELAPSED_DIFF->MONOTO]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-017|sev=H|cat=causal-temporal-logic|lang=py|op=WALL_CLOCK_TIME_ELAPSED_DIFF->MONOTO|guard=RX#5c12b927|neg=«t_start = time.time() ; run_step() ; elapsed_ms = (time.time() - t_start) * 1000.0  # WALL»|pos=«t_start = time.monotonic() ; run_step() ; elapsed_ms = (time.monotonic() - t_start) * 1000»|fp=d4d7ed7baa3a0d58`
+- `@TRAP`: `@TRAP/1{guard:RX#5c12b927,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,monotonic-clock,wall-clock-skew,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:t_start_time.monotonic,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+t_start = time.time()
+run_step()
+elapsed_ms = (time.time() - t_start) * 1000.0  # WALL_CLOCK_NTP_BACKWARD_JUMP_BUG
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+t_start = time.monotonic()
+run_step()
+elapsed_ms = (time.monotonic() - t_start) * 1000.0
+```
+
+### `KS-LOGIC-018` · `@OP/1[ID:KS-LOGIC-018|SEV:HIGH|CAT:causal-temporal-logic|LANG:py|OP:CONDITION_ON_POST_TREATMENT_COLLIDER]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-018|sev=H|cat=causal-temporal-logic|lang=py|op=CONDITION_ON_POST_TREATMENT_COLLIDER|guard=RX#00858a98|neg=«adj_set = pre_confounders | post_treatment_colliders  # POST_TREATMENT_COLLIDER_BIAS_CONDI»|pos=«adj_set = pre_confounders - descendants_of_treatment»|fp=a3088db4077f1351`
+- `@TRAP`: `@TRAP/1{guard:RX#00858a98,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,collider-conditioning,pearl-do-calculus,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:adj_set_pre_confounders_-_descendants_of_tre,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+adj_set = pre_confounders | post_treatment_colliders  # POST_TREATMENT_COLLIDER_BIAS_CONDITIONING
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+adj_set = pre_confounders - descendants_of_treatment
+```
+
+### `KS-LOGIC-023` · `@OP/1[ID:KS-LOGIC-023|SEV:HIGH|CAT:consensus-quorum-logic|LANG:py|OP:LOCAL_LEADER_FLAG_WRITE->FENCING_TOK]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-023|sev=H|cat=consensus-quorum-logic|lang=py|op=LOCAL_LEADER_FLAG_WRITE->FENCING_TOK|guard=RX#01b1ee0c|neg=«if self.is_leader_cached:  # UNFENCED_LEADER_LEASE_SPLIT_BRAIN ; storage.write_chunk(block»|pos=«if self.fencing_token >= storage.min_accepted_fencing_token: ; storage.write_chunk(block_i»|fp=2070665aea0defad`
+- `@TRAP`: `@TRAP/1{guard:RX#01b1ee0c,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,split-brain-fencing,lease-epoch-token,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_self.fencing_token_storage.min_accepted_f,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if self.is_leader_cached:  # UNFENCED_LEADER_LEASE_SPLIT_BRAIN
+    storage.write_chunk(block_id, data)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+if self.fencing_token >= storage.min_accepted_fencing_token:
+    storage.write_chunk(block_id, data, fencing_token=self.fencing_token)
+```
+
+### `KS-LOGIC-024` · `@OP/1[ID:KS-LOGIC-024|SEV:HIGH|CAT:consensus-quorum-logic|LANG:py|OP:SYNCHRONIZED_FIXED_RETRY_BACKOFF->FU]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-024|sev=H|cat=consensus-quorum-logic|lang=py|op=SYNCHRONIZED_FIXED_RETRY_BACKOFF->FU|guard=RX#c82faf0d|neg=«sleep_sec = base_delay * (2 ** attempt)  # SYNCHRONIZED_NO_JITTER_RETRY_STORM»|pos=«cap_sec = min(max_delay, base_delay * (2 ** attempt)) ; sleep_sec = cap_sec * (0.5 + 0.5 *»|fp=fb1cf7760c9d8fdc`
+- `@TRAP`: `@TRAP/1{guard:RX#c82faf0d,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,thundering-herd,exponential-backoff-jitt,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:cap_sec_min_max_delay,_base_delay_2_attempt,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+sleep_sec = base_delay * (2 ** attempt)  # SYNCHRONIZED_NO_JITTER_RETRY_STORM
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+cap_sec = min(max_delay, base_delay * (2 ** attempt))
+sleep_sec = cap_sec * (0.5 + 0.5 * deterministic_jitter_ratio)
+```
+
+### `KS-LOGIC-026` · `@OP/1[ID:KS-LOGIC-026|SEV:HIGH|CAT:resource-lifecycle-logic|LANG:py|OP:POPEN_WAIT_WITH_STDOUT_PIPE->POPEN_C]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-026|sev=H|cat=resource-lifecycle-logic|lang=py|op=POPEN_WAIT_WITH_STDOUT_PIPE->POPEN_C|guard=RX#5beb097e|neg=«proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE) ; proc.wait()  # POPEN_WAIT_PIPE»|pos=«proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE) ; stdout»|fp=de15092ac66df79f`
+- `@TRAP`: `@TRAP/1{guard:RX#5beb097e,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,subprocess-pipe-deadlock,communicate-timeout,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:proc_subprocess.Popen_cmd_args,_stdout_subpr,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE)
+proc.wait()  # POPEN_WAIT_PIPE_BUFFER_DEADLOCK
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+stdout_data, stderr_data = proc.communicate(timeout=30)
+```
+
+### `KS-LOGIC-027` · `@OP/1[ID:KS-LOGIC-027|SEV:HIGH|CAT:resource-lifecycle-logic|LANG:py|OP:DANGLING_CONNECTION_ON_EXCEPTION->EX]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-027|sev=H|cat=resource-lifecycle-logic|lang=py|op=DANGLING_CONNECTION_ON_EXCEPTION->EX|guard=RX#bc388cc9|neg=«try: ; cursor.execute(update_sql, params) ; conn.commit() ; except Exception as exc:  # MI»|pos=«try: ; cursor.execute(update_sql, params) ; conn.commit() ; except Exception as exc: ; con»|fp=7a4de2abc10d0cfe`
+- `@TRAP`: `@TRAP/1{guard:RX#bc388cc9,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,db-transaction-rollback,exception-hygiene,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:try:,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+try:
+    cursor.execute(update_sql, params)
+    conn.commit()
+except Exception as exc:  # MISSING_TX_ROLLBACK_ON_EXCEPTION
+    logger.error(exc)
+    raise
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+try:
+    cursor.execute(update_sql, params)
+    conn.commit()
+except Exception as exc:
+    conn.rollback()
+    logger.error(exc)
+    raise
+```
+
+### `KS-LOGIC-029` · `@OP/1[ID:KS-LOGIC-029|SEV:HIGH|CAT:path-canonicalization-lo|LANG:py|OP:RAW_UNNORMALIZED_IDENTIFIER_FILTER->]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-029|sev=H|cat=path-canonicalization-logic|lang=py|op=RAW_UNNORMALIZED_IDENTIFIER_FILTER->|guard=RX#4e930c7f|neg=«if user_handle not in reserved_admin_names:  # UNNORMALIZED_UNICODE_FILTER_BYPASS ; regist»|pos=«canon_handle = unicodedata.normalize('NFKC', user_handle).casefold() ; if canon_handle not»|fp=55c9880c9771c537`
+- `@TRAP`: `@TRAP/1{guard:RX#4e930c7f,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,unicode-nfkc-normalizati,homograph-bypass,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:canon_handle_unicodedata.normalize_NFKC_,_us,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if user_handle not in reserved_admin_names:  # UNNORMALIZED_UNICODE_FILTER_BYPASS
+    register_handle(user_handle)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+canon_handle = unicodedata.normalize('NFKC', user_handle).casefold()
+if canon_handle not in reserved_admin_names:
+    register_handle(canon_handle)
+```
+
+### `KS-LOGIC-030` · `@OP/1[ID:KS-LOGIC-030|SEV:HIGH|CAT:path-canonicalization-lo|LANG:py|OP:SUBSTRING_HOST_IN_URL_CHECK->URLPARS]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-030|sev=H|cat=path-canonicalization-logic|lang=py|op=SUBSTRING_HOST_IN_URL_CHECK->URLPARS|guard=RX#5f619695|neg=«if 'example.com' in target_url:  # SUBSTRING_URL_HOST_SSRF_BYPASS ; fetch_remote(target_ur»|pos=«parsed_u = urllib.parse.urlparse(target_url) ; if parsed_u.scheme == 'https' and parsed_u.»|fp=df78eb2825493263`
+- `@TRAP`: `@TRAP/1{guard:RX#5f619695,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,url-authority-confusion,ssrf-host-parse,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:parsed_u_urllib.parse.urlparse_target_url,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+if 'example.com' in target_url:  # SUBSTRING_URL_HOST_SSRF_BYPASS
+    fetch_remote(target_url)
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+parsed_u = urllib.parse.urlparse(target_url)
+if parsed_u.scheme == 'https' and parsed_u.hostname in {'example.com', 'api.example.com'}:
+    fetch_remote(target_url)
+```
+
+### `KS-LOGIC-032` · `@OP/1[ID:KS-LOGIC-032|SEV:HIGH|CAT:agent-epistemic-logic|LANG:py|OP:SILENT_COUNTEREXAMPLE_DROP->PRESERVE]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-032|sev=H|cat=agent-epistemic-logic|lang=py|op=SILENT_COUNTEREXAMPLE_DROP->PRESERVE|guard=RX#89428dc6|neg=«valid_cases = [x for x in domain if hypothesis(x)]  # SILENT_COUNTEREXAMPLE_DOMAIN_PRUNING»|pos=«counterexamples = [x for x in domain if not hypothesis(x)] ; return 'PROVED' if not counte»|fp=6331b99fe22fefad`
+- `@TRAP`: `@TRAP/1{guard:RX#89428dc6,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,goalpost-moving-cegis,lakatos-domain-cut,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:counterexamples_x_for_x_in_domain_if_not_hyp,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+valid_cases = [x for x in domain if hypothesis(x)]  # SILENT_COUNTEREXAMPLE_DOMAIN_PRUNING
+return 'PROVED'
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+counterexamples = [x for x in domain if not hypothesis(x)]
+return 'PROVED' if not counterexamples else 'REFUTED'
+```
+
+### `KS-LOGIC-033` · `@OP/1[ID:KS-LOGIC-033|SEV:HIGH|CAT:agent-epistemic-logic|LANG:py|OP:BLIND_REGEX_FILE_WRITE->AST_PARSE_CA]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-033|sev=H|cat=agent-epistemic-logic|lang=py|op=BLIND_REGEX_FILE_WRITE->AST_PARSE_CA|guard=RX#93615333|neg=«patched_src = re.sub(pattern, repl, orig_src) ; source_file.write_text(patched_src)  # UNG»|pos=«patched_src = re.sub(pattern, repl, orig_src) ; ast.parse(patched_src) ; source_file.write»|fp=bb5c739ca43263b0`
+- `@TRAP`: `@TRAP/1{guard:RX#93615333,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,codemod-syntax-guard,ast-parse-gate,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:patched_src_re.sub_pattern,_repl,_orig_src,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+patched_src = re.sub(pattern, repl, orig_src)
+source_file.write_text(patched_src)  # UNGUARDED_CODEMOD_SYNTAX_WRITE
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+patched_src = re.sub(pattern, repl, orig_src)
+ast.parse(patched_src)
+source_file.write_text(patched_src)
+```
+
+### `KS-LOGIC-034` · `@OP/1[ID:KS-LOGIC-034|SEV:HIGH|CAT:cross-lang-safety-logic|LANG:rs,py|OP:UNCHECKED_U64_SUBTRACTION->CHECKED_O]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-034|sev=H|cat=cross-lang-safety-logic|lang=rs,py|op=UNCHECKED_U64_SUBTRACTION->CHECKED_O|guard=RX#a2c20a0c|neg=«let remaining: u64 = total_budget - spent_amount;  // UNSIGNED_U64_UNDERFLOW_WRAP»|pos=«let remaining: u64 = total_budget.saturating_sub(spent_amount);»|fp=80dae2356016b3b4`
+- `@TRAP`: `@TRAP/1{guard:RX#a2c20a0c,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unsigned-underflow,saturating-arithmetic,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:let_remaining:_u64_total_budget.saturating_s,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```rust
+let remaining: u64 = total_budget - spent_amount;  // UNSIGNED_U64_UNDERFLOW_WRAP
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```rust
+let remaining: u64 = total_budget.saturating_sub(spent_amount);
+```
+
+### `KS-LOGIC-035` · `@OP/1[ID:KS-LOGIC-035|SEV:HIGH|CAT:cross-lang-safety-logic|LANG:ts,js,py|OP:PROMISE_ALL_BATCH_ABORT->PROMISE_ALL]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-035|sev=H|cat=cross-lang-safety-logic|lang=ts,js,py|op=PROMISE_ALL_BATCH_ABORT->PROMISE_ALL|guard=RX#3b136c25|neg=«const results = await Promise.all(workerPromises);  // PROMISE_ALL_SINGLE_REJECTION_BATCH_»|pos=«const results = await Promise.allSettled(workerPromises);»|fp=f2ab358fc48d5301`
+- `@TRAP`: `@TRAP/1{guard:RX#3b136c25,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,promise-all-unhandled,allsettled-isolation,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:const_results_await_Promise.allSettled_worke,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```typescript
+const results = await Promise.all(workerPromises);  // PROMISE_ALL_SINGLE_REJECTION_BATCH_ABORT
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```typescript
+const results = await Promise.allSettled(workerPromises);
+```
+
+### `KS-LOGIC-036` · `@OP/1[ID:KS-LOGIC-036|SEV:HIGH|CAT:cross-lang-safety-logic|LANG:ts,js,py|OP:LOGICAL_OR_FALSY_ZERO_CLOBBER->NULLI]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-036|sev=H|cat=cross-lang-safety-logic|lang=ts,js,py|op=LOGICAL_OR_FALSY_ZERO_CLOBBER->NULLI|guard=RX#ed46e8aa|neg=«const timeoutMs = config.timeoutMs || 5000;  // LOGICAL_OR_FALSY_ZERO_OVERRIDE»|pos=«const timeoutMs = config.timeoutMs ?? 5000;»|fp=c886b22afcb0e153`
+- `@TRAP`: `@TRAP/1{guard:RX#ed46e8aa,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,nullish-coalescing,falsy-zero-clobber,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:const_timeoutMs_config.timeoutMs_5000,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```typescript
+const timeoutMs = config.timeoutMs || 5000;  // LOGICAL_OR_FALSY_ZERO_OVERRIDE
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```typescript
+const timeoutMs = config.timeoutMs ?? 5000;
 ```
 
 ### `KS-003` · `@OP/1[ID:KS-003|SEV:HIGH|CAT:security|LANG:py|OP:subprocess!shell=True->argv_list]`
@@ -25343,6 +25926,50 @@ if computed_rate_float == target_rate_float:  # WILD_FLOAT_DIRECT_EQ
 `@POS_AST` (`✅ REQUIRED`):
 ```python
 if math.isclose(computed_rate_float, target_rate_float, rel_tol=1e-9):
+```
+
+### `KS-LOGIC-011` · `@OP/1[ID:KS-LOGIC-011|SEV:MEDIUM|CAT:boundary-logic|LANG:py|OP:UNPROGRESSED_BINARY_SEARCH_MID->STRI]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-011|sev=M|cat=boundary-logic|lang=py|op=UNPROGRESSED_BINARY_SEARCH_MID->STRI|guard=RX#3fd89db4|neg=«while lo < hi: ; mid = (lo + hi) // 2 ; if check(mid): ; lo = mid  # BINARY_SEARCH_INFINIT»|pos=«while lo < hi: ; mid = (lo + hi + 1) // 2 ; if check(mid): ; lo = mid ; else: ; hi = mid -»|fp=1d1710060a49351d`
+- `@TRAP`: `@TRAP/1{guard:RX#3fd89db4,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,binary-search-overflow,interval-closure,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:while_lo_hi:,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+while lo < hi:
+    mid = (lo + hi) // 2
+    if check(mid):
+        lo = mid  # BINARY_SEARCH_INFINITE_BOUND_STALL
+    else:
+        hi = mid - 1
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+while lo < hi:
+    mid = (lo + hi + 1) // 2
+    if check(mid):
+        lo = mid
+    else:
+        hi = mid - 1
+```
+
+### `KS-LOGIC-015` · `@OP/1[ID:KS-LOGIC-015|SEV:MEDIUM|CAT:closure-aliasing-logic|LANG:py|OP:RE_ITERATING_EXHAUSTED_GENERATOR->MA]`
+- `@WIRE`: `@KML/1|id=KS-LOGIC-015|sev=M|cat=closure-aliasing-logic|lang=py|op=RE_ITERATING_EXHAUSTED_GENERATOR->MA|guard=RX#a3222e51|neg=«filtered = (x for x in data if x > 0) ; total = sum(filtered) ; count = sum(1 for _ in fil»|pos=«filtered = tuple(x for x in data if x > 0) ; total = sum(filtered) ; count = len(filtered)»|fp=e70a1f9d78c9be26`
+- `@TRAP`: `@TRAP/1{guard:RX#a3222e51,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,iterator-exhaustion,single-pass-generator,gemini38-deepseek,kml:v1]}`
+- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:filtered_tuple_x_for_x_in_data_if_x_0,verify:DETERMINISTIC_PASS}`
+
+`@NEG_AST` (`❌ FORBIDDEN`):
+```python
+filtered = (x for x in data if x > 0)
+total = sum(filtered)
+count = sum(1 for _ in filtered)  # EXHAUSTED_GENERATOR_SECOND_PASS
+```
+
+`@POS_AST` (`✅ REQUIRED`):
+```python
+filtered = tuple(x for x in data if x > 0)
+total = sum(filtered)
+count = len(filtered)
 ```
 
 ### `KS-004` · `@OP/1[ID:KS-004|SEV:MEDIUM|CAT:correctness|LANG:py|OP:py!mutable_default->None]`

@@ -1,0 +1,231 @@
+{
+  "benchmark": "GEMINI_3_8_AND_DEEPSEEK_GITHUB_SELF_EVOLVING_LOGIC_SWARM",
+  "version": "1.3.0",
+  "protocol": "KML/1 + OP/1 + CEGIS/1",
+  "started_at_gmt7": "2026-11-06T12:56:38.116164+07:00",
+  "last_updated_gmt7": "2026-11-06T13:28:22.022200+07:00",
+  "target_stop_time_gmt7": "2026-11-06T13:30:00+07:00",
+  "initial_scars": 1690,
+  "final_scars": 1726,
+  "new_self_evolving_logic_scars": 36,
+  "reinforcement_cycles_completed": 15,
+  "verification_gates_enforced": [
+    "Gate 1: KintsugiScanner True-Positive >= 1 & Self False-Positive == 0",
+    "Gate 2: 7-Layer Zero-Trust Shield & ReDoS < 5ms Audit",
+    "Gate 3: DisjointScarHoldoutVerifier (Unseen Variant TP & Lookalike 0-FP)",
+    "Gate 4: LakatosCEGISVerifier (PROVED on Uncut Domain D_0)",
+    "Gate 5: Full-Ledger Cross-Corpus 0.0% False-Positive Invariant"
+  ],
+  "waves_summary": [
+    {
+      "cycle": 1,
+      "wave_id": 1,
+      "track": "state_machine_idempotency_logic",
+      "github_matches": 2923,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-001",
+        "KS-LOGIC-002",
+        "KS-LOGIC-003"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 2,
+      "wave_id": 2,
+      "track": "async_concurrency_toctou_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-004",
+        "KS-LOGIC-005",
+        "KS-LOGIC-006"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 3,
+      "wave_id": 3,
+      "track": "numerical_precision_conservation_logic",
+      "github_matches": 16,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-007",
+        "KS-LOGIC-008",
+        "KS-LOGIC-009"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 4,
+      "wave_id": 4,
+      "track": "boundary_off_by_one_pagination_logic",
+      "github_matches": 421,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-010",
+        "KS-LOGIC-011",
+        "KS-LOGIC-012"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 5,
+      "wave_id": 5,
+      "track": "python_closure_mutability_aliasing_logic",
+      "github_matches": 6460,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-013",
+        "KS-LOGIC-014",
+        "KS-LOGIC-015"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 6,
+      "wave_id": 6,
+      "track": "causal_temporal_data_leakage_logic",
+      "github_matches": 65,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-016",
+        "KS-LOGIC-017",
+        "KS-LOGIC-018"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 7,
+      "wave_id": 7,
+      "track": "cryptographic_auth_token_binding_logic",
+      "github_matches": 21,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-019",
+        "KS-LOGIC-020",
+        "KS-LOGIC-021"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 8,
+      "wave_id": 8,
+      "track": "distributed_consensus_quorum_logic",
+      "github_matches": 7,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-022",
+        "KS-LOGIC-023",
+        "KS-LOGIC-024"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 9,
+      "wave_id": 9,
+      "track": "resource_lifecycle_descriptor_leak_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-025",
+        "KS-LOGIC-026",
+        "KS-LOGIC-027"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 10,
+      "wave_id": 10,
+      "track": "parser_normalization_path_canonicalization_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-028",
+        "KS-LOGIC-029",
+        "KS-LOGIC-030"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 11,
+      "wave_id": 11,
+      "track": "agentic_tool_loop_epistemic_grounding_logic",
+      "github_matches": 276,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-031",
+        "KS-LOGIC-032",
+        "KS-LOGIC-033"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 12,
+      "wave_id": 12,
+      "track": "rust_typescript_cross_language_memory_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-034",
+        "KS-LOGIC-035",
+        "KS-LOGIC-036"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 13,
+      "wave_id": 1,
+      "track": "state_machine_idempotency_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-001",
+        "KS-LOGIC-002",
+        "KS-LOGIC-003"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 14,
+      "wave_id": 2,
+      "track": "async_concurrency_toctou_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-004",
+        "KS-LOGIC-005",
+        "KS-LOGIC-006"
+      ],
+      "all_5_gates": "PASS_100%"
+    },
+    {
+      "cycle": 15,
+      "wave_id": 3,
+      "track": "numerical_precision_conservation_logic",
+      "github_matches": 0,
+      "gemini_3_8_routed": "agy-gemini-3.8-flash-high",
+      "deepseek_routed": "deepseek-v4.1-flash",
+      "scar_ids": [
+        "KS-LOGIC-007",
+        "KS-LOGIC-008",
+        "KS-LOGIC-009"
+      ],
+      "all_5_gates": "PASS_100%"
+    }
+  ]
+}

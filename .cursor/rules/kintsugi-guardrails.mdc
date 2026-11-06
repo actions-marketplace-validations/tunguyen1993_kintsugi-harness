@@ -10,23 +10,23 @@ alwaysApply: true
 
 | ID | SEV | CAT | KML/1 Symbolic Opcode (`@OP/1`) |
 | :--- | :--- | :--- | :--- |
+| `KS-LOGIC-001` | `CRITICAL` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-001|SEV:CRITICAL|CAT:state-machine-logic|LANG:py|OP:NON_ATOMIC_STATE_MUTATION->COMPARE_A]` |
+| `KS-LOGIC-004` | `CRITICAL` | `concurrency-logic` | `@OP/1[ID:KS-LOGIC-004|SEV:CRITICAL|CAT:concurrency-logic|LANG:py|OP:CHECK_THEN_AWAIT_MUTATE->ASYNC_LOCK]` |
+| `KS-LOGIC-009` | `CRITICAL` | `numerical-logic` | `@OP/1[ID:KS-LOGIC-009|SEV:CRITICAL|CAT:numerical-logic|LANG:py|OP:PREMATURE_INTEGER_FLOOR_DIV->MULTIPL]` |
+| `KS-LOGIC-016` | `CRITICAL` | `causal-temporal-logic` | `@OP/1[ID:KS-LOGIC-016|SEV:CRITICAL|CAT:causal-temporal-logic|LANG:py|OP:FULL_CORPUS_SCALER_FIT_BEFORE_SPLIT-]` |
+| `KS-LOGIC-019` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-019|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:DIRECT_STRING_EQ_MAC_VERIFY->HMAC_CO]` |
+| `KS-LOGIC-020` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-020|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSCOPED_TOKEN_SUBJECT_TRUST->STRICT]` |
+| `KS-LOGIC-021` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-021|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSEPARATED_FIELD_CONCAT_HASH->LENGT]` |
+| `KS-LOGIC-022` | `CRITICAL` | `consensus-quorum-logic` | `@OP/1[ID:KS-LOGIC-022|SEV:CRITICAL|CAT:consensus-quorum-logic|LANG:py|OP:UNKEYED_VOTE_COUNT_QUORUM->UNIQUE_VO]` |
+| `KS-LOGIC-025` | `CRITICAL` | `resource-lifecycle-logic` | `@OP/1[ID:KS-LOGIC-025|SEV:CRITICAL|CAT:resource-lifecycle-logic|LANG:py|OP:DIRECT_IN_PLACE_STATE_OVERWRITE->WRI]` |
+| `KS-LOGIC-028` | `CRITICAL` | `path-canonicalization-logic` | `@OP/1[ID:KS-LOGIC-028|SEV:CRITICAL|CAT:path-canonicalization-lo|LANG:py|OP:STRING_STARTSWITH_PATH_PREFIX->RESOL]` |
+| `KS-LOGIC-031` | `CRITICAL` | `agent-epistemic-logic` | `@OP/1[ID:KS-LOGIC-031|SEV:CRITICAL|CAT:agent-epistemic-logic|LANG:py|OP:TRUST_LLM_SELF_REPORTED_PASS->INDEPE]` |
 | `KS-001` | `CRITICAL` | `security` | `@OP/1[ID:KS-001|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:secret!=literal->os.environ]` |
 | `KS-002` | `CRITICAL` | `safety` | `@OP/1[ID:KS-002|SEV:CRITICAL|CAT:safety|LANG:sh,py,js,ts|OP:sh!no_force_push_or_rm_rf]` |
 | `KS-006` | `CRITICAL` | `security` | `@OP/1[ID:KS-006|SEV:CRITICAL|CAT:security|LANG:py|OP:no_eval_exec_pickle->literal_eval]` |
 | `KS-007` | `CRITICAL` | `security` | `@OP/1[ID:KS-007|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:sql!fstring->param_query]` |
 | `KS-012` | `CRITICAL` | `security` | `@OP/1[ID:KS-012|SEV:CRITICAL|CAT:security|LANG:mark,py,js,ts|OP:prompt!no_system_override_injection]` |
 | `KS-014` | `CRITICAL` | `security` | `@OP/1[ID:KS-014|SEV:CRITICAL|CAT:security|LANG:js,ts,sh|OP:tls!rejectUnauthorized=true]` |
-| `KS-003` | `HIGH` | `security` | `@OP/1[ID:KS-003|SEV:HIGH|CAT:security|LANG:py|OP:subprocess!shell=True->argv_list]` |
-| `KS-005` | `HIGH` | `reliability` | `@OP/1[ID:KS-005|SEV:HIGH|CAT:reliability|LANG:py|OP:py!bare_except_pass->log_raise]` |
-| `KS-008` | `HIGH` | `reliability` | `@OP/1[ID:KS-008|SEV:HIGH|CAT:reliability|LANG:py|OP:http!no_timeout->timeout=10]` |
-| `KS-011` | `HIGH` | `security` | `@OP/1[ID:KS-011|SEV:HIGH|CAT:security|LANG:py|OP:crypto!random->secrets]` |
-| `KS-013` | `HIGH` | `security` | `@OP/1[ID:KS-013|SEV:HIGH|CAT:security|LANG:js,ts|OP:js!exec_interp->execFile]` |
-| `KS-015` | `HIGH` | `security` | `@OP/1[ID:KS-015|SEV:HIGH|CAT:security|LANG:py,js,ts|OP:cors!no_wildcard_with_credentials]` |
-| `KS-016` | `HIGH` | `reliability` | `@OP/1[ID:KS-016|SEV:HIGH|CAT:reliability|LANG:go|OP:go!http_client_timeout]` |
-| `KS-OSS-1000` | `HIGH` | `reliability` | `@OP/1[ID:KS-OSS-1000|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:fetcher!unsafe_call->verified_call(timeout=10)]` |
-| `KS-OSS-1001` | `HIGH` | `reliability` | `@OP/1[ID:KS-OSS-1001|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:run!unsafe_call->verified_call(timeout=10)]` |
-| `KS-OSS-1002` | `HIGH` | `reliability` | `@OP/1[ID:KS-OSS-1002|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:exchange!unsafe_call->verified_call(timeout=10)]` |
-| `KS-OSS-1003` | `HIGH` | `reliability` | `@OP/1[ID:KS-OSS-1003|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:main_backtest!unsafe_call->verified_call(timeout=10)]` |
-| `KS-OSS-1004` | `HIGH` | `reliability` | `@OP/1[ID:KS-OSS-1004|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:RL_tuner!unsafe_call->verified_call(timeout=10)]` |
+| `KS-LOGIC-002` | `HIGH` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-002|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:UNKEYED_RETRY_DISPATCH->IDEMPOTENCY]` |
 
-*`@DEFERRED_RECORDS: +1672 in .kintsugi/scars.kml & .claude/skills/`*
+*`@DEFERRED_RECORDS: +1708 in .kintsugi/scars.kml & .claude/skills/`*
