@@ -2,6 +2,15 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.8.0] - 2026-11-07
+
+### Added
+- **Universal Drop-In Third-Party Harness Integrator & Federation Engine (`@HARNESS_BRIDGE/1` — `src/kintsugi/integrator.py` & `kintsugi integrate`):**
+  - **10-Format Auto-Discovery & Pure-Function Quarantine Pipeline (`discover_harnesses`, `ingest_and_analyze`):** Automatically discovers and parses `CLAUDE.md`, `.claude/settings.json`, `SKILL.md`, `AGENTS.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `.windsurfrules`, `.clinerules`, `.roo/rules/*.md`, `.github/copilot-instructions.md`, `.aider.conf.yml`, and `.zip`/`.tar.gz` archives into canonical `HarnessIR` without mutating user files.
+  - **7-Layer Zero-Trust Quarantine & Non-Execution Invariant:** Blocks `zip-slip` (`../`), Windows reserved device names (`CON`, `NUL`, `COM1`..`LPT9`, ADS `:`), symlinks, archive bombs (`MAX_COMPRESSED_BYTES = 10 MB`, `MAX_INFLATED_BYTES = 25 MB`, `MAX_COMPRESSION_RATIO = 25:1`), nested archives, duplicate JSON/YAML keys, unsafe YAML tags (`!!python/object`), Trojan Source bidi overrides (`KS-019`), and prompt injection (`KS-022`). Redacts high-entropy secrets before persistence and classifies third-party hooks/MCP servers as `elevate_required` (`capabilities_granted = []`, never auto-executed).
+  - **3-Stratum Authority Model ($A \succ B \succ C$) & Joint `DPLL SAT` + `Exact Semiring Difference Logic` Verifier (`ExactSemiringDifferenceSolver`, `JointSATDifferenceVerifier`):** Protects Stratum A (`KS-*` core invariants) as non-abducible, solves conditional rules $P \rightarrow S$ with Core $\neg S$ as `CONDITIONAL_BLOCKED_SCENARIO` when $P$ is absent, auto-drops conflicting Stratum C preferences, and solves integer (`math.floor`/`math.ceil` bound tightening) and rational (`(Fraction, strict_bool)`) difference constraints without floating-point epsilon hacks.
+  - **Signed `@PROOF_DAG/1` Integration Receipts & Reversible Bounded Mount/Eject (`mount_harness`, `eject_harness`, `revalidate_mounted_on_scanner_upgrade`):** Emits length-delimited HMAC-SHA256 receipts (`receipt.proof`), mounts compiled `@KML/1` guards inside bounded `<!-- KINTSUGI:INTEGRATED:<id>:START/END -->` blocks preserving 100% of user edits on `--eject`, and automatically re-scans mounted packs upon scanner upgrades.
+
 ## [1.7.0] - 2026-11-07
 
 ### Added

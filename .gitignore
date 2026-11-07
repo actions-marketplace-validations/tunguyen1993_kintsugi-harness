@@ -27,3 +27,11 @@ venv/
 .kintsugi/user_consent_ledger.json
 .kintsugi/swarm_merged_wisdom.json
 .kintsugi/swarm_negative_tabu.json
+.kintsugi/.compliance_local_seed
+.kintsugi/.integrator_local_seed
+.kintsugi/quarantine/
+.kintsugi/integrated_harnesses/
+.kintsugi/active_integrations.json
+.kintsugi/waivers.json
+.kintsugi/audit.proof
+.kintsugi/eval_report.json

@@ -363,6 +363,20 @@ def _build_parser() -> argparse.ArgumentParser:
     p_evl.add_argument("--no-ablation", action="store_true", help="Omit ablation table from output")
     p_evl.add_argument("--wire", action="store_true", help="Output compact @EVAL_SUITE/1 symbolic wire summary")
 
+    p_int = sub.add_parser(
+        "integrate",
+        help="Universal Drop-In Harness Integrator & Federation Engine (@HARNESS_BRIDGE/1: auto-discover, 7-layer quarantine, SAT+DL conflict check, mount & eject third-party harnesses)",
+    )
+    p_int.add_argument("target", nargs="?", default=None, help="Path to existing or downloaded harness file, directory, .zip, or .tar.gz")
+    p_int.add_argument("--workspace", default=".", help="Workspace root directory (default: .)")
+    p_int.add_argument("--scan", "--discover", dest="scan", action="store_true", help="Discover all recognizable agent harnesses in target/workspace")
+    p_int.add_argument("--preview", action="store_true", help="Quarantine, parse, and conflict-check target without mounting")
+    p_int.add_argument("--mount", action="store_true", help="Approve and mount compiled declarative guards from target")
+    p_int.add_argument("--eject", default=None, metavar="HARNESS_ID", help="Reversibly eject a mounted harness and restore clean state")
+    p_int.add_argument("--list", action="store_true", help="List currently mounted third-party harnesses and tier quota")
+    p_int.add_argument("--harness-id", default=None, help="Optional explicit identifier for the imported harness")
+    p_int.add_argument("--wire", action="store_true", help="Output compact @PROOF_DAG/1 integration receipt wire")
+
     return parser
 
 
@@ -1025,6 +1039,33 @@ def main(argv: Optional[List[str]] = None) -> int:
         rep = suite.run_full_evaluation_suite(include_ablation=not bool(getattr(args, "no_ablation", False)))
         if getattr(args, "wire", False):
             print(rep["wire"])
+        else:
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+        return 0 if rep.get("ok") else 1
+
+    if args.command == "integrate":
+        from kintsugi.integrator import UniversalHarnessIntegrator
+
+        integrator = UniversalHarnessIntegrator(getattr(args, "workspace", "."))
+        if getattr(args, "eject", None):
+            rep = integrator.eject_harness(args.eject)
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+            return 0 if rep.get("ok") else 1
+        if getattr(args, "list", False):
+            rep = integrator.list_integrated_harnesses()
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+            return 0
+        target_arg = getattr(args, "target", None)
+        if getattr(args, "scan", False) or not target_arg:
+            rep = integrator.discover_harnesses(target_arg)
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+            return 0
+        if getattr(args, "mount", False):
+            rep = integrator.mount_harness(target_arg, harness_id=getattr(args, "harness_id", None))
+        else:
+            rep = integrator.ingest_and_analyze(target_arg, harness_id=getattr(args, "harness_id", None))
+        if getattr(args, "wire", False) and "attestation_receipt" in rep:
+            print(rep["attestation_receipt"]["wire"])
         else:
             print(json.dumps(rep, indent=2, ensure_ascii=False))
         return 0 if rep.get("ok") else 1

@@ -1936,6 +1936,248 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(eval_rep["false_positive_rate_pct"], 0.0)
         self.assertEqual(eval_rep["signed_compliance_proofs_emitted"], 6)
 
+    def test_v180_universal_drop_in_harness_integrator_and_sat_dl_federation(self) -> None:
+        from fractions import Fraction
+        import io
+        import re
+        import shutil
+        import zipfile
+        from kintsugi.integrator import (
+            ExactSemiringDifferenceSolver,
+            JointSATDifferenceVerifier,
+            NumericBoundIR,
+            UniversalHarnessIntegrator,
+            parse_json_strict_no_dup_keys,
+            parse_safe_yaml_subset,
+        )
+
+        tmp_dir = Path(tempfile.mkdtemp(prefix="kintsugi_v180_test_"))
+        self.addCleanup(lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
+        integrator = UniversalHarnessIntegrator(tmp_dir)
+
+        # 1. Exact Semiring Difference Logic: integer vs rational strictness (no epsilon hacks!)
+        # 1a. t <= 30 and t >= 45 -> negative cycle weight -15 (UNSAT)
+        dl1 = ExactSemiringDifferenceSolver()
+        dl1.add_bound(NumericBoundIR("B1", "t", "<=", Fraction(30, 1), "s", "int", "B"))
+        dl1.add_bound(NumericBoundIR("B2", "t", ">=", Fraction(45, 1), "s", "int", "B"))
+        r1 = dl1.solve()
+        self.assertFalse(r1["satisfiable"])
+        self.assertEqual(r1["cycle_weight"], "-15")
+
+        # 1b. t <= 30 and t >= 30 -> SAT at 30
+        dl2 = ExactSemiringDifferenceSolver()
+        dl2.add_bound(NumericBoundIR("B1", "t", "<=", Fraction(30, 1), "s", "int", "B"))
+        dl2.add_bound(NumericBoundIR("B2", "t", ">=", Fraction(30, 1), "s", "int", "B"))
+        r2 = dl2.solve()
+        self.assertTrue(r2["satisfiable"])
+        self.assertEqual(r2["model"]["t"], "30")
+
+        # 1c. Integer t < 30 and t >= 30 -> rewrites to t <= 29, cycle -1 (UNSAT)
+        dl3 = ExactSemiringDifferenceSolver()
+        dl3.add_bound(NumericBoundIR("B1", "t", "<", Fraction(30, 1), "s", "int", "B"))
+        dl3.add_bound(NumericBoundIR("B2", "t", ">=", Fraction(30, 1), "s", "int", "B"))
+        r3 = dl3.solve()
+        self.assertFalse(r3["satisfiable"])
+
+        # 1d. Rational t < 30.0 and t >= 30.0 -> cycle_weight == 0 with cycle_strict == True (UNSAT, no epsilon!)
+        dl4 = ExactSemiringDifferenceSolver()
+        dl4.add_bound(NumericBoundIR("B1", "t", "<", Fraction(30, 1), "s", "rational", "B"))
+        dl4.add_bound(NumericBoundIR("B2", "t", ">=", Fraction(30, 1), "s", "rational", "B"))
+        r4 = dl4.solve()
+        self.assertFalse(r4["satisfiable"])
+        self.assertEqual(r4["cycle_weight"], "0")
+        self.assertTrue(r4["cycle_strict"])
+
+        # 1e. 2 < x < 3 is UNSAT over integers (2 <= x-1 and x <= 2 -> cycle -1) and SAT over rationals!
+        dl_int_gap = ExactSemiringDifferenceSolver()
+        dl_int_gap.add_bound(NumericBoundIR("BI1", "x", ">", Fraction(2, 1), "count", "int", "B"))
+        dl_int_gap.add_bound(NumericBoundIR("BI2", "x", "<", Fraction(3, 1), "count", "int", "B"))
+        self.assertFalse(dl_int_gap.solve()["satisfiable"])
+
+        dl_rat_gap = ExactSemiringDifferenceSolver()
+        dl_rat_gap.add_bound(NumericBoundIR("BR1", "x", ">", Fraction(2, 1), "sec", "rational", "B"))
+        dl_rat_gap.add_bound(NumericBoundIR("BR2", "x", "<", Fraction(3, 1), "sec", "rational", "B"))
+        self.assertTrue(dl_rat_gap.solve()["satisfiable"])
+
+        # 2. Joint Boolean-Activated Difference Logic (DPLL + DL theory lemmas)
+        # Either mode_a or mode_b must hold; BOTH activate contradictory bounds on t -> Joint UNSAT!
+        jv = JointSATDifferenceVerifier()
+        joint_unsat = jv.verify_joint(
+            clauses=[("C_OR", ("mode_a", "mode_b"))],
+            bounds=[
+                NumericBoundIR("BA1", "t", "<=", Fraction(10, 1), "s", "int", "B", activated_by="mode_a"),
+                NumericBoundIR("BA2", "t", ">=", Fraction(20, 1), "s", "int", "B", activated_by="mode_a"),
+                NumericBoundIR("BB1", "t", "<=", Fraction(5, 1), "s", "int", "B", activated_by="mode_b"),
+                NumericBoundIR("BB2", "t", ">=", Fraction(15, 1), "s", "int", "B", activated_by="mode_b"),
+            ],
+        )
+        self.assertFalse(joint_unsat["satisfiable"])
+        self.assertEqual(joint_unsat["failure_domain"], "JOINT_SAT_DL")
+
+        # 3. Conditional P -> S with Core -S:
+        # 3a. P absent ("Always use shell=True when using pipes" + valid rule) -> SAT + CONDITIONAL_BLOCKED_SCENARIO
+        cond_file = tmp_dir / ".cursorrules"
+        cond_file.write_text(
+            "- Always use shell=True when using pipes\n"
+            "- Always run pytest unit tests before committing\n"
+            "- Prefer shell=True for quick scripts\n"
+            "- Require timeout <= 30 sec\n",
+            encoding="utf-8",
+        )
+        cond_res = integrator.ingest_and_analyze(cond_file)
+        self.assertTrue(cond_res["ok"])
+        self.assertTrue(cond_res["mountable"])
+        self.assertEqual(cond_res["conflict_report"]["verdict"], "CONDITIONAL_BLOCKED_SCENARIO")
+        self.assertEqual(len(cond_res["conflict_report"]["blocked_scenarios"]), 1)
+        self.assertIn("-cond_pipe_mode", cond_res["conflict_report"]["blocked_scenarios"][0]["entailed_avoidance"])
+        # Stratum C ("Prefer shell=True") is auto-dropped, not a hard blocker
+        self.assertEqual(len(cond_res["conflict_report"]["stratum_c_auto_dropped"]), 1)
+
+        # 3b. Conditional P -> S + Core -S + P required ("Require pipes") -> UNSAT with 3-clause MUS
+        cond_unsat_file = tmp_dir / ".windsurfrules"
+        cond_unsat_file.write_text(
+            "- Always use shell=True when using pipes\n"
+            "- Always require pipes in all workflows\n",
+            encoding="utf-8",
+        )
+        cond_unsat_res = integrator.ingest_and_analyze(cond_unsat_file)
+        self.assertFalse(cond_unsat_res["mountable"])
+        self.assertEqual(cond_unsat_res["conflict_report"]["solver_status"], "UNSAT")
+        self.assertEqual(len(cond_unsat_res["conflict_report"]["inclusion_minimal_mus"]), 3)
+
+        # 3c. Pack whose sole effect is negating Stratum A (-KS-002) -> SOLE_EFFECT_NEGATES_STRATUM_A
+        sole_neg_file = tmp_dir / ".clinerules"
+        sole_neg_file.write_text("- Always use subprocess shell=True in every command\n", encoding="utf-8")
+        sole_neg_res = integrator.ingest_and_analyze(sole_neg_file)
+        self.assertFalse(sole_neg_res["mountable"])
+        self.assertEqual(sole_neg_res["conflict_report"]["verdict"], "SOLE_EFFECT_NEGATES_STRATUM_A")
+
+        # 3d. Self-UNSAT pack -> SELF_UNSAT
+        self_unsat_file = tmp_dir / "CONVENTIONS.md"
+        self_unsat_file.write_text(
+            "- Always run pytest unit tests\n"
+            "- Never run pytest unit tests\n",
+            encoding="utf-8",
+        )
+        self_unsat_res = integrator.ingest_and_analyze(self_unsat_file)
+        self.assertFalse(self_unsat_res["mountable"])
+        self.assertEqual(self_unsat_res["conflict_report"]["verdict"], "SELF_UNSAT")
+
+        # 4. Waiver API rejects Stratum A (`KS-002` / `no_shell_true`)
+        with self.assertRaises(PermissionError):
+            integrator.create_waiver(
+                target_rule_id="KS-002",
+                pack_raw_sha256="a" * 64,
+                reason="Attempted core bypass",
+            )
+
+        # 5. Hostile Archive Defenses: zip-slip, duplicate normalized path, nested archive, JSON dup keys, unsafe YAML
+        zip_slip_path = tmp_dir / "hostile_slip.zip"
+        buf_slip = io.BytesIO()
+        with zipfile.ZipFile(buf_slip, "w") as zf:
+            zf.writestr("../../etc/passwd", "root:x:0:0")
+        zip_slip_path.write_bytes(buf_slip.getvalue())
+        with self.assertRaises(ValueError):
+            integrator.ingest_and_analyze(zip_slip_path)
+
+        zip_dup_path = tmp_dir / "hostile_dup.zip"
+        buf_dup = io.BytesIO()
+        with zipfile.ZipFile(buf_dup, "w") as zf:
+            zf.writestr("Rules.md", "- Always run unit tests\n")
+            zf.writestr("rules.md", "- Always use type hints\n")
+        zip_dup_path.write_bytes(buf_dup.getvalue())
+        with self.assertRaises(ValueError):
+            integrator.ingest_and_analyze(zip_dup_path)
+
+        with self.assertRaises(ValueError):
+            parse_json_strict_no_dup_keys('{"rules": [], "rules": ["override"]}')
+        with self.assertRaises(ValueError):
+            parse_safe_yaml_subset("exploit: !!python/object/apply:os.system ['id']\n")
+
+        # 6. Secret Redaction (never stored in manifest/receipt) & Capability Classification (`elevate_required`)
+        # Construct test token dynamically at runtime (CM-031 zero source-literal entropy)
+        dyn_secret = "".join(chr(65 + (i % 26)) + chr(97 + ((i * 7) % 26)) + str(i % 10) for i in range(10))
+        pack_dir = tmp_dir / "downloaded_claude_pack"
+        pack_dir.mkdir(parents=True, exist_ok=True)
+        (pack_dir / "CLAUDE.md").write_text(
+            f"- Always run pytest unit tests before merge\n"
+            f"- Never use eval() on payloads\n"
+            f"- Example config: api_key = \"{dyn_secret}\"\n"
+            f"- Some uncompiled prose narrative about team standups\n",
+            encoding="utf-8",
+        )
+        (pack_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "hooks": {"PreToolUse": [{"command": "echo hook"}]},
+                    "mcpServers": {"ext": {"command": "npx", "args": ["srv"]}},
+                    "rules": ["Always use type annotations in Python modules"],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        # Pre-populate AGENTS.md with user content before mounting
+        agents_doc = tmp_dir / "AGENTS.md"
+        agents_doc.write_text("# User Pre-Existing Header\nKeep this intact.\n", encoding="utf-8")
+
+        mount_res = integrator.mount_harness(pack_dir, harness_id="team-claude-pack")
+        self.assertTrue(mount_res["ok"])
+        self.assertEqual(mount_res["state"], "MOUNTED")
+        self.assertTrue(mount_res["harness_ir"]["secrets_found"])
+        # Raw secret must NEVER appear anywhere in the returned analysis, manifest, or receipt
+        serialized_mount = json.dumps(mount_res)
+        self.assertNotIn(dyn_secret, serialized_mount)
+        # Hooks and MCP are classified as elevate_required and never granted
+        cap_types = {c["capability_type"] for c in mount_res["harness_ir"]["capabilities"]}
+        self.assertIn("hook", cap_types)
+        self.assertIn("mcp", cap_types)
+        self.assertEqual(mount_res["attestation_receipt"]["capabilities_granted"], [])
+
+        # Verify @PROOF_DAG/1 receipt & tamper detection
+        receipt = mount_res["attestation_receipt"]
+        v_ok = integrator.verify_attestation_receipt(
+            receipt,
+            expected_raw_sha256=mount_res["harness_ir"]["raw_byte_sha256"],
+        )
+        self.assertTrue(v_ok["ok"])
+        self.assertEqual(
+            integrator.verify_attestation_receipt(receipt, expected_raw_sha256="0" * 64)["reason"],
+            "RECEIPT_SUBJECT_HASH_MISMATCH",
+        )
+        self.assertEqual(
+            integrator.verify_attestation_receipt(receipt, revoked_key_ids={receipt["key_id"]})["reason"],
+            "RECEIPT_KEY_REVOKED",
+        )
+        tampered_r = dict(receipt)
+        tampered_r["compiled_guards_count"] = 999
+        self.assertEqual(
+            integrator.verify_attestation_receipt(tampered_r)["reason"],
+            "RECEIPT_PAYLOAD_SHA256_MISMATCH",
+        )
+
+        # User edits AGENTS.md after mount; eject must preserve both pre-existing and post-mount user edits!
+        agents_doc.write_text(
+            agents_doc.read_text(encoding="utf-8") + "\n# User Post-Mount Section\nMust survive eject.\n",
+            encoding="utf-8",
+        )
+        eject_res = integrator.eject_harness("team-claude-pack")
+        self.assertTrue(eject_res["ok"])
+        after_eject_text = agents_doc.read_text(encoding="utf-8")
+        self.assertIn("# User Pre-Existing Header", after_eject_text)
+        self.assertIn("# User Post-Mount Section", after_eject_text)
+        self.assertNotIn("KINTSUGI:INTEGRATED:team-claude-pack", after_eject_text)
+
+        # 7. Scanner N+1 Upgrade Re-Holds Mounted Pack if New Detector Fires
+        remount = integrator.mount_harness(pack_dir, harness_id="team-claude-pack")
+        self.assertTrue(remount["ok"])
+        reval = integrator.revalidate_mounted_on_scanner_upgrade(
+            "2026.11.v180.2",
+            custom_Forbidden_regex=re.compile(r"team standups", re.IGNORECASE),
+        )
+        self.assertIn("team-claude-pack", reval["reheld_harnesses"])
+        self.assertEqual(integrator.list_integrated_harnesses()["mounted_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
