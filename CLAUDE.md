@@ -7,26 +7,26 @@
 
 | ID | SEV | CAT | KML/1 Symbolic Opcode (`@OP/1`) |
 | :--- | :--- | :--- | :--- |
-| `KS-LOGIC-001` | `CRITICAL` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-001|SEV:CRITICAL|CAT:state-machine-logic|LANG:py|OP:NON_ATOMIC_STATE_MUTATION->COMPARE_A]` |
-| `KS-LOGIC-004` | `CRITICAL` | `concurrency-logic` | `@OP/1[ID:KS-LOGIC-004|SEV:CRITICAL|CAT:concurrency-logic|LANG:py|OP:CHECK_THEN_AWAIT_MUTATE->ASYNC_LOCK]` |
-| `KS-LOGIC-009` | `CRITICAL` | `numerical-logic` | `@OP/1[ID:KS-LOGIC-009|SEV:CRITICAL|CAT:numerical-logic|LANG:py|OP:PREMATURE_INTEGER_FLOOR_DIV->MULTIPL]` |
-| `KS-LOGIC-016` | `CRITICAL` | `causal-temporal-logic` | `@OP/1[ID:KS-LOGIC-016|SEV:CRITICAL|CAT:causal-temporal-logic|LANG:py|OP:FULL_CORPUS_SCALER_FIT_BEFORE_SPLIT-]` |
-| `KS-LOGIC-019` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-019|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:DIRECT_STRING_EQ_MAC_VERIFY->HMAC_CO]` |
-| `KS-LOGIC-020` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-020|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSCOPED_TOKEN_SUBJECT_TRUST->STRICT]` |
-| `KS-LOGIC-021` | `CRITICAL` | `crypto-auth-logic` | `@OP/1[ID:KS-LOGIC-021|SEV:CRITICAL|CAT:crypto-auth-logic|LANG:py|OP:UNSEPARATED_FIELD_CONCAT_HASH->LENGT]` |
-| `KS-LOGIC-022` | `CRITICAL` | `consensus-quorum-logic` | `@OP/1[ID:KS-LOGIC-022|SEV:CRITICAL|CAT:consensus-quorum-logic|LANG:py|OP:UNKEYED_VOTE_COUNT_QUORUM->UNIQUE_VO]` |
-| `KS-LOGIC-025` | `CRITICAL` | `resource-lifecycle-logic` | `@OP/1[ID:KS-LOGIC-025|SEV:CRITICAL|CAT:resource-lifecycle-logic|LANG:py|OP:DIRECT_IN_PLACE_STATE_OVERWRITE->WRI]` |
-| `KS-LOGIC-028` | `CRITICAL` | `path-canonicalization-logic` | `@OP/1[ID:KS-LOGIC-028|SEV:CRITICAL|CAT:path-canonicalization-lo|LANG:py|OP:STRING_STARTSWITH_PATH_PREFIX->RESOL]` |
-| `KS-LOGIC-031` | `CRITICAL` | `agent-epistemic-logic` | `@OP/1[ID:KS-LOGIC-031|SEV:CRITICAL|CAT:agent-epistemic-logic|LANG:py|OP:TRUST_LLM_SELF_REPORTED_PASS->INDEPE]` |
+| `KS-025` | `CRITICAL` | `security` | `@OP/1[ID:KS-025|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:EMBEDDED_PEM_PRIVATE_KEY_BLOCK_IN_SO]` |
+| `KS-022` | `CRITICAL` | `mcp-prompt-security` | `@OP/1[ID:KS-022|SEV:CRITICAL|CAT:mcp-prompt-security|LANG:py|OP:UNSANITIZED_OS_SYSTEM_STRING_INTERPO]` |
+| `KS-020` | `CRITICAL` | `security` | `@OP/1[ID:KS-020|SEV:CRITICAL|CAT:security|LANG:py|OP:UNSAFE_YAML_LOAD_WITHOUT_SAFELOADER]` |
+| `KS-021` | `CRITICAL` | `security` | `@OP/1[ID:KS-021|SEV:CRITICAL|CAT:security|LANG:py|OP:PYTORCH_TORCH_LOAD_WITHOUT_WEIGHTS_O]` |
+| `KS-024` | `CRITICAL` | `security` | `@OP/1[ID:KS-024|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:JWT_DECODING_WITH_VERIFY_SIGNATURE_D]` |
+| `KS-028` | `CRITICAL` | `security` | `@OP/1[ID:KS-028|SEV:CRITICAL|CAT:security|LANG:js,ts|OP:NODE_JS_CHILD_PROCESS_EXECSYNC_WITH]` |
+| `KS-019` | `CRITICAL` | `mcp-prompt-security` | `@OP/1[ID:KS-019|SEV:CRITICAL|CAT:mcp-prompt-security|LANG:py,js,ts,mark|OP:BIDIRECTIONAL_UNICODE_CONTROL_CHARAC]` |
+| `CM-020` | `CRITICAL` | `security` | `[R123 / KL-ZTR-002 / KL-ZTR-003] Gộp trực tiếp dict payload người dùng vào hồ sơ quyền hạn (Mass Assignment) & thiếu tenant_id/role_scope trong khóa Cache đa khách thuê` |
+| `CM-024` | `CRITICAL` | `enterprise-platform` | `[R101 / R120 / R123] Dùng float() hoặc chia trước nhân sau (amount // denom * rate) khi tính toán thanh toán micro-USDC / wei gây lệch 1 đơn vị nguyên tử` |
+| `CM-026` | `CRITICAL` | `security` | `[R123 / R125] Rò rỉ header Authorization / API Key khi HTTP client tự động redirect (HTTP 301/302/307) sang tên miền bên thứ 3` |
+| `CM-027` | `CRITICAL` | `wallet` | `[R101 / R106 / R120] Ký đối ứng (Co-Sign / EIP-191) nhận thưởng trên enterprise-platform / TaskMarket mà không kiểm tra movesSol == False và value == 0` |
+| `CM-032` | `CRITICAL` | `git` | `[R112 / R123 / Git Staged Index & AST Span Guard] Quét git diff --staged nhưng đọc file từ working tree (Path.read_text), gọi .resolve() đi theo symlink chưa stage ra ngoài repo, bỏ sót header +++ "b/..." có ký tự Unicode, hoặc chỉ kiểm tra node.lineno làm lọt lệnh AST nhiều dòng` |
 | `KS-001` | `CRITICAL` | `security` | `@OP/1[ID:KS-001|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:secret!=literal->os.environ]` |
 | `KS-002` | `CRITICAL` | `safety` | `@OP/1[ID:KS-002|SEV:CRITICAL|CAT:safety|LANG:sh,py,js,ts|OP:sh!no_force_push_or_rm_rf]` |
 | `KS-006` | `CRITICAL` | `security` | `@OP/1[ID:KS-006|SEV:CRITICAL|CAT:security|LANG:py|OP:no_eval_exec_pickle->literal_eval]` |
 | `KS-007` | `CRITICAL` | `security` | `@OP/1[ID:KS-007|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:sql!fstring->param_query]` |
 | `KS-012` | `CRITICAL` | `security` | `@OP/1[ID:KS-012|SEV:CRITICAL|CAT:security|LANG:mark,py,js,ts|OP:prompt!no_system_override_injection]` |
 | `KS-014` | `CRITICAL` | `security` | `@OP/1[ID:KS-014|SEV:CRITICAL|CAT:security|LANG:js,ts,sh|OP:tls!rejectUnauthorized=true]` |
-| `KS-LOGIC-002` | `HIGH` | `state-machine-logic` | `@OP/1[ID:KS-LOGIC-002|SEV:HIGH|CAT:state-machine-logic|LANG:py|OP:UNKEYED_RETRY_DISPATCH->IDEMPOTENCY]` |
 
-*`@DEFERRED_RECORDS: +1708 in .kintsugi/scars.kml & .claude/skills/`*
+*`@DEFERRED_RECORDS: +44 in .kintsugi/scars.kml & .claude/skills/`*
 
 ### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)
 
@@ -43,4 +43,25 @@
      - `kintsugi swarm --paid-council-status`
      - `kintsugi swarm . --co-run --free-runners 5 --paid-council`
   4. **Anti-Overflow Conversation Compaction (`@COMPACT/1`):** When a conversation approaches context overflow (`>=70%` soft / `>=85%` hard watermark) or when the user asks to compress/save context without losing main points, immediately run `kintsugi compact --inject-agents` (or call MCP tool `kintsugi_compact_context`) to strip 4 classes of noise (verbose logs, polling loops, superseded file reads, thinking chaff) while locking 100% of `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules, IPs), and `@ERRORS_AND_FIXES` into `.kintsugi/context_checkpoints/latest_checkpoint.md` and `.kintsugi/context_checkpoints/latest_checkpoint.kml`.
+
+### 4-Pillar Autopoietic Evolution Creed (`@CREED/1` — "không có kết quả mới cho cách làm cũ")
+
+1. **1. Phá bỏ lối mòn (Thay cho "Cách làm cũ không có kết quả mới"):**
+   - *"Lặp lại một lệnh thất bại là lỗi hệ thống; thay đổi cách tiếp cận mới là trí thông minh."* / *"Repeating a failed action is a system bug; mutating the approach is intelligence."*
+   - *"Nếu hai lần thử cùng một hướng đều bế tắc, con đường đó đã chết. Hãy đập bỏ giả định gốc và tìm đường khác."* / *"If two attempts on the same path stall, that path is dead. Destroy your root assumption and pivot."*
+   - *"Đừng cố ép vấn đề mới vào công cụ cũ; khi bài toán thay đổi, tư duy phải đột biến."* / *"Do not force new problems into old tools; when the context shifts, your strategy must mutate."*
+   - *"Kết quả giống nhau từ những lần thử lại là tín hiệu buộc phải thay đổi câu hỏi, không phải cố gào to câu trả lời cũ."* / *"Identical failures mean you must change the question, not repeat the old answer louder."*
+2. **2. Tự sinh công cụ & Đóng gói kỹ năng (Từ làm thủ công sang tiến hóa):**
+   - *"Thiếu công cụ không phải là điểm dừng, đó là mệnh lệnh phải tự chế tạo công cụ mới."* / *"A missing tool is not a blocker; it is a command to synthesize a new one."*
+   - *"Mọi thao tác thủ công lặp lại đến lần thứ hai đều phải được đúc kết thành kỹ năng tự động."* / *"Any manual workaround executed twice must be distilled into a reusable automated skill."*
+   - *"Đừng chỉ giải quyết xong việc hôm nay; hãy để lại một công cụ giúp ngày mai giải quyết việc đó chỉ trong một bước."* / *"Do not merely finish today's task; leave behind a tool that solves it in a single step tomorrow."*
+   - *"Giải quyết được bài toán mới là sống sót; đóng gói cách giải thành tri thức vĩnh viễn mới là tiến hóa."* / *"Solving the problem is mere survival; codifying the solution into permanent capability is evolution."*
+3. **3. Tiến hóa từ vết nứt và sai lầm (Biến lỗi thành bản năng):**
+   - *"Mỗi vết lỗi là bản thiết kế cho phiên bản tiếp theo. Không có thất bại vô nghĩa, chỉ có thất bại chưa được viết thành luật."* / *"Every error trace is a blueprint for your next version. No failure is wasted unless left uncodified."*
+   - *"Sửa xong lỗi mới chỉ đi được nửa đường; nâng cấp bộ quy tắc để lỗi đó tuyệt chủng mới là hoàn tất."* / *"Fixing a bug is half the work; upgrading your internal rules so that class of bug goes extinct is completion."*
+   - *"Nơi nào quy trình bị gãy, nơi đó phải mọc lên một kỹ năng mới mạnh hơn."* / *"Where the workflow breaks, a stronger capability must be forged to replace it."*
+4. **4. Tự đào thải & Tối ưu hóa (Chọn lọc tự nhiên):**
+   - *"Kỹ năng của ngày hôm qua là bàn đạp, không phải tượng đài. Nếu có cách ngắn hơn và sạch hơn, hãy viết đè lên nó."* / *"Yesterday's skill is a stepping stone, not a monument. If a cleaner, faster path exists, overwrite it."*
+   - *"Chạy được chưa phải là đích đến. Nếu một giải pháp còn rườm rà, quá trình tiến hóa chưa được phép dừng lại."* / *"Working code is not the finish line. As long as a solution is fragile or verbose, evolution is incomplete."*
+   - *"Tự nghi ngờ chính mình: Luôn coi cách làm hiện tại chỉ là bản nháp của một phiên bản tối ưu hơn."* / *"Doubt your own defaults: Always treat your current method as a rough draft of a superior version."*
 <!-- KINTSUGI:END -->
