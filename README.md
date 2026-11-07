@@ -98,7 +98,7 @@ Existing agent harnesses and rule repositories (`Superpowers`, static `.cursorru
 2. **Advisory Prose != Enforcement:** Markdown instructions are merely suggestions; agents still run `subprocess(..., shell=True)`, hardcode secrets, or execute destructive shell commands under pressure.
 3. **Slow Hook Latency:** Heavy linters add `300–1,500ms` of overhead on every tool call.
 
-**Kintsugi v1.8.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
+**Kintsugi v2.0.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, **Multi-Language Zero-Dependency Structural AST-Lite (`Python, JS/TS, Go, Rust`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **`@CREED/1` 4-Pillar Autopoietic Evolution IR**, **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
 
 ```mermaid
 flowchart LR
@@ -111,9 +111,9 @@ flowchart LR
 
 ---
 
-## Benchmark: Kintsugi v1.8.0 vs Other Agent Harnesses
+## Benchmark: Kintsugi v2.0.0 vs Other Agent Harnesses
 
-| Capability / Metric | **Kintsugi Harness (`v1.8.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
+| Capability / Metric | **Kintsugi Harness (`v2.0.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
 | :--- | :--- | :--- | :--- | :--- |
 | **Per-Turn Context Cost (18 Rules)** | **`~209 tokens` (`KMI/1` Wire Index)** | `~3,330 tokens` | `~4,500–9,000 tokens` | `0` (no agent awareness) |
 | **Tokens Saved per 50-Turn Session** | **`~156,050 tokens` (`93.7%` reduction)** | `0` (Baseline) | Negative (`-225k+ tokens`) | N/A |
@@ -124,7 +124,7 @@ flowchart LR
 
 ---
 
-## Open-Core Architecture & Edition Matrix (`v1.8.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
+## Open-Core Architecture & Edition Matrix (`v2.0.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
 
 Independent evaluators can verify all 4 editions, `@KML/1` compression ratios, Auto-Fix codemods, and `.kpack` AEAD cryptography in `1.3s` with:
 
@@ -134,7 +134,7 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
 | Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
 | :--- | :---: | :---: | :---: | :---: |
-| **Native Rust Engine (`kintsugi-rs v1.8.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Native Rust Engine (`kintsugi-rs v2.0.0`) & Multi-Language Structural AST-Lite (`py,js,ts,go,rs`)** | Included (`100% Open Source`) | Included | Included | **Included** |
 | **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)** | **Included: Discover + SAT+DL Conflict Check + `1` Active Mounted Harness** | **Unlocked: Multi-Harness Federation (`Up to 10` Mounted Harnesses)** | **Unlocked: Multi-Harness Federation (`Up to 10` Mounted Harnesses)** | **Unlocked: Enterprise Multi-Harness Federation (`Up to 100` Mounted Harnesses + Signed `@PROOF_DAG/1` Receipts)** |
 | **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
 | **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
@@ -210,7 +210,7 @@ kintsugi autofix .
 
 ```bash
 # Install an encrypted .kpack or standalone .zip Skill Pack (e.g., from Agensi.io or GitHub Releases)
-kintsugi install-pack kintsugi-enterprise-complete-pro-v1.7.0.kpack --license-key <YOUR_LICENSE_KEY>
+kintsugi install-pack kintsugi-enterprise-complete-pro-v2.0.0.kpack --license-key <YOUR_LICENSE_KEY>
 kintsugi list-packs
 
 # Run unlocked in-place auto-remediation codemods
