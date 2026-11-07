@@ -210,6 +210,17 @@ class TestASTRegexAndDiffScanner(unittest.TestCase):
                 scanner.scan_text("app.use(cors({ origin: '*', credentials: trueValue }));\n", file_path="server.ts"),
                 [],
             )
+            long_fwd = "app.use(cors({ origin: '*', /* " + ("x" * 170) + " */ credentials: true }));\n"
+            long_rev = "app.use(cors({ credentials: true, /* " + ("x" * 170) + " */ origin: '*' }));\n"
+            self.assertEqual([f.scar_id for f in scanner.scan_text(long_fwd, file_path="server.ts")], ["KS-015"])
+            self.assertEqual([f.scar_id for f in scanner.scan_text(long_rev, file_path="server.ts")], ["KS-015"])
+
+            # Case L: .gitattributes marking *.js -diff still scans staged JS file via git diff --text
+            (root / ".gitattributes").write_text("*.js -diff\n", encoding="utf-8")
+            (root / "binary_marked.js").write_text("const a = new https.Agent({ rejectUnauthorized: false });\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", ".gitattributes", "binary_marked.js"], check=True)
+            rep_bin_attr = scanner.scan_git_changes(root, staged=True)
+            self.assertTrue(any(f.scar_id == "KS-014" for f in rep_bin_attr.findings))
 
             # Case K: Added hunk lines starting with '++ b/decoy.py' or '++ /dev/null' must not spoof diff headers
             spoof_diff = (
