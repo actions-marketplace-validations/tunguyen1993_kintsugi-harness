@@ -682,7 +682,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             from kintsugi.starter_pack import get_starter_scars
             import shutil
 
-            scars_to_compile = get_starter_scars()
+            seed_map = {s.id: s for s in get_starter_scars()}
+            for fl in get_seed_frontier_lessons():
+                gs = fl.to_golden_scar()
+                seed_map.setdefault(gs.id, gs)
+            scars_to_compile = sorted(seed_map.values(), key=lambda s: s.id)
             allowed_cats = {s.category for s in scars_to_compile}
             skills_root = Path(args.workspace) / ".claude" / "skills"
             if skills_root.exists():

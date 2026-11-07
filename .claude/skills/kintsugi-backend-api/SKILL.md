@@ -1,7 +1,8 @@
 ---
 name: kintsugi-backend-api
 description: "Focused backend-api anti-patterns and verified code templates compiled by Kintsugi Harness."
-tags: ["github-opensource", "github-roamer", "learn-and-practice"]
+tags: ["asyncio", "backend-api", "cache-poisoning", "cdn-cache", "concurrency", "data-integrity", "data-leakage", "event-loop", "http-redirect", "latency"]
+# kintsugi: ignore-file (generated guardrail reference containing bad_code examples)
 ---
 
 # kintsugi-backend-api (`@KML/1` Machine-Native AST-IR)
@@ -12,50 +13,51 @@ kintsugi scan --staged --fail-on HIGH
 
 ## `@KML/1` Symbolic Guardrail Specifications (`NEG_AST => POS_AST`)
 
-### `KS-WILD-501` · `@OP/1[ID:KS-WILD-501|SEV:HIGH|CAT:backend-api|LANG:py|OP:http!429->retry_after_jitter]`
-- `@WIRE`: `@KML/1|id=KS-WILD-501|sev=H|cat=backend-api|lang=py|op=http!429->retry_after_jitter|guard=RX#7a24a794|neg=«if resp.status_code == 429: ; time.sleep(1)  # FIXED_BLIND_429_SLEEP»|pos=«if resp.status_code == 429: ; time.sleep(float(resp.headers.get('Retry-After', 5)) + 0.5)»|fp=b06a70642a48acdb`
-- `@TRAP`: `@TRAP/1{guard:RX#7a24a794,fault:BACKEND-API_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,github-opensource]}`
-- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_resp.status_code_429:,verify:DETERMINISTIC_PASS}`
+### `KL-API-002` · `Multi-Tenant Cache & Secondary Query Isolation: Always prefix cache keys with tenant_id`
+- `@WIRE`: `@KML/1|id=KL-API-002|sev=C|cat=backend-api|lang=py,ts|op=MULTI-TENANT_CACHE_SECONDARY_QUERY_I|guard=RX#43051a0a|neg=«cached = redis_client.get(f"record:{record_id}")  # UNSCOPED_MULTI_TENANT_CACHE_KEY»|pos=«cached = redis_client.get(f"tenant:{tenant_id}:record:{record_id}")»|fp=f0b833c7f6a70e70`
+- `@TRAP`: `[Cognitive Trap] Filtered the primary SQL query by `tenant_id`, but keyed the Redis cache lookup by bare `record_id` (`cache.get(f'record:{record_id}')`), leaking cached records across tenants.`
+- `@LAW`: `[Mental Model] Every secondary retrieval path, cache key, and export job must bind the authenticated `tenant_id` (`f'tenant:{tenant_id}:record:{record_id}'`); row-level security on the DB does not protect an unscoped cache hit.`
 
 `@NEG_AST` (`❌ FORBIDDEN`):
 ```python
-if resp.status_code == 429:
-    time.sleep(1)  # FIXED_BLIND_429_SLEEP
+cached = redis_client.get(f"record:{record_id}")  # UNSCOPED_MULTI_TENANT_CACHE_KEY
 ```
 
 `@POS_AST` (`✅ REQUIRED`):
 ```python
-if resp.status_code == 429:
-    time.sleep(float(resp.headers.get('Retry-After', 5)) + 0.5)
+cached = redis_client.get(f"tenant:{tenant_id}:record:{record_id}")
 ```
 
-### `KS-WILD-506` · `@OP/1[ID:KS-WILD-506|SEV:HIGH|CAT:backend-api|LANG:py|OP:sha256!raw_bytes->no_bom_strip]`
-- `@WIRE`: `@KML/1|id=KS-WILD-506|sev=H|cat=backend-api|lang=py|op=sha256!raw_bytes->no_bom_strip|guard=RX#d88ab699|neg=«proof_sha = hashlib.sha256(raw_bytes.decode('utf-8-sig').encode('utf-8')).hexdigest()  # B»|pos=«proof_sha = hashlib.sha256(raw_bytes).hexdigest() ; parsed = json.loads(raw_bytes.decode('»|fp=a307ce1e2eee3bac`
-- `@TRAP`: `@TRAP/1{guard:RX#d88ab699,fault:BACKEND-API_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,github-opensource]}`
-- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:proof_sha_hashlib.sha256_raw_bytes_.hexdiges,verify:DETERMINISTIC_PASS}`
+### `KL-API-001` · `Never call synchronous time.sleep() inside an async def coroutine`
+- `@WIRE`: `@KML/1|id=KL-API-001|sev=H|cat=backend-api|lang=py|op=fn:backoff!enforce_invariant|guard=RX#c488f400|neg=«async def backoff(): ; time.sleep(2)  # BLOCKING_ASYNC_SLEEP»|pos=«async def backoff(): ; await asyncio.sleep(2)»|fp=99df83bef59038ab`
+- `@TRAP`: `[Cognitive Trap] Used `time.sleep(seconds)` for retry backoff inside an `async def` handler thinking it only pauses the current request.`
+- `@LAW`: `[Mental Model] Cooperative event loops run on a single OS thread; a synchronous `time.sleep()` freezes every concurrent WebSocket and HTTP request on the worker.`
 
 `@NEG_AST` (`❌ FORBIDDEN`):
 ```python
-proof_sha = hashlib.sha256(raw_bytes.decode('utf-8-sig').encode('utf-8')).hexdigest()  # BOM_STRIP_BEFORE_HASH
+async def backoff():
+    time.sleep(2)  # BLOCKING_ASYNC_SLEEP
 ```
 
 `@POS_AST` (`✅ REQUIRED`):
 ```python
-proof_sha = hashlib.sha256(raw_bytes).hexdigest()
-parsed = json.loads(raw_bytes.decode('utf-8-sig'))
+async def backoff():
+    await asyncio.sleep(2)
 ```
 
-### `KS-WILD-507` · `@OP/1[ID:KS-WILD-507|SEV:HIGH|CAT:backend-api|LANG:py|OP:http!wild->explicit_timeout]`
-- `@WIRE`: `@KML/1|id=KS-WILD-507|sev=H|cat=backend-api|lang=py|op=http!wild->explicit_timeout|guard=RX#ec3c84de|neg=«resp = httpx_client_get(endpoint_url)  # WILD_HTTP_NO_TIMEOUT»|pos=«resp = httpx_client_get(endpoint_url, timeout=10.0)»|fp=6da2ae52043067b1`
-- `@TRAP`: `@TRAP/1{guard:RX#ec3c84de,fault:BACKEND-API_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,github-opensource]}`
-- `@LAW`: `@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:resp_httpx_client_get_endpoint_url,_timeout_,verify:DETERMINISTIC_PASS}`
+### `KL-API-003` · `HTTP Redirect Effective-Host Verification & Verbatim Raw-Byte Archival`
+- `@WIRE`: `@KML/1|id=KL-API-003|sev=H|cat=backend-api|lang=py|op=HTTP_REDIRECT_EFFECTIVE-HOST_VERIFIC|guard=RX#8027d188|neg=«if resp.status == 200: ; mark_fulltext_valid(json.dumps(json.loads(raw), indent=2))  # UNV»|pos=«assert urlparse(resp.geturl()).hostname == expected_host ; Path(raw_path).write_bytes(raw_»|fp=5234a125516b3363`
+- `@TRAP`: `[Cognitive Trap] Treated `resp.status == 200` after redirects as valid full-text retrieval even when redirected to an `/unblock` or captcha interstitial, and re-serialized JSON via `json.dumps(indent=2)` instead of slicing raw bytes.`
+- `@LAW`: `[Mental Model] Always verify `urllib.parse.urlparse(resp.geturl()).hostname == expected_host`, send `Cache-Control: no-cache`, and archive/slice the verbatim `raw_bytes` before parsing.`
 
 `@NEG_AST` (`❌ FORBIDDEN`):
 ```python
-resp = httpx_client_get(endpoint_url)  # WILD_HTTP_NO_TIMEOUT
+if resp.status == 200:
+    mark_fulltext_valid(json.dumps(json.loads(raw), indent=2))  # UNVERIFIED_REDIRECT_AND_RESERIALIZED_RAW
 ```
 
 `@POS_AST` (`✅ REQUIRED`):
 ```python
-resp = httpx_client_get(endpoint_url, timeout=10.0)
+assert urlparse(resp.geturl()).hostname == expected_host
+Path(raw_path).write_bytes(raw_bytes)
 ```

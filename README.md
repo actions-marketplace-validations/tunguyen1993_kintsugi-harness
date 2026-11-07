@@ -2,19 +2,19 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.9.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v2.0.0`)
 
 ### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `7.6 µs`.
 
-**Drop-in Rust + Python `PreToolUse` guardrails that integrate your existing `.cursorrules`, `CLAUDE.md`, `AGENTS.md`, or `.windsurfrules` in 1 command (`kintsugi integrate`), verify rule consistency via Joint SAT + Difference Logic (`SAT+DL`), compress skill context by `95.3%` (`~3,330` → `~209 tokens`), and power autonomous AI filmmaking via the `@OPENMONTAGE_CINEMA/1` Director's Cut Extension (`kintsugi cinema`).**
+**Drop-in Rust + Python `PreToolUse` guardrails featuring a Zero-Dependency Multi-Language Structural AST-Lite Analyzer (`JS/TS/Go/Rust`), the 4-Pillar Autopoietic Evolution Creed (`@CREED/1`), 1-Command Third-Party Harness Integration (`kintsugi integrate` with Joint `SAT+DL` verification), `95.3%` skill context compression (`~3,330` → `~209 tokens`), and autonomous AI filmmaking via the `@OPENMONTAGE_CINEMA/1` Director's Cut Extension (`kintsugi cinema`).**
 
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
-[![Release: v1.9.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v2.0.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 7.6 µs](https://img.shields.io/badge/Rust_Core-7.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 39/39 Passing](https://img.shields.io/badge/Tests-39%2F39_Passing-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 43/43 Passing](https://img.shields.io/badge/Tests-43%2F43_Passing-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
 > ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
