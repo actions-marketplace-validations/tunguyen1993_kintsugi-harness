@@ -86,7 +86,7 @@ def _dotted_call_name(node: ast.Call) -> str:
     return ".".join(reversed(parts))
 
 
-def parse_git_diff_text(diff_text: str, repo_root: Path) -> Dict[Path, Set[int]]:
+def parse_git_diff_text(diff_text: str, repo_root: Path, *, require_worktree_file: bool = True) -> Dict[Path, Set[int]]:
     """
     Parse unified `git diff -U0` output into `{resolved_file_path: {added_or_modified_line_numbers}}`.
     """
@@ -107,7 +107,30 @@ def parse_git_diff_text(diff_text: str, repo_root: Path) -> Dict[Path, Set[int]]
                 count = int(match.group(2)) if match.group(2) is not None else 1
                 if count > 0:
                     changed[current_file].update(range(start_line, start_line + count))
-    return {p: lines for p, lines in changed.items() if lines and p.exists()}
+    return {
+        p: lines
+        for p, lines in changed.items()
+        if lines and (not require_worktree_file or p.exists())
+    }
+
+
+def read_git_index_blob(repo_root: str | Path, file_path: str | Path) -> Optional[str]:
+    """Read staged file content directly from the Git index (`:<relpath>`) for index-safe scanning."""
+    root = Path(repo_root).resolve()
+    target = Path(file_path).resolve()
+    try:
+        rel_posix = target.relative_to(root).as_posix()
+    except ValueError:
+        return None
+    proc = subprocess.run(
+        ["git", "-C", str(root), "show", f":{rel_posix}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout
 
 
 def get_git_changed_lines(
@@ -126,7 +149,7 @@ def get_git_changed_lines(
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"git diff failed: {proc.stderr.strip()}")
-    return parse_git_diff_text(proc.stdout, root)
+    return parse_git_diff_text(proc.stdout, root, require_worktree_file=not staged)
 
 
 def render_patch_preview(finding: ScanFinding) -> str:
@@ -503,9 +526,10 @@ class KintsugiScanner:
         staged: bool = False,
         diff_ref: Optional[str] = None,
     ) -> ScanReport:
-        """Scan only git-modified files and touched line numbers."""
+        """Scan only git-modified files and touched line numbers (reads Git index blobs when staged=True)."""
         t0 = time.perf_counter()
-        changed_map = get_git_changed_lines(repo_root, staged=staged, diff_ref=diff_ref)
+        root_resolved = Path(repo_root).resolve()
+        changed_map = get_git_changed_lines(root_resolved, staged=staged, diff_ref=diff_ref)
         findings: List[ScanFinding] = []
         file_count = 0
 
@@ -514,10 +538,16 @@ class KintsugiScanner:
                 continue
             if any(part in self.excluded_dirs for part in fpath.parts):
                 continue
-            try:
-                text = fpath.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
-                continue
+            if staged:
+                indexed_text = read_git_index_blob(root_resolved, fpath)
+                if indexed_text is None:
+                    continue
+                text = indexed_text
+            else:
+                try:
+                    text = fpath.read_text(encoding="utf-8")
+                except (UnicodeDecodeError, OSError):
+                    continue
             file_count += 1
             findings.extend(
                 self.scan_text(

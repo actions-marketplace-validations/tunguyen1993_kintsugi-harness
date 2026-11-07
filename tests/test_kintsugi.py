@@ -99,6 +99,23 @@ class TestASTRegexAndDiffScanner(unittest.TestCase):
             self.assertIn("+++ b/", preview)
             self.assertIn("-pickle.loads(raw)", preview)
 
+            # Verify staged=True reads from Git index blob (`git show :path`), not working tree
+            import subprocess
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.com"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Tester"], check=True)
+            # Case A: Stage unsafe code, then overwrite working tree with safe code
+            target.write_text("import pickle\npickle.loads(raw)\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "service.py"], check=True)
+            target.write_text("import ast\nast.literal_eval(raw)\n", encoding="utf-8")
+            rep_staged_unsafe = scanner.scan_git_changes(root, staged=True)
+            self.assertEqual([f.scar_id for f in rep_staged_unsafe.findings], ["KS-006"])
+            # Case B: Stage safe code, then overwrite working tree with unsafe code
+            subprocess.run(["git", "-C", str(root), "add", "service.py"], check=True)
+            target.write_text("import pickle\npickle.loads(raw)\n", encoding="utf-8")
+            rep_staged_safe = scanner.scan_git_changes(root, staged=True)
+            self.assertEqual(rep_staged_safe.findings, [])
+
     def test_extensible_council_ast_rules(self) -> None:
         custom = GoldenScar(
             id="KS-801",
