@@ -276,6 +276,57 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                 },
             },
         },
+        {
+            "name": "kintsugi_cinema_produce",
+            "description": (
+                "OpenMontage Cinema Director's Cut Extension Package (`@OPENMONTAGE_CINEMA/1` · `kintsugi cinema`). "
+                "Autonomously pulls/sandboxes `calesthio/OpenMontage`, routes video generation across Google Veo 3.1, "
+                "Meta Muse AI, Kling, Runway, Luma, Pika, Hailuo, Sora, and Wan, optimizes visual prompts & LUTs for "
+                "user-selected `live_action` (Photorealistic Human Cinema on ARRI Alexa LF + Kodak 2383 LUT) vs `animation` "
+                "(2D/3D Studio Cel LUT), runs mandatory 6-Gate Component Video QA (Script-to-Frame Discrepancy Verifier, "
+                "Borderless Hygiene, Wardrobe/Collar DNA Lock, Style Fidelity, Motion Energy, and Integer-Tick Audio-First Sync), "
+                "and evolves filmmaking intelligence via `@CINEMA_EVOLVE/1` (`CS-001`..`CS-012`)."
+            ),
+            "annotations": {
+                "title": "OpenMontage Cinema Video Producer & 6-Gate QA Verifier",
+                "readOnlyHint": False,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": True,
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workspace_root": {"type": "string", "default": "."},
+                    "style_mode": {
+                        "type": "string",
+                        "enum": ["live_action", "animation"],
+                        "default": "live_action",
+                        "description": "User-selected visual optimization mode: 'live_action' (Human Cinema) or 'animation' (2D/3D Animation).",
+                    },
+                    "provider": {
+                        "type": "string",
+                        "enum": ["veo", "muse", "kling", "runway", "luma", "pika", "hailuo", "sora", "wan"],
+                        "default": "veo",
+                        "description": "Target video generation provider.",
+                    },
+                    "auto_heal": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Run @CINEMA_EVOLVE/1 to auto-heal screenplay/frame/wardrobe/prop/timing discrepancies.",
+                    },
+                    "pull_remote_openmontage": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Whether to perform a live git clone of calesthio/OpenMontage if not yet cached.",
+                    },
+                    "manifest": {
+                        "type": "object",
+                        "description": "Optional screenplay/shot manifest JSON object (uses built-in Station 09 demo manifest if omitted).",
+                    },
+                },
+            },
+        },
     ]
 
 
@@ -612,6 +663,50 @@ class KintsugiMCPServer:
             if code_snippet:
                 result["login_audit"] = LoginAuthLogicVerifier().verify_login_security_suite()
             return result
+
+        if name == "kintsugi_cinema_produce":
+            from kintsugi.cinema import (
+                CinemaEvolutionEngine,
+                ComponentVideoQAVerifier,
+                OpenMontagePackageManager,
+                build_demo_flawed_openmontage_manifest,
+            )
+
+            root = Path(str(args.get("workspace_root") or ".")).resolve()
+            style_mode = str(args.get("style_mode") or "live_action")
+            provider = str(args.get("provider") or "veo")
+            pull_remote = bool(args.get("pull_remote_openmontage", False))
+            manifest_obj = args.get("manifest") or build_demo_flawed_openmontage_manifest()
+
+            pkg_meta = OpenMontagePackageManager(root).ensure_openmontage_installed(
+                auto_pull_remote=pull_remote
+            )
+            evo = CinemaEvolutionEngine(root)
+            if bool(args.get("auto_heal", True)):
+                healed, evo_rep = evo.auto_heal_and_evolve_manifest(
+                    manifest_obj,
+                    style_mode=style_mode,
+                    provider=provider,
+                )
+                qa_rep = ComponentVideoQAVerifier().verify_production_manifest_and_clips(
+                    healed,
+                    style_mode=style_mode,
+                )
+                return {
+                    "ok": qa_rep["ok"],
+                    "openmontage_package": pkg_meta,
+                    "evolution_report": evo_rep,
+                    "qa_report": qa_rep,
+                }
+            qa_rep = ComponentVideoQAVerifier().verify_production_manifest_and_clips(
+                manifest_obj,
+                style_mode=style_mode,
+            )
+            return {
+                "ok": qa_rep["ok"],
+                "openmontage_package": pkg_meta,
+                "qa_report": qa_rep,
+            }
 
         raise ValueError(f"Unknown MCP tool: {name}")
 

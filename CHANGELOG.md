@@ -2,6 +2,17 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [1.9.0] - 2026-11-07
+
+### Added
+- **OpenMontage Cinema Director's Cut Extension Package (`@OPENMONTAGE_CINEMA/1` — `src/kintsugi/cinema.py`, `kintsugi cinema`, and MCP tool `kintsugi_cinema_produce`):**
+  - **Live 3-Minute Director's Cut Demo Video Showcase:** Published full 24-shot (`180.0s`) showcase at `https://www.youtube.com/watch?v=tfo2QYUU-c8`.
+  - **Hardened On-Demand OpenMontage Auto-Puller (`OpenMontagePackageManager` · `I-PULL-1..8`):** Automatically clones `https://github.com/calesthio/OpenMontage.git` into `.kintsugi/extensions/openmontage/` with git hooks, submodules, symlinks, and file protocols disabled (`-c core.hooksPath=/dev/null -c submodule.recurse=false -c core.symlinks=false -c protocol.file.allow=never`), strips symlink escapes, and mounts the `kintsugi-directors-cut-v4.yaml` chapter-chunked pipeline definition.
+  - **Multi-Provider Video Generation Router (`MultiProviderVideoRouter` · `I-R-1..7`):** Supports `veo` (`Google Veo 3.1 Quality`), `muse` (`Meta Muse AI 2B Free Pool`), `kling` (`Kling 2.0 Master`), `runway` (`Runway Gen-3 Alpha Turbo`), `luma` (`Luma Ray2`), `pika` (`Pika 2.2`), `hailuo` (`Hailuo MiniMax Director`), `sora` (`OpenAI Sora`), and `wan` (`Alibaba Wan 2.1 Open-Source`), with runtime `capabilities()` and non-stretching `chapter_subchunks` (`playback_rate = 1.0`).
+  - **Dual Visual Style Optimizer (`VisualStyleOptimizer` · `I-S-1..4`):** Optimizes prompts, camera/lens physics, and deterministic RGB LUTs for user-selected `live_action` (Photorealistic Human Cinema on ARRI Alexa LF + `LUT_KODAK_2383_ARRI_ALEXA_LF_V4`) vs `animation` (2D/3D Studio Animation + `LUT_ANIMATION_CEL_VIBRANCE_V4`), strictly isolating positive DNA from `negative_guardrail` and stripping control/prompt-injection sequences.
+  - **Mandatory 6-Gate Component Video QA Verifier (`ComponentVideoQAVerifier`):** Enforces (1) Script-to-Frame Discrepancy Verification, (2) Borderless Frame Hygiene (`0%` 35mm sprocket holes), (3) Character Wardrobe & Collar DNA Lock (`LONG-SLEEVED full-length sleeves buttoned at wrists`, `clean bare throat`, `0` logos), (4) Visual Style Fidelity, (5) Inter-Frame Motion Energy Integrity (`0` frozen clips), and (6) Integer-Tick Audio-First Sync (`|video_ticks - audio_ticks| <= 1` frame) + sample-exact J-cut (`-16320` samples @ 48kHz) / L-cut (`+21600` samples @ 48kHz) timeline bridges.
+  - **Self-Evolving Filmmaking Engine (`CinemaEvolutionEngine` · `@CINEMA_EVOLVE/1`):** Seeded with 12 battle-tested Cinema Golden Scars (`CS-001`..`CS-012`) distilled from 4 rounds of Multi-Agent Council audits, emitting a 4-hash cryptographic `certificate_bundle` (`pull_pin_hash`, `adapter_capabilities_hash`, `gate_certificate_hash`, `scar_set_hash`).
+
 ## [1.8.0] - 2026-11-07
 
 ### Added

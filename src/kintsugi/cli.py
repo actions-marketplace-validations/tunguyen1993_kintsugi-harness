@@ -377,6 +377,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_int.add_argument("--harness-id", default=None, help="Optional explicit identifier for the imported harness")
     p_int.add_argument("--wire", action="store_true", help="Output compact @PROOF_DAG/1 integration receipt wire")
 
+    p_cin = sub.add_parser(
+        "cinema",
+        help="OpenMontage Cinema Director's Cut Extension Package (@OPENMONTAGE_CINEMA/1: auto-pull OpenMontage, Veo/Muse/Multi-Web video router, 6-Gate script-to-frame QA, Live-Action vs Animation LUT optimizer, and @CINEMA_EVOLVE/1 film evolution)",
+    )
+    p_cin.add_argument("--workspace", default=".", help="Workspace root directory (default: .)")
+    p_cin.add_argument("--pull-openmontage", action="store_true", help="Auto-pull and sandbox calesthio/OpenMontage into .kintsugi/extensions/openmontage/")
+    p_cin.add_argument("--offline-pull", action="store_true", help="Initialize deterministic offline OpenMontage extension scaffold without network git clone")
+    p_cin.add_argument("--manifest", default=None, help="Path to production screenplay/shot manifest JSON (uses built-in Station 09 demo manifest if omitted)")
+    p_cin.add_argument("--verify-manifest", action="store_true", help="Run mandatory 6-Gate Script-to-Frame & Continuity QA Verifier on manifest")
+    p_cin.add_argument("--auto-heal", action="store_true", help="Auto-heal screenplay/frame/wardrobe/prop/timing discrepancies via @CINEMA_EVOLVE/1")
+    p_cin.add_argument("--style", choices=["live_action", "animation"], default="live_action", help="Visual optimization mode: live_action (Human Cinema ARRI/Kodak 2383 LUT) or animation (2D/3D Studio Cel LUT)")
+    p_cin.add_argument("--provider", choices=["veo", "muse", "kling", "runway", "luma", "pika", "hailuo", "sora", "wan"], default="veo", help="Video generation provider router target (default: veo)")
+    p_cin.add_argument("--synthesize-test-clips", default=None, metavar="OUT_DIR", help="Synthesize deterministic component WAV + 3-keyframe test clips into OUT_DIR and run 6-Gate QA")
+    p_cin.add_argument("--scars", action="store_true", help="List the 12 seeded + evolved Cinema Golden Scars (CS-001..CS-012)")
+    p_cin.add_argument("--output", default=None, help="Optional path to write healed manifest JSON")
+    p_cin.add_argument("--wire", action="store_true", help="Output compact @OPENMONTAGE_CINEMA/1 symbolic wire receipt")
+
     return parser
 
 
@@ -1069,6 +1086,99 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             print(json.dumps(rep, indent=2, ensure_ascii=False))
         return 0 if rep.get("ok") else 1
+
+    if args.command == "cinema":
+        from kintsugi.cinema import (
+            CinemaEvolutionEngine,
+            ComponentVideoQAVerifier,
+            MultiProviderVideoRouter,
+            OpenMontagePackageManager,
+            build_demo_flawed_openmontage_manifest,
+        )
+
+        ws = Path(getattr(args, "workspace", ".")).resolve()
+        pkg_mgr = OpenMontagePackageManager(ws)
+        evo = CinemaEvolutionEngine(ws)
+
+        if getattr(args, "scars", False):
+            scars_payload = {
+                "package_id": "kintsugi-openmontage-cinema",
+                "count": len(evo.scars),
+                "cinema_scars": [s.to_dict() for s in sorted(evo.scars.values(), key=lambda x: x.scar_id)],
+            }
+            print(json.dumps(scars_payload, indent=2, ensure_ascii=False))
+            return 0
+
+        pull_meta = None
+        if getattr(args, "pull_openmontage", False) or getattr(args, "offline_pull", False):
+            pull_meta = pkg_mgr.ensure_openmontage_installed(
+                auto_pull_remote=not bool(getattr(args, "offline_pull", False))
+            )
+            if (
+                not getattr(args, "verify_manifest", False)
+                and not getattr(args, "auto_heal", False)
+                and not getattr(args, "manifest", None)
+                and not getattr(args, "synthesize_test_clips", None)
+            ):
+                print(json.dumps(pull_meta, indent=2, ensure_ascii=False))
+                return 0
+
+        if getattr(args, "manifest", None):
+            manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        else:
+            manifest_data = build_demo_flawed_openmontage_manifest()
+
+        style_mode = getattr(args, "style", "live_action")
+        provider = getattr(args, "provider", "veo")
+
+        # Always ensure OpenMontage extension package is mounted when running cinema workflows
+        if pull_meta is None:
+            pull_meta = pkg_mgr.ensure_openmontage_installed(auto_pull_remote=False)
+
+        if getattr(args, "auto_heal", False) or not getattr(args, "verify_manifest", False):
+            healed_manifest, evo_rep = evo.auto_heal_and_evolve_manifest(
+                manifest_data,
+                style_mode=style_mode,
+                provider=provider,
+            )
+            clips_dir = getattr(args, "synthesize_test_clips", None)
+            if clips_dir:
+                for sh in healed_manifest.get("shots", []):
+                    MultiProviderVideoRouter.synthesize_component_test_media(
+                        clips_dir,
+                        sh,
+                        style_mode=style_mode,
+                        provider=provider,
+                    )
+            final_qa = ComponentVideoQAVerifier().verify_production_manifest_and_clips(
+                healed_manifest,
+                clips_dir=clips_dir,
+                style_mode=style_mode,
+            )
+            if getattr(args, "output", None):
+                Path(args.output).write_text(
+                    json.dumps(healed_manifest, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+            out_payload = {
+                "ok": final_qa["ok"],
+                "openmontage_package": pull_meta,
+                "evolution_report": evo_rep,
+                "qa_report": final_qa,
+            }
+            if getattr(args, "wire", False):
+                print(evo_rep["wire"])
+            else:
+                print(json.dumps(out_payload, indent=2, ensure_ascii=False))
+            return 0 if final_qa["ok"] else 1
+
+        qa_rep = ComponentVideoQAVerifier().verify_production_manifest_and_clips(
+            manifest_data,
+            clips_dir=getattr(args, "synthesize_test_clips", None),
+            style_mode=style_mode,
+        )
+        print(json.dumps(qa_rep, indent=2, ensure_ascii=False))
+        return 0 if qa_rep["ok"] else 1
 
     return 0
 

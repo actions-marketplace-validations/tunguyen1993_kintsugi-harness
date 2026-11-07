@@ -1,9 +1,9 @@
 [package]
 name = "kintsugi-harness"
-version = "1.8.0"
+version = "1.9.0"
 edition = "2021"
-description = "Sub-millisecond Rust native PreToolUse guardrail scanner and KMI/1 ultra-low-token skill compressor for coding agents."
-license = "MIT"
+description = "Sub-millisecond Rust native PreToolUse guardrail scanner, Universal Harness Integrator, OpenMontage Cinema Extension, and KMI/1 ultra-low-token skill compressor for coding agents."
+license = "Apache-2.0"
 authors = ["Tu Nguyen <tunguyen1993@users.noreply.github.com>"]
 repository = "https://github.com/tunguyen1993/kintsugi-harness"
 homepage = "https://github.com/tunguyen1993/kintsugi-harness"

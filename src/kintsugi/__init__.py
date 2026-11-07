@@ -1,9 +1,19 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
 from kintsugi.autofix import run_autofix
+from kintsugi.cinema import (
+    SUPPORTED_VIDEO_PROVIDERS,
+    CinemaEvolutionEngine,
+    CinemaScar,
+    ComponentVideoQAVerifier,
+    MultiProviderVideoRouter,
+    OpenMontagePackageManager,
+    VisualStyleOptimizer,
+    build_demo_flawed_openmontage_manifest,
+)
 from kintsugi.integrator import (
     ExactSemiringDifferenceSolver,
     HarnessIR,
@@ -141,4 +151,12 @@ __all__ = [
     "parse_conversation_source",
     "strip_conversation_noise",
     "extract_core_context",
+    "SUPPORTED_VIDEO_PROVIDERS",
+    "CinemaEvolutionEngine",
+    "CinemaScar",
+    "ComponentVideoQAVerifier",
+    "MultiProviderVideoRouter",
+    "OpenMontagePackageManager",
+    "VisualStyleOptimizer",
+    "build_demo_flawed_openmontage_manifest",
 ]

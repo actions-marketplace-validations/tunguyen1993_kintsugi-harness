@@ -2,19 +2,19 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.8.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.9.0`)
 
 ### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `7.6 µs`.
 
-**Drop-in Rust + Python `PreToolUse` guardrails that integrate your existing `.cursorrules`, `CLAUDE.md`, `AGENTS.md`, or `.windsurfrules` in 1 command (`kintsugi integrate`), verify rule consistency via Joint SAT + Difference Logic (`SAT+DL`), and compress skill prompts by `95.3%` (`~3,330` → `~209 tokens/turn`).**
+**Drop-in Rust + Python `PreToolUse` guardrails that integrate your existing `.cursorrules`, `CLAUDE.md`, `AGENTS.md`, or `.windsurfrules` in 1 command (`kintsugi integrate`), verify rule consistency via Joint SAT + Difference Logic (`SAT+DL`), compress skill context by `95.3%` (`~3,330` → `~209 tokens`), and power autonomous AI filmmaking via the `@OPENMONTAGE_CINEMA/1` Director's Cut Extension (`kintsugi cinema`).**
 
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
-[![Release: v1.8.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.9.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 7.6 µs](https://img.shields.io/badge/Rust_Core-7.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 38/38 Passing](https://img.shields.io/badge/Tests-38%2F38_Passing-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 39/39 Passing](https://img.shields.io/badge/Tests-39%2F39_Passing-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
 > ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
@@ -51,6 +51,41 @@ $ kintsugi integrate . --mount
 # Revert cleanly at any time while preserving 100% of your manual edits:
 $ kintsugi integrate --eject HARNESS-DEFAULT
 ```
+
+---
+
+## 🎬 New in `v1.9.0`: OpenMontage Cinema Director's Cut Extension Package (`@OPENMONTAGE_CINEMA/1` · `kintsugi cinema`)
+
+When a user asks the agent to produce a video or short film, Kintsugi's **`kintsugi-openmontage-cinema`** extension package ([`src/kintsugi/cinema.py`](src/kintsugi/cinema.py)) automatically pulls and sandboxes [`calesthio/OpenMontage`](https://github.com/calesthio/OpenMontage) into `.kintsugi/extensions/openmontage/` (`-c core.hooksPath=/dev/null -c core.symlinks=false`), routes shots across **9 AI Video Generators** (**Google Veo 3.1**, **Meta Muse AI**, **Kling 2.0**, **Runway Gen-3**, **Luma Ray2**, **Pika 2.2**, **Hailuo MiniMax**, **Sora**, and **Wan 2.1**), optimizes visuals for either **Photorealistic Human Cinema (`--style live_action` · ARRI Alexa LF + Kodak 2383 LUT)** or **2D/3D Studio Animation (`--style animation` · Cel Vibrance LUT)**, enforces **Mandatory 6-Gate Component Video QA** before stitching, and evolves filmmaking intelligence via **`@CINEMA_EVOLVE/1` (`CS-001`..`CS-012`)**.
+
+<div align="center">
+
+### 🎥 Watch the Full 3-Minute Director's Cut Demo Film Produced by `@OPENMONTAGE_CINEMA/1`
+
+[![Watch Kintsugi OpenMontage Cinema Director's Cut Showcase on YouTube](https://img.youtube.com/vi/tfo2QYUU-c8/maxresdefault.jpg)](https://www.youtube.com/watch?v=tfo2QYUU-c8)
+
+▶️ **[Watch on YouTube: `https://www.youtube.com/watch?v=tfo2QYUU-c8`](https://www.youtube.com/watch?v=tfo2QYUU-c8)**  
+*3-Minute (`180.0s`) 24-Shot Sci-Fi Drama ("The Last Light of Station 09") — Verified `100% PASS` across all 6 Component Video QA Gates.*
+
+</div>
+
+```bash
+# Auto-pull OpenMontage, run 6-Gate Script-to-Frame QA, and auto-heal via @CINEMA_EVOLVE/1:
+kintsugi cinema --pull-openmontage --auto-heal --style live_action --provider veo --wire
+# -> @OPENMONTAGE_CINEMA/1[v=1.9.0|provider=veo|style=live_action|healed=12->0|scars=12|verdict=PASS_DIRECTOR_CUT_READY]
+
+# Switch to 2D/3D Studio Animation with Meta Muse AI ($0 Free 2B Pool) and synthesize component test clips:
+kintsugi cinema --auto-heal --style animation --provider muse --synthesize-test-clips /tmp/cinema_clips
+```
+
+| Mandatory Component Video QA Gate | What It Verifies on Every `shot_01..shot_N` Before Stitching | Seeded Cinema Scar |
+| :--- | :--- | :--- |
+| **Gate 1: Script-to-Frame Discrepancy Verifier** | Verifies speaker cues vs `voice_role` (`daughter_radio` vs `narrator`), shot title vs visual action, and paired Station / 4-Engine Aircraft / Capsule / 1.2m Titanium Pry-Bar continuity | `CS-004`, `CS-005`, `CS-006`, `CS-009` |
+| **Gate 2: Borderless Frame Hygiene** | Scans top/bottom/left/right keyframe strips to reject `35mm` film sprocket holes and unrequested letterbox bars | `CS-003` |
+| **Gate 3: Character Wardrobe & Collar DNA Lock** | Enforces positive-only DNA (`LONG-SLEEVED full-length sleeves buttoned at wrists`, `clean bare throat`, `plain unbranded fabric`, `dry matte skin`) and blocks negative-token leakage (`neck ring`, `NASA/NACA`) | `CS-001`, `CS-002`, `CS-010`, `CS-011` |
+| **Gate 4: User-Selected Visual Style Fidelity** | Verifies `live_action` (`LUT_KODAK_2383_ARRI_ALEXA_LF_V4`) vs `animation` (`LUT_ANIMATION_CEL_VIBRANCE_V4`) optics and LUT lock | `I-S-1..4` |
+| **Gate 5: Temporal & Motion Integrity** | Verifies constant FPS, `1.0x` realtime playback (zero slow-mo stretching), and non-zero inter-frame optical motion energy | `CS-007` |
+| **Gate 6: Audio-First Integer-Tick Sync & J/L-Cuts** | Verifies `\|video_ticks - audio_ticks\| <= 1` frame, strips `100%` of native generator Mandarin/vocal bleed, and applies sample-exact J-cut (`-0.34s` / `-16320` samples @ 48kHz) & L-cut (`+0.45s` / `+21600` samples @ 48kHz) timeline bridges | `CS-007`, `CS-008`, `CS-012` |
 
 ---
 

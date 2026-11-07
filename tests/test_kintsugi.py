@@ -334,7 +334,7 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
             responses = [json.loads(line) for line in out_buf.getvalue().splitlines()]
             self.assertEqual(len(responses), 3)
             self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "kintsugi-harness")
-            self.assertEqual(len(responses[1]["result"]["tools"]), 8)
+            self.assertEqual(len(responses[1]["result"]["tools"]), 9)
             for tool_def in responses[1]["result"]["tools"]:
                 self.assertIn("annotations", tool_def)
             scan_payload = json.loads(responses[2]["result"]["content"][0]["text"])
@@ -2179,6 +2179,117 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         )
         self.assertIn("team-claude-pack", reval["reheld_harnesses"])
         self.assertEqual(integrator.list_integrated_harnesses()["mounted_count"], 0)
+
+    def test_v190_openmontage_cinema_extension_6gate_qa_and_evolution(self) -> None:
+        from kintsugi.cinema import (
+            DEMO_SHOWCASE_YOUTUBE_URL,
+            SUPPORTED_VIDEO_PROVIDERS,
+            CinemaEvolutionEngine,
+            ComponentVideoQAVerifier,
+            MultiProviderVideoRouter,
+            OpenMontagePackageManager,
+            VisualStyleOptimizer,
+            build_demo_flawed_openmontage_manifest,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Path(tmp)
+
+            # 1. On-Demand OpenMontage Sandbox Auto-Pull (offline scaffold mode for unit test)
+            pkg_mgr = OpenMontagePackageManager(ws)
+            ext_meta = pkg_mgr.ensure_openmontage_installed(auto_pull_remote=False)
+            self.assertEqual(ext_meta["package_id"], "kintsugi-openmontage-cinema")
+            self.assertEqual(ext_meta["version"], "1.9.0")
+            self.assertEqual(ext_meta["demo_showcase_youtube_url"], DEMO_SHOWCASE_YOUTUBE_URL)
+            self.assertTrue(Path(ext_meta["patched_pipeline"]).exists())
+
+            # 2. Verify all 9 providers (veo, muse, kling, runway, luma, pika, hailuo, sora, wan) expose capabilities()
+            router = MultiProviderVideoRouter(ws)
+            for prov_id in SUPPORTED_VIDEO_PROVIDERS:
+                caps = router.capabilities(prov_id)
+                self.assertEqual(caps["provider_id"], prov_id)
+                self.assertGreater(caps["max_seconds"], 0.0)
+                self.assertTrue(caps["strip_native_audio_default"])
+
+            # 3. Flawed V2 manifest must fail 6-Gate QA Verifier and detect historical scars (CS-001..CS-012)
+            flawed = build_demo_flawed_openmontage_manifest()
+            verifier = ComponentVideoQAVerifier()
+            initial_qa = verifier.verify_production_manifest_and_clips(flawed, style_mode="live_action")
+            self.assertFalse(initial_qa["ok"])
+            self.assertEqual(initial_qa["verdict"], "REVISE_REQUIRED")
+            found_scars = {d["scar_id"] for d in initial_qa["discrepancies"]}
+            self.assertIn("CS-001", found_scars)
+            self.assertIn("CS-002", found_scars)
+            self.assertIn("CS-003", found_scars)
+            self.assertIn("CS-004", found_scars)
+            self.assertIn("CS-005", found_scars)
+            self.assertIn("CS-006", found_scars)
+            self.assertIn("CS-009", found_scars)
+            self.assertIn("CS-011", found_scars)
+            self.assertIn("CS-012", found_scars)
+
+            # 4. Self-Evolving Filmmaking Engine (@CINEMA_EVOLVE/1) heals all discrepancies for Human Live-Action
+            evo = CinemaEvolutionEngine(ws)
+            self.assertEqual(len(evo.scars), 12)
+            healed_live, rep_live = evo.auto_heal_and_evolve_manifest(
+                flawed,
+                style_mode="live_action",
+                provider="veo",
+            )
+            self.assertTrue(rep_live["ok"])
+            self.assertEqual(rep_live["final_verdict"], "PASS_DIRECTOR_CUT_READY")
+            self.assertEqual(rep_live["final_discrepancies_count"], 0)
+            self.assertIn("pull_pin_hash", rep_live["certificate_bundle"])
+            self.assertIn("scar_set_hash", rep_live["certificate_bundle"])
+
+            # 5. Component Video Media Test: synthesize clean clips vs defective clips (sprocket border & frozen frame)
+            clips_dir = ws / "clips_live"
+            for sh in healed_live["shots"]:
+                MultiProviderVideoRouter.synthesize_component_test_media(
+                    clips_dir,
+                    sh,
+                    style_mode="live_action",
+                    provider="veo",
+                )
+            qa_with_clips = verifier.verify_production_manifest_and_clips(
+                healed_live,
+                clips_dir=clips_dir,
+                style_mode="live_action",
+            )
+            self.assertTrue(qa_with_clips["ok"])
+
+            # Inject 35mm sprocket border defect and frozen frame defect into shot_01 clip -> Gate 2 & Gate 5 MUST fail
+            bad_clips_dir = ws / "clips_defective"
+            for idx, sh in enumerate(healed_live["shots"]):
+                MultiProviderVideoRouter.synthesize_component_test_media(
+                    bad_clips_dir,
+                    sh,
+                    style_mode="live_action",
+                    provider="veo",
+                    inject_sprocket_border_defect=(idx == 0),
+                    inject_frozen_frame_defect=(idx == 1),
+                )
+            qa_bad_clips = verifier.verify_production_manifest_and_clips(
+                healed_live,
+                clips_dir=bad_clips_dir,
+                style_mode="live_action",
+            )
+            self.assertFalse(qa_bad_clips["ok"])
+            self.assertFalse(qa_bad_clips["gates"]["gate2_borderless_frame_hygiene"])
+            self.assertFalse(qa_bad_clips["gates"]["gate5_temporal_motion_integrity"])
+
+            # 6. Dual Style Mode Optimizer: Animation mode (`style_mode="animation"`) with Meta Muse (`provider="muse"`)
+            healed_anim, rep_anim = evo.auto_heal_and_evolve_manifest(
+                flawed,
+                style_mode="animation",
+                provider="muse",
+            )
+            self.assertTrue(rep_anim["ok"])
+            self.assertEqual(healed_anim["style_mode"], "animation")
+            self.assertEqual(healed_anim["shots"][0]["lut_profile"], "LUT_ANIMATION_CEL_VIBRANCE_V4")
+            rgb_live = VisualStyleOptimizer.apply_color_lut_rgb((120, 140, 160), style_mode="live_action", chapter_id=1)
+            rgb_anim = VisualStyleOptimizer.apply_color_lut_rgb((120, 140, 160), style_mode="animation", chapter_id=1)
+            self.assertNotEqual(rgb_live, rgb_anim)
 
 
 if __name__ == "__main__":
