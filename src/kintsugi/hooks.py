@@ -135,15 +135,51 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
     return settings_path
 
 
+def _resolve_git_hooks_dir(workspace_root: Path) -> Path:
+    """Resolve Git's active hooks directory (honoring `core.hooksPath` and linked worktrees)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(workspace_root), "rev-parse", "--git-path", "hooks"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        candidate = Path(proc.stdout.strip())
+        if candidate.is_absolute():
+            return candidate
+        return (workspace_root / candidate).resolve()
+    return workspace_root / ".git" / "hooks"
+
+
 def install_git_pre_commit_hook(workspace_root: str | Path) -> Path:
-    """Install a lightweight git pre-commit hook running index-safe `kintsugi scan . --ledger .kintsugi/scars.json --staged --fail-on HIGH`."""
+    """
+    Install a lightweight git pre-commit hook running index-safe
+    `kintsugi scan . --ledger .kintsugi/scars.json --staged --fail-on HIGH`,
+    honoring `git rev-parse --git-path hooks` and preserving/chaining any existing hook.
+    """
     root = Path(workspace_root)
-    hook_path = root / ".git" / "hooks" / "pre-commit"
-    hook_path.parent.mkdir(parents=True, exist_ok=True)
+    hooks_dir = _resolve_git_hooks_dir(root)
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook_path = hooks_dir / "pre-commit"
+    backup_hook = hooks_dir / "pre-commit.pre-kintsugi"
+
+    if hook_path.exists():
+        existing_text = hook_path.read_text(encoding="utf-8", errors="replace")
+        if "# Managed by kintsugi-harness" not in existing_text:
+            backup_hook.write_text(existing_text, encoding="utf-8")
+            backup_mode = hook_path.stat().st_mode
+            backup_hook.chmod(backup_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
     script = (
         "#!/usr/bin/env sh\n"
         "# Managed by kintsugi-harness\n"
         "set -e\n"
+        'HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\n'
+        'if [ -x "$HOOK_DIR/pre-commit.pre-kintsugi" ]; then\n'
+        '  "$HOOK_DIR/pre-commit.pre-kintsugi" "$@"\n'
+        "fi\n"
         "kintsugi scan . --ledger .kintsugi/scars.json --staged --fail-on HIGH\n"
     )
     hook_path.write_text(script, encoding="utf-8")

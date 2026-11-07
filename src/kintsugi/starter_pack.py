@@ -209,7 +209,7 @@ def get_starter_scars() -> List[GoldenScar]:
             bad_code="process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';",
             good_code="const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });",
             rationale="Configures custom CA certificates per-agent instead of disabling TLS validation process-wide.",
-            regex_pattern=r"""NODE_TLS_REJECT_UNAUTHORIZED\s*(?:=|:)\s*["']?0["']?""",
+            regex_pattern=r"""(?:NODE_TLS_REJECT_UNAUTHORIZED\s*(?:=|:)\s*["']?0["']?|rejectUnauthorized\s*:\s*false\b)""",
             verified_by=["architect:gpt-6-thinking", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
         ),
         GoldenScar(
