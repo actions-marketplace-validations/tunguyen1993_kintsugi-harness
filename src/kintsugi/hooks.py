@@ -54,11 +54,13 @@ def evaluate_claude_pre_tool_payload(
 
     blocking = [f for f in findings if f.severity.meets(block_threshold)]
     if not blocking:
+        # Leave permissionDecision unset on clean calls so Claude Code's normal
+        # user permission prompt remains intact (never auto-approve clean tool calls).
         return {
+            "continue": True,
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "allow",
-            }
+            },
         }
 
     reason_lines = [
@@ -88,10 +90,21 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
 
     data: Dict[str, Any] = {}
     if settings_path.exists():
+        raw_settings = settings_path.read_text(encoding="utf-8")
         try:
-            data = json.loads(settings_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            data = {}
+            parsed = json.loads(raw_settings)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Refusing to overwrite malformed .claude/settings.json ({settings_path}): {exc}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise ValueError(
+                f"Refusing to overwrite non-object .claude/settings.json ({settings_path})"
+            )
+        # Write a .bak backup before modifying existing settings.json
+        backup_path = settings_path.with_suffix(".json.bak")
+        backup_path.write_text(raw_settings, encoding="utf-8")
+        data = parsed
 
     hooks_obj = data.setdefault("hooks", {})
     pre_tool_list = hooks_obj.setdefault("PreToolUse", [])

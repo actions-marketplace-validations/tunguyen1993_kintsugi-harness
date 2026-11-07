@@ -228,7 +228,8 @@ class TestClaudeCodePreToolHooks(unittest.TestCase):
             },
         }
         res = evaluate_claude_pre_tool_payload(payload, get_starter_scars())
-        self.assertEqual(res["hookSpecificOutput"]["permissionDecision"], "allow")
+        self.assertTrue(res["continue"])
+        self.assertNotIn("permissionDecision", res["hookSpecificOutput"])
 
     def test_settings_installer_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,8 +237,15 @@ class TestClaudeCodePreToolHooks(unittest.TestCase):
             p1 = install_claude_settings_hook(tmp_path)
             p2 = install_claude_settings_hook(tmp_path)
             self.assertEqual(p1, p2)
+            self.assertTrue((tmp_path / ".claude" / "settings.json.bak").exists())
             cfg = json.loads(p1.read_text(encoding="utf-8"))
             self.assertEqual(len(cfg["hooks"]["PreToolUse"]), 1)
+
+            # Malformed settings.json must raise ValueError rather than overwriting
+            p1.write_text("{invalid json", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                install_claude_settings_hook(tmp_path)
+            self.assertEqual(p1.read_text(encoding="utf-8"), "{invalid json")
 
 
 class TestThreeAgentCouncilAndMCP(unittest.TestCase):
