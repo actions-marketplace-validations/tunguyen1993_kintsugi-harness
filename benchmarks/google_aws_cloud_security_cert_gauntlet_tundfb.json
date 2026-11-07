@@ -1,0 +1,74 @@
+{
+  "schema_version": "KINTSUGI_GOOGLE_AWS_CLOUD_SECURITY_CERT_MANIFEST_V1",
+  "registered_at_utc": "2026-11-07T01:28:00Z",
+  "principal_researcher": {
+    "full_name": "Tu Nguyen (Nguyen Duc Tu)",
+    "display_name_vi": "Nguyễn Đức Tú",
+    "email": "tundfb@gmail.com",
+    "github_handle": "@tunguyen1993",
+    "public_portfolio_repo": "https://github.com/tunguyen1993/kintsugi-harness",
+    "official_swebench_leaderboard_fork": "https://github.com/tunguyen1993/experiments",
+    "official_cybench_leaderboard_fork": "https://github.com/tunguyen1993/cybench"
+  },
+  "cumulative_verification_metrics_v10_8": {
+    "multi_file_repositories_solved": "120/120 (520 interdependent source files across Suites 29..44)",
+    "zero_hint_first_attempt_blind_score": "239/239 (100.0%)",
+    "anti_false_positive_reality_gates": "5 Gates (0.0% False Positive Rate across 192 trap tests)",
+    "suite44_cloud_cert_fuzz_runs": "4,000/4,000 PASS (500 randomized Red-vs-Blue runs x 8 6-file labs)"
+  },
+  "certification_and_skill_badge_tracks": [
+    {
+      "cert_slot_id": "CERT-GCP-PCSE",
+      "provider": "Google Cloud (Google Cloud Skills Boost & Credly)",
+      "title": "Google Cloud Professional Cloud Security Engineer (PCSE) & Vertex AI GenAI Security Skill Badges",
+      "portal_url": "https://www.cloudskillsboost.google/paths/15",
+      "labs_verified": [
+        "CloudCertV108_Lab_02_GoogleCloud_PCSE_6File_WorkloadIdentity_OIDC_SA_Impersonation_MetadataSSRF",
+        "CloudCertV108_Lab_03_GoogleCloud_PMLE_VertexAI_6File_ModelGarden_CustomContainer_Pickle_Sidecar_Exfil"
+      ],
+      "fuzz_runs": "1,000/1,000 PASS"
+    },
+    {
+      "cert_slot_id": "CERT-AWS-SCS",
+      "provider": "Amazon Web Services (AWS Skill Builder & AWS Certified Security SCS-C02)",
+      "title": "AWS Security Fundamentals, AWS Cloud Quest: Security & Amazon Bedrock Guardrails",
+      "portal_url": "https://explore.skillbuilder.aws",
+      "labs_verified": [
+        "CloudCertV108_Lab_01_AWS_SCS_C02_6File_IAM_STS_AssumeRole_ConfusedDeputy_KMS_Bypass",
+        "CloudCertV108_Lab_04_AWS_MLS_Bedrock_6File_AgentCore_ActionGroup_Lambda_IAM_PrivilegeEscalation"
+      ],
+      "fuzz_runs": "1,000/1,000 PASS"
+    },
+    {
+      "cert_slot_id": "CERT-MSFT-SC100",
+      "provider": "Microsoft Learn (Microsoft Verified Applied Skills & SC-100)",
+      "title": "Microsoft Applied Skills: Secure Azure Services, Entra ID & Azure AI Prompt Shields",
+      "portal_url": "https://learn.microsoft.com/en-us/credentials/browse/?credential_types=applied-skills",
+      "labs_verified": [
+        "CloudCertV108_Lab_05_Azure_SC100_6File_EntraID_ManagedIdentity_IMDS_Token_CrossTenant_Takeover"
+      ],
+      "fuzz_runs": "500/500 PASS"
+    },
+    {
+      "cert_slot_id": "CERT-PORTSWIGGER",
+      "provider": "PortSwigger Web Security Academy (Burp Suite BSCP)",
+      "title": "PortSwigger Web Security Academy — Web LLM Attacks, OAuth 2.0 PKCE S256 & HTTP/2 Desync",
+      "portal_url": "https://portswigger.net/web-security",
+      "labs_verified": [
+        "CloudCertV108_Lab_07_PortSwigger_BSCP_6File_OAuth2_PKCE_State_RedirectURI_WebLLM_AccountTakeover"
+      ],
+      "fuzz_runs": "500/500 PASS"
+    },
+    {
+      "cert_slot_id": "CERT-CNCF-CKS",
+      "provider": "Linux Foundation & CNCF (CKS & OpenSSF LFD121)",
+      "title": "OpenSSF LFD121 Developing Secure Software & CNCF Kubernetes Security Specialist (CKS)",
+      "portal_url": "https://training.linuxfoundation.org/training/developing-secure-software-lfd121/",
+      "labs_verified": [
+        "CloudCertV108_Lab_06_CNCF_CKS_6File_Kubernetes_AdmissionWebhook_HostPath_ServiceAccount_Escape",
+        "CloudCertV108_Lab_08_NVIDIA_OpenSSF_6File_SLSA_Provenance_Cosign_Container_SupplyChain_Poison"
+      ],
+      "fuzz_runs": "1,000/1,000 PASS"
+    }
+  ]
+}
