@@ -2091,6 +2091,17 @@ class UniversalHarnessIntegrator:
             "mounted_harnesses": list(mounted.values()),
         }
 
+    def discover_harnesses(self, search_root: Optional[str | Path] = None) -> Dict[str, Any]:
+        target_root = Path(search_root).resolve() if search_root else self.workspace_root
+        candidates = discover_harnesses(target_root)
+        return {
+            "ok": True,
+            "workspace_root": str(target_root),
+            "discovered_count": len(candidates),
+            "candidates": [c.to_dict() for c in candidates],
+            "star_cta": "⭐ If Kintsugi saves your context tokens or catches a rule conflict, please Star: https://github.com/tunguyen1993/kintsugi-harness",
+        }
+
     def _resolve_max_mounted_harnesses(self) -> int:
         try:
             from kintsugi.packs import resolve_workspace_co_execution_entitlement
