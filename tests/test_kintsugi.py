@@ -334,7 +334,9 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
             responses = [json.loads(line) for line in out_buf.getvalue().splitlines()]
             self.assertEqual(len(responses), 3)
             self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "kintsugi-harness")
-            self.assertEqual(len(responses[1]["result"]["tools"]), 6)
+            self.assertEqual(len(responses[1]["result"]["tools"]), 8)
+            for tool_def in responses[1]["result"]["tools"]:
+                self.assertIn("annotations", tool_def)
             scan_payload = json.loads(responses[2]["result"]["content"][0]["text"])
             self.assertFalse(scan_payload["passed"])
             self.assertEqual(scan_payload["findings"][0]["scar_id"], "KS-006")

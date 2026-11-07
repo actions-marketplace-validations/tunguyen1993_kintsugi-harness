@@ -1,19 +1,25 @@
 ---
-name: Bug Report / False Positive
-about: Report a scanner false positive, hook issue, or CLI bug
-title: "[Bug] "
+name: 🐛 Bug Report / False-Positive Rule
+about: Report a bug, false-positive guard, or rule conflict in Kintsugi Harness
+title: "[BUG] "
 labels: bug
+assignees: ''
 ---
 
-## Summary
-Clear description of what happened.
+> ⭐ **If Kintsugi Harness saved your context tokens or caught a bug before commit today, please consider giving us a [GitHub Star](https://github.com/tunguyen1993/kintsugi-harness) — it helps open-source maintainers prioritize new IDE/MCP integrations!**
 
-## Scar ID (if false positive)
-e.g., `KS-008`
+### Checklist
+- [ ] I have verified this against the latest release (`v1.8.0`).
+- [ ] I ran `kintsugi verify-ledger` or `kintsugi integrate --discover`.
 
-## Minimal Reproducer Snippet
+### Environment
+- **OS & Python/Rust Version:**
+- **IDE / Agent (Claude Code, Cursor, Windsurf, Copilot, MCP):**
+- **Kintsugi Version (`kintsugi --version`):**
+
+### Minimal Reproduction Snippet
 ```python
+# Paste the minimal snippet or rule that triggered the issue
 ```
 
-## Expected Behavior
-What `kintsugi scan` or `kintsugi hook` should have returned.
+### Expected vs. Actual Behavior

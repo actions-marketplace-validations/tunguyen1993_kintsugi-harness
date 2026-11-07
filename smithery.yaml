@@ -1,0 +1,16 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      workspaceRoot:
+        type: string
+        default: "."
+        description: "Workspace directory containing .kintsugi/scars.json, .cursorrules, CLAUDE.md, or AGENTS.md"
+  commandFunction:
+    |-
+    (config) => ({
+      command: 'kintsugi',
+      args: ['mcp', '--ledger', `${config.workspaceRoot || '.'}/.kintsugi/scars.json`]
+    })

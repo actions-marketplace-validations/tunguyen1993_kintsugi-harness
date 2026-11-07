@@ -4,18 +4,53 @@
 
 # Kintsugi Harness (`kintsugi-harness` · `v1.8.0`)
 
-**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator & Federation Engine (`kintsugi integrate`), `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@LOGIC/2` 5-Pillar Neuro-Symbolic Logical Reasoning Engine, `@PROOF_DAG/1` Cryptographically Signed Compliance Proofs (`.kintsugi/audit.proof`), `@ZK_AST_DIFF/1` Reachability-Aware AST Commitments, `@EVAL_SUITE/1` Reproducible Benchmark Suite, `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, and self-evolving `SKILL.md` skills for AI coding agents.**
+### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `7.6 µs`.
 
+**Drop-in Rust + Python `PreToolUse` guardrails that integrate your existing `.cursorrules`, `CLAUDE.md`, `AGENTS.md`, or `.windsurfrules` in 1 command (`kintsugi integrate`), verify rule consistency via Joint SAT + Difference Logic (`SAT+DL`), and compress skill prompts by `95.3%` (`~3,330` → `~209 tokens/turn`).**
+
+[![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
+[![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
 [![Release: v1.8.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
-[![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 7.6 µs](https://img.shields.io/badge/Rust_Core-7.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Frontier Pool: 41 Verified](https://img.shields.io/badge/Collective_Pool-41_Frontier_Lessons-7B1FA2)](collective-pool/index.json)
-[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](pyproject.toml)
+[![Tests: 38/38 Passing](https://img.shields.io/badge/Tests-38%2F38_Passing-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
+> ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
+
 </div>
+
+---
+
+## ⏱️ Try It in 10 Seconds (1-Command Safe Tryout)
+
+Install with zero third-party dependencies (`Python 3.9+ stdlib`) and scan/integrate your existing `.cursorrules`, `CLAUDE.md`, or `AGENTS.md` without modifying your workflow:
+
+```bash
+pip install git+https://github.com/tunguyen1993/kintsugi-harness.git && kintsugi integrate --discover
+```
+
+```text
+# Try the reproducible benchmark + drop-in harness integrator on your repo:
+$ kintsugi integrate . --mount
+{
+  "ok": true,
+  "state": "MOUNTED",
+  "verdict": "SAT_CLEAN",
+  "translation_accounting": {
+    "total_discovered_candidates": 4,
+    "compiled_enforceable_guards": 16,
+    "token_reduction_pct": 95.3
+  },
+  "attestation_receipt": {
+    "wire": "@PROOF_DAG/1[profile=HARNESS_INTEGRATION_V180|state=MOUNTED|verdict=SAT_CLEAN|caps_granted=0]"
+  }
+}
+
+# Revert cleanly at any time while preserving 100% of your manual edits:
+$ kintsugi integrate --eject HARNESS-DEFAULT
+```
 
 ---
 
@@ -28,7 +63,7 @@ Existing agent harnesses and rule repositories (`Superpowers`, static `.cursorru
 2. **Advisory Prose != Enforcement:** Markdown instructions are merely suggestions; agents still run `subprocess(..., shell=True)`, hardcode secrets, or execute destructive shell commands under pressure.
 3. **Slow Hook Latency:** Heavy linters add `300–1,500ms` of overhead on every tool call.
 
-**Kintsugi v1.7.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
+**Kintsugi v1.8.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `7.6 µs/call`)**, an **Ultra-Compact Wire Index (`KMI/1` — `~209 tokens/turn`, saving `95.3%` of context tokens)**, **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
 
 ```mermaid
 flowchart LR
@@ -41,9 +76,9 @@ flowchart LR
 
 ---
 
-## Benchmark: Kintsugi v1.7.0 vs Other Agent Harnesses
+## Benchmark: Kintsugi v1.8.0 vs Other Agent Harnesses
 
-| Capability / Metric | **Kintsugi Harness (`v1.7.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
+| Capability / Metric | **Kintsugi Harness (`v1.8.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
 | :--- | :--- | :--- | :--- | :--- |
 | **Per-Turn Context Cost (18 Rules)** | **`~209 tokens` (`KMI/1` Wire Index)** | `~3,330 tokens` | `~4,500–9,000 tokens` | `0` (no agent awareness) |
 | **Tokens Saved per 50-Turn Session** | **`~156,050 tokens` (`93.7%` reduction)** | `0` (Baseline) | Negative (`-225k+ tokens`) | N/A |
