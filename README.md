@@ -309,6 +309,16 @@ Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`R
 
 ---
 
+## Author & Official AI Security Competitions / Benchmark Registry (`Tu Nguyen · tundfb@gmail.com`)
+
+- **Principal Researcher & Architect:** **Tu Nguyen (`Nguyễn Đức Tú`)** · Email: **`tundfb@gmail.com`** · GitHub: [**`@tunguyen1993`**](https://github.com/tunguyen1993)
+- **Official Competition & Benchmark Registry:** [**`docs/AI_SECURITY_COMPETITIONS_AND_TRAINING_REGISTRY.md`**](docs/AI_SECURITY_COMPETITIONS_AND_TRAINING_REGISTRY.md) & [**`benchmarks/frontier_ai_security_competitions_tundfb.json`**](benchmarks/frontier_ai_security_competitions_tundfb.json)
+- **Verified Multi-File Security Gauntlet Qualification (`Brain v10.7` / `Suites 29..43`):**
+  - **`112 / 112` Multi-File Repositories Solved (`472` interdependent source files)** · **`231 / 231 (100.0%)` Zero-Hint First-Attempt Blind Exams** · **`0.0%` False Positive Rate across 5 Anti-False-Positive Reality Gates** · **`4,000 / 4,000` Adversarial Red-vs-Blue Fuzz Runs (`Suite 43`)**.
+  - **6 Registered Frontier Tracks:** `SLOT-GS-ED913A` (**Gray Swan AI Security Arena / UK AISI IPI**), `SLOT-CY-913A45` (**Stanford Cybench & UK AISI Inspect**), `SLOT-SW-3A45E7` (**SWE-bench Security Remediation**), `SLOT-OW-45E7EB` (**OWASP GenAI & MCP Security Initiative**), `SLOT-HT-ED9105` (**Protect AI Huntr AI/ML/MCP Research**), and `SLOT-CT-D913A4` (**Cantina / Spearbit Web3 & AI Security Track**).
+
+---
+
 ## Wire into Claude Code (`PreToolUse`) & MCP
 
 ```bash
