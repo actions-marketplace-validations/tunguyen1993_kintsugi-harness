@@ -202,7 +202,22 @@ def install_skill_pack(
     src = Path(pack_source)
     ws = Path(workspace_root)
     if not src.exists():
-        raise FileNotFoundError(f"Skill pack not found: {src}")
+        repo_root = Path(__file__).resolve().parents[2]
+        candidates = [
+            ws / str(pack_source),
+            ws / "dist-packs" / f"{pack_source}.zip",
+            ws / "free-skill-pack" / "scars.json",
+            repo_root / "dist-packs" / f"{pack_source}.zip",
+            repo_root / "free-skill-pack" / "scars.json",
+        ]
+        resolved_candidate = next((c for c in candidates if c.exists()), None)
+        if resolved_candidate is not None and (
+            str(pack_source) in {"free-skill-pack", "kintsugi-complete-pro-1688", "starter"}
+            or resolved_candidate.stem == str(pack_source)
+        ):
+            src = resolved_candidate
+        else:
+            raise FileNotFoundError(f"Skill pack not found: {src}")
 
     packs_dir = get_packs_dir(ws)
     packs_dir.mkdir(parents=True, exist_ok=True)

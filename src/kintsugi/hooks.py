@@ -136,7 +136,7 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
 
 
 def install_git_pre_commit_hook(workspace_root: str | Path) -> Path:
-    """Install a lightweight git pre-commit hook running `kintsugi scan . --fail-on HIGH`."""
+    """Install a lightweight git pre-commit hook running index-safe `kintsugi scan . --ledger .kintsugi/scars.json --staged --fail-on HIGH`."""
     root = Path(workspace_root)
     hook_path = root / ".git" / "hooks" / "pre-commit"
     hook_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +144,7 @@ def install_git_pre_commit_hook(workspace_root: str | Path) -> Path:
         "#!/usr/bin/env sh\n"
         "# Managed by kintsugi-harness\n"
         "set -e\n"
-        "kintsugi scan . --fail-on HIGH\n"
+        "kintsugi scan . --ledger .kintsugi/scars.json --staged --fail-on HIGH\n"
     )
     hook_path.write_text(script, encoding="utf-8")
     mode = hook_path.stat().st_mode
