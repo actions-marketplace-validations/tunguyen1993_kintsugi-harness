@@ -186,7 +186,7 @@ class SkillCompiler:
         return (
             "---\n"
             "description: Kintsugi deterministic safety, security, and reliability guardrails\n"
-            "globs: **/*\n"
+            'globs: "**/*"\n'
             "alwaysApply: true\n"
             "---\n\n"
             f"{body}\n"

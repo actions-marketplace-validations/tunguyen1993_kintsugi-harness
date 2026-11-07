@@ -226,9 +226,9 @@ def get_git_changed_lines(
     staged: bool = False,
     diff_ref: Optional[str] = None,
 ) -> Dict[Path, Set[int]]:
-    """Run `git -c core.quotePath=false diff --no-ext-diff --no-textconv -U0` and return touched line numbers per file."""
+    """Run `git -c core.quotePath=false diff --text --no-ext-diff --no-textconv -U0` and return touched line numbers per file."""
     root = Path(repo_root).resolve()
-    cmd = ["git", "-C", str(root), "-c", "core.quotePath=false", "diff", "--no-ext-diff", "--no-textconv", "-U0", "--no-color"]
+    cmd = ["git", "-C", str(root), "-c", "core.quotePath=false", "diff", "--text", "--no-ext-diff", "--no-textconv", "-U0", "--no-color"]
     if staged:
         cmd.append("--staged")
     elif diff_ref:
