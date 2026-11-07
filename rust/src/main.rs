@@ -13,7 +13,7 @@ use kintsugi_core::{
     verify_outbound_destination_allowed, Severity, ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
 
-const VERSION: &str = "1.3.0";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn print_help() {
     println!(

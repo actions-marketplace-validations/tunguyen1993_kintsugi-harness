@@ -2,11 +2,11 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v1.7.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v1.8.0`)
 
-**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@LOGIC/2` 5-Pillar Neuro-Symbolic Logical Reasoning Engine, `@PROOF_DAG/1` Cryptographically Signed Compliance Proofs (`.kintsugi/audit.proof`), `@ZK_AST_DIFF/1` Reachability-Aware AST Commitments, `@EVAL_SUITE/1` Reproducible Benchmark Suite, `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, and self-evolving `SKILL.md` skills for AI coding agents.**
+**Sub-millisecond Rust + Python `PreToolUse` guardrails, `@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator & Federation Engine (`kintsugi integrate`), `@KML/1` Universal Agent Machine Language (`96.3%` wire compression, `0%` human prose), `KMI/1` ultra-low-token skill compression (`95.3%` fewer tokens), `@LOGIC/2` 5-Pillar Neuro-Symbolic Logical Reasoning Engine, `@PROOF_DAG/1` Cryptographically Signed Compliance Proofs (`.kintsugi/audit.proof`), `@ZK_AST_DIFF/1` Reachability-Aware AST Commitments, `@EVAL_SUITE/1` Reproducible Benchmark Suite, `@COMPACT/2` Zero-Amnesia Conversation & Excel Compactor, and self-evolving `SKILL.md` skills for AI coding agents.**
 
-[![Release: v1.7.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v1.8.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Machine Language: @KML/1](https://img.shields.io/badge/Machine_Language-%40KML%2F1_AST--IR-00B0FF)](.kintsugi/scars.kml)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
@@ -54,7 +54,7 @@ flowchart LR
 
 ---
 
-## Open-Core Architecture & Edition Matrix (`v1.7.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
+## Open-Core Architecture & Edition Matrix (`v1.8.0` — Free vs Tier 1 / Tier 2 / Tier 3 Pro)
 
 Independent evaluators can verify all 4 editions, `@KML/1` compression ratios, Auto-Fix codemods, and `.kpack` AEAD cryptography in `1.3s` with:
 
@@ -64,7 +64,8 @@ python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
 | Capability / Module | **Core Guard Free (`$0` OSS)** | **Tier 1: FinOps & Reliability Pro (`$15`)** | **Tier 2: Zero-Trust AppSec & MCP Pro (`$19`)** | **Tier 3: Enterprise Complete Pro (`$29`)** |
 | :--- | :---: | :---: | :---: | :---: |
-| **Native Rust Engine (`kintsugi-rs v1.7.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **Native Rust Engine (`kintsugi-rs v1.8.0`) & Python AST Scanner** | Included (`100% Open Source`) | Included | Included | **Included** |
+| **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)** | **Included: Discover + SAT+DL Conflict Check + `1` Active Mounted Harness** | **Unlocked: Multi-Harness Federation (`Up to 10` Mounted Harnesses)** | **Unlocked: Multi-Harness Federation (`Up to 10` Mounted Harnesses)** | **Unlocked: Enterprise Multi-Harness Federation (`Up to 100` Mounted Harnesses + Signed `@PROOF_DAG/1` Receipts)** |
 | **Multi-Model Co-Execution Engine (`--co-run`)** | **Locked: `Primary + 1 Free Model`** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 2..5 Free Models` (Auto 429 Failover)** | **Unlocked: `Primary + 5 Free Models + BYOK Paid Frontier Council`** |
 | **BYOK Paid Frontier Agent Council (`--paid-council`)** | — (Locked) | — (Locked) | — (Locked) | **Unlocked (`Claude Opus 4.6/5.5`, `GPT-6`, `Grok 4.7 Max` BYOK)** |
 | **`@LOGIC/2` 5-Pillar Neuro-Symbolic Reasoning & Login Verifier (`kintsugi logic`)** | Included (`DPLL SAT/MUS`, `Stratified Datalog`, `Difference Logic`, `Fallacy Guard`, `MHS`) | Included | Included | **Included (`+ Adversarial Council Arena`)** |
