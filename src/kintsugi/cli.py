@@ -197,6 +197,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_comp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_comp.add_argument("--compact", action="store_true", help="Emit ultra-low-token KMI/1 wire index (>93%% token savings)")
     p_comp.add_argument(
+        "--starter-only",
+        action="store_true",
+        help="Compile strictly from the 16 public starter scars (get_starter_scars) without merging local private workspace scars",
+    )
+    p_comp.add_argument(
         "--targets",
         default="skills,claude,agents,cursor",
         help="Comma-separated targets: skills,claude,agents,cursor,copilot,windsurf,all",
@@ -673,9 +678,27 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
     if args.command == "compile":
-        ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+        if getattr(args, "starter_only", False):
+            from kintsugi.starter_pack import get_starter_scars
+            import shutil
+
+            scars_to_compile = get_starter_scars()
+            allowed_cats = {s.category for s in scars_to_compile}
+            skills_root = Path(args.workspace) / ".claude" / "skills"
+            if skills_root.exists():
+                for child in skills_root.iterdir():
+                    if (
+                        child.is_dir()
+                        and child.name.startswith("kintsugi-")
+                        and child.name not in {"kintsugi-guardrails", "kintsugi-multi-model-council"}
+                        and child.name.removeprefix("kintsugi-") not in allowed_cats
+                    ):
+                        shutil.rmtree(child, ignore_errors=True)
+        else:
+            ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+            scars_to_compile = ledger.all()
         targets = [t.strip() for t in args.targets.split(",") if t.strip()]
-        written = SkillCompiler(ledger.all(), compact_kmi=bool(args.compact)).compile_all(
+        written = SkillCompiler(scars_to_compile, compact_kmi=bool(args.compact)).compile_all(
             args.workspace,
             targets=targets,
         )
