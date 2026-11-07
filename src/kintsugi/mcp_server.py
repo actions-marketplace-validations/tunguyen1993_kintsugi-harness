@@ -629,19 +629,13 @@ class KintsugiMCPServer:
             )
 
         if name == "kintsugi_integrate_harness":
-            from kintsugi.integrator import UniversalHarnessIntegrator, discover_harnesses
+            from kintsugi.integrator import UniversalHarnessIntegrator
 
             root = Path(str(args.get("workspace_root") or ".")).resolve()
             action = str(args.get("action") or "discover").lower()
             integrator = UniversalHarnessIntegrator(root)
             if action == "discover":
-                candidates = discover_harnesses(root)
-                return {
-                    "action": "discover",
-                    "workspace_root": str(root),
-                    "candidates_found": len(candidates),
-                    "candidates": [c.to_dict() for c in candidates],
-                }
+                return integrator.discover_harnesses(root)
             if action == "status":
                 return integrator.list_integrated_harnesses()
             if action == "check_conflicts":
