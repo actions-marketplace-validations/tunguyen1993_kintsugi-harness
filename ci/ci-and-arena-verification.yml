@@ -1,0 +1,42 @@
+name: Kintsugi CI, 10-Arena Pareto Suite & SLSA Provenance
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions: read-all
+
+jobs:
+  verify-and-attest:
+    name: Unit Tests, 10-Arena Pareto Benchmark & Provenance Digest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install package in editable mode (zero third-party runtime deps)
+        run: |
+          python -m pip install --upgrade pip pytest
+          pip install -e .
+
+      - name: Run full pytest suite
+        run: pytest -q
+
+      - name: Run 10-Arena 5-Pillar Pareto-Optimal Verification Suite
+        run: python3 benchmarks/run_verifiable_arena_cert_suite.py --verify
+
+      - name: Generate Deterministic SLSA Subject SHA-256 Provenance Digest
+        run: |
+          sha256sum pyproject.toml Cargo.toml benchmarks/verified_10_arena_pareto_certificate.json
