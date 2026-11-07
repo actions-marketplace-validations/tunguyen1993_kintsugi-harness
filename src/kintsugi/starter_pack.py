@@ -224,7 +224,7 @@ def get_starter_scars() -> List[GoldenScar]:
             good_code='app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)',
             rationale="Explicit origin allowlists prevent cross-origin credential exposure.",
             ast_rule="py_cors_wildcard_credentials",
-            regex_pattern=r"""(?:\ballow_origins\s*=\s*[\[\(]\s*["']\*["']\s*,?\s*[\]\)][^()]{0,2000}\ballow_credentials\s*=\s*True\b|["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b)[^}]{0,2000}["']?\bcredentials["']?\s*:\s*true\b|["']?\bcredentials["']?\s*:\s*true\b[^}]{0,2000}["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b))""",
+            regex_pattern=r"""(?:\ballow_origins\s*=\s*[\[\(]\s*["']\*["']\s*,?\s*[\]\)][^()]*\ballow_credentials\s*=\s*True\b|["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b)[^}]*["']?\bcredentials["']?\s*:\s*true\b|["']?\bcredentials["']?\s*:\s*true\b[^}]*["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b))""",
             verified_by=["architect:gpt-6-thinking", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
         ),
         GoldenScar(
