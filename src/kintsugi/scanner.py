@@ -57,7 +57,7 @@ DEFAULT_EXCLUDED_DIRS: Set[str] = {
 
 IGNORE_FILE_RE = re.compile(r"kintsugi:\s*ignore-file\b", re.IGNORECASE)
 IGNORE_PRAGMA_RE = re.compile(r"kintsugi:\s*ignore(?:\[([A-Za-z0-9_,\s-]+)\])?", re.IGNORECASE)
-HUNK_HEADER_RE = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
+HUNK_HEADER_RE = re.compile(r"^@@\s+-\d+(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@")
 SECURITY_NAME_RE = re.compile(
     r"(?:token|secret|nonce|api_key|apikey|password|passwd|auth_code|otp|session_id|private_key|salt)",
     re.IGNORECASE,
@@ -142,23 +142,58 @@ def parse_git_diff_text(diff_text: str, repo_root: Path, *, require_worktree_fil
     """
     changed: Dict[Path, Set[int]] = {}
     current_file: Optional[Path] = None
+    saw_minus_header: bool = False
+    hunk_minus_remaining: int = 0
+    hunk_plus_remaining: int = 0
     root_real = Path(os.path.normpath(str(Path(repo_root).resolve())))
 
-    for raw_line in diff_text.splitlines():
-        if raw_line.startswith("+++ /dev/null"):
+    for raw_line in (ln[:-1] if ln.endswith("\r") else ln for ln in diff_text.split("\n")):
+        if hunk_minus_remaining > 0 or hunk_plus_remaining > 0:
+            if raw_line.startswith("+") and hunk_plus_remaining > 0:
+                hunk_plus_remaining -= 1
+                continue
+            if raw_line.startswith("-") and hunk_minus_remaining > 0:
+                hunk_minus_remaining -= 1
+                continue
+            if raw_line.startswith(" "):
+                if hunk_minus_remaining > 0:
+                    hunk_minus_remaining -= 1
+                if hunk_plus_remaining > 0:
+                    hunk_plus_remaining -= 1
+                continue
+            if raw_line.startswith("\\"):
+                continue
+            hunk_minus_remaining = 0
+            hunk_plus_remaining = 0
+
+        if raw_line.startswith("diff --git "):
+            saw_minus_header = False
             current_file = None
             continue
-        rel_path = _decode_git_diff_header_path(raw_line)
-        if rel_path is not None:
-            current_file = _lexical_repo_path(root_real, rel_path)
-            changed.setdefault(current_file, set())
-        elif current_file is not None and raw_line.startswith("@@"):
+        if raw_line == "--- /dev/null" or raw_line.startswith("--- /dev/null\t") or raw_line.startswith("--- a/") or raw_line.startswith('--- "a/'):
+            saw_minus_header = True
+            continue
+        if saw_minus_header and (raw_line == "+++ /dev/null" or raw_line.startswith("+++ /dev/null\t")):
+            current_file = None
+            saw_minus_header = False
+            continue
+        if saw_minus_header:
+            rel_path = _decode_git_diff_header_path(raw_line)
+            if rel_path is not None:
+                current_file = _lexical_repo_path(root_real, rel_path)
+                changed.setdefault(current_file, set())
+                saw_minus_header = False
+                continue
+        if current_file is not None and raw_line.startswith("@@"):
             match = HUNK_HEADER_RE.match(raw_line)
             if match:
-                start_line = int(match.group(1))
-                count = int(match.group(2)) if match.group(2) is not None else 1
-                if count > 0:
-                    changed[current_file].update(range(start_line, start_line + count))
+                old_count = int(match.group(1)) if match.group(1) is not None else 1
+                start_line = int(match.group(2))
+                new_count = int(match.group(3)) if match.group(3) is not None else 1
+                hunk_minus_remaining = max(0, old_count)
+                hunk_plus_remaining = max(0, new_count)
+                if new_count > 0:
+                    changed[current_file].update(range(start_line, start_line + new_count))
     return {
         p: lines
         for p, lines in changed.items()
@@ -191,12 +226,14 @@ def get_git_changed_lines(
     staged: bool = False,
     diff_ref: Optional[str] = None,
 ) -> Dict[Path, Set[int]]:
-    """Run `git -c core.quotePath=false diff -U0` and return touched line numbers per file."""
+    """Run `git -c core.quotePath=false diff --no-ext-diff --no-textconv -U0` and return touched line numbers per file."""
     root = Path(repo_root).resolve()
-    cmd = ["git", "-C", str(root), "-c", "core.quotePath=false", "diff", "-U0", "--no-color"]
+    cmd = ["git", "-C", str(root), "-c", "core.quotePath=false", "diff", "--no-ext-diff", "--no-textconv", "-U0", "--no-color"]
     if staged:
         cmd.append("--staged")
     elif diff_ref:
+        if diff_ref.startswith("-"):
+            raise ValueError(f"Invalid diff_ref starting with '-': {diff_ref}")
         cmd.append(diff_ref)
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
@@ -348,6 +385,19 @@ class _PythonASTVisitor(ast.NodeVisitor):
         ):
             self._record("py_insecure_random_for_secret", node)
 
+        if "allow_origins" in kwargs and "allow_credentials" in kwargs:
+            cred_node = kwargs["allow_credentials"]
+            orig_node = kwargs["allow_origins"]
+            is_cred_true = isinstance(cred_node, ast.Constant) and cred_node.value is True
+            has_wildcard_origin = (
+                isinstance(orig_node, ast.Constant) and orig_node.value == "*"
+            ) or (
+                isinstance(orig_node, (ast.List, ast.Tuple, ast.Set))
+                and any(isinstance(elt, ast.Constant) and elt.value == "*" for elt in orig_node.elts)
+            )
+            if is_cred_true and has_wildcard_origin:
+                self._record("py_cors_wildcard_credentials", node)
+
         for rule_key in self.ast_scars:
             if rule_key.startswith("call:"):
                 target_fn = rule_key.split(":", 1)[1]
@@ -438,7 +488,7 @@ class KintsugiScanner:
             if cached is not None:
                 return list(cached)
 
-        lines = content.splitlines()
+        lines = [ln[:-1] if ln.endswith("\r") else ln for ln in content.split("\n")]
         if any(IGNORE_FILE_RE.search(ln) for ln in lines[:8]):
             return []
         findings: List[ScanFinding] = []
@@ -457,6 +507,7 @@ class KintsugiScanner:
                 return False
             return "*" in ignored or scar_id.upper() in ignored
 
+        tree: Optional[ast.AST] = None
         if lang == "python" and self._ast_scars:
             try:
                 tree = ast.parse(content, filename=file_path)
@@ -502,15 +553,20 @@ class KintsugiScanner:
 
         if applicable_regex and (fast_gate is None or fast_gate.search(content) is not None):
             for scar, pattern in applicable_regex:
+                if lang == "python" and tree is not None and scar.ast_rule:
+                    continue
                 for match in pattern.finditer(content):
                     start = match.start()
+                    end = max(start, match.end() - 1)
                     if newline_offsets is None:
                         newline_offsets = [idx for idx, ch in enumerate(content) if ch == "\n"]
                     line_idx = bisect.bisect_right(newline_offsets, start - 1) if start > 0 else 0
+                    end_line_idx = bisect.bisect_right(newline_offsets, end - 1) if end > 0 else 0
                     lineno = line_idx + 1
+                    end_lineno = max(lineno, end_line_idx + 1)
                     line_start = newline_offsets[line_idx - 1] if line_idx > 0 else -1
                     col = start - (0 if line_start == -1 else line_start + 1) + 1
-                    if _is_ignored(lineno, scar.id):
+                    if _is_ignored(lineno, scar.id, end_lineno):
                         continue
                     dedup = (scar.id, lineno)
                     if dedup in seen_keys:
@@ -591,7 +647,11 @@ class KintsugiScanner:
         for fpath, touched_lines in sorted(changed_map.items()):
             if fpath.suffix.lower() not in EXTENSION_LANGUAGE_MAP:
                 continue
-            if any(part in self.excluded_dirs for part in fpath.parts):
+            try:
+                rel_dir_parts = fpath.relative_to(root_resolved).parts[:-1]
+            except ValueError:
+                continue
+            if any(part in self.excluded_dirs for part in rel_dir_parts):
                 continue
             if staged:
                 indexed_text = read_git_index_blob(root_resolved, fpath)

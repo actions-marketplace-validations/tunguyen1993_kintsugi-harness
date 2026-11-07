@@ -223,7 +223,8 @@ def get_starter_scars() -> List[GoldenScar]:
             bad_code='app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)',
             good_code='app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)',
             rationale="Explicit origin allowlists prevent cross-origin credential exposure.",
-            regex_pattern=r"""allow_origins\s*=\s*\[\s*["']\*["']\s*\][^\n]{0,80}allow_credentials\s*=\s*True""",
+            ast_rule="py_cors_wildcard_credentials",
+            regex_pattern=r"""(?:\ballow_origins\s*=\s*[\[\(]\s*["']\*["']\s*,?\s*[\]\)][^()]{0,160}\ballow_credentials\s*=\s*True\b|["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b)[^}]{0,160}["']?\bcredentials["']?\s*:\s*true\b|["']?\bcredentials["']?\s*:\s*true\b[^}]{0,160}["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b))""",
             verified_by=["architect:gpt-6-thinking", "synthesizer:deepseek-v4.1-flash", "critic:muse-2b", "self-check"],
         ),
         GoldenScar(

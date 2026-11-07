@@ -167,6 +167,65 @@ class TestASTRegexAndDiffScanner(unittest.TestCase):
             self.assertTrue((custom_hooks / "pre-commit.pre-kintsugi").exists())
             self.assertIn("pre-commit.pre-kintsugi", installed_hook.read_text(encoding="utf-8"))
 
+            # Case H: Staged filename containing Unicode line separator (\u2028) is not truncated by diff splitting
+            subprocess.run(["git", "-C", str(root), "reset"], check=True)
+            ls_name = "service\u2028unsafe.py"
+            ls_file = root / ls_name
+            ls_file.write_text("import pickle\npickle.loads(raw)\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "--", ls_name], check=True)
+            rep_ls = scanner.scan_git_changes(root, staged=True)
+            self.assertEqual([f.scar_id for f in rep_ls.findings], ["KS-006"])
+
+            # Case I: Repository located under a parent directory named 'build' is not skipped by excluded_dirs
+            build_repo = Path(tmp) / "build" / "nested_repo"
+            build_repo.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["git", "-C", str(build_repo), "init", "-q"], check=True)
+            (build_repo / "app.py").write_text("import pickle\npickle.loads(raw)\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(build_repo), "add", "app.py"], check=True)
+            rep_build_parent = scanner.scan_git_changes(build_repo, staged=True)
+            self.assertEqual([f.scar_id for f in rep_build_parent.findings], ["KS-006"])
+
+            # Case J: KS-015 detects multiline FastAPI CORSMiddleware and JS/TS Express cors({ origin: '*', credentials: true })
+            fastapi_multiline = (
+                "app.add_middleware(\n"
+                "    CORSMiddleware,\n"
+                "    allow_origins=['*',],\n"
+                "    allow_methods=['*'],\n"
+                "    allow_credentials=True,\n"
+                ")\n"
+            )
+            self.assertEqual(
+                [f.scar_id for f in scanner.scan_text(fastapi_multiline, file_path="main.py", allowed_lines={5})],
+                ["KS-015"],
+            )
+            # Separate calls and prefix identifiers must not false-positive
+            separate_calls = "cfg(allow_origins=['*'])\ncfg(allow_credentials=True)\n"
+            self.assertEqual(scanner.scan_text(separate_calls, file_path="main.py"), [])
+            express_cors = 'app.use(cors({\n  "credentials": true,\n  "origin": "*",\n}));\n'
+            self.assertEqual(
+                [f.scar_id for f in scanner.scan_text(express_cors, file_path="server.ts", allowed_lines={3})],
+                ["KS-015"],
+            )
+            self.assertEqual(
+                scanner.scan_text("app.use(cors({ origin: '*', credentials: trueValue }));\n", file_path="server.ts"),
+                [],
+            )
+
+            # Case K: Added hunk lines starting with '++ b/decoy.py' or '++ /dev/null' must not spoof diff headers
+            spoof_diff = (
+                "diff --git a/real.py b/real.py\n"
+                "--- a/real.py\n"
+                "+++ b/real.py\n"
+                "@@ -1,0 +1,2 @@\n"
+                "+++ b/decoy.py\n"
+                "+++ /dev/null\n"
+                "@@ -5,0 +8,1 @@\n"
+                "+pickle.loads(x)\n"
+            )
+            parsed_spoof = parse_git_diff_text(spoof_diff, root, require_worktree_file=False)
+            self.assertEqual(set(parsed_spoof.keys()), {(root / "real.py").resolve()})
+            self.assertEqual(parsed_spoof[(root / "real.py").resolve()], {1, 2, 8})
+
     def test_extensible_council_ast_rules(self) -> None:
         custom = GoldenScar(
             id="KS-801",
