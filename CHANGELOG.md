@@ -2,6 +2,19 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [2.0.0] - 2026-11-07
+
+### Added
+- **Multi-Language Zero-Dependency Structural AST-Lite Analyzer (`_StructuralCallExtractor` in `src/kintsugi/scanner.py`):**
+  - Replaces fragile character-distance regex caps on JS/TS/Go/Rust files with deterministic balanced-delimiter scope extraction (`_StructuralScope`), comment masking that preserves exact line numbers and template-literal `${...}` expressions (`_mask_comments_preserve_newlines`), and whitespace-verified call/object span extraction across arbitrarily deep nested callbacks and multi-kilobyte comments (`<0.2ms` per file).
+  - Enforces structural verification for `KS-013` (Node.js `exec`/`execSync` template-literal command injection), `KS-014` (`NODE_TLS_REJECT_UNAUTHORIZED = '0'` global TLS bypass), `KS-015` (permissive wildcard CORS `origin: "*"` + `credentials: true` across arbitrary property ordering and nested middleware objects), and `KS-016` (Go `http.Get`/`http.Post`/`http.DefaultClient` calls missing bounded `http.Client{Timeout: ...}`).
+- **4-Pillar Autopoietic Evolution Creed (`@CREED/1` in `src/kintsugi/compiler.py`):**
+  - Embeds the bilingual (VI/EN) 4-Pillar Self-Evolving Philosophy (*"không có kết quả mới cho cách làm cũ"*: 1. Break the Rut / 2-Strike Pivot, 2. Tool Synthesis & Skill Codification, 3. Evolve from Cracks & Errors, 4. Self-Pruning & Natural Selection) into `SkillCompiler.render_root_governance_block()` across `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/kintsugi-guardrails.mdc`, `.github/instructions/kintsugi-guardrails.instructions.md`, and `.windsurfrules`.
+- **1-Step Clean Open-Source Skill Compilation (`kintsugi compile --starter-only` in `src/kintsugi/cli.py`):**
+  - Compiles strictly from the 16 public starter scars (`get_starter_scars()`) without merging local workspace private scars, ensuring zero private data leakage in open-source repositories in a single command.
+- **Expanded Unit Test Suite (`tests/test_kintsugi.py`):**
+  - Added 4 structural AST-Lite & performance benchmark unit tests (`43/43` tests passing).
+
 ## [1.9.0] - 2026-11-07
 
 ### Added

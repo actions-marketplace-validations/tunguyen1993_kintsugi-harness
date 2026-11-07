@@ -5,26 +5,26 @@
 
 | ID | SEV | CAT | KML/1 Symbolic Opcode (`@OP/1`) |
 | :--- | :--- | :--- | :--- |
-| `KS-025` | `CRITICAL` | `security` | `@OP/1[ID:KS-025|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:EMBEDDED_PEM_PRIVATE_KEY_BLOCK_IN_SO]` |
-| `KS-022` | `CRITICAL` | `mcp-prompt-security` | `@OP/1[ID:KS-022|SEV:CRITICAL|CAT:mcp-prompt-security|LANG:py|OP:UNSANITIZED_OS_SYSTEM_STRING_INTERPO]` |
-| `KS-020` | `CRITICAL` | `security` | `@OP/1[ID:KS-020|SEV:CRITICAL|CAT:security|LANG:py|OP:UNSAFE_YAML_LOAD_WITHOUT_SAFELOADER]` |
-| `KS-021` | `CRITICAL` | `security` | `@OP/1[ID:KS-021|SEV:CRITICAL|CAT:security|LANG:py|OP:PYTORCH_TORCH_LOAD_WITHOUT_WEIGHTS_O]` |
-| `KS-024` | `CRITICAL` | `security` | `@OP/1[ID:KS-024|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:JWT_DECODING_WITH_VERIFY_SIGNATURE_D]` |
-| `KS-028` | `CRITICAL` | `security` | `@OP/1[ID:KS-028|SEV:CRITICAL|CAT:security|LANG:js,ts|OP:NODE_JS_CHILD_PROCESS_EXECSYNC_WITH]` |
-| `KS-019` | `CRITICAL` | `mcp-prompt-security` | `@OP/1[ID:KS-019|SEV:CRITICAL|CAT:mcp-prompt-security|LANG:py,js,ts,mark|OP:BIDIRECTIONAL_UNICODE_CONTROL_CHARAC]` |
-| `CM-020` | `CRITICAL` | `security` | `[R123 / KL-ZTR-002 / KL-ZTR-003] Gộp trực tiếp dict payload người dùng vào hồ sơ quyền hạn (Mass Assignment) & thiếu tenant_id/role_scope trong khóa Cache đa khách thuê` |
-| `CM-024` | `CRITICAL` | `enterprise-platform` | `[R101 / R120 / R123] Dùng float() hoặc chia trước nhân sau (amount // denom * rate) khi tính toán thanh toán micro-USDC / wei gây lệch 1 đơn vị nguyên tử` |
-| `CM-026` | `CRITICAL` | `security` | `[R123 / R125] Rò rỉ header Authorization / API Key khi HTTP client tự động redirect (HTTP 301/302/307) sang tên miền bên thứ 3` |
-| `CM-027` | `CRITICAL` | `wallet` | `[R101 / R106 / R120] Ký đối ứng (Co-Sign / EIP-191) nhận thưởng trên enterprise-platform / TaskMarket mà không kiểm tra movesSol == False và value == 0` |
-| `CM-032` | `CRITICAL` | `git` | `[R112 / R123 / Git Staged Index & AST Span Guard] Quét git diff --staged nhưng đọc file từ working tree (Path.read_text), gọi .resolve() đi theo symlink chưa stage ra ngoài repo, bỏ sót header +++ "b/..." có ký tự Unicode, hoặc chỉ kiểm tra node.lineno làm lọt lệnh AST nhiều dòng` |
-| `KS-001` | `CRITICAL` | `security` | `@OP/1[ID:KS-001|SEV:CRITICAL|CAT:security|LANG:py,js,ts,go,rs,sh|OP:secret!=literal->os.environ]` |
-| `KS-002` | `CRITICAL` | `safety` | `@OP/1[ID:KS-002|SEV:CRITICAL|CAT:safety|LANG:sh,py,js,ts|OP:sh!no_force_push_or_rm_rf]` |
-| `KS-006` | `CRITICAL` | `security` | `@OP/1[ID:KS-006|SEV:CRITICAL|CAT:security|LANG:py|OP:no_eval_exec_pickle->literal_eval]` |
-| `KS-007` | `CRITICAL` | `security` | `@OP/1[ID:KS-007|SEV:CRITICAL|CAT:security|LANG:py,js,ts|OP:sql!fstring->param_query]` |
-| `KS-012` | `CRITICAL` | `security` | `@OP/1[ID:KS-012|SEV:CRITICAL|CAT:security|LANG:mark,py,js,ts|OP:prompt!no_system_override_injection]` |
-| `KS-014` | `CRITICAL` | `security` | `@OP/1[ID:KS-014|SEV:CRITICAL|CAT:security|LANG:js,ts,sh|OP:tls!rejectUnauthorized=true]` |
+| `KL-HIGH-001` | `CRITICAL` | `ai-agents-mcp` | `No Unsupported Promotion Across Scopes or Evidence Types (Lakatosian CEGIS, 4-State Symbolic Path & Brier Second-Moment Guard)` |
+| `KL-FIN-005` | `CRITICAL` | `fintech-web3` | `Deterministic Wallet Derivation & Closed-Loop Sign-Recover Gate` |
+| `KL-MCP-007` | `CRITICAL` | `ai-agents-mcp` | `Covariance-Aware Equicorrelation BFT Merge (N_eff), Disjoint Scar Holdout & Alpha-Normalized AST Quotient` |
+| `KL-CAP-001` | `CRITICAL` | `finance-capital` | `Zero-Advance-Fee Capital Guard: Reject any contract or opportunity requiring an upfront verification deposit` |
+| `KL-MCP-006` | `CRITICAL` | `ai-agents-mcp` | `Shadow-Clone Parallel Epistemic Swarm & BFT Synaptic Merge (K=3f+1 Quorum)` |
+| `KL-FIN-003` | `CRITICAL` | `fintech-web3` | `Atomic Ledger Locking (TOCTOU) & Symmetric Decimal Scaling Guard` |
+| `KL-ML-003` | `CRITICAL` | `data-ml` | `Causal Light-Cone Non-Lookahead, 2nd Law Entropy & Compensated Floating-Point Guard` |
+| `KL-CAP-002` | `CRITICAL` | `finance-capital` | `Anti-Martingale Position Sizing: Never double exposure after a losing trade or drawdown` |
+| `KL-EPI-002` | `CRITICAL` | `research-epistemology` | `Symplectic Hamiltonian Integration & 1st Law Energy Conservation Guard` |
+| `KL-FIN-004` | `CRITICAL` | `fintech-web3` | `Bind cryptographic signatures to (chainId, verifyingContract, nonce, deadline) and update vault shares before external calls` |
+| `KL-EPI-003` | `CRITICAL` | `research-epistemology` | `Buckingham Pi Dimensional Homogeneity, Radian Conversion & Mass Continuity Guard` |
+| `KL-ZTR-002` | `CRITICAL` | `security-zerotrust` | `Cross-Layer Path Seam Containment: Never concatenate unvalidated user filenames into open()` |
+| `KL-ZTR-003` | `CRITICAL` | `security-zerotrust` | `Anti-Mass-Assignment Privilege Boundary: Never merge raw request dicts into user/account records` |
+| `KL-API-002` | `CRITICAL` | `backend-api` | `Multi-Tenant Cache & Secondary Query Isolation: Always prefix cache keys with tenant_id` |
+| `KL-ZTR-001` | `CRITICAL` | `security-zerotrust` | `Reject JWT verification calls that disable signature checking or allow alg='none'` |
+| `KL-LEG-001` | `CRITICAL` | `legal-contracts` | `Contract Liability Cap: Never sign agreements with uncapped consequential damages or unilateral indemnity` |
+| `KL-LEG-002` | `CRITICAL` | `legal-contracts` | `Background IP Retention: Carve out pre-existing tools, frameworks, and harnesses from client IP assignment clauses` |
+| `KL-SEC-001` | `CRITICAL` | `data-ml` | `Require weights_only=True in PyTorch torch.load() to block pickle RCE` |
 
-*`@DEFERRED_RECORDS: +44 in .kintsugi/scars.kml & .claude/skills/`*
+*`@DEFERRED_RECORDS: +39 in .kintsugi/scars.kml & .claude/skills/`*
 
 ### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)
 

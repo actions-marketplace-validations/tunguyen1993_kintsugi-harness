@@ -1,6 +1,6 @@
 [package]
 name = "kintsugi-harness"
-version = "1.9.0"
+version = "2.0.0"
 edition = "2021"
 description = "Sub-millisecond Rust native PreToolUse guardrail scanner, Universal Harness Integrator, OpenMontage Cinema Extension, and KMI/1 ultra-low-token skill compressor for coding agents."
 license = "Apache-2.0"
