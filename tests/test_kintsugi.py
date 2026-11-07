@@ -210,8 +210,8 @@ class TestASTRegexAndDiffScanner(unittest.TestCase):
                 scanner.scan_text("app.use(cors({ origin: '*', credentials: trueValue }));\n", file_path="server.ts"),
                 [],
             )
-            long_fwd = "app.use(cors({ origin: '*', /* " + ("x" * 170) + " */ credentials: true }));\n"
-            long_rev = "app.use(cors({ credentials: true, /* " + ("x" * 170) + " */ origin: '*' }));\n"
+            long_fwd = "app.use(cors({ origin: '*', /* " + ("x" * 2500) + " */ credentials: true }));\n"
+            long_rev = "app.use(cors({ credentials: true, /* " + ("x" * 2500) + " */ origin: '*' }));\n"
             self.assertEqual([f.scar_id for f in scanner.scan_text(long_fwd, file_path="server.ts")], ["KS-015"])
             self.assertEqual([f.scar_id for f in scanner.scan_text(long_rev, file_path="server.ts")], ["KS-015"])
 
