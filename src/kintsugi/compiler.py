@@ -145,6 +145,7 @@ class SkillCompiler:
             f"name: {skill_name}",
             f'description: "{description}"',
             f"tags: [{tags_yaml}]",
+            "# kintsugi: ignore-file (generated guardrail reference containing bad_code examples)",
             "---",
             "",
             f"# {skill_name} (`@KML/1` Machine-Native AST-IR)",

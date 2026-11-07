@@ -30,6 +30,7 @@ EXTENSION_LANGUAGE_MAP: Dict[str, str] = {
     ".bash": "shell",
     ".zsh": "shell",
     ".md": "markdown",
+    ".mdc": "markdown",
     ".txt": "decision",
     ".decision": "decision",
     ".contract": "contract",
@@ -41,8 +42,6 @@ DEFAULT_EXCLUDED_DIRS: Set[str] = {
     ".hg",
     ".svn",
     ".kintsugi",
-    ".claude",
-    ".cursor",
     "__pycache__",
     ".pytest_cache",
     ".mypy_cache",
@@ -86,20 +85,73 @@ def _dotted_call_name(node: ast.Call) -> str:
     return ".".join(reversed(parts))
 
 
+def _decode_git_diff_header_path(raw_line: str) -> Optional[str]:
+    """Decode `+++ b/...` or Git C-quoted `+++ "b/..."` diff headers into a relative POSIX path."""
+    if not raw_line.startswith("+++ ") or raw_line.startswith("+++ /dev/null"):
+        return None
+    tail = raw_line[4:].strip()
+    if tail.startswith('"') and tail.endswith('"') and len(tail) >= 2:
+        inner = tail[1:-1]
+        out_bytes = bytearray()
+        i = 0
+        n = len(inner)
+        while i < n:
+            ch = inner[i]
+            if ch == "\\" and i + 1 < n:
+                nxt = inner[i + 1]
+                if nxt in "01234567" and i + 3 < n and all(c in "01234567" for c in inner[i + 1 : i + 4]):
+                    out_bytes.append(int(inner[i + 1 : i + 4], 8))
+                    i += 4
+                    continue
+                esc_map = {
+                    '"': ord('"'),
+                    "\\": ord("\\"),
+                    "n": ord("\n"),
+                    "r": ord("\r"),
+                    "t": ord("\t"),
+                    "a": 7,
+                    "b": 8,
+                    "f": 12,
+                    "v": 11,
+                }
+                if nxt in esc_map:
+                    out_bytes.append(esc_map[nxt])
+                    i += 2
+                    continue
+            out_bytes.extend(ch.encode("utf-8"))
+            i += 1
+        decoded = out_bytes.decode("utf-8", errors="replace")
+        return decoded[2:] if decoded.startswith("b/") else decoded
+    if tail.startswith("b/"):
+        return tail[2:]
+    return None
+
+
+def _lexical_repo_path(repo_root: Path, rel_or_abs: str | Path) -> Path:
+    """Resolve `repo_root / rel_or_abs` lexically without dereferencing working-tree symlinks."""
+    root_real = Path(os.path.normpath(str(Path(repo_root).resolve())))
+    candidate = Path(rel_or_abs)
+    if candidate.is_absolute():
+        return Path(os.path.normpath(str(candidate)))
+    return Path(os.path.normpath(str(root_real / candidate)))
+
+
 def parse_git_diff_text(diff_text: str, repo_root: Path, *, require_worktree_file: bool = True) -> Dict[Path, Set[int]]:
     """
-    Parse unified `git diff -U0` output into `{resolved_file_path: {added_or_modified_line_numbers}}`.
+    Parse unified `git diff -U0` output into `{lexical_file_path: {added_or_modified_line_numbers}}`.
     """
     changed: Dict[Path, Set[int]] = {}
     current_file: Optional[Path] = None
+    root_real = Path(os.path.normpath(str(Path(repo_root).resolve())))
 
     for raw_line in diff_text.splitlines():
-        if raw_line.startswith("+++ b/"):
-            rel_path = raw_line[6:].strip()
-            current_file = (repo_root / rel_path).resolve()
-            changed.setdefault(current_file, set())
-        elif raw_line.startswith("+++ /dev/null"):
+        if raw_line.startswith("+++ /dev/null"):
             current_file = None
+            continue
+        rel_path = _decode_git_diff_header_path(raw_line)
+        if rel_path is not None:
+            current_file = _lexical_repo_path(root_real, rel_path)
+            changed.setdefault(current_file, set())
         elif current_file is not None and raw_line.startswith("@@"):
             match = HUNK_HEADER_RE.match(raw_line)
             if match:
@@ -115,9 +167,9 @@ def parse_git_diff_text(diff_text: str, repo_root: Path, *, require_worktree_fil
 
 
 def read_git_index_blob(repo_root: str | Path, file_path: str | Path) -> Optional[str]:
-    """Read staged file content directly from the Git index (`:<relpath>`) for index-safe scanning."""
-    root = Path(repo_root).resolve()
-    target = Path(file_path).resolve()
+    """Read staged file content directly from the Git index (`:<relpath>`) without dereferencing worktree symlinks."""
+    root = Path(os.path.normpath(str(Path(repo_root).resolve())))
+    target = _lexical_repo_path(root, file_path)
     try:
         rel_posix = target.relative_to(root).as_posix()
     except ValueError:
@@ -139,9 +191,9 @@ def get_git_changed_lines(
     staged: bool = False,
     diff_ref: Optional[str] = None,
 ) -> Dict[Path, Set[int]]:
-    """Run `git diff -U0` and return touched line numbers per file."""
+    """Run `git -c core.quotePath=false diff -U0` and return touched line numbers per file."""
     root = Path(repo_root).resolve()
-    cmd = ["git", "-C", str(root), "diff", "-U0", "--no-color"]
+    cmd = ["git", "-C", str(root), "-c", "core.quotePath=false", "diff", "-U0", "--no-color"]
     if staged:
         cmd.append("--staged")
     elif diff_ref:
@@ -172,7 +224,7 @@ class _PythonASTVisitor(ast.NodeVisitor):
     def __init__(self, source_lines: Sequence[str], ast_scars: Dict[str, List[GoldenScar]]) -> None:
         self.source_lines = source_lines
         self.ast_scars = ast_scars
-        self.matches: List[Tuple[GoldenScar, int, int, str]] = []
+        self.matches: List[Tuple[GoldenScar, int, int, int, str]] = []
         self._current_target_names: List[str] = []
 
     def _record(self, rule_name: str, node: ast.AST) -> None:
@@ -180,6 +232,7 @@ class _PythonASTVisitor(ast.NodeVisitor):
         if not scars:
             return
         lineno = getattr(node, "lineno", 1)
+        end_lineno = getattr(node, "end_lineno", lineno) or lineno
         col = getattr(node, "col_offset", 0) + 1
         snippet = (
             self.source_lines[lineno - 1].strip()
@@ -187,7 +240,7 @@ class _PythonASTVisitor(ast.NodeVisitor):
             else ""
         )
         for scar in scars:
-            self.matches.append((scar, lineno, col, snippet))
+            self.matches.append((scar, lineno, end_lineno, col, snippet))
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._check_mutable_defaults(node)
@@ -386,15 +439,17 @@ class KintsugiScanner:
                 return list(cached)
 
         lines = content.splitlines()
-        if any(IGNORE_FILE_RE.search(ln) for ln in lines[:5]):
+        if any(IGNORE_FILE_RE.search(ln) for ln in lines[:8]):
             return []
         findings: List[ScanFinding] = []
         seen_keys: Set[Tuple[str, int]] = set()
         newline_offsets: Optional[List[int]] = None
 
-        def _is_ignored(line_no: int, scar_id: str) -> bool:
-            if allowed_lines is not None and line_no not in allowed_lines:
-                return True
+        def _is_ignored(line_no: int, scar_id: str, end_line_no: Optional[int] = None) -> bool:
+            span_end = max(line_no, end_line_no or line_no)
+            if allowed_lines is not None:
+                if not any(ln in allowed_lines for ln in range(line_no, span_end + 1)):
+                    return True
             if not (1 <= line_no <= len(lines)):
                 return False
             ignored = _extract_ignored_ids(lines[line_no - 1])
@@ -410,8 +465,8 @@ class KintsugiScanner:
             if tree is not None:
                 visitor = _PythonASTVisitor(lines, self._ast_scars)
                 visitor.visit(tree)
-                for scar, lineno, col, snippet in visitor.matches:
-                    if _is_ignored(lineno, scar.id):
+                for scar, lineno, end_lineno, col, snippet in visitor.matches:
+                    if _is_ignored(lineno, scar.id, end_lineno):
                         continue
                     dedup = (scar.id, lineno)
                     if dedup in seen_keys:
