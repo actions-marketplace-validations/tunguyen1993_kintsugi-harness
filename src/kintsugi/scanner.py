@@ -415,6 +415,210 @@ class _PythonASTVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+_JS_GO_RUST_COMMENT_RE = re.compile(
+    r"""(?P<str>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:\\[\s\S]|[^`\\])*`)|(?P<bcomm>/\*[\s\S]*?\*/)|(?P<lcomm>//[^\r\n]*)""",
+    re.VERBOSE,
+)
+_PY_SH_COMMENT_RE = re.compile(
+    r'(?P<str>"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"(?:[^"\\\r\n]|\\.)*"|\'(?:[^\'\\\r\n]|\\.)*\')|(?P<lcomm>#[^\r\n]*)'
+)
+
+
+def _mask_comments_preserve_newlines(content: str, lang: str) -> str:
+    """
+    Mask single-line and multi-line comments with spaces while preserving exact newlines and character offsets.
+    Guarantees line numbers, character code-point offsets, and column positions are 100% identical to original content.
+    """
+    if not content:
+        return content
+    if lang in {"javascript", "typescript", "go", "rust"}:
+        def repl_js(m: re.Match[str]) -> str:
+            if m.group("bcomm") or m.group("lcomm"):
+                chunk = m.group(0)
+                return "".join(c if c in "\r\n" else " " for c in chunk)
+            return m.group(0)
+        return _JS_GO_RUST_COMMENT_RE.sub(repl_js, content)
+    if lang in {"python", "shell"}:
+        def repl_py(m: re.Match[str]) -> str:
+            if m.group("lcomm"):
+                chunk = m.group(0)
+                return "".join(c if c in "\r\n" else " " for c in chunk)
+            return m.group(0)
+        return _PY_SH_COMMENT_RE.sub(repl_py, content)
+    return content
+
+
+class _StructuralScope:
+    __slots__ = ("kind", "name", "start_char", "end_char", "start_line", "end_line", "col", "text")
+
+    def __init__(
+        self,
+        kind: str,
+        name: str,
+        start_char: int,
+        end_char: int,
+        start_line: int,
+        end_line: int,
+        col: int,
+        text: str,
+    ) -> None:
+        self.kind = kind
+        self.name = name
+        self.start_char = start_char
+        self.end_char = end_char
+        self.start_line = start_line
+        self.end_line = end_line
+        self.col = col
+        self.text = text
+
+
+class _StructuralCallExtractor:
+    """
+    Zero-dependency structural analyzer for JS/TS/Go/Rust (Structural AST-Lite).
+    Extracts balanced paren and brace call/object scopes from comment-sanitized code
+    to resolve KS-013, KS-014, KS-015, and KS-016 without comment false positives,
+    cross-call false positives, or nested brace truncation.
+    """
+
+    _TOKEN_RE = re.compile(
+        r"""(?P<str>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:\\[\s\S]|[^`\\])*`)|(?P<punct>[(){}])|(?P<ident>[A-Za-z_$][A-Za-z0-9_$.]*)""",
+        re.VERBOSE,
+    )
+    _KS015_ORIGIN_RE = re.compile(
+        r"""["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b|\[[^\]]*["']\*["'])""",
+        re.IGNORECASE,
+    )
+    _KS015_CRED_RE = re.compile(
+        r"""["']?\bcredentials["']?\s*:\s*true\b""",
+        re.IGNORECASE,
+    )
+    _KS013_EXEC_NAMES = {
+        "exec",
+        "execSync",
+        "child_process.exec",
+        "child_process.execSync",
+    }
+    _KS016_GO_HTTP_NAMES = {
+        "http.Get",
+        "http.Post",
+        "http.PostForm",
+        "http.Head",
+    }
+
+    def __init__(
+        self,
+        source_lines: Sequence[str],
+        masked_content: str,
+        lang: str,
+        scars_by_id: Dict[str, GoldenScar],
+        newline_offsets: Sequence[int],
+    ) -> None:
+        self.source_lines = source_lines
+        self.masked_content = masked_content
+        self.lang = lang
+        self.scars_by_id = scars_by_id
+        self.newline_offsets = newline_offsets
+        self.scopes: List[_StructuralScope] = []
+        self._extract_scopes()
+
+    def _get_loc(self, pos: int) -> Tuple[int, int]:
+        l_idx = bisect.bisect_right(self.newline_offsets, pos - 1) if pos > 0 else 0
+        lineno = l_idx + 1
+        col = pos - (self.newline_offsets[l_idx - 1] + 1) + 1 if l_idx > 0 else pos + 1
+        return lineno, col
+
+    def _extract_scopes(self) -> None:
+        paren_stack: List[Tuple[str, int]] = []
+        brace_stack: List[Tuple[str, int]] = []
+        last_ident = ""
+        last_ident_pos = 0
+
+        for m in self._TOKEN_RE.finditer(self.masked_content):
+            if m.group("ident"):
+                last_ident = m.group("ident")
+                last_ident_pos = m.start()
+            elif m.group("punct"):
+                p = m.group("punct")
+                if p == "(":
+                    is_call = (not bool(self.masked_content[last_ident_pos + len(last_ident):m.start()].strip())) if last_ident else False
+                    name = last_ident if is_call else ""
+                    paren_stack.append((name, last_ident_pos if is_call else m.start()))
+                    last_ident = ""
+                elif p == ")":
+                    if paren_stack:
+                        name, start_pos = paren_stack.pop()
+                        s_line, s_col = self._get_loc(start_pos)
+                        e_line, _ = self._get_loc(m.end())
+                        self.scopes.append(
+                            _StructuralScope("call", name, start_pos, m.end(), s_line, e_line, s_col, self.masked_content[start_pos:m.end()])
+                        )
+                    last_ident = ""
+                elif p == "{":
+                    is_named = (not bool(self.masked_content[last_ident_pos + len(last_ident):m.start()].strip())) if last_ident else False
+                    name = last_ident if is_named else ""
+                    brace_stack.append((name, last_ident_pos if is_named else m.start()))
+                    last_ident = ""
+                elif p == "}":
+                    if brace_stack:
+                        name, start_pos = brace_stack.pop()
+                        s_line, s_col = self._get_loc(start_pos)
+                        e_line, _ = self._get_loc(m.end())
+                        self.scopes.append(
+                            _StructuralScope("object", name, start_pos, m.end(), s_line, e_line, s_col, self.masked_content[start_pos:m.end()])
+                        )
+                    last_ident = ""
+
+    def find_findings(self) -> List[Tuple[GoldenScar, int, int, int, str, str]]:
+        matches: List[Tuple[GoldenScar, int, int, int, str, str]] = []
+
+        # 1. KS-015: Permissive CORS wildcard origin combined with allow_credentials=True in JS/TS
+        scar_015 = self.scars_by_id.get("KS-015")
+        if scar_015 and self.lang in {"javascript", "typescript"}:
+            matched_scopes: List[_StructuralScope] = []
+            for sc in self.scopes:
+                if sc.kind in {"object", "call"}:
+                    if self._KS015_ORIGIN_RE.search(sc.text) and self._KS015_CRED_RE.search(sc.text):
+                        matched_scopes.append(sc)
+            # Retain the most specific (innermost) scopes to avoid reporting outer wrapper callers
+            for sc in matched_scopes:
+                has_child = any(
+                    other != sc
+                    and other.start_char >= sc.start_char
+                    and other.end_char <= sc.end_char
+                    for other in matched_scopes
+                )
+                if not has_child:
+                    snippet = self.source_lines[sc.start_line - 1].strip() if 1 <= sc.start_line <= len(self.source_lines) else ""
+                    matches.append((scar_015, sc.start_line, sc.end_line, sc.col, snippet, "ast:js_cors_wildcard_credentials"))
+
+        # 2. KS-013: Potential shell command injection through interpolated exec command in JS/TS
+        scar_013 = self.scars_by_id.get("KS-013")
+        if scar_013 and self.lang in {"javascript", "typescript"}:
+            for sc in self.scopes:
+                if sc.kind == "call" and (sc.name in self._KS013_EXEC_NAMES or any(sc.name.endswith(f".{x}") for x in self._KS013_EXEC_NAMES)):
+                    if re.search(r"`[^`]*\$\{[^}]+\}", sc.text):
+                        snippet = self.source_lines[sc.start_line - 1].strip() if 1 <= sc.start_line <= len(self.source_lines) else ""
+                        matches.append((scar_013, sc.start_line, sc.end_line, sc.col, snippet, "ast:js_exec_template_literal"))
+
+        # 3. KS-014: Global TLS certificate verification disabled in Node.js process (rejectUnauthorized: false)
+        scar_014 = self.scars_by_id.get("KS-014")
+        if scar_014 and self.lang in {"javascript", "typescript"}:
+            for m in re.finditer(r"""(?:NODE_TLS_REJECT_UNAUTHORIZED\s*(?:=|:)\s*["']?0["']?|rejectUnauthorized\s*:\s*false\b)""", self.masked_content):
+                lineno, col = self._get_loc(m.start())
+                snippet = self.source_lines[lineno - 1].strip() if 1 <= lineno <= len(self.source_lines) else ""
+                matches.append((scar_014, lineno, lineno, col, snippet, "ast:js_reject_unauthorized_false"))
+
+        # 4. KS-016: Go net/http DefaultClient call without bounded timeout in Go
+        scar_016 = self.scars_by_id.get("KS-016")
+        if scar_016 and self.lang == "go":
+            for sc in self.scopes:
+                if sc.kind == "call" and sc.name in self._KS016_GO_HTTP_NAMES:
+                    snippet = self.source_lines[sc.start_line - 1].strip() if 1 <= sc.start_line <= len(self.source_lines) else ""
+                    matches.append((scar_016, sc.start_line, sc.end_line, sc.col, snippet, "ast:go_http_missing_timeout"))
+
+        return matches
+
+
 class KintsugiScanner:
     """Deterministic static, git-diff, and pre-tool code scanner backed by a GoldenScar list."""
 
@@ -539,6 +743,38 @@ class KintsugiScanner:
                         )
                     )
 
+        # Prepare comment-masked content preserving exact newlines & column offsets
+        masked_content = _mask_comments_preserve_newlines(content, lang)
+        if newline_offsets is None:
+            newline_offsets = [idx for idx, ch in enumerate(content) if ch == "\n"]
+
+        # Run StructuralCallExtractor for JS/TS/Go/Rust (Structural AST-Lite)
+        if lang in {"javascript", "typescript", "go", "rust"}:
+            scars_by_id = {s.id: s for s in self.scars}
+            extractor = _StructuralCallExtractor(lines, masked_content, lang, scars_by_id, newline_offsets)
+            for scar, lineno, end_lineno, col, snippet, engine_name in extractor.find_findings():
+                if _is_ignored(lineno, scar.id, end_lineno):
+                    continue
+                dedup = (scar.id, lineno)
+                if dedup in seen_keys:
+                    continue
+                seen_keys.add(dedup)
+                findings.append(
+                    ScanFinding(
+                        scar_id=scar.id,
+                        title=scar.title,
+                        severity=scar.severity,
+                        category=scar.category,
+                        file_path=file_path,
+                        line=lineno,
+                        column=col,
+                        engine=engine_name,
+                        snippet=snippet[:200],
+                        rationale=scar.rationale,
+                        good_code_hint=scar.good_code,
+                    )
+                )
+
         # Single-pass fused regex fast-gate skips per-rule scanning completely if 0 patterns match
         fast_gate = self._lang_fast_gate.get(lang)
         applicable_regex = list(self._lang_regex_map.get(lang, []))
@@ -555,11 +791,11 @@ class KintsugiScanner:
             for scar, pattern in applicable_regex:
                 if lang == "python" and tree is not None and scar.ast_rule:
                     continue
+                if lang in {"javascript", "typescript", "go", "rust"} and scar.id in {"KS-013", "KS-014", "KS-015", "KS-016"}:
+                    continue
                 for match in pattern.finditer(content):
                     start = match.start()
                     end = max(start, match.end() - 1)
-                    if newline_offsets is None:
-                        newline_offsets = [idx for idx, ch in enumerate(content) if ch == "\n"]
                     line_idx = bisect.bisect_right(newline_offsets, start - 1) if start > 0 else 0
                     end_line_idx = bisect.bisect_right(newline_offsets, end - 1) if end > 0 else 0
                     lineno = line_idx + 1
