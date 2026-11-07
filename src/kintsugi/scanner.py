@@ -213,6 +213,8 @@ def read_git_index_blob(repo_root: str | Path, file_path: str | Path) -> Optiona
         ["git", "-C", str(root), "show", f":{rel_posix}"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -235,7 +237,7 @@ def get_git_changed_lines(
         if diff_ref.startswith("-"):
             raise ValueError(f"Invalid diff_ref starting with '-': {diff_ref}")
         cmd.append(diff_ref)
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"git diff failed: {proc.stderr.strip()}")
     return parse_git_diff_text(proc.stdout, root, require_worktree_file=not staged)
