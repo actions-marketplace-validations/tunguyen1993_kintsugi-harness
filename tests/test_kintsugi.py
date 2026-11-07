@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -66,6 +67,113 @@ class TestASTRegexAndDiffScanner(unittest.TestCase):
         good = 'import requests\nresp = requests.get("https://api.example.com/v1", timeout=5)\n'
         self.assertTrue(any(f.scar_id == "KS-008" for f in scanner.scan_text(bad, file_path="client.py")))
         self.assertEqual(scanner.scan_text(good, file_path="client.py"), [])
+
+    def test_structural_ast_lite_js_ts_cors_nested_braces_and_comments(self) -> None:
+        scanner = KintsugiScanner(get_starter_scars())
+
+        # 1. Real nested CORS object with comments & headers must be detected at exact line 12
+        src_nested = (
+            "// Line comment with decoy: app.use(cors({ origin: '*', credentials: true }));\n"
+            "/* Multiline comment with decoy:\n"
+            "   app.use(cors({ origin: '*', credentials: true }));\n"
+            "*/\n"
+            "import express from 'express';\n"
+            "import cors from 'cors';\n"
+            "const app = express();\n"
+            "\n"
+            "// Real CORS middleware with nested headers and comments\n"
+            "app.use(\n"
+            "    cors({\n"
+            "        origin: '*',\n"
+            "        /* { comment with nested braces } */\n"
+            "        headers: {\n"
+            "            'X-Custom': 'val'\n"
+            "        },\n"
+            "        credentials: true\n"
+            "    })\n"
+            ");\n"
+        )
+        findings_nested = scanner.scan_text(src_nested, file_path="app.ts")
+        ks015_findings = [f for f in findings_nested if f.scar_id == "KS-015"]
+        self.assertEqual(len(ks015_findings), 1)
+        self.assertEqual(ks015_findings[0].line, 11)
+        self.assertIn("ast:js_cors_wildcard_credentials", ks015_findings[0].engine)
+
+        # 2. Purely commented-out CORS code must produce 0 findings (0 false positives)
+        src_commented = (
+            "// app.use(cors({ origin: '*', credentials: true }));\n"
+            "/*\n"
+            "app.use(cors({ origin: '*', credentials: true }));\n"
+            "*/\n"
+            "const healthy = true;\n"
+        )
+        self.assertEqual(scanner.scan_text(src_commented, file_path="server.js"), [])
+
+        # 3. Separate calls must NEVER be cross-matched (0 cross-call false positives)
+        src_separate = (
+            "app.use(cors({ origin: '*' }));\n"
+            "app.use(auth({ credentials: true }));\n"
+        )
+        self.assertEqual([f.scar_id for f in scanner.scan_text(src_separate, file_path="api.ts")], [])
+
+    def test_structural_ast_lite_js_ts_exec_and_tls_guards(self) -> None:
+        scanner = KintsugiScanner(get_starter_scars())
+
+        # 1. KS-013: Real exec with template literal vs commented out
+        src_exec = (
+            "// child_process.exec(`rm -rf ${userDir}`); -- in comment must be ignored\n"
+            "child_process.exec(`convert ${userFile} output.png`);\n"
+        )
+        findings_exec = scanner.scan_text(src_exec, file_path="worker.js")
+        self.assertEqual([f.scar_id for f in findings_exec], ["KS-013"])
+        self.assertEqual(findings_exec[0].line, 2)
+        self.assertEqual(findings_exec[0].engine, "ast:js_exec_template_literal")
+
+        # 2. KS-014: Real TLS rejectUnauthorized: false vs commented out
+        src_tls = (
+            "// const agent = new https.Agent({ rejectUnauthorized: false });\n"
+            "const agent = new https.Agent({\n"
+            "    rejectUnauthorized: false\n"
+            "});\n"
+        )
+        findings_tls = scanner.scan_text(src_tls, file_path="client.ts")
+        self.assertEqual([f.scar_id for f in findings_tls], ["KS-014"])
+        self.assertEqual(findings_tls[0].line, 3)
+
+    def test_structural_ast_lite_go_timeout_guard(self) -> None:
+        scanner = KintsugiScanner(get_starter_scars())
+
+        src_go = (
+            "package main\n"
+            "import \"net/http\"\n"
+            "func main() {\n"
+            "    // resp, err := http.Get(\"https://api.example.com/status\") -- ignored in comment\n"
+            "    resp, err := http.Get(\"https://api.example.com/status\")\n"
+            "    _ = resp\n"
+            "}\n"
+        )
+        findings_go = scanner.scan_text(src_go, file_path="main.go")
+        self.assertEqual([f.scar_id for f in findings_go], ["KS-016"])
+        self.assertEqual(findings_go[0].line, 5)
+        self.assertEqual(findings_go[0].engine, "ast:go_http_missing_timeout")
+
+    def test_structural_ast_lite_performance_benchmark(self) -> None:
+        scanner = KintsugiScanner(get_starter_scars())
+        # 1000 lines of typical TypeScript code with nested objects and comments
+        chunk = (
+            "// Helper comment block\n"
+            "export function handleReq(req: Request) {\n"
+            "    const cfg = { headers: { 'X-Val': 1 }, debug: false };\n"
+            "    return cfg;\n"
+            "}\n"
+        )
+        big_ts = chunk * 200  # 1,000 lines
+        t0 = time.perf_counter()
+        findings = scanner.scan_text(big_ts, file_path="benchmark.ts")
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        self.assertEqual(findings, [])
+        # Strict latency gate: must complete under 15ms for 1,000 lines
+        self.assertLess(elapsed_ms, 15.0, f"Scan took {elapsed_ms:.2f}ms, exceeding 15ms threshold")
 
     def test_git_diff_hunk_filtering_and_patch_preview(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
