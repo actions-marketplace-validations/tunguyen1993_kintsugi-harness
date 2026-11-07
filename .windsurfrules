@@ -26,21 +26,14 @@
 
 *`@DEFERRED_RECORDS: +39 in .kintsugi/scars.kml & .claude/skills/`*
 
-### Multi-Model Co-Execution & User Onboarding Protocol (`@GUIDE/1` — When User Asks)
+### `@GUIDE/1` & `@COMPACT/1` Machine-Native Execution Protocol
 
-- **Always-On Rule for the AI Agent:** Whenever the user asks how to use Kintsugi Multi-Model Co-Execution, how many Free models they can run, why `--free-runners` is clamped, how to upgrade tiers, or how to add their own Paid Frontier Council API keys (`BYOK`), you **MUST proactively guide the user step-by-step in their language (Vietnamese or English)**:
-  1. Run `kintsugi guide "<user_question>"` (or `kintsugi swarm --guide`, or MCP tool `kintsugi_multi_model_guide`) to inspect their live workspace tier and configured seats.
-  2. Explain the 3 commercial tiers clearly:
-     - **Free / OSS (`$0` — `FREE_STARTER`):** Locked to `Primary Model + 1 Free Model ($0)` (`max_free_co_runners = 1`). Run `kintsugi swarm --register-deepseek-free` to auto-register a live $0 DeepSeek Free API key (262K context), then `kintsugi swarm . --co-run`.
-     - **Pro (`$15` FinOps / `$19` AppSec — `PRO_MULTI_FREE`):** Unlocks `Primary Model + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover (`kintsugi swarm . --co-run --free-runners 5`).
-     - **Enterprise (`$29` — `ENTERPRISE_PAID_COUNCIL`):** Unlocks `Primary Model + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`.
-  3. Guide the user to add their own API keys (`BYOK`, saved locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):
-     - `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`
-     - `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`
-     - `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`
-     - `kintsugi swarm --paid-council-status`
-     - `kintsugi swarm . --co-run --free-runners 5 --paid-council`
-  4. **Anti-Overflow Conversation Compaction (`@COMPACT/1`):** When a conversation approaches context overflow (`>=70%` soft / `>=85%` hard watermark) or when the user asks to compress/save context without losing main points, immediately run `kintsugi compact --inject-agents` (or call MCP tool `kintsugi_compact_context`) to strip 4 classes of noise (verbose logs, polling loops, superseded file reads, thinking chaff) while locking 100% of `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules, IPs), and `@ERRORS_AND_FIXES` into `.kintsugi/context_checkpoints/latest_checkpoint.md` and `.kintsugi/context_checkpoints/latest_checkpoint.kml`.
+```text
+@GUIDE/1[cmd="kintsugi guide \"<question>\"" | mcp="kintsugi_multi_model_guide"]
+@TIERS/1[FREE_STARTER="$0: Primary + 1 Free (--register-deepseek-free, --co-run)" | PRO_MULTI_FREE="$15/$19: Primary + 2..5 Free (--free-runners 5)" | ENTERPRISE_PAID_COUNCIL="$29: Primary + 5 Free + 6 BYOK Paid Seats"]
+@BYOK/1[store=".kintsugi/paid_council_pool.json(0600)" | add="kintsugi swarm --add-paid-key <anthropic_opus|openai_frontier|xai_grok_paid> <KEY>" | status="--paid-council-status" | run="--co-run --free-runners 5 --paid-council"]
+@COMPACT/1[trigger="pressure>=70%_soft|>=85%_hard" | cmd="kintsugi compact --inject-agents" | mcp="kintsugi_compact_context" | preserve="@USER_INTENTS,@HARD_ANCHORS,@ERRORS_AND_FIXES" | out=".kintsugi/context_checkpoints/latest_checkpoint.{md,kml}"]
+```
 
 ### 4-Pillar Autopoietic Evolution Creed (`@CREED/1` Machine-Native IR)
 
