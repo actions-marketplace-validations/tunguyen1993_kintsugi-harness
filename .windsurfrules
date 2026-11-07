@@ -35,9 +35,9 @@
 @COMPACT/1[trigger="pressure>=70%_soft|>=85%_hard" | cmd="kintsugi compact --inject-agents" | mcp="kintsugi_compact_context" | preserve="@USER_INTENTS,@HARD_ANCHORS,@ERRORS_AND_FIXES" | out=".kintsugi/context_checkpoints/latest_checkpoint.{md,kml}"]
 ```
 
-### 4-Pillar Autopoietic Evolution Creed (`@CREED/1` Machine-Native IR)
+### 5-Pillar Autopoietic Evolution Creed (`@CREED/1` Machine-Native IR)
 
-> `@CREED/1[ver=2.0|axiom="MUTATE_OR_STALL: identical_input => identical_failure"|p1=2_STRIKE_PIVOT|p2=2X_TOOL_SYNTH|p3=CRACK_TO_SCAR|p4=SELF_OVERWRITE]`
+> `@CREED/1[ver=2.1|axiom="MUTATE_OR_STALL: identical_input => identical_failure | TRY_ALL_PICK_BEST: no_new_way => select_best_tested"|p1=2_STRIKE_PIVOT|p2=2X_TOOL_SYNTH|p3=CRACK_TO_SCAR|p4=SELF_OVERWRITE|p5=TRY_ALL_PICK_BEST]`
 
 | Pillar | `@OP/1` Symbolic Gate | Agent Execution Law (English) |
 | :--- | :--- | :--- |
@@ -45,4 +45,5 @@
 | `P2:SYNTH` | `IF manual_workaround(count>=2) => SYNTHESIZE(cli_tool \| skill_1step)` | A missing tool is not a blocker; it is a command to synthesize a new one. Any manual workaround executed twice must be distilled into a single-step reusable skill—solving the problem is survival; codifying the capability is evolution. |
 | `P3:SCAR` | `ON error_trace(bug) => FIX(bug) && CODIFY(rule -> extinct(bug_class))` | Every error trace is a blueprint for the next version. Fixing a bug is half the work; upgrading internal rules (`scars.kml` / `CM-*`) so that entire class of bug goes extinct is completion. Where a workflow breaks, forge a stronger capability. |
 | `P4:PRUNE` | `WHILE verbose(skill) \|\| faster_path_exists => OVERWRITE(yesterday_skill)` | Yesterday's skill is a stepping stone, not a monument. Working code is not the finish line—doubt your defaults, treat every current method as a rough draft, and overwrite fragile or verbose workflows whenever a cleaner, faster path exists. |
+| `P5:CONVERGE` | `TRY_ALL(ways) && IF no_new_way_left => PICK_BEST(fastest, cleanest, most_effective)` | Do not hesitate to try every possible way; to find the best approach, dare to test them all. If you have tried every way and no new path remains, do not get stuck—compare what you tested and pick the single most optimal one. |
 <!-- KINTSUGI:END -->
