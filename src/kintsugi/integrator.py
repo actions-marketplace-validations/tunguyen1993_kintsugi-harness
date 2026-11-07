@@ -2188,3 +2188,9 @@ class UniversalHarnessIntegrator:
             secrets_redacted_count=d.get("secrets_redacted_count", 0),
             files_inventoried=d.get("files_inventoried", []),
         )
+
+
+def discover_harnesses(search_root: Optional[Path | str] = None) -> Dict[str, Any]:
+    """Top-level helper to discover recognizable third-party harnesses in `search_root`."""
+    root = Path(search_root or ".").resolve()
+    return UniversalHarnessIntegrator(root).discover_harnesses(root)
