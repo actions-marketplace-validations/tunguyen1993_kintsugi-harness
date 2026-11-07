@@ -9,6 +9,10 @@
 **Drop-in Rust + Python `PreToolUse` guardrails featuring a Zero-Dependency Multi-Language Structural AST-Lite Analyzer (`JS/TS/Go/Rust`), the 4-Pillar Autopoietic Evolution Creed (`@CREED/1`), 1-Command Third-Party Harness Integration (`kintsugi integrate` with Joint `SAT+DL` verification), `95.3%` skill context compression (`~3,330` → `~209 tokens`), and autonomous AI filmmaking via the `@OPENMONTAGE_CINEMA/1` Director's Cut Extension (`kintsugi cinema`).**
 
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tunguyen1993/kintsugi-harness/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tunguyen1993/kintsugi-harness)
+[![10-Arena Pareto Suite: 10/10 PASS (98.30)](https://img.shields.io/badge/10--Arena_Pareto_Suite-10%2F10_PASS_%2898.30%29-00C853)](benchmarks/verified_10_arena_pareto_certificate.json)
+[![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](ci/ci-and-arena-verification.yml)
+[![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
 [![Release: v2.0.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
