@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import json
+import re
 import stat
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 from kintsugi.models import GoldenScar, ScanFinding, Severity
 from kintsugi.scanner import KintsugiScanner
+from kintsugi.shield import assert_not_symlink, atomic_write_text, normalize_shell_command
+
+HEX_OCTAL_MAPPED_IP_RE = re.compile(
+    r"\b0x[0-9a-fA-F]{4,}\b|::ffff:|\b0\d{2,3}\.\d+",
+    re.IGNORECASE,
+)
+NETWORK_VERB_RE = re.compile(
+    r"\b(?:ssh|scp|sftp|sshpass|rsync|curl|wget)\b",
+    re.IGNORECASE,
+)
 
 
 def evaluate_claude_pre_tool_payload(
@@ -18,13 +29,34 @@ def evaluate_claude_pre_tool_payload(
     block_threshold: Severity = Severity.HIGH,
 ) -> Dict[str, Any]:
     """
-    Evaluate a Claude Code `PreToolUse` JSON event in-memory (< 15ms) and return
-    a compliant hook decision dictionary.
+    Evaluate a Claude Code or Antigravity `PreToolUse` JSON event in-memory (< 15ms)
+    with Grade S3 NFKC/Bidi/quote-splitting normalization and Hex/Octal IP blocking.
     """
-    tool_name = str(payload.get("tool_name") or "")
-    tool_input = payload.get("tool_input") or {}
+    if not isinstance(payload, dict):
+        return {
+            "decision": "deny",
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": "FAIL-CLOSED HOOK GUARD: Payload must be a JSON object.",
+            },
+        }
+
+    tool_call = payload.get("toolCall") if isinstance(payload.get("toolCall"), dict) else {}
+    tool_name = str(payload.get("tool_name") or tool_call.get("name") or "")
+    tool_input = payload.get("tool_input") or tool_call.get("args") or {}
     if not isinstance(tool_input, dict):
-        return {"continue": True}
+        return {
+            "decision": "deny",
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": "FAIL-CLOSED HOOK GUARD: tool_input must be a JSON object.",
+            },
+        }
+
+    if not tool_name and ("CommandLine" in tool_input or "command" in tool_input):
+        tool_name = "run_command"
 
     scanner = KintsugiScanner(scars)
     findings: List[ScanFinding] = []
@@ -49,7 +81,24 @@ def evaluate_claude_pre_tool_payload(
             findings.extend(scanner.scan_text(combined, file_path=fpath))
 
     elif tool_name in {"Bash", "run_command"}:
-        cmd = str(tool_input.get("command") or tool_input.get("CommandLine") or "")
+        raw_cmd = str(tool_input.get("command") or tool_input.get("CommandLine") or "")
+        cmd = normalize_shell_command(raw_cmd)
+        if NETWORK_VERB_RE.search(cmd) and HEX_OCTAL_MAPPED_IP_RE.search(cmd):
+            findings.append(
+                ScanFinding(
+                    scar_id="KS-S3-IP-OBFUSCATION",
+                    title="Obfuscated Hex/Octal/IPv6-Mapped IP in Network Command",
+                    severity=Severity.CRITICAL,
+                    category="security",
+                    file_path="<bash>",
+                    line=1,
+                    column=1,
+                    snippet=cmd[:140],
+                    rationale="Hex (0x...), octal (0177...), or IPv6-mapped (::ffff:) IP notation used to bypass host/SSRF allowlists. Use canonical dotted-decimal IPv4 or verified domain names only.",
+                    good_code_hint="ssh user@192.0.2.10",
+                    engine="s3-hook-guard",
+                )
+            )
         findings.extend(scanner.scan_text(cmd, file_path="<bash>", language="shell"))
 
     blocking = [f for f in findings if f.severity.meets(block_threshold)]
@@ -74,11 +123,13 @@ def evaluate_claude_pre_tool_payload(
         )
 
     return {
+        "decision": "deny",
+        "reason": "\n".join(reason_lines),
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
             "permissionDecisionReason": "\n".join(reason_lines),
-        }
+        },
     }
 
 
@@ -86,6 +137,7 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
     """Register `kintsugi hook claude-pre-tool` inside `.claude/settings.json` idempotently."""
     root = Path(workspace_root)
     settings_path = root / ".claude" / "settings.json"
+    assert_not_symlink(settings_path)
     settings_path.parent.mkdir(parents=True, exist_ok=True)
 
     data: Dict[str, Any] = {}
@@ -103,7 +155,7 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
             )
         # Write a .bak backup before modifying existing settings.json
         backup_path = settings_path.with_suffix(".json.bak")
-        backup_path.write_text(raw_settings, encoding="utf-8")
+        atomic_write_text(backup_path, raw_settings, mode=0o600)
         data = parsed
 
     hooks_obj = data.setdefault("hooks", {})
@@ -131,7 +183,7 @@ def install_claude_settings_hook(workspace_root: str | Path) -> Path:
             }
         )
 
-    settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    atomic_write_text(settings_path, json.dumps(data, indent=2) + "\n", mode=0o600)
     return settings_path
 
 

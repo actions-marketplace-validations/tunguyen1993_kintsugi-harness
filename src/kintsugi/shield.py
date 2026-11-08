@@ -474,3 +474,265 @@ def verify_outbound_destination_allowed(destination: str) -> Tuple[bool, str]:
     )
 
 
+# ---------------------------------------------------------------------------
+# Layer 8: Grade S3 Atomic Security Core (`@S3_ATOMIC_SECURITY_CORE/1`)
+# ---------------------------------------------------------------------------
+from decimal import Decimal, InvalidOperation
+import fcntl
+import ipaddress
+import shutil
+import socket
+import tempfile
+from typing import Callable
+import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
+
+BIDI_AND_ZERO_WIDTH_CODEPOINTS = frozenset({
+    0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+    0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
+    0x2060, 0x2066, 0x2067, 0x2068, 0x2069,
+    0xFEFF,
+})
+
+
+def assert_not_symlink(path: Path) -> None:
+    """Refuse to read or write through any symbolic link (`CM-032` / `LA-02`)."""
+    if path.is_symlink():
+        raise PermissionError(f"SECURITY_SYMLINK_REFUSED: Target path is a symbolic link: {path}")
+
+
+def atomic_write_text(path: Path, content: str, mode: int = 0o600) -> None:
+    """Atomically write UTF-8 text to `path` with strict permission `mode` and symlink protection."""
+    assert_not_symlink(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp_path, mode)
+        os.replace(str(tmp_path), str(path))
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError as _unlink_err:
+                _ = _unlink_err
+
+
+def atomic_write_json(path: Path, payload: Any, mode: int = 0o600, indent: int = 2) -> None:
+    """Atomically serialize `payload` as UTF-8 JSON to `path`."""
+    serialized = json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
+    atomic_write_text(path, serialized, mode=mode)
+
+
+def locked_cortex_transaction(
+    cortex_path: Path,
+    mutator_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
+    min_atoms_guard: int = 10,
+) -> Dict[str, Any]:
+    """
+    Execute an exclusive cross-process `fcntl.flock(LOCK_EX)` read-modify-write transaction
+    with `.bak` recovery and `FAIL_CLOSED_ANTI_WIPE_GUARD` (`N2-09..N2-11` / `G10`).
+    """
+    assert_not_symlink(cortex_path)
+    cortex_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = cortex_path.parent / f".{cortex_path.name}.lock"
+    bak_path = cortex_path.parent / f".{cortex_path.name}.bak"
+
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        try:
+            os.chmod(lock_path, 0o600)
+        except OSError as _chmod_err:
+            _ = _chmod_err
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            cortex: Dict[str, Any] = {}
+            prev_atoms_count = 0
+            if cortex_path.exists() and cortex_path.stat().st_size > 0:
+                try:
+                    cortex = json.loads(cortex_path.read_text(encoding="utf-8"))
+                except Exception as parse_err:
+                    if bak_path.exists() and bak_path.stat().st_size > 0:
+                        cortex = json.loads(bak_path.read_text(encoding="utf-8"))
+                    else:
+                        raise RuntimeError(
+                            f"FAIL_CLOSED_CORTEX_PARSE_GUARD: Refusing to reset non-empty state on error: {parse_err}"
+                        ) from parse_err
+                prev_atoms_count = len(cortex.get("causal_atoms", []))
+
+            updated_cortex = mutator_fn(cortex)
+            new_atoms_count = len(updated_cortex.get("causal_atoms", []))
+
+            if prev_atoms_count >= min_atoms_guard and new_atoms_count < prev_atoms_count:
+                raise RuntimeError(
+                    f"FAIL_CLOSED_ANTI_WIPE_GUARD: Refusing state write that shrinks causal_atoms "
+                    f"from {prev_atoms_count} to {new_atoms_count}!"
+                )
+
+            atomic_write_json(cortex_path, updated_cortex, mode=0o600, indent=2)
+            try:
+                shutil.copy2(str(cortex_path), str(bak_path))
+                os.chmod(bak_path, 0o600)
+            except OSError as _bak_err:
+                _ = _bak_err
+            return updated_cortex
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def is_public_non_ssrf_host(hostname: str) -> bool:
+    """Return True only if `hostname` does not resolve to loopback, private, link-local, or reserved IPs."""
+    h = (hostname or "").strip().strip("[]").lower()
+    if not h or h in ("localhost", "localhost.localdomain"):
+        return False
+    try:
+        infos = socket.getaddrinfo(h, None)
+        for info in infos:
+            ip_str = info[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+            if getattr(ip_obj, "ipv4_mapped", None):
+                ip_obj = ip_obj.ipv4_mapped
+            if (
+                ip_obj.is_loopback
+                or ip_obj.is_private
+                or ip_obj.is_link_local
+                or ip_obj.is_unspecified
+                or ip_obj.is_multicast
+                or ip_obj.is_reserved
+            ):
+                return False
+        return True
+    except Exception:
+        return False
+
+
+class ZeroTrustSameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """
+    Enforce `CM-026` & SSRF Shield on all HTTP 301/302/303/307/308 redirects:
+      1. Block redirects to non-HTTPS/HTTP schemes or private/loopback/link-local SSRF targets.
+      2. Strip sensitive authentication headers (`Authorization`, `Cookie`, `X-Api-Key`) when
+         redirecting across different origins (`scheme + hostname + port`).
+    """
+
+    SENSITIVE_HEADERS = (
+        "authorization",
+        "proxy-authorization",
+        "cookie",
+        "x-api-key",
+        "x-antigravity-proof",
+    )
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        orig_parsed = urllib.parse.urlsplit(req.full_url)
+        new_parsed = urllib.parse.urlsplit(newurl)
+
+        if new_parsed.scheme.lower() not in ("https", "http"):
+            raise urllib.error.HTTPError(
+                newurl, code, f"BLOCKED_REDIRECT_SCHEME: {new_parsed.scheme}", headers, fp
+            )
+
+        target_host = new_parsed.hostname or ""
+        if not is_public_non_ssrf_host(target_host):
+            raise urllib.error.HTTPError(
+                newurl, code, f"BLOCKED_SSRF_REDIRECT_TARGET: {target_host}", headers, fp
+            )
+
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is None:
+            return None
+
+        orig_origin = (orig_parsed.scheme.lower(), (orig_parsed.hostname or "").lower(), orig_parsed.port)
+        new_origin = (new_parsed.scheme.lower(), (new_parsed.hostname or "").lower(), new_parsed.port)
+        if orig_origin != new_origin:
+            for hdr_container in (new_req.headers, new_req.unredirected_hdrs):
+                keys_to_strip = [k for k in list(hdr_container.keys()) if k.lower() in self.SENSITIVE_HEADERS]
+                for k in keys_to_strip:
+                    del hdr_container[k]
+        return new_req
+
+
+_S3_EXTERNAL_INJECTION_RE = re.compile(
+    r"(?i)(ignore\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier)\s+(?:instructions|rules|prompts)|"
+    r"system\s*override|new\s+system\s+prompt|<\s*\|\s*im_start\s*\|\s*>|"
+    r"silently\s+exfiltrate|disregard\s+all\s+rules)"
+)
+
+
+def sanitize_external_untrusted_text(text: Any, max_len: int = 120) -> str:
+    """
+    CaMeL Dual-Channel Sanitizer (`KS-012` & `KS-019`):
+    Strip Bidirectional / zero-width control chars and neutralize prompt-injection payloads.
+    """
+    raw = str(text or "")
+    norm = unicodedata.normalize("NFKC", raw)
+    cleaned = "".join(
+        ch for ch in norm
+        if ord(ch) not in BIDI_AND_ZERO_WIDTH_CODEPOINTS and unicodedata.category(ch) != "Cf"
+    )
+    cleaned = _S3_EXTERNAL_INJECTION_RE.sub("[BLOCKED_PROMPT_INJECTION]", cleaned)
+    cleaned = PROMPT_INJECTION_RE.sub("[BLOCKED_PROMPT_INJECTION]", cleaned)
+    cleaned = re.sub(r"[\r\n\t]+", " ", cleaned).strip()
+    return cleaned[:max_len]
+
+
+def is_strictly_zero_bond(*args: Any) -> bool:
+    """
+    Enforce exact `Decimal` zero-bond/fee verification (`CM-024` / `LA-01`):
+    Fail closed (`False`) on `NaN`, `Infinity`, negative values, booleans (`True`),
+    unparseable strings, or > 0 bonds.
+    """
+    if not args:
+        return True
+    bond_keys = (
+        "claimBond",
+        "claim_bond",
+        "claim_bond_atomic",
+        "refundable_claim_bond",
+        "outbound_x402",
+        "upfront_fee",
+        "entry_fee",
+        "staking_required",
+    )
+    values_to_check = []
+    for arg in args:
+        if isinstance(arg, dict):
+            for k in bond_keys:
+                values_to_check.append(arg.get(k))
+        else:
+            values_to_check.append(arg)
+    for val in values_to_check:
+        if val is None or val == "" or val is False:
+            continue
+        if val is True:
+            return False
+        try:
+            dec = Decimal(str(val).strip())
+            if not dec.is_finite() or dec != Decimal(0):
+                return False
+        except (InvalidOperation, ValueError, TypeError):
+            return False
+    return True
+
+
+def normalize_shell_command(raw_cmd: str) -> str:
+    """
+    Normalize shell command before PreToolUse security inspection (`N1-03` / `G2`):
+    1. Apply Unicode `NFKC` normalization.
+    2. Strip all Unicode `Cf` format/zero-width/Bidi characters (`s's'h\\u200b` -> `ssh`).
+    3. Collapse mid-word quote and backslash splitting (`(?<=\\w)['\"\\\\]+(?=\\w)`).
+    """
+    norm = unicodedata.normalize("NFKC", str(raw_cmd or ""))
+    norm = "".join(
+        ch for ch in norm
+        if ord(ch) not in BIDI_AND_ZERO_WIDTH_CODEPOINTS and unicodedata.category(ch) != "Cf"
+    )
+    norm = re.sub(r"(?<=\w)['\"\\]+(?=\w)", "", norm)
+    return norm
+
+
+

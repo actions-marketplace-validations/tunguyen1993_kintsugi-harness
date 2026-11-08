@@ -3,6 +3,17 @@
 __version__ = "2.0.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
+from kintsugi.shield import (
+    ZeroTrustSameOriginRedirectHandler,
+    assert_not_symlink,
+    atomic_write_json,
+    atomic_write_text,
+    is_public_non_ssrf_host,
+    is_strictly_zero_bond,
+    locked_cortex_transaction,
+    normalize_shell_command,
+    sanitize_external_untrusted_text,
+)
 from kintsugi.autofix import run_autofix
 from kintsugi.cinema import (
     SUPPORTED_VIDEO_PROVIDERS,

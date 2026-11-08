@@ -775,7 +775,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "hook":
         ledger = _load_or_seed_ledger(args.ledger)
         raw_stdin = sys.stdin.read().strip()
-        payload = json.loads(raw_stdin) if raw_stdin else {}
+        try:
+            payload = json.loads(raw_stdin) if raw_stdin else {}
+        except Exception:
+            print(
+                json.dumps(
+                    {
+                        "decision": "deny",
+                        "reason": "FAIL-CLOSED HOOK GUARD: Invalid stdin JSON payload.",
+                        "hookSpecificOutput": {
+                            "hookEventName": "PreToolUse",
+                            "permissionDecision": "deny",
+                            "permissionDecisionReason": "FAIL-CLOSED HOOK GUARD: Invalid stdin JSON payload.",
+                        },
+                    }
+                )
+            )
+            return 0
         decision = evaluate_claude_pre_tool_payload(
             payload,
             ledger.all(),
