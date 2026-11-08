@@ -96,7 +96,12 @@ from kintsugi.foresight import (
     MetacognitiveSelfModel,
     ScientificLiteratureVerifier,
 )
-from kintsugi.grounding import RepoAstGroundingEngine, SoundSymbolicPathSolver
+from kintsugi.grounding import (
+    BinarySecurityAndGadgetAnalyzer,
+    InterProceduralTaintGraph,
+    RepoAstGroundingEngine,
+    SoundSymbolicPathSolver,
+)
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, GoldenScar, ScanFinding, ScanReport, Severity
 from kintsugi.packs import (

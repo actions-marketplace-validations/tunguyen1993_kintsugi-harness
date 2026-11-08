@@ -355,11 +355,32 @@ class _PythonASTVisitor(ast.NodeVisitor):
             shell_val = kwargs.get("shell")
             if isinstance(shell_val, ast.Constant) and shell_val.value is True:
                 self._record("py_subprocess_shell_true", node)
+        elif call_name in {"os.system", "os.popen"}:
+            self._record("py_os_system_cmd", node)
 
         if call_name in {"eval", "exec", "pickle.loads", "pickle.load", "marshal.loads"}:
             self._record("py_unsafe_dynamic_exec", node)
         elif call_name == "yaml.load" and "Loader" not in kwargs:
             self._record("py_unsafe_dynamic_exec", node)
+        elif call_name == "torch.load":
+            wo = kwargs.get("weights_only")
+            if not (isinstance(wo, ast.Constant) and wo.value is True):
+                self._record("py_torch_load_unsafe", node)
+        elif call_name in {"jwt.decode", "pyjwt.decode"}:
+            ver_kw = kwargs.get("verify")
+            opts_kw = kwargs.get("options")
+            unverified_jwt = isinstance(ver_kw, ast.Constant) and ver_kw.value is False
+            if isinstance(opts_kw, ast.Dict):
+                for k_node, v_node in zip(opts_kw.keys, opts_kw.values):
+                    if (
+                        isinstance(k_node, ast.Constant)
+                        and k_node.value == "verify_signature"
+                        and isinstance(v_node, ast.Constant)
+                        and v_node.value is False
+                    ):
+                        unverified_jwt = True
+            if unverified_jwt:
+                self._record("py_jwt_unverified_decode", node)
 
         if call_name in {
             "urlopen",
