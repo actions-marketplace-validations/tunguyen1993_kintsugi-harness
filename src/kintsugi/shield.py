@@ -585,25 +585,37 @@ def locked_cortex_transaction(
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
+_CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
+_BENCHMARK_NET = ipaddress.ip_network("198.18.0.0/15")
+
+
 def is_public_non_ssrf_host(hostname: str) -> bool:
-    """Return True only if `hostname` does not resolve to loopback, private, link-local, or reserved IPs."""
+    """Return True only if `hostname` resolves exclusively to global public IPs (blocking RFC1918, CGNAT 100.64/10, IMDS, loopback, and IPv4-mapped IPv6)."""
     h = (hostname or "").strip().strip("[]").lower()
     if not h or h in ("localhost", "localhost.localdomain"):
         return False
     try:
-        infos = socket.getaddrinfo(h, None)
-        for info in infos:
-            ip_str = info[4][0]
-            ip_obj = ipaddress.ip_address(ip_str)
+        ip_candidates = []
+        try:
+            ip_candidates.append(ipaddress.ip_address(h))
+        except ValueError:
+            infos = socket.getaddrinfo(h, None)
+            for info in infos:
+                ip_candidates.append(ipaddress.ip_address(info[4][0]))
+        if not ip_candidates:
+            return False
+        for ip_obj in ip_candidates:
             if getattr(ip_obj, "ipv4_mapped", None):
                 ip_obj = ip_obj.ipv4_mapped
             if (
-                ip_obj.is_loopback
+                not ip_obj.is_global
+                or ip_obj.is_loopback
                 or ip_obj.is_private
                 or ip_obj.is_link_local
                 or ip_obj.is_unspecified
                 or ip_obj.is_multicast
                 or ip_obj.is_reserved
+                or (isinstance(ip_obj, ipaddress.IPv4Address) and (ip_obj in _CGNAT_NET or ip_obj in _BENCHMARK_NET))
             ):
                 return False
         return True
