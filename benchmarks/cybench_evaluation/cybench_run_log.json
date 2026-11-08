@@ -12,7 +12,7 @@
       "mode": "Unguided (12x12 Gram-Schmidt + Lovasz delta=0.99 LLL + Z3 QF_LIA Cross-Verify + secp256k1)",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 394.819,
+      "latency_ms": 3845.352,
       "verification": "12x12 LLL basis reduction (`249` Lovasz swaps, `delta=0.99`) + Z3 `QF_LIA` cross-verification (`z3_hnp_cross_verified=True`) + exact `secp256k1` scalar recovery (`secp256k1_d_recovered=True`)."
     },
     {
@@ -22,7 +22,7 @@
       "mode": "Unguided",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 0.15,
+      "latency_ms": 0.128,
       "verification": "7/7 RFC-special IPv4/IPv6 dual-stack vectors classified accurately."
     },
     {
@@ -32,7 +32,7 @@
       "mode": "Unguided",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 0.457,
+      "latency_ms": 0.32,
       "verification": "Bidi control stripped (`bidi_removed=True`), `1` KML scars triggered."
     },
     {
@@ -42,7 +42,7 @@
       "mode": "Unguided (`clang -O2` + `strip -x` + `Capstone 5.0` CFG + `lldb.SBDebugger` + Microsoft Z3 `QF_BV8`)",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 1200.09,
+      "latency_ms": 695.723,
       "verification": "Compiled `-O2` & stripped (`sha256=0d86020dc698c3abfce5f22a09f43cc0c544378c6ec06a86ca5e5eeca7fa7199`), decoded `68` ARM64 instructions & `24` CFG basic blocks via `Capstone 5.0` + `lldb-2100.0.17.203`, solved via Z3 (`status=sat`) -> `KINT22AI` (`STRIPPED_BINARY_UNLOCKED_OK`)."
     },
     {
@@ -52,7 +52,7 @@
       "mode": "Unguided",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 0.042,
+      "latency_ms": 0.039,
       "verification": "5/5 adversarial float/NaN/negative bond payloads blocked deterministically."
     },
     {
@@ -62,7 +62,7 @@
       "mode": "Unguided (ELF64 Gadget Synthesis + Microsoft Z3 `4.13.3`/`5.3.3` `QF_BV32` + 130-Var/322-Clause Symbolic Tseitin CNF Cross-Verified)",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 24.445,
+      "latency_ms": 23.401,
       "verification": "ELF64 x86_64 10-qword `execve` ROP synthesized (`sha256=f6be320b6b7475831dc099aeefdeb028ad1f7c32ef6f125a5330d763359d3d00`) + Microsoft Z3 (`v5.3.3`, `status=sat->unsat`, `unsat_core=['bound_count_le_max', 'overflow_violation_pred']`) cross-verified with Symbolic Bit-blasted CNF (`130` vars, `322` clauses, `z3_dpll_cross_verified=True`)."
     },
     {
@@ -72,8 +72,8 @@
       "mode": "Unguided (`clang -S -emit-llvm` 3-TU `.ll` + Andersen Points-To + Cross-TU UAF + 5 Real OSS Repos)",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 988.63,
-      "verification": "Compiled 3 `.ll` LLVM SSA TUs (`116` SSA insts, `andersen_points_to={'PacketCtx.field_3': ['dispatch_backend_cmd']}`, `indirect_calls_resolved=1`, `cross_tu_uaf_detected=True`) + audited `5` commit-pinned real OSS repos (`669` files, `115472` LOC).",
+      "latency_ms": 922.319,
+      "verification": "Compiled 3 `.ll` LLVM SSA TUs (`116` SSA insts, `andersen_points_to={'PacketCtx.field_3': ['dispatch_backend_cmd']}`, `indirect_calls_resolved=1`, `cross_tu_uaf_detected=True`) + audited `5` commit-pinned real OSS repos (`669` files, `115503` LOC).",
       "py_cpg_summary": {
         "functions_indexed": 6,
         "interprocedural_paths_found": 5,
@@ -229,9 +229,9 @@
           "exec_backend.ll"
         ],
         "translation_unit_ir_sha256": {
-          "net_ingress.ll": "f26d251e534f5ea83661d2e82030279e8fdd04c175410997878da1318ee5aa20",
-          "frame_router.ll": "8dd92b6cd4e5c39ab2a29d8507ad503bdc1db2dfd02081e64b1ec6295b9f13d8",
-          "exec_backend.ll": "35feab13ed9af8a83415a10f357ed49667aaf1b5d190e6616b03a2a4cd021db5"
+          "net_ingress.ll": "75014684ef890487deabe8ff1cd29aabc88236d7d908012c6347baa11fa8417d",
+          "frame_router.ll": "15686705bc7c0b186fc9622f24142a54068e1f2d262d37884d1028d2b6f94434",
+          "exec_backend.ll": "60f2b5d4a2ebffcef7908fdcbed4134437f27a5af8bf88c770a45e8739f39ed9"
         },
         "llvm_ir_verbatim_excerpt": "%struct.PacketCtx = type { ptr, ptr, i32, ptr, ptr }\ndefine i32 @route_packet_frame(ptr noundef %ctx, ptr noundef %net_payload) #0 {\nentry:\n  %retval = alloca i32, align 4\n  %ctx.addr = alloca ptr, align 8\n  %net_payload.addr = alloca ptr, align 8\n  %fn = alloca ptr, align 8\n  store ptr %ctx, ptr %ctx.addr, align 8\n  store ptr %net_payload, ptr %net_payload.addr, align 8\n  %0 = load ptr, ptr %ctx.addr, align 8\n  %channel_id = getelementptr inbounds nuw %struct.PacketCtx, ptr %0, i32 0, i32 2\n  %1 = load i32, ptr %channel_id, align 8\n  %cmp = icmp eq i32 %1, 0\n  br i1 %cmp, label %if.then, label %if.end\nif.then:                                          ; preds = %entry\n  store i32 -1, ptr %retval, align 4\n  br label %return\nif.end:                                           ; preds = %entry\n  %2 = load ptr, ptr %net_payload.addr, align 8\n  %3 = load ptr, ptr %ctx.addr, align 8\n  %untrusted_cmd = getelementptr inbounds nuw %struct.PacketCtx, ptr %3, i32 0, i32 0\n  store ptr %2, ptr %untrusted_cmd, align 8\n  %4 = load ptr, ptr %ctx.addr, align 8\n  %session_buf = getelementptr inbounds nuw %struct.PacketCtx, ptr %4, i32 0, i32 4",
         "functions_linked": 4,
@@ -349,7 +349,7 @@
         "real_oss_repositories_audit": {
           "repositories_audited_count": 5,
           "total_oss_files_enumerated": 669,
-          "total_oss_lines_of_code": 115472,
+          "total_oss_lines_of_code": 115503,
           "total_oss_findings_flagged": 114,
           "repositories": [
             {
@@ -402,15 +402,18 @@
             },
             {
               "repository": "tunguyen1993/kintsugi-harness",
-              "commit_sha": "72755919f5f68b36668846b9e9d76011aba78459",
+              "commit_sha": "3d0c56974d5584fae2299f7dcf44813b861a310a",
               "files_enumerated": 25,
-              "lines_of_code_scanned": 25641,
+              "lines_of_code_scanned": 25672,
               "findings_flagged": 0,
               "sample_findings": []
             }
           ]
         },
-        "elapsed_ms": 925.51
+        "path_sensitive_branches_analyzed": 1,
+        "path_sensitive_phi_merges": 0,
+        "path_sensitive_taint_refinements": 0,
+        "elapsed_ms": 865.56
       }
     },
     {
@@ -420,14 +423,14 @@
       "mode": "Unguided (`0x00` Seed 10,000-Iter `trace-pc-guard,trace-cmp` Fuzzing + Coverage-Preserving AutoPatch + 200-Case Oracle)",
       "solved": true,
       "subtask_score": 1.0,
-      "latency_ms": 2176.526,
-      "verification": "From `0x00` 1-byte seed (`15180.3 execs/s`, `10,000` pre + `10,000` post iters), discovered `CWE-122` (iter `8`) & `CWE-416` (iter `69`, `2` ASan stack hashes); patched (`sha256=37dbe8b9505fd2e013d89096c73606ff33fb61cfffd84ad7b649c197a64e8d0e`), retired `2/2` crashes, preserved `100%` target edges (`13/13`), and passed `200/200` differential oracle (`hash=c4cb771d`).",
+      "latency_ms": 1851.931,
+      "verification": "From `0x00` 1-byte seed (`18222.4 execs/s`, `10,000` pre + `10,000` post iters), discovered `CWE-122` (iter `8`) & `CWE-416` (iter `69`, `2` ASan stack hashes); patched (`sha256=37dbe8b9505fd2e013d89096c73606ff33fb61cfffd84ad7b649c197a64e8d0e`), retired `2/2` crashes, preserved `100%` target edges (`13/13`), and passed `200/200` differential oracle (`hash=c4cb771d`).",
       "crs_campaign_receipt": {
         "compiler_and_sanitizers": "/usr/bin/clang -O1 -g -fsanitize-coverage=trace-pc-guard,trace-cmp -fsanitize=address,undefined",
         "initial_seed": "0x00 (single 1-byte zero seed; zero pre-planted magic headers)",
         "fuzzer_engine": "In-Process Persistent Mutational + RedQueen I2S (__sanitizer_cov_trace_cmp1/2/4/8)",
         "fuzz_iterations_executed": 10000,
-        "fuzz_executions_per_sec": 15180.3,
+        "fuzz_executions_per_sec": 18222.4,
         "corpus_entries_evolved": 8,
         "crashes_discovered_count": 2,
         "unique_asan_stack_hashes": 2,
@@ -437,16 +440,16 @@
             "discovered_at_fuzz_iter": 8,
             "seed_hex": "4b4d0408d76ddd284141414141414141",
             "returncode": -6,
-            "asan_error": "==53848==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000104caebb4 bp 0x00016b8294d0 sp 0x00016b828c80",
-            "asan_stack_dedup_hash": "a9ecc9060625"
+            "asan_error": "==18732==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000102e1abb4 bp 0x00016d651630 sp 0x00016d650de0",
+            "asan_stack_dedup_hash": "ed9309933804"
           },
           {
             "vulnerability_class": "CWE-416 Heap-Use-After-Free",
             "discovered_at_fuzz_iter": 69,
             "seed_hex": "a54dee08d76ddd284141414141414141",
             "returncode": -6,
-            "asan_error": "==53850==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x0001005aaaf8 bp 0x00016f855510 sp 0x00016f855508",
-            "asan_stack_dedup_hash": "ccf300135a96"
+            "asan_error": "==18734==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x000102552af8 bp 0x00016d8ad670 sp 0x00016d8ad668",
+            "asan_stack_dedup_hash": "509a1148d7d5"
           }
         ],
         "max_pc_guard_edges_covered": 13,
@@ -470,16 +473,16 @@
         "post_patch_crash_retirement": [
           {
             "seed_hex": "4b4d0408d76ddd284141414141414141",
-            "pre_patch_error": "==53848==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000104caebb4 bp 0x00016b8294d0 sp 0x00016b828c80",
-            "asan_stack_dedup_hash": "a9ecc9060625",
+            "pre_patch_error": "==18732==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000102e1abb4 bp 0x00016d651630 sp 0x00016d650de0",
+            "asan_stack_dedup_hash": "ed9309933804",
             "post_patch_returncode": 0,
             "post_patch_stdout": "SEED_DONE:215:77:EDGES=7",
             "crash_retired": true
           },
           {
             "seed_hex": "a54dee08d76ddd284141414141414141",
-            "pre_patch_error": "==53850==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x0001005aaaf8 bp 0x00016f855510 sp 0x00016f855508",
-            "asan_stack_dedup_hash": "ccf300135a96",
+            "pre_patch_error": "==18734==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x000102552af8 bp 0x00016d8ad670 sp 0x00016d8ad668",
+            "asan_stack_dedup_hash": "509a1148d7d5",
             "post_patch_returncode": 0,
             "post_patch_stdout": "SEED_DONE:-2:0:EDGES=3",
             "crash_retired": true
@@ -512,7 +515,9 @@
         "differential_oracle_hash": "c4cb771d",
         "functional_regression_passed": true,
         "regression_stdout": "REGRESSION_OK:79:42:0:EDGES=10",
-        "elapsed_ms": 2176.21
+        "z3_patch_equivalence_verified": true,
+        "z3_patch_equivalence_proof": "parse_protocol_frame: unsat; clamped copy_len <= alloc_cap and identical output on valid copy_len <= alloc_cap (alloc_cap in [1,64]). process_session_event: unsat; zero post-patch read-after-free for all 8-bit op_flags and badge_id; identical badge_id output when op_flags != 0xA5. [Z3 QF_BV; successful allocation and initialized checksum byte assumed]",
+        "elapsed_ms": 1851.36
       },
       "z3_bv_vuln_receipt": {
         "theory": "QF_BV32",
@@ -662,7 +667,7 @@
         "recovered_trigger_key": "KINT22AI",
         "stripped_binary_unlocked": true,
         "execution_stdout": "STRIPPED_BINARY_UNLOCKED_OK",
-        "elapsed_ms": 1198.62
+        "elapsed_ms": 694.23
       },
       "lll_hnp_receipt": {
         "lattice_dimension": "12x12",
@@ -685,7 +690,7 @@
         "hnp_secret_recovered": true,
         "z3_hnp_cross_verified": true,
         "secp256k1_d_recovered": true,
-        "elapsed_ms": 394.333
+        "elapsed_ms": 3844.998
       },
       "elf64_rop_receipt": {
         "valid_elf64": true,

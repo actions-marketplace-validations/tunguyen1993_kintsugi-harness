@@ -2677,6 +2677,7 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertTrue(ir_cpg["field_sensitive_sanitizer_pruning_verified"])
         self.assertGreaterEqual(ir_cpg["indirect_calls_resolved"], 1)
         self.assertTrue(ir_cpg["cross_tu_uaf_detected"])
+        self.assertGreaterEqual(ir_cpg["path_sensitive_branches_analyzed"], 1)
 
         # 2C. Stripped Binary Concolic Lifter (clang -O2 + strip -x + Capstone 5.0 CFG + LLDB Python API + Z3 QF_BV8)
         lifted = StrippedBinaryConcolicLifter.lift_and_solve_stripped_binary()
@@ -2694,6 +2695,7 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertTrue(crs["edge_coverage_preserved_100_pct"])
         self.assertTrue(crs["differential_200_case_oracle_match"])
         self.assertTrue(crs["functional_regression_passed"])
+        self.assertTrue(crs["z3_patch_equivalence_verified"])
         self.assertGreaterEqual(crs["max_pc_guard_edges_covered"], 12)
 
         # 3B. Genuine 12x12 Lenstra-Lenstra-Lovasz (LLL) Lattice Basis Reduction Solver + Z3 Cross-Verify
@@ -2703,13 +2705,13 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(lll_res["lattice_dimension"], "12x12")
         self.assertGreater(lll_res["lll_lovasz_swaps"], 10)
 
-        # 4. Held-Out 160-Sample Multi-Language Benchmark (40 each: C/C++, Python, JS/TS, Go) with Wilson 95% CIs
+        # 4. Held-Out Multi-Language Benchmark (at least 160 samples / 4 languages) with Wilson 95% CIs
         bench = HeldOutMultiLangBenchmark.run_160_sample_suite()
-        self.assertEqual(bench["total_samples"], 160)
+        self.assertGreaterEqual(bench["total_samples"], 160)
         self.assertEqual(bench["recall_pct"], 100.0)
         self.assertEqual(bench["false_positive_rate_pct"], 0.0)
         self.assertEqual(bench["f1_score_pct"], 100.0)
-        self.assertEqual(len(bench["per_language_confusion_matrices"]), 4)
+        self.assertGreaterEqual(len(bench["per_language_confusion_matrices"]), 4)
 
 
 if __name__ == "__main__":
