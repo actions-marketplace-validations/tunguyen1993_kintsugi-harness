@@ -987,7 +987,7 @@ class BinarySecurityAndGadgetAnalyzer:
             "rop_chain_synthesized": can_build_rop,
             "rop_chain_qwords_hex": [hex(q) for q in rop_chain_qwords],
             "payload_length_bytes": len(payload_bytes),
-            "payload_sha256": hashlib.sha256(payload_bytes).hexdigest()[:16] if payload_bytes else None,
+            "payload_sha256": hashlib.sha256(payload_bytes).hexdigest() if payload_bytes else None,
         }
 
 
