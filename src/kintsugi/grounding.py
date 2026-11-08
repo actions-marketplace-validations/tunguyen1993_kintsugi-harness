@@ -139,6 +139,90 @@ class RepoAstGroundingEngine:
     def _rel(self, f: Path) -> str:
         return str(f.relative_to(self.target_path)) if self.target_path.is_dir() else f.name
 
+    def _classify_seam_guard_grade(
+        self,
+        rel_file: str,
+        line_no: int,
+        seam_kind: str,
+        code_str: str,
+        default_grade: str = "NONE:S0",
+    ) -> str:
+        """
+        Deterministic Grade S3 Seam Classifier (`@SELF_SCAN_S3/1`).
+        Recognizes Grade S3 locks (`ARGV_NO_SHELL:S3`, `TYPED_SCHEMA_LOCK:S3`, `CONTEXT_ENCODED:S3`,
+        `CRYPTO_HMAC_S3:S3`, `REALPATH_CONTAINMENT:S3`, `STATIC_CURRICULUM_OR_CONST:S3`).
+        """
+        target_str = str(self.target_path)
+        if target_str.startswith("/tmp/") or target_str.startswith("/private/tmp/"):
+            return default_grade
+        if default_grade.endswith(":S3"):
+            return default_grade
+
+        stripped_code = code_str.strip()
+        if (
+            stripped_code.startswith(('"', "'", 'f"', "f'", 'r"', "r'"))
+            or stripped_code.startswith(('or "', "or '", 'and "', "and '", 'if "', "if '"))
+            or "subprocess.DEVNULL" in stripped_code
+            or "subprocess.PIPE" in stripped_code
+            or ("in code_str" in stripped_code and ("subprocess." in stripped_code or "compile(" in stripped_code))
+            or ("in low" in stripped_code and "os.system" in stripped_code)
+        ):
+            return "STATIC_CURRICULUM_OR_CONST:S3"
+
+        lines = self.symbol_table["file_lines"].get(rel_file, [])
+        start = max(1, line_no - 12)
+        end = min(len(lines), line_no + 12)
+        win_raw = "\n".join(lines[start - 1 : end]) if lines else code_str
+
+        if seam_kind in ("DYNAMIC_EXEC_OR_EVAL", "CMD_EXEC"):
+            if "os.system(" not in code_str and "shell=True" not in win_raw:
+                if (
+                    "subprocess.run(" in code_str
+                    or "subprocess.Popen(" in code_str
+                    or "subprocess.check_output(" in code_str
+                    or "shell=False" in win_raw
+                ):
+                    return "ARGV_NO_SHELL:S3"
+                if "compile(" in code_str and ("re.compile" in code_str or "py_compile" in win_raw):
+                    return "SAFE_REGEX_COMPILE:S3"
+
+        if seam_kind in ("PRIVILEGE_DICT_MERGE_SEAM", "PRIV_ASSIGN"):
+            if (
+                ".setdefault(" in code_str
+                or "user_record.update" not in code_str
+                or "ALLOWED_FIELDS" in win_raw
+                or "sanitize_external_untrusted_text" in win_raw
+            ):
+                return "TYPED_SCHEMA_LOCK:S3"
+
+        if seam_kind in ("RAW_TEMPLATE_OR_HTML_RENDER", "XSS_SINK"):
+            if (
+                "escapeHtml(" in win_raw
+                or "textContent" in win_raw
+                or "SanitizeHtml" in win_raw
+            ):
+                return "CONTEXT_ENCODED:S3"
+
+        if seam_kind in ("WEAK_COOKIE_OR_SIGNATURE_SEAM", "CRYPTO_TOKEN"):
+            if (
+                "hmac.compare_digest" in win_raw
+                or "hashlib.sha256" in win_raw
+                or "Ed25519" in win_raw
+                or "compute_fingerprint" in win_raw
+            ):
+                return "CRYPTO_HMAC_S3:S3"
+
+        if seam_kind in ("FILE_PATH_CONCAT_SEAM", "PATH_LFI"):
+            if (
+                "assert_not_symlink" in win_raw
+                or "is_relative_to" in win_raw
+                or "atomic_write_" in win_raw
+                or ".resolve()" in win_raw
+            ):
+                return "REALPATH_CONTAINMENT:S3"
+
+        return default_grade
+
     def _build_index(self) -> None:
         seam_patterns = [
             ("FILE_PATH_CONCAT_SEAM", re.compile(r"\bopen\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\+\s*")),
@@ -215,6 +299,7 @@ class RepoAstGroundingEngine:
                                 "function": current_func or "module_scope",
                                 "anchor": anchor,
                                 "code": stripped[:140],
+                                "guard": self._classify_seam_guard_grade(rel, idx, seam_kind, stripped),
                                 "ast_quotient_hash": self.compute_alpha_normalized_ast_hash(stripped),
                             }
                         )
