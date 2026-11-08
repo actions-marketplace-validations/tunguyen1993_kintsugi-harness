@@ -1,0 +1,30 @@
+{
+  "astropy__astropy-14995": {
+    "patch_is_None": false,
+    "patch_exists": true,
+    "patch_successfully_applied": true,
+    "resolved": true,
+    "tests_status": {
+      "FAIL_TO_PASS": {
+        "success": [
+          "test_nddata_mask_propagation_when_one_mask_is_none"
+        ],
+        "failure": []
+      },
+      "PASS_TO_PASS": {
+        "success": [
+          "test_nddata_mask_propagation_both_masks_present"
+        ],
+        "failure": []
+      },
+      "FAIL_TO_FAIL": {
+        "success": [],
+        "failure": []
+      },
+      "PASS_TO_FAIL": {
+        "success": [],
+        "failure": []
+      }
+    }
+  }
+}

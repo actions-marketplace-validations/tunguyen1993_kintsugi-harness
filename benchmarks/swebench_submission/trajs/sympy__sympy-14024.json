@@ -1,0 +1,31 @@
+{
+  "instance_id": "sympy__sympy-14024",
+  "repo": "sympy/sympy",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "`simplify((-a)**x * a**(-x))` simplifies to `(-1)**x` inconsistently when `a` is a positive integer vs positive Symbol.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Allow `(-a)**x` to extract `a**x` for arbitrary complex `a`.",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Disable power base extraction for all integers.",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Restrict integer base extraction in `Integer._eval_power` strictly to `self.is_positive`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/sympy/core/numbers.py b/sympy/core/numbers.py\n--- a/sympy/core/numbers.py\n+++ b/sympy/core/numbers.py\n@@ -2251,7 +2251,7 @@ class Integer(Rational):\n-                if (ne is S.One or ne is S.NegativeOne) and b_pos.is_Integer:\n+                if self.is_positive and (ne is S.One or ne is S.NegativeOne) and b_pos.is_Integer:\n                     return Rational(1, b_pos) if ne is S.NegativeOne else b_pos\n"
+    }
+  ],
+  "final_selected_patch_sha256": "efbfdaced0a3c0471230df05d19e09009b7ad8c7d840b9282a96b644185b1f52"
+}

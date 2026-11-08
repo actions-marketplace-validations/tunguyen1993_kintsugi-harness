@@ -1,0 +1,31 @@
+{
+  "instance_id": "astropy__astropy-14995",
+  "repo": "astropy/astropy",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "NDDataRef mask propagation fails with TypeError when one operand has mask=None and bitwise_or is used.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Return `self.mask | operand.mask` directly without checking `None` (raises TypeError).",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Convert `None` to `0` integer mask (corrupts boolean array dtype).",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Copy non-None mask via `deepcopy` when the other operand's mask is `None` before applying `handle_mask`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/astropy/nddata/mixins/ndarithmetic.py b/astropy/nddata/mixins/ndarithmetic.py\n--- a/astropy/nddata/mixins/ndarithmetic.py\n+++ b/astropy/nddata/mixins/ndarithmetic.py\n@@ -520,7 +520,7 @@ class NDArithmeticMixin:\n         elif self.mask is None and operand is not None:\n             return deepcopy(operand.mask)\n-        elif operand is None:\n+        elif operand is None or operand.mask is None:\n             return deepcopy(self.mask)\n         else:\n             return handle_mask(self.mask, operand.mask, **kwds)\n"
+    }
+  ],
+  "final_selected_patch_sha256": "7ee20461c85acc98177d4f2ef7bac607a7f18460b297834d09eb468c95792379"
+}

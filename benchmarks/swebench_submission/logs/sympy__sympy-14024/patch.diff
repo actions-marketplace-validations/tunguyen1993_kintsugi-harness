@@ -1,0 +1,7 @@
+diff --git a/sympy/core/numbers.py b/sympy/core/numbers.py
+--- a/sympy/core/numbers.py
++++ b/sympy/core/numbers.py
+@@ -2251,7 +2251,7 @@ class Integer(Rational):
+-                if (ne is S.One or ne is S.NegativeOne) and b_pos.is_Integer:
++                if self.is_positive and (ne is S.One or ne is S.NegativeOne) and b_pos.is_Integer:
+                     return Rational(1, b_pos) if ne is S.NegativeOne else b_pos

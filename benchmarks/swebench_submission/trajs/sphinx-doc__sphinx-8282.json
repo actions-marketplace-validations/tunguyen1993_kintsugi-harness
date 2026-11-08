@@ -1,0 +1,31 @@
+{
+  "instance_id": "sphinx-doc__sphinx-8282",
+  "repo": "sphinx-doc/sphinx",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "`autodoc_typehints = 'none'` fails to suppress type hints on `@overload`-decorated function signatures.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Clear `__overloads__` registry entirely (hides overloaded call arities).",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Strip annotations only on the main implementation function.",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Pass `show_annotation=False` into `stringify_signature(overload, **kwargs)` when `autodoc_typehints in ('none', 'description')`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py\n--- a/sphinx/ext/autodoc/__init__.py\n+++ b/sphinx/ext/autodoc/__init__.py\n@@ -1240,6 +1240,8 @@ class FunctionDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):\n+        if self.env.config.autodoc_typehints in ('none', 'description'):\n+            kwargs.setdefault('show_annotation', False)\n         for overload in self.analyzer.overloads.get('.'.join(objpath)):\n             sig = stringify_signature(overload, **kwargs)\n"
+    }
+  ],
+  "final_selected_patch_sha256": "7cb2ba0ff75148c9476541f585f888ee1013d1a9dfa2c1a406a1cbd57d876158"
+}

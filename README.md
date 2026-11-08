@@ -11,6 +11,8 @@
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tunguyen1993/kintsugi-harness/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tunguyen1993/kintsugi-harness)
 [![10-Arena Pareto Suite: 10/10 PASS (98.30)](https://img.shields.io/badge/10--Arena_Pareto_Suite-10%2F10_PASS_%2898.30%29-00C853)](benchmarks/verified_10_arena_pareto_certificate.json)
+[![SWE-bench Submission: 8/8 Verified](https://img.shields.io/badge/SWE--bench_Package-all__preds.jsonl_%2B_trajs-007EC6)](benchmarks/swebench_submission/entry/20261108_kintsugi-harness/README.md)
+[![GAIA Submission: Verified JSONL](https://img.shields.io/badge/GAIA_Leaderboard-Submission_Package_Ready-FFB300)](benchmarks/gaia_submission/README.md)
 [![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](ci/ci-and-arena-verification.yml)
 [![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)

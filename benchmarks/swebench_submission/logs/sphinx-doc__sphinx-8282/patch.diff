@@ -1,0 +1,8 @@
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1240,6 +1240,8 @@ class FunctionDocumenter(DocstringSignatureMixin, ModuleLevelDocumenter):
++        if self.env.config.autodoc_typehints in ('none', 'description'):
++            kwargs.setdefault('show_annotation', False)
+         for overload in self.analyzer.overloads.get('.'.join(objpath)):
+             sig = stringify_signature(overload, **kwargs)

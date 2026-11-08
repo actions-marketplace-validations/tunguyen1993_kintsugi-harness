@@ -1,0 +1,31 @@
+{
+  "instance_id": "django__django-11999",
+  "repo": "django/django",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "Model defining a custom `get_FOO_display()` method has it overwritten by `Field.contribute_to_class`.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Unconditionally `setattr(cls, f'get_{self.name}_display', ...)`.",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Check `self.name in cls.__dict__` instead of checking `f'get_{self.name}_display'`.",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Guard `if not hasattr(cls, 'get_%s_display' % self.name): setattr(...)` in `contribute_to_class`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -763,8 +763,9 @@ class Field(RegisterLookupMixin):\n         if self.choices is not None:\n-            setattr(\n-                cls,\n-                'get_%s_display' % self.name,\n-                partialmethod(cls._get_FIELD_display, field=self),\n-            )\n+            if not hasattr(cls, 'get_%s_display' % self.name):\n+                setattr(\n+                    cls,\n+                    'get_%s_display' % self.name,\n+                    partialmethod(cls._get_FIELD_display, field=self),\n+                )\n"
+    }
+  ],
+  "final_selected_patch_sha256": "ec687dc0be20790059f1f751526ffa441082cba2c37cdb90e97802cae053b1aa"
+}

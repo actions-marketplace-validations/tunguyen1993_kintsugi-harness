@@ -1,0 +1,42 @@
+{
+  "astropy/astropy": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "psf/requests": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "pytest-dev/pytest": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "pallets/flask": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "django/django": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "sympy/sympy": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "scikit-learn/scikit-learn": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  },
+  "sphinx-doc/sphinx": {
+    "generated": 1,
+    "applied": 1,
+    "resolved": 1
+  }
+}

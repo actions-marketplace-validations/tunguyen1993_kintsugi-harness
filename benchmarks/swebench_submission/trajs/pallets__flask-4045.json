@@ -1,0 +1,31 @@
+{
+  "instance_id": "pallets__flask-4045",
+  "repo": "pallets/flask",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "Blueprint name containing a dot ('.') breaks nested blueprint endpoint resolution and should raise ValueError at construction.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Silently replace `.` with `_` in Blueprint name (breaks `url_for` expectations).",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Check for `.` only during `app.register_blueprint` (too late).",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Enforce `if '.' in name: raise ValueError(...)` immediately in `Blueprint.__init__`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py\n--- a/src/flask/blueprints.py\n+++ b/src/flask/blueprints.py\n@@ -188,6 +188,8 @@ class Blueprint(Scaffold):\n         super().__init__(import_name=import_name, static_folder=static_folder)\n+        if \".\" in name:\n+            raise ValueError(\"'name' may not contain a dot '.' character.\")\n         self.name = name\n"
+    }
+  ],
+  "final_selected_patch_sha256": "36a14578043b84d3d2866193a6a14557e60bcb4627e240c1b0d5b160cb152adc"
+}
