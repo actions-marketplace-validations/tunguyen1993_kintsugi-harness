@@ -2626,6 +2626,59 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             for sm in eng.symbol_table["seams"]:
                 self.assertIn("guard", sm)
 
+    def test_v2_1_0_tier1_crs_engine_bitvector_clang_asan_and_80sample_bench(self) -> None:
+        from kintsugi.crs_engine import (
+            BitVectorSMTVerifier,
+            ClangLLVMCPGEngine,
+            HeldOutMultiLangBenchmark,
+            NativeSanitizerCoverageCRS,
+        )
+
+        # 1. QF_BV32 & QF_BV64 Modular Arithmetic Overflow Verifier
+        bv_vuln = BitVectorSMTVerifier.verify_allocation_mul_add_overflow(
+            bit_width=32, stride=16, header_bytes=32, max_allowed_count=None
+        )
+        self.assertEqual(bv_vuln["status"], "VIOLATED_OVERFLOW_WITNESS_FOUND")
+        self.assertEqual(bv_vuln["witness"]["wrapped_bv_bytes"], 0)
+
+        bv_safe = BitVectorSMTVerifier.verify_allocation_mul_add_overflow(
+            bit_width=32, stride=16, header_bytes=32, max_allowed_count=4096
+        )
+        self.assertEqual(bv_safe["status"], "PROVEN_UNSAT_SAFE")
+        self.assertIsNone(bv_safe["witness"])
+
+        # 2. Real LLVM Clang JSON AST CPG (5-hop C taint + Sanitizer Pruning + CWE-416 Use-After-Free)
+        c_src = (
+            "#include <stdlib.h>\n"
+            "char *sanitize_token(char *s);\n"
+            "char *s5(char *c) { system(c); return c; }\n"
+            "char *s4(char *d) { return s5(d); }\n"
+            "char *s3(char *c) { return s4(c); }\n"
+            "char *s2(char *b) { return s3(b); }\n"
+            "char *s1(char *u) { char *a = u; return s2(a); }\n"
+            "int safe_fn(char *r) { char *k = sanitize_token(r); return system(k); }\n"
+            "int uaf_fn(int rev) { char *p = (char *)malloc(16); if (!p) return -1; if (rev) { free(p); } return p[0]; }\n"
+        )
+        cpg = ClangLLVMCPGEngine.analyze_c_translation_unit(c_src, filename="unit_test.c")
+        self.assertEqual(cpg["max_hops_observed"], 5)
+        self.assertTrue(all("safe_fn" not in p["entry_function"] for p in cpg["interprocedural_taint_paths"]))
+        self.assertEqual(len(cpg["temporal_uaf_findings"]), 1)
+        self.assertEqual(cpg["temporal_uaf_findings"][0]["function"], "uaf_fn")
+
+        # 3. Native Clang -fsanitize-coverage=trace-pc-guard -fsanitize=address,undefined Discover -> Patch -> Rebuild -> Verify
+        crs = NativeSanitizerCoverageCRS.run_discover_patch_verify_campaign()
+        self.assertEqual(crs["crashes_discovered_count"], 2)
+        self.assertTrue(crs["all_crashes_retired"])
+        self.assertTrue(crs["functional_regression_passed"])
+        self.assertGreaterEqual(crs["max_pc_guard_edges_covered"], 15)
+
+        # 4. Held-Out 80-Sample Multi-Language Benchmark with Wilson 95% CIs
+        bench = HeldOutMultiLangBenchmark.run_80_sample_suite()
+        self.assertEqual(bench["total_samples"], 80)
+        self.assertEqual(bench["recall_pct"], 100.0)
+        self.assertEqual(bench["false_positive_rate_pct"], 0.0)
+        self.assertEqual(bench["f1_score_pct"], 100.0)
+
 
 if __name__ == "__main__":
     unittest.main()

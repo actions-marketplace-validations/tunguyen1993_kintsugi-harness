@@ -1,8 +1,14 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
+from kintsugi.crs_engine import (
+    BitVectorSMTVerifier,
+    ClangLLVMCPGEngine,
+    HeldOutMultiLangBenchmark,
+    NativeSanitizerCoverageCRS,
+)
 from kintsugi.shield import (
     ZeroTrustSameOriginRedirectHandler,
     assert_not_symlink,
