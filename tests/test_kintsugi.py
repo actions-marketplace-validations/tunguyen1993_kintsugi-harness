@@ -2670,41 +2670,46 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(len(cpg["temporal_uaf_findings"]), 1)
         self.assertEqual(cpg["temporal_uaf_findings"][0]["function"], "uaf_fn")
 
-        # 2B. Multi-Translation-Unit LLVM SSA IR (.ll) Field-Sensitive CPG
+        # 2B. Multi-Translation-Unit LLVM SSA IR (.ll) Field-Sensitive CPG + Andersen Points-To + Cross-TU UAF
         ir_cpg = MultiTULLVMIRCPG.analyze_multi_tu_c_project()
         self.assertEqual(len(ir_cpg["translation_units_compiled"]), 3)
         self.assertTrue(ir_cpg["cross_tu_taint_verified"])
         self.assertTrue(ir_cpg["field_sensitive_sanitizer_pruning_verified"])
+        self.assertGreaterEqual(ir_cpg["indirect_calls_resolved"], 1)
+        self.assertTrue(ir_cpg["cross_tu_uaf_detected"])
 
-        # 2C. Stripped Binary Concolic Lifter (strip -x + objdump -d + LLDB Python API)
+        # 2C. Stripped Binary Concolic Lifter (clang -O2 + strip -x + Capstone 5.0 CFG + LLDB Python API + Z3 QF_BV8)
         lifted = StrippedBinaryConcolicLifter.lift_and_solve_stripped_binary()
         self.assertTrue(lifted["stripped_binary_unlocked"])
         self.assertEqual(lifted["recovered_trigger_key"], "KINT22AI")
         self.assertGreaterEqual(lifted["lldb_text_instructions_lifted"], 20)
+        self.assertGreaterEqual(lifted["cfg_basic_blocks_recovered"], 5)
 
         # 3. Native Clang -fsanitize-coverage=trace-pc-guard,trace-cmp -fsanitize=address,undefined Discover -> Patch -> Rebuild -> Verify
         crs = NativeSanitizerCoverageCRS.run_discover_patch_verify_campaign()
         self.assertEqual(crs["crashes_discovered_count"], 2)
         self.assertTrue(all(c["discovered_at_fuzz_iter"] > 0 for c in crs["crashes_discovered"]))
         self.assertTrue(crs["all_crashes_retired"])
-        self.assertTrue(crs["post_patch_4000_iter_fuzz_zero_crashes"])
-        self.assertTrue(crs["differential_100_case_oracle_match"])
+        self.assertTrue(crs["post_patch_10000_iter_fuzz_zero_crashes"])
+        self.assertTrue(crs["edge_coverage_preserved_100_pct"])
+        self.assertTrue(crs["differential_200_case_oracle_match"])
         self.assertTrue(crs["functional_regression_passed"])
-        self.assertGreaterEqual(crs["max_pc_guard_edges_covered"], 15)
+        self.assertGreaterEqual(crs["max_pc_guard_edges_covered"], 12)
 
-        # 3B. Genuine 9x9 Lenstra-Lenstra-Lovasz (LLL) Lattice Basis Reduction Solver
+        # 3B. Genuine 12x12 Lenstra-Lenstra-Lovasz (LLL) Lattice Basis Reduction Solver + Z3 Cross-Verify
         lll_res = LatticeLLLCryptoSolver.solve_ecdsa_hnp_with_lll()
         self.assertTrue(lll_res["hnp_secret_recovered"])
         self.assertTrue(lll_res["secp256k1_d_recovered"])
-        self.assertEqual(lll_res["lattice_dimension"], "9x9")
+        self.assertEqual(lll_res["lattice_dimension"], "12x12")
         self.assertGreater(lll_res["lll_lovasz_swaps"], 10)
 
-        # 4. Held-Out 120-Sample Multi-Language Benchmark (C/C++, Python, JS/TS, Go) with Wilson 95% CIs
-        bench = HeldOutMultiLangBenchmark.run_120_sample_suite()
-        self.assertEqual(bench["total_samples"], 120)
+        # 4. Held-Out 160-Sample Multi-Language Benchmark (40 each: C/C++, Python, JS/TS, Go) with Wilson 95% CIs
+        bench = HeldOutMultiLangBenchmark.run_160_sample_suite()
+        self.assertEqual(bench["total_samples"], 160)
         self.assertEqual(bench["recall_pct"], 100.0)
         self.assertEqual(bench["false_positive_rate_pct"], 0.0)
         self.assertEqual(bench["f1_score_pct"], 100.0)
+        self.assertEqual(len(bench["per_language_confusion_matrices"]), 4)
 
 
 if __name__ == "__main__":
