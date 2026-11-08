@@ -1,0 +1,27 @@
+assets:
+  repo: https://github.com/tunguyen1993/kintsugi-harness
+  logs: https://github.com/tunguyen1993/kintsugi-harness/tree/main/benchmarks/swebench_submission/logs
+  trajs: https://github.com/tunguyen1993/kintsugi-harness/tree/main/benchmarks/swebench_submission/trajs
+info:
+  logo: logo.svg
+  name: Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm)
+  site: https://github.com/tunguyen1993/kintsugi-harness
+  report: https://github.com/tunguyen1993/kintsugi-harness/blob/main/benchmarks/swebench_submission/TECHNICAL_REPORT.md
+  authors: Nguyen Duc Tu (@tunguyen1993)
+tags:
+  checked: false
+  model:
+  - deepseek-r1
+  - grok-4.7
+  - qwen3-4b-mlx
+  org:
+  - Kintsugi-Harness
+  os_model: true
+  os_system: true
+  system:
+    attempts: 2+
+  agent: Kintsugi-Harness
+  agent_org: Kintsugi-Harness
+  model_display: Multiple
+  model_org: Multiple
+  reasoning_effort: high

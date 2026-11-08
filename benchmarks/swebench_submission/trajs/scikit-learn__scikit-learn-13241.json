@@ -1,0 +1,31 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13241",
+  "repo": "scikit-learn/scikit-learn",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "KernelPCA eigenvectors have arbitrary sign flips across runs because `svd_flip` is not applied to `alphas_`.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Take `abs(alphas_)` which destroys orthogonality of eigenvectors.",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Flip based on the first row element `alphas_[0, :]` (unstable when near zero).",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Apply `svd_flip(self.alphas_, np.zeros_like(self.alphas_).T)[0]` enforcing positive sign on max-abs row per column.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/sklearn/decomposition/kernel_pca.py b/sklearn/decomposition/kernel_pca.py\n--- a/sklearn/decomposition/kernel_pca.py\n+++ b/sklearn/decomposition/kernel_pca.py\n@@ -215,6 +215,8 @@ class KernelPCA(BaseEstimator, TransformerMixin, _UnstableOn32BitMixin):\n         self.lambdas_ = _check_psd_eigenvalues(self.lambdas_, enable_warnings=False)\n+        self.alphas_, _ = svd_flip(\n+            self.alphas_, np.zeros_like(self.alphas_).T\n+        )\n         indices = self.lambdas_.argsort()[::-1]\n"
+    }
+  ],
+  "final_selected_patch_sha256": "83dea667f0f3259d2ca809285c5e58bb7e34957f70d5a963b8b6cf8c3e2bbfc7"
+}

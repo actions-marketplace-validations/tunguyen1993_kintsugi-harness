@@ -37,6 +37,9 @@ jobs:
       - name: Run 10-Arena 5-Pillar Pareto-Optimal Verification Suite
         run: python3 benchmarks/run_verifiable_arena_cert_suite.py --verify
 
+      - name: Build & Verify Official SWE-bench and GAIA Leaderboard Submission Packages
+        run: python3 benchmarks/build_swebench_and_gaia_submissions.py
+
       - name: Generate Deterministic SLSA Subject SHA-256 Provenance Digest
         run: |
-          sha256sum pyproject.toml Cargo.toml benchmarks/verified_10_arena_pareto_certificate.json
+          sha256sum pyproject.toml Cargo.toml benchmarks/verified_10_arena_pareto_certificate.json benchmarks/swebench_submission/all_preds.jsonl benchmarks/gaia_submission/gaia_validation_submission.jsonl
