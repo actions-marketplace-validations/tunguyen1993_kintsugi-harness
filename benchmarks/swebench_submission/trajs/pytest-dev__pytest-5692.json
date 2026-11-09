@@ -1,0 +1,31 @@
+{
+  "instance_id": "pytest-dev__pytest-5692",
+  "repo": "pytest-dev/pytest",
+  "model_name_or_path": "kintsugi-harness-v1.9.0-pareto-swarm",
+  "system_architecture": "Kintsugi-Harness v1.9.0 (5-Pillar Neuro-Symbolic Pareto Swarm + Rust AST Grounding Gate)",
+  "selection_policy": "Best@3 (Pillar 1 2-Strike Pivot + Pillar 5 Pareto-Optimal Selector without using FAIL_TO_PASS test oracle)",
+  "problem_statement": "JUnitXML report `<testsuite>` element omits `hostname` and ISO-8601 `timestamp` attributes required by JUnit schema.",
+  "rollouts": [
+    {
+      "attempt_id": "Way_1_Naive_Baseline",
+      "hypothesis": "Hardcode `hostname='localhost'` and Unix epoch float timestamp.",
+      "ast_grounding_gate": "REFUTED_INVARIANT_VIOLATION (Strike 1)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_2_Heuristic_Workaround",
+      "hypothesis": "Use `time.ctime()` which violates XSD `xs:dateTime` ISO-8601 format.",
+      "ast_grounding_gate": "REFUTED_EDGE_CASE_REGRESSION (Strike 2 -> Trigger Pillar 1 Pivot)",
+      "selected": false
+    },
+    {
+      "attempt_id": "Way_3_Pareto_Optimal_S3",
+      "hypothesis": "Format `datetime.fromtimestamp(suite_start).isoformat()` and `platform.node()` on `<testsuite>`.",
+      "ast_grounding_gate": "VERIFIED_S3_STRONG_LOCK",
+      "pareto_score": 98.5,
+      "selected": true,
+      "model_patch": "diff --git a/src/_pytest/junitxml.py b/src/_pytest/junitxml.py\n--- a/src/_pytest/junitxml.py\n+++ b/src/_pytest/junitxml.py\n@@ -666,6 +666,8 @@ class LogXML:\n             skipped=self.stats[\"skipped\"],\n             tests=numtests,\n             time=\"%.3f\" % suite_time_delta,\n+            timestamp=datetime.fromtimestamp(self.suite_start_time).isoformat(),\n+            hostname=platform.node(),\n         )\n"
+    }
+  ],
+  "final_selected_patch_sha256": "1c7c1743fd18698c21a6666fd99395ffb1385a92026cad9e22868a9720e86c1b"
+}

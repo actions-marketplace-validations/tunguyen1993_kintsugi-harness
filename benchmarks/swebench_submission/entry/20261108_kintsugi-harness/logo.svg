@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="32" fill="#0B0F19"/>
+  <path d="M40 155 L92 45 L118 105 L160 45" stroke="#F59E0B" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="92" cy="45" r="9" fill="#10B981"/>
+  <circle cx="118" cy="105" r="9" fill="#F59E0B"/>
+  <circle cx="160" cy="45" r="9" fill="#38BDF8"/>
+  <text x="100" y="182" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="18" fill="#F8FAFC">KINTSUGI S3</text>
+</svg>

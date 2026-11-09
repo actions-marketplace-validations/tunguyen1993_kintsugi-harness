@@ -1,0 +1,9 @@
+{
+  "system_name": "Kintsugi-Harness v1.9.0 (5-Pillar Pareto Swarm)",
+  "organization": "Kintsugi-Harness (@tunguyen1993)",
+  "url": "https://github.com/tunguyen1993/kintsugi-harness",
+  "model_family": "Multi-Model Neuro-Symbolic (Qwen3-4B-MLX + DeepSeek-R1 + Grok-4.7)",
+  "open_source_system": true,
+  "verified_tasks_count": 3,
+  "generated_at_utc": "2026-11-08T02:17:52.854763+00:00"
+}

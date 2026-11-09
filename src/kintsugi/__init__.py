@@ -1,8 +1,28 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "2.0.0"
+__version__ = "2.3.0"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
+from kintsugi.crs_engine import (
+    BitVectorSMTVerifier,
+    ClangLLVMCPGEngine,
+    HeldOutMultiLangBenchmark,
+    LatticeLLLCryptoSolver,
+    MultiTULLVMIRCPG,
+    NativeSanitizerCoverageCRS,
+    StrippedBinaryConcolicLifter,
+)
+from kintsugi.shield import (
+    ZeroTrustSameOriginRedirectHandler,
+    assert_not_symlink,
+    atomic_write_json,
+    atomic_write_text,
+    is_public_non_ssrf_host,
+    is_strictly_zero_bond,
+    locked_cortex_transaction,
+    normalize_shell_command,
+    sanitize_external_untrusted_text,
+)
 from kintsugi.autofix import run_autofix
 from kintsugi.cinema import (
     SUPPORTED_VIDEO_PROVIDERS,
@@ -85,7 +105,12 @@ from kintsugi.foresight import (
     MetacognitiveSelfModel,
     ScientificLiteratureVerifier,
 )
-from kintsugi.grounding import RepoAstGroundingEngine, SoundSymbolicPathSolver
+from kintsugi.grounding import (
+    BinarySecurityAndGadgetAnalyzer,
+    InterProceduralTaintGraph,
+    RepoAstGroundingEngine,
+    SoundSymbolicPathSolver,
+)
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, GoldenScar, ScanFinding, ScanReport, Severity
 from kintsugi.packs import (

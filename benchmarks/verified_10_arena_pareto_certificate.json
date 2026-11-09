@@ -5,7 +5,7 @@
   "philosophy_creed": "@CREED/1[P1:MUTATE|P2:SYNTH|P3:SCAR|P4:PRUNE|P5:CONVERGE_TRY_ALL_PICK_BEST]",
   "verdict": "PASS_100_ALL_10_ARENAS_PARETO_CONVERGED",
   "arenas_passed": "10/10",
-  "average_pareto_score": 98.26,
+  "average_pareto_score": 98.28,
   "verifiable_certifications_equipped": [
     {
       "id": "CERT-OPENSSF-SCORECARD",
@@ -45,10 +45,10 @@
         "passed": 4,
         "total": 4,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0164,
+        "latency_ms": 0.0217,
         "loc": 14,
         "actual_src_loc": 44,
-        "pareto_score": 98.22
+        "pareto_score": 98.21
       },
       "loc_reduction": "46 LOC -> 14 LOC (-69.6%)",
       "proof_hash": "2ab78ad373335459",
@@ -58,7 +58,7 @@
           "passed": 0,
           "total": 4,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0332,
+          "latency_ms": 0.0433,
           "loc": 18,
           "actual_src_loc": 2,
           "pareto_score": 0.0
@@ -68,7 +68,7 @@
           "passed": 0,
           "total": 4,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0321,
+          "latency_ms": 0.0442,
           "loc": 22,
           "actual_src_loc": 2,
           "pareto_score": 0.0
@@ -78,10 +78,10 @@
           "passed": 4,
           "total": 4,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0164,
+          "latency_ms": 0.0217,
           "loc": 14,
           "actual_src_loc": 44,
-          "pareto_score": 98.22
+          "pareto_score": 98.21
         }
       ]
     },
@@ -96,10 +96,10 @@
         "passed": 3,
         "total": 3,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0336,
+        "latency_ms": 0.0413,
         "loc": 11,
         "actual_src_loc": 2,
-        "pareto_score": 98.56
+        "pareto_score": 98.55
       },
       "loc_reduction": "44 LOC -> 11 LOC (-75.0%)",
       "proof_hash": "24ab9d6fb42eca0e",
@@ -109,30 +109,30 @@
           "passed": 2,
           "total": 3,
           "accuracy_pct": 66.67,
-          "latency_ms": 0.0056,
+          "latency_ms": 0.0096,
           "loc": 24,
           "actual_src_loc": 2,
-          "pareto_score": 31.99
+          "pareto_score": 31.98
         },
         {
           "way_id": "WAY_2_PREMATURE_FLOOR",
           "passed": 2,
           "total": 3,
           "accuracy_pct": 66.67,
-          "latency_ms": 0.003,
+          "latency_ms": 0.0068,
           "loc": 19,
           "actual_src_loc": 2,
-          "pareto_score": 32.62
+          "pareto_score": 32.61
         },
         {
           "way_id": "WAY_3_PARETO_EXACT_FRACTION",
           "passed": 3,
           "total": 3,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0336,
+          "latency_ms": 0.0413,
           "loc": 11,
           "actual_src_loc": 2,
-          "pareto_score": 98.56
+          "pareto_score": 98.55
         }
       ]
     },
@@ -147,10 +147,10 @@
         "passed": 2,
         "total": 2,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0139,
+        "latency_ms": 0.0195,
         "loc": 12,
         "actual_src_loc": 7,
-        "pareto_score": 98.47
+        "pareto_score": 98.46
       },
       "loc_reduction": "52 LOC -> 12 LOC (-76.9%)",
       "proof_hash": "444ce9b4f7a57deb",
@@ -160,7 +160,7 @@
           "passed": 0,
           "total": 2,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0041,
+          "latency_ms": 0.005,
           "loc": 20,
           "actual_src_loc": 2,
           "pareto_score": 0.0
@@ -170,7 +170,7 @@
           "passed": 0,
           "total": 2,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0048,
+          "latency_ms": 0.0088,
           "loc": 22,
           "actual_src_loc": 2,
           "pareto_score": 0.0
@@ -180,10 +180,10 @@
           "passed": 2,
           "total": 2,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0139,
+          "latency_ms": 0.0195,
           "loc": 12,
           "actual_src_loc": 7,
-          "pareto_score": 98.47
+          "pareto_score": 98.46
         }
       ]
     },
@@ -198,10 +198,10 @@
         "passed": 3,
         "total": 3,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0146,
+        "latency_ms": 0.02,
         "loc": 14,
         "actual_src_loc": 13,
-        "pareto_score": 98.22
+        "pareto_score": 98.21
       },
       "loc_reduction": "48 LOC -> 14 LOC (-70.8%)",
       "proof_hash": "bd5a48e3f1a233f0",
@@ -211,7 +211,7 @@
           "passed": 2,
           "total": 3,
           "accuracy_pct": 66.67,
-          "latency_ms": 0.0079,
+          "latency_ms": 0.0104,
           "loc": 21,
           "actual_src_loc": 10,
           "pareto_score": 32.36
@@ -221,20 +221,20 @@
           "passed": 2,
           "total": 3,
           "accuracy_pct": 66.67,
-          "latency_ms": 0.0096,
+          "latency_ms": 0.012,
           "loc": 25,
           "actual_src_loc": 11,
-          "pareto_score": 31.86
+          "pareto_score": 31.85
         },
         {
           "way_id": "WAY_3_PARETO_MONOTONIC_DEQUE",
           "passed": 3,
           "total": 3,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0146,
+          "latency_ms": 0.02,
           "loc": 14,
           "actual_src_loc": 13,
-          "pareto_score": 98.22
+          "pareto_score": 98.21
         }
       ]
     },
@@ -249,10 +249,10 @@
         "passed": 3,
         "total": 3,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0092,
+        "latency_ms": 0.0109,
         "loc": 13,
         "actual_src_loc": 15,
-        "pareto_score": 98.36
+        "pareto_score": 98.35
       },
       "loc_reduction": "50 LOC -> 13 LOC (-74.0%)",
       "proof_hash": "510ad57ec49603c5",
@@ -262,17 +262,17 @@
           "passed": 2,
           "total": 3,
           "accuracy_pct": 66.67,
-          "latency_ms": 0.1635,
+          "latency_ms": 0.1991,
           "loc": 19,
           "actual_src_loc": 5,
-          "pareto_score": 32.32
+          "pareto_score": 32.25
         },
         {
           "way_id": "WAY_2_COPRIME_ONLY",
           "passed": 1,
           "total": 3,
           "accuracy_pct": 33.33,
-          "latency_ms": 0.0046,
+          "latency_ms": 0.0055,
           "loc": 24,
           "actual_src_loc": 10,
           "pareto_score": 6.99
@@ -282,10 +282,10 @@
           "passed": 3,
           "total": 3,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0092,
+          "latency_ms": 0.0109,
           "loc": 13,
           "actual_src_loc": 15,
-          "pareto_score": 98.36
+          "pareto_score": 98.35
         }
       ]
     },
@@ -300,7 +300,7 @@
         "passed": 3,
         "total": 3,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0032,
+        "latency_ms": 0.0038,
         "loc": 12,
         "actual_src_loc": 11,
         "pareto_score": 98.49
@@ -313,7 +313,7 @@
           "passed": 0,
           "total": 3,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0031,
+          "latency_ms": 0.0038,
           "loc": 18,
           "actual_src_loc": 5,
           "pareto_score": 0.0
@@ -323,7 +323,7 @@
           "passed": 1,
           "total": 3,
           "accuracy_pct": 33.33,
-          "latency_ms": 0.0025,
+          "latency_ms": 0.0035,
           "loc": 20,
           "actual_src_loc": 8,
           "pareto_score": 7.49
@@ -333,7 +333,7 @@
           "passed": 3,
           "total": 3,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0032,
+          "latency_ms": 0.0038,
           "loc": 12,
           "actual_src_loc": 11,
           "pareto_score": 98.49
@@ -351,7 +351,7 @@
         "passed": 2,
         "total": 2,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0114,
+        "latency_ms": 0.0129,
         "loc": 16,
         "actual_src_loc": 19,
         "pareto_score": 97.98
@@ -364,7 +364,7 @@
           "passed": 0,
           "total": 2,
           "accuracy_pct": 0.0,
-          "latency_ms": 0.0012,
+          "latency_ms": 0.0018,
           "loc": 16,
           "actual_src_loc": 3,
           "pareto_score": 0.0
@@ -374,7 +374,7 @@
           "passed": 1,
           "total": 2,
           "accuracy_pct": 50.0,
-          "latency_ms": 0.004,
+          "latency_ms": 0.005,
           "loc": 22,
           "actual_src_loc": 6,
           "pareto_score": 19.74
@@ -384,7 +384,7 @@
           "passed": 2,
           "total": 2,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0114,
+          "latency_ms": 0.0129,
           "loc": 16,
           "actual_src_loc": 19,
           "pareto_score": 97.98
@@ -402,10 +402,10 @@
         "passed": 6,
         "total": 6,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.2546,
+        "latency_ms": 0.0715,
         "loc": 15,
         "actual_src_loc": 19,
-        "pareto_score": 97.65
+        "pareto_score": 97.99
       },
       "loc_reduction": "46 LOC -> 15 LOC (-67.4%)",
       "proof_hash": "961769914aca4f2e",
@@ -415,7 +415,7 @@
           "passed": 2,
           "total": 6,
           "accuracy_pct": 33.33,
-          "latency_ms": 0.0023,
+          "latency_ms": 0.0065,
           "loc": 18,
           "actual_src_loc": 2,
           "pareto_score": 7.74
@@ -425,7 +425,7 @@
           "passed": 3,
           "total": 6,
           "accuracy_pct": 50.0,
-          "latency_ms": 0.0035,
+          "latency_ms": 0.003,
           "loc": 21,
           "actual_src_loc": 3,
           "pareto_score": 19.87
@@ -435,10 +435,10 @@
           "passed": 6,
           "total": 6,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.2546,
+          "latency_ms": 0.0715,
           "loc": 15,
           "actual_src_loc": 19,
-          "pareto_score": 97.65
+          "pareto_score": 97.99
         }
       ]
     },
@@ -453,10 +453,10 @@
         "passed": 3,
         "total": 3,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.2621,
+        "latency_ms": 0.2701,
         "loc": 11,
         "actual_src_loc": 7,
-        "pareto_score": 98.13
+        "pareto_score": 98.12
       },
       "loc_reduction": "44 LOC -> 11 LOC (-75.0%)",
       "proof_hash": "f74cd52a8ec7a791",
@@ -466,7 +466,7 @@
           "passed": 1,
           "total": 3,
           "accuracy_pct": 33.33,
-          "latency_ms": 0.0084,
+          "latency_ms": 0.0103,
           "loc": 18,
           "actual_src_loc": 3,
           "pareto_score": 7.73
@@ -476,7 +476,7 @@
           "passed": 1,
           "total": 3,
           "accuracy_pct": 33.33,
-          "latency_ms": 0.0052,
+          "latency_ms": 0.004,
           "loc": 20,
           "actual_src_loc": 4,
           "pareto_score": 7.49
@@ -486,10 +486,10 @@
           "passed": 3,
           "total": 3,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.2621,
+          "latency_ms": 0.2701,
           "loc": 11,
           "actual_src_loc": 7,
-          "pareto_score": 98.13
+          "pareto_score": 98.12
         }
       ]
     },
@@ -504,7 +504,7 @@
         "passed": 2,
         "total": 2,
         "accuracy_pct": 100.0,
-        "latency_ms": 0.0047,
+        "latency_ms": 0.0052,
         "loc": 12,
         "actual_src_loc": 13,
         "pareto_score": 98.49
@@ -517,7 +517,7 @@
           "passed": 1,
           "total": 2,
           "accuracy_pct": 50.0,
-          "latency_ms": 0.0058,
+          "latency_ms": 0.0061,
           "loc": 20,
           "actual_src_loc": 9,
           "pareto_score": 19.99
@@ -527,7 +527,7 @@
           "passed": 1,
           "total": 2,
           "accuracy_pct": 50.0,
-          "latency_ms": 0.0028,
+          "latency_ms": 0.0027,
           "loc": 18,
           "actual_src_loc": 3,
           "pareto_score": 20.24
@@ -537,7 +537,7 @@
           "passed": 2,
           "total": 2,
           "accuracy_pct": 100.0,
-          "latency_ms": 0.0047,
+          "latency_ms": 0.0052,
           "loc": 12,
           "actual_src_loc": 13,
           "pareto_score": 98.49

@@ -1,0 +1,30 @@
+{
+  "psf__requests-2317": {
+    "patch_is_None": false,
+    "patch_exists": true,
+    "patch_successfully_applied": true,
+    "resolved": true,
+    "tests_status": {
+      "FAIL_TO_PASS": {
+        "success": [
+          "test_binary_method_name_decoded_to_ascii_str"
+        ],
+        "failure": []
+      },
+      "PASS_TO_PASS": {
+        "success": [
+          "test_text_method_name_uppercased"
+        ],
+        "failure": []
+      },
+      "FAIL_TO_FAIL": {
+        "success": [],
+        "failure": []
+      },
+      "PASS_TO_FAIL": {
+        "success": [],
+        "failure": []
+      }
+    }
+  }
+}

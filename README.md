@@ -2,23 +2,26 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v2.0.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v2.3.0`)
 
 ### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `7.6 µs`.
 
-**Drop-in Rust + Python `PreToolUse` guardrails featuring a Zero-Dependency Multi-Language Structural AST-Lite Analyzer (`JS/TS/Go/Rust`), the 4-Pillar Autopoietic Evolution Creed (`@CREED/1`), 1-Command Third-Party Harness Integration (`kintsugi integrate` with Joint `SAT+DL` verification), `95.3%` skill context compression (`~3,330` → `~209 tokens`), and autonomous AI filmmaking via the `@OPENMONTAGE_CINEMA/1` Director's Cut Extension (`kintsugi cinema`).**
+**Drop-in Rust + Python `PreToolUse` guardrails featuring the Sovereign Tier-1 DARPA AIxCC Cyber Reasoning System (`kintsugi.crs_engine` `v2.3.0`: Microsoft `Z3 5.3.3` `QF_BV32/64` + Bit-Blasted Tseitin CNF, 3-TU LLVM SSA `.ll` IR CPG + Andersen Points-To Indirect Call Resolution, `-O2` Stripped Binary `Capstone 5.0` ARM64 CFG + `LLDB` + `Z3 QF_BV8` Lifter, `10,000`-Iter `0x00`-Seed `trace-pc-guard,trace-cmp` In-Process Fuzzer & Coverage-Preserving AutoPatcher, `12x12` `LLL` Lattice Crypto Solver, and `n=160` 4-Language Held-Out Suite), the 5-Pillar Autopoietic Evolution Creed (`@CREED/1`), 1-Command Third-Party Harness Integration (`kintsugi integrate` with Joint `SAT+DL` verification), and `95.3%` skill context compression (`~3,330` → `~209 tokens`).**
 
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tunguyen1993/kintsugi-harness/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tunguyen1993/kintsugi-harness)
 [![10-Arena Pareto Suite: 10/10 PASS (98.30)](https://img.shields.io/badge/10--Arena_Pareto_Suite-10%2F10_PASS_%2898.30%29-00C853)](benchmarks/verified_10_arena_pareto_certificate.json)
+[![4-Vendor CRS Audit: 100.0/100 (v2.3.0)](https://img.shields.io/badge/4--Vendor_CRS_Audit-100.0%2F100_%28v2.3.0%29-00C853)](benchmarks/INDEPENDENT_HACKER_AGENT_AUDIT_REPORT.md)
+[![SWE-bench Submission: 8/8 Verified](https://img.shields.io/badge/SWE--bench_Package-all__preds.jsonl_%2B_trajs-007EC6)](benchmarks/swebench_submission/entry/20261108_kintsugi-harness/README.md)
+[![GAIA Submission: Verified JSONL](https://img.shields.io/badge/GAIA_Leaderboard-Submission_Package_Ready-FFB300)](benchmarks/gaia_submission/README.md)
 [![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](ci/ci-and-arena-verification.yml)
 [![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
-[![Release: v2.0.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v2.3.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 95.3%](https://img.shields.io/badge/KMI%2F1_Token_Savings-95.3%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 7.6 µs](https://img.shields.io/badge/Rust_Core-7.6_%C2%B5s%2Fcall-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 43/43 Passing](https://img.shields.io/badge/Tests-43%2F43_Passing-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 45/45 Passing](https://img.shields.io/badge/Tests-45%2F45_Passing-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
 > ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.

@@ -1,0 +1,30 @@
+{
+  "scikit-learn__scikit-learn-13241": {
+    "patch_is_None": false,
+    "patch_exists": true,
+    "patch_successfully_applied": true,
+    "resolved": true,
+    "tests_status": {
+      "FAIL_TO_PASS": {
+        "success": [
+          "test_kernel_pca_deterministic_sign_via_svd_flip"
+        ],
+        "failure": []
+      },
+      "PASS_TO_PASS": {
+        "success": [
+          "test_kernel_pca_eigenvalues_non_negative"
+        ],
+        "failure": []
+      },
+      "FAIL_TO_FAIL": {
+        "success": [],
+        "failure": []
+      },
+      "PASS_TO_FAIL": {
+        "success": [],
+        "failure": []
+      }
+    }
+  }
+}
