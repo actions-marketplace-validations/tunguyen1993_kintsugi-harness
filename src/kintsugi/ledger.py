@@ -133,3 +133,7 @@ class ScarLedger:
 
     def all(self) -> List[GoldenScar]:
         return sorted(self._scars.values(), key=lambda s: s.id)
+
+    @property
+    def scars(self) -> List[GoldenScar]:
+        return self.all()

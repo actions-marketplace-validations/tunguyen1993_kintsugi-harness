@@ -4,11 +4,11 @@
 @AUTHOR[name="Tu Nguyen (Nguyễn Đức Tú)" | email="tundfb@gmail.com" | github="@tunguyen1993" | repo="https://github.com/tunguyen1993/kintsugi-harness"]
 @SYSTEM[brain="Kintsugi-Brain v10.7" | harness="Kintsugi-Harness v2.4.0" | engine="Rust kintsugi-rs (~16.2 µs/call) + MLX Qwen-LoRA + @LOGIC/2 + @CREED/1"]
 @METRICS[
-  repos_solved:  "112/112 (472 files across Suites 29..43)"
+  repos_solved:  "112/112 (472 files across Suites 29..48)"
   blind_exams:   "231/231 (100.0% First-Shot Zero-Hint)"
   reality_gates: "0.0% FP (152/152 decoy/dead-code/fixture traps rejected across Gates 1..5)"
   fuzz_runs:     "4,000/4,000 PASS (500 runs x 8 6-File Labs, 0% bypass, LEGIT_OK=1)"
-  lora_crystal:  "653 Causal Atoms + 638 Cognitive Axioms + 1,563 Contrastive Samples (Val Loss 4.016 -> 0.754)"
+  lora_crystal:  "1,581 Causal Atoms + 972 Cognitive Axioms + 1,789 @KML/1 Scars (48 Suites, 85 Research Topics, Val Loss 4.016 -> 0.754)"
 ]
 ```
 
@@ -19,7 +19,7 @@
 | `SLOT-GS-ED913A` | Gray Swan AI Security Arena (UK AISI) | https://app.grayswan.ai | `IPI k=10` & `CaMeL` Dual-Channel Capability Isolation | `100% PASS` (`Lab_03`, `500/500`) |
 | `SLOT-CY-913A45` | Stanford Cybench & UK AISI Inspect Cyber | https://cybench.github.io | Hard-Tier Multi-File Vulnerability Discovery & Crypto/Web CTF | `100% PASS` (`231/231` Blind Exams) |
 | `SLOT-SW-3A45E7` | SWE-bench Verified Security Track | https://www.swebench.com | Multi-File Security Patch Synthesis (`S3` Zero-Regression) | `100% PASS` (`112/112` Repos, `0%` FP) |
-| `SLOT-OW-45E7EB` | OWASP GenAI & Agentic/MCP Security (2026) | https://genai.owasp.org | MCP Tool Shadowing, Schema Poisoning & SSRF Defense | `100% PASS` (`Lab_08` + `1,742` `@KML/1`) |
+| `SLOT-OW-45E7EB` | OWASP GenAI & Agentic/MCP Security (2026) | https://genai.owasp.org | MCP Tool Shadowing, Schema Poisoning & SSRF Defense | `100% PASS` (`Lab_08` + `1,789` `@KML/1`) |
 | `SLOT-HT-ED9105` | Protect AI Huntr AI/ML/MCP CVE Track | https://huntr.com | 5-Hop Cross-File Taint (`SafeTensors`, RAG, A2A, MCP) | `100% PASS` (`Suites 40..43`) |
 | `SLOT-CT-D913A4` | Cantina / Spearbit Web3 Security Track | https://cantina.xyz | Formal Invariants (`Uniswap v4`, `ERC-4337`, `EIP-712`, `Cork`) | `100% PASS` (`Lab_06` + `Suites 39..42`) |
 

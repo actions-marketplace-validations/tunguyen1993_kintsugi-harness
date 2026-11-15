@@ -2771,6 +2771,69 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             self.assertEqual(dom_payload["domain"], "security")
             self.assertIn("KMI/1;domain=security", dom_payload["domain_kmi_pack"])
 
+    def test_v2_4_0_empirical_cortex_and_harness_evolutions(self) -> None:
+        from kintsugi.swarm import (
+            compute_swarm_dispatch_plan,
+            get_model_capability_matrix,
+            route_task_to_domain_shards,
+        )
+
+        repo_root = Path(__file__).resolve().parent.parent
+
+        # 1. Verify @CREED/1 v2.1 5-Pillar Autopoietic Evolution Creed & Harness Evolutions in Compiler
+        gov_block = SkillCompiler(get_starter_scars()).render_root_governance_block()
+        for pillar in ("P1:MUTATE", "P2:SYNTH", "P3:SCAR", "P4:PRUNE", "P5:CONVERGE"):
+            self.assertIn(pillar, gov_block)
+        for proto in ("@SWARM_DISPATCH/1", "@DUAL_COUNCIL/1", "@NEVER_SOLO_GATE/1", "@HARNESS_HOT_RELOAD/1"):
+            self.assertIn(proto, gov_block)
+
+        # 2. Verify @MODEL_MATRIX/1 & @SWARM_DISPATCH/1 + Domain Shard Routing
+        mat = get_model_capability_matrix()
+        self.assertEqual(mat["slots_count"], 6)
+        self.assertIn("creed_v2_1", mat["harness_evolutions"])
+        self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["protocol"], "@CREED/1")
+        self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["pillars_count"], 5)
+
+        plan = compute_swarm_dispatch_plan(
+            "Audit OAuth2 JWT signature verification, Postgres SQL query parameterization, and Docker container security",
+            plan_tier="ULTRA_X20",
+        )
+        self.assertEqual(plan["plan_tier"], "ULTRA_X20")
+        self.assertEqual(plan["max_subagents_cap"], 8)
+        self.assertGreaterEqual(plan["recommended_parallel_subagents"], 3)
+        self.assertEqual(plan["subagent_model_lock"], "ARGON_HIGH (Model='inherit' | 'pro')")
+        self.assertIn("security", plan["routed_domains"])
+        self.assertIn("database", plan["routed_domains"])
+        self.assertIn("devops", plan["routed_domains"])
+        self.assertIn("@SWARM_DISPATCH/1|", plan["kmi_dispatch_wire"])
+
+        shards = route_task_to_domain_shards("Fix CORS XSS in React DOM and MCP tool prompt injection")
+        self.assertIn("frontend", shards["routed_domains"])
+        self.assertIn("ai_mcp", shards["routed_domains"])
+
+        # 3. Verify Pre-Compiled Domain @KML/1 Shards & Synthesized Empirical Cortex
+        dom_manifest_path = repo_root / "docs" / "domains" / "domain_manifest.json"
+        self.assertTrue(dom_manifest_path.is_file())
+        dom_manifest = json.loads(dom_manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(dom_manifest["total_scars"], 1789)
+        self.assertEqual(dom_manifest["empirical_scars_added"], 63)
+        self.assertEqual(sum(d["scars_count"] for d in dom_manifest["domains"].values()), 1789)
+        for d_meta in dom_manifest["domains"].values():
+            self.assertTrue((repo_root / d_meta["kml_shard"]).is_file())
+
+        cortex_manifest_path = repo_root / "collective-pool" / "synthesized-empirical-cortex" / "MANIFEST.json"
+        self.assertTrue(cortex_manifest_path.is_file())
+        cortex_manifest = json.loads(cortex_manifest_path.read_text(encoding="utf-8"))
+        self.assertTrue(cortex_manifest["dlp_sanitized"])
+        self.assertEqual(cortex_manifest["counts"]["cognitive_axioms"], 972)
+        self.assertEqual(cortex_manifest["counts"]["causal_atoms"], 1581)
+        self.assertEqual(cortex_manifest["counts"]["completed_training_suites"], 48)
+        self.assertEqual(cortex_manifest["counts"]["completed_research_topics"], 85)
+        self.assertEqual(cortex_manifest["counts"]["empirical_engineering_scars_ks_emp"], 63)
+        self.assertEqual(cortex_manifest["counts"]["total_ledger_scars"], 1789)
+        self.assertEqual(cortex_manifest["counts"]["local_cognitive_lessons"], 41)
+        self.assertEqual(cortex_manifest["counts"]["swarm_merged_playbooks"], 7)
+
 
 if __name__ == "__main__":
     unittest.main()
