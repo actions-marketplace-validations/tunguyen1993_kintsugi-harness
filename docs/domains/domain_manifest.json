@@ -1,0 +1,67 @@
+{
+  "schema": "kintsugi.domain_shards.v2.4.0",
+  "total_scars": 1789,
+  "empirical_scars_added": 63,
+  "domains": {
+    "security": {
+      "domain": "security",
+      "title": "Application Security, Cryptography & Secrets",
+      "markdown_doc": "docs/domains/01_security_appsec.md",
+      "kml_shard": "docs/domains/01_security_appsec.kml",
+      "scars_count": 320,
+      "kml_tokens": 21898,
+      "kmi_header_tokens": 164,
+      "sha256": "b39b2c29efb7a77df27dc94eda8ccfa9ddb468de7b0cc3ca1eac5e1f9418498c"
+    },
+    "backend": {
+      "domain": "backend",
+      "title": "Backend APIs, HTTP Resilience & Concurrency",
+      "markdown_doc": "docs/domains/02_backend_api.md",
+      "kml_shard": "docs/domains/02_backend_api.kml",
+      "scars_count": 331,
+      "kml_tokens": 22418,
+      "kmi_header_tokens": 185,
+      "sha256": "db3e9154a880db5cc1b0a21d8182fc8fbca43cea90cb72da79678fe0e9619431"
+    },
+    "database": {
+      "domain": "database",
+      "title": "Database Queries, Parameterized SQL & Persistence",
+      "markdown_doc": "docs/domains/03_database_sql.md",
+      "kml_shard": "docs/domains/03_database_sql.kml",
+      "scars_count": 291,
+      "kml_tokens": 20024,
+      "kmi_header_tokens": 179,
+      "sha256": "a8b04b13693ebf627fbbc15578fe1b2ce9c5c7b6a4474c10309819a5e00393a8"
+    },
+    "frontend": {
+      "domain": "frontend",
+      "title": "Frontend UI, DOM/XSS Hygiene, CORS & Browser Automation",
+      "markdown_doc": "docs/domains/04_frontend_ui.md",
+      "kml_shard": "docs/domains/04_frontend_ui.kml",
+      "scars_count": 285,
+      "kml_tokens": 19585,
+      "kmi_header_tokens": 178,
+      "sha256": "a8d87bad9b95c508a92618b5b783b60665d1de91d9572cb56ebb7e762316fbc3"
+    },
+    "devops": {
+      "domain": "devops",
+      "title": "DevOps, Shell/Git Safety, Subprocess & Containers",
+      "markdown_doc": "docs/domains/05_devops_cloud.md",
+      "kml_shard": "docs/domains/05_devops_cloud.kml",
+      "scars_count": 267,
+      "kml_tokens": 18230,
+      "kmi_header_tokens": 166,
+      "sha256": "0a4c5556425b1c1a77c6bd5091f5777eaa776abb734ca6bb51b85a9280b17082"
+    },
+    "ai_mcp": {
+      "domain": "ai_mcp",
+      "title": "AI Coding Agents, MCP Prompt Security & Token FinOps",
+      "markdown_doc": "docs/domains/06_ai_mcp_agents.md",
+      "kml_shard": "docs/domains/06_ai_mcp_agents.kml",
+      "scars_count": 295,
+      "kml_tokens": 20287,
+      "kmi_header_tokens": 182,
+      "sha256": "9004de663102071abc24c4f0a8c108a54786a2d571538f2c3522e3c8b60d88dc"
+    }
+  }
+}

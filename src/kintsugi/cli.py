@@ -59,6 +59,8 @@ from kintsugi.swarm import (
     ControlledInternetForager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
+    compute_swarm_dispatch_plan,
+    get_model_capability_matrix,
 )
 
 
@@ -329,6 +331,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--paid-council-status", action="store_true", help="Show Paid Frontier Council BYOK status and supported seats")
     p_swm.add_argument("--guide", action="store_true", help="Display the Bilingual Agent Onboarding & Tier-Upgrade Guide (Free vs Pro Multi-Free vs Enterprise Paid Council)")
     p_swm.add_argument("--ask", metavar="QUESTION", default=None, help="Answer any user question in Vietnamese/English about Multi-Model Co-Execution, BYOK Paid Council keys, or Edition Tiers")
+    p_swm.add_argument("--model-matrix", action="store_true", help="Display the 6-Tier Model Capability Matrix (@MODEL_MATRIX/1) & Harness Architecture Evolutions")
+    p_swm.add_argument("--swarm-plan", metavar="TASK", default=None, help="Compute Subscription-Aware Parallel Subagent Swarm Dispatch Plan (@SWARM_DISPATCH/1) & Domain Shard Routing")
+    p_swm.add_argument("--plan-tier", default="UNLIMITED_LOCAL", choices=["UNLIMITED_LOCAL", "PRO", "APACHE_2_OPEN_SOURCE"], help="Subscription plan tier for --swarm-plan (default: UNLIMITED_LOCAL)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (answers user questions about Multi-Model, Free Models, and BYOK Paid Council)")
@@ -933,6 +938,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        if getattr(args, "model_matrix", False):
+            mat_rep = get_model_capability_matrix()
+            if args.wire:
+                print(mat_rep["kmi_matrix_wire"])
+                return 0
+            print(json.dumps(mat_rep, indent=2, ensure_ascii=False))
+            return 0
+        if getattr(args, "swarm_plan", None) is not None:
+            plan_rep = compute_swarm_dispatch_plan(
+                args.swarm_plan,
+                plan_tier=getattr(args, "plan_tier", "UNLIMITED_LOCAL"),
+            )
+            if args.wire:
+                print(plan_rep["kmi_dispatch_wire"])
+                return 0
+            print(json.dumps(plan_rep, indent=2, ensure_ascii=False))
+            return 0
         if args.provider_benchmarks:
             pb_rep = AIProviderBenchmarkSuite().run_all_provider_benchmarks(fetch_live_network=True)
             print(json.dumps(pb_rep, indent=2, ensure_ascii=False))

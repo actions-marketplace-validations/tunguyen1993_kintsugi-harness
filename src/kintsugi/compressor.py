@@ -62,6 +62,14 @@ COMPACT_SIGNATURES: Dict[str, str] = {
     "KS-WILD-516": "tls!wild_verify->verify_True",
     "KS-WILD-517": "mem!wild_cache->bounded_lru",
     "KS-WILD-518": "fp!wild_eq->math_isclose",
+    "KS-EMP-001": "wallet!no_token_hex_20->verify_keypair",
+    "KS-EMP-023": "net!dual_slot->build_isolated_opener",
+    "KS-EMP-032": "http!raw_wire_bytes->no_json_redump",
+    "KS-EMP-033": "escrow!payee->verify_repoint_status",
+    "KS-EMP-034": "ed25519!auth->moves_funds_false",
+    "KS-EMP-061": "git!push->GIT_TERMINAL_PROMPT=0",
+    "KS-EMP-062": "oss!pr_state_open_and_doc_count_parity",
+    "KS-EMP-063": "dlp!public_repo->zero_private_project_or_ip",
 }
 
 
@@ -298,6 +306,14 @@ _EXPLICIT_SCAR_DOMAIN_MAP: Dict[str, str] = {
     "KS-WILD-516": "security",
     "KS-WILD-517": "backend",
     "KS-WILD-518": "backend",
+    "KS-EMP-001": "security",
+    "KS-EMP-023": "security",
+    "KS-EMP-032": "backend",
+    "KS-EMP-033": "backend",
+    "KS-EMP-034": "security",
+    "KS-EMP-061": "devops",
+    "KS-EMP-062": "devops",
+    "KS-EMP-063": "security",
 }
 
 

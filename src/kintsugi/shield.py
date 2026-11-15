@@ -14,6 +14,7 @@ Protects self-evolving agent memory (`.kintsugi/scars.json`, `.kintsugi/lessons_
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
 import json
@@ -292,15 +293,8 @@ def scan_artifact_egress(payload: str, context: str = "generic") -> Dict[str, An
     }
 
 
-def is_safe_regex_pattern(pattern: Optional[str], max_probe_ms: float = 20.0) -> Tuple[bool, str]:
-    """
-    Validate a candidate `regex_pattern` against syntax errors, excessive length,
-    nested quantifier ReDoS patterns, and pathological runtime backtracking probes.
-    """
-    if pattern is None or pattern == "":
-        return True, "OK_NO_REGEX"
-    if not isinstance(pattern, str):
-        return False, "REJECTED_REGEX_TYPE: regex_pattern must be a string."
+@functools.lru_cache(maxsize=4096)
+def _is_safe_regex_cached(pattern: str, max_probe_ms: float = 20.0) -> Tuple[bool, str]:
     if len(pattern) > MAX_REGEX_LENGTH:
         return False, f"REJECTED_REGEX_LENGTH: length {len(pattern)} exceeds max {MAX_REGEX_LENGTH}."
     if TROJAN_UNICODE_RE.search(pattern):
@@ -323,6 +317,18 @@ def is_safe_regex_pattern(pattern: Optional[str], max_probe_ms: float = 20.0) ->
             f"REJECTED_REDOS_TIMEOUT: pathological probe took {elapsed_ms:.2f}ms (> {max_probe_ms}ms).",
         )
     return True, "OK_SAFE_REGEX"
+
+
+def is_safe_regex_pattern(pattern: Optional[str], max_probe_ms: float = 20.0) -> Tuple[bool, str]:
+    """
+    Validate a candidate `regex_pattern` against syntax errors, excessive length,
+    nested quantifier ReDoS patterns, and pathological runtime backtracking probes.
+    """
+    if pattern is None or pattern == "":
+        return True, "OK_NO_REGEX"
+    if not isinstance(pattern, str):
+        return False, "REJECTED_REGEX_TYPE: regex_pattern must be a string."
+    return _is_safe_regex_cached(pattern, max_probe_ms)
 
 
 def _check_urls_in_good_code(good_code: str) -> Optional[str]:

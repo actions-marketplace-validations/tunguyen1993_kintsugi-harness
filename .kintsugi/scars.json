@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "total_scars": 1726,
+  "total_scars": 1789,
   "scars": [
     {
       "id": "KS-001",
@@ -483,6 +483,1936 @@
       "fingerprint": "ccee9b8ecddd3d75"
     },
     {
+      "id": "KS-EMP-001",
+      "title": "@OP/1[ID:KS-EMP-001|SEV:CRITICAL|CAT:wallet|LANG:py|OP:wallet!no_token_hex_20->verify_keypair]",
+      "severity": "CRITICAL",
+      "category": "wallet",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "wallet",
+        "evm",
+        "solana",
+        "crypto",
+        "deterministic-tech-bounty",
+        "payout"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#0ac0b282,fault:WALLET_VIOLATION,origin:OP/1,tags:[wallet,evm,solana,crypto,deterministic-tech-bount]}",
+      "bad_code": "payout_address = \"0x\" + secrets.token_hex(20)",
+      "good_code": "payout_address = load_verified_wallet_And_verify_signature()",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:payout_address_load_verified_wallet_And_veri,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "0x\\\"\\s*\\+\\s*secrets\\.token_hex\\(20\\)|0x\\{\\s*os\\.urandom\\(20\\)\\.hex\\(\\)\\}",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:24Z",
+      "fingerprint": "9e3a541654814c92"
+    },
+    {
+      "id": "KS-EMP-002",
+      "title": "@OP/1[ID:KS-EMP-002|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-002_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "api",
+        "json",
+        "geojson",
+        "raw_body",
+        "scraper"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#7046cd31,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,api,json,geojson,raw_body]}",
+      "bad_code": "emp_violation_002_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_002_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_002_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_002_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:54Z",
+      "fingerprint": "41e078c22803549b"
+    },
+    {
+      "id": "KS-EMP-003",
+      "title": "@OP/1[ID:KS-EMP-003|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:D_NH_B_M_CDN_CLOUDFRONT_MAX-AGE_60_L]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "http",
+        "cdn",
+        "cloudfront",
+        "cache",
+        "timestamp"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#5ba7eb7f,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,http,cdn,cloudfront,cache]}",
+      "bad_code": "emp_violation_003_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_003_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_003_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_003_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:22Z",
+      "fingerprint": "d5580e3eda74a476"
+    },
+    {
+      "id": "KS-EMP-004",
+      "title": "@OP/1[ID:KS-EMP-004|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-004_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "self-check",
+        "excerptcheck",
+        "notfound",
+        "audit",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#81940896,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,self-check,excerptcheck,notfound,audit]}",
+      "bad_code": "emp_violation_004_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_004_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_004_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_004_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:35Z",
+      "fingerprint": "0c6e1b0ad43b432c"
+    },
+    {
+      "id": "KS-EMP-005",
+      "title": "@OP/1[ID:KS-EMP-005|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:X_A_HO_C_GHI_B_N_GHI_L_CH_S_PULL_1_P]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "pull1",
+        "pull2",
+        "progress_note",
+        "timestamp",
+        "markdown"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#d04bc45b,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,pull1,pull2,progress_note,timestamp]}",
+      "bad_code": "emp_violation_005_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_005_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_005_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_005_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:19Z",
+      "fingerprint": "b712cd3f3c9d0e47"
+    },
+    {
+      "id": "KS-EMP-006",
+      "title": "@OP/1[ID:KS-EMP-006|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:CH_N_T_NG_GI_I_TR_NH_V_I_M_Y_CH_M_RU]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "rule15",
+        "markdown",
+        "deliverable",
+        "dispute",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#13f95c76,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,rule15,markdown,deliverable,dispute]}",
+      "bad_code": "emp_violation_006_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_006_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_006_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_006_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:57Z",
+      "fingerprint": "cff7dbc826321ad7"
+    },
+    {
+      "id": "KS-EMP-007",
+      "title": "@OP/1[ID:KS-EMP-007|SEV:HIGH|CAT:eip191-zerodeposit-cli|LANG:py|OP:OP_1_ID_KS-EMP-007_SEV_HIGH_CAT_EIP1]",
+      "severity": "HIGH",
+      "category": "eip191-zerodeposit-cli",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "eip191-zerodeposit-cli",
+        "cli",
+        "soroban",
+        "stub",
+        "mock",
+        "stdout"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#e50d86a5,fault:EIP191-ZERODEPOSIT-CLI_VIOLATION,origin:OP/1,tags:[eip191-zerodeposit-cli,cli,soroban,stub,mock]}",
+      "bad_code": "emp_violation_007_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_007_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_007_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_007_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:13Z",
+      "fingerprint": "b49c1052fcdab2ab"
+    },
+    {
+      "id": "KS-EMP-008",
+      "title": "@OP/1[ID:KS-EMP-008|SEV:MEDIUM|CAT:markdown|LANG:py|OP:D_NG_STR_SPLIT_HEADER_1_TR_N_B_O_C_O]",
+      "severity": "MEDIUM",
+      "category": "markdown",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "markdown",
+        "parser",
+        "split",
+        "python",
+        "regex",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#f29658fc,fault:MARKDOWN_VIOLATION,origin:OP/1,tags:[markdown,parser,split,python,regex]}",
+      "bad_code": "emp_violation_008_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_008_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_008_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_008_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:42Z",
+      "fingerprint": "ad8dda7988b5d6d3"
+    },
+    {
+      "id": "KS-EMP-009",
+      "title": "@OP/1[ID:KS-EMP-009|SEV:MEDIUM|CAT:puppeteer|LANG:py|OP:OP_1_ID_KS-EMP-009_SEV_MEDIUM_CAT_PU]",
+      "severity": "MEDIUM",
+      "category": "puppeteer",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "puppeteer",
+        "playwright",
+        "chrome",
+        "ram",
+        "host-b",
+        "mac"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#30710329,fault:PUPPETEER_VIOLATION,origin:OP/1,tags:[puppeteer,playwright,chrome,ram,host-b]}",
+      "bad_code": "emp_violation_009_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_009_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_009_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_009_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:44Z",
+      "fingerprint": "41411955d03b219f"
+    },
+    {
+      "id": "KS-EMP-010",
+      "title": "@OP/1[ID:KS-EMP-010|SEV:HIGH|CAT:wallet|LANG:py|OP:C_BALANCEOF_0X0000_DEAD_AFA3_TR_N_CH]",
+      "severity": "HIGH",
+      "category": "wallet",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "wallet",
+        "Exchange",
+        "reporting",
+        "usdc",
+        "base",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#2680efad,fault:WALLET_VIOLATION,origin:OP/1,tags:[wallet,Exchange,reporting,usdc,base]}",
+      "bad_code": "emp_violation_010_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_010_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_010_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_010_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:55Z",
+      "fingerprint": "322dd858822a6ff4"
+    },
+    {
+      "id": "KS-EMP-011",
+      "title": "@OP/1[ID:KS-EMP-011|SEV:MEDIUM|CAT:ed25519-zerovalue-cosign|LANG:py|OP:OP_1_ID_KS-EMP-011_SEV_MEDIUM_CAT_ED]",
+      "severity": "MEDIUM",
+      "category": "ed25519-zerovalue-cosign",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "ed25519-zerovalue-cosign",
+        "solana",
+        "base58",
+        "cosign",
+        "payout",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#c5ee8156,fault:ED25519-ZEROVALUE-COSIGN_VIOLATION,origin:OP/1,tags:[ed25519-zerovalue-cosign,solana,base58,cosign,payout]}",
+      "bad_code": "emp_violation_011_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_011_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_011_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_011_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:21Z",
+      "fingerprint": "377eac000d05c2eb"
+    },
+    {
+      "id": "KS-EMP-012",
+      "title": "@OP/1[ID:KS-EMP-012|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-012_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "api",
+        "heartbeat",
+        "schema",
+        "bidding",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#c63ac0aa,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,api,heartbeat,schema,bidding]}",
+      "bad_code": "emp_violation_012_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_012_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_012_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_012_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:20Z",
+      "fingerprint": "58f4a8e83c6e74bd"
+    },
+    {
+      "id": "KS-EMP-013",
+      "title": "@OP/1[ID:KS-EMP-013|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-013_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "self-check",
+        "excerptcheck",
+        "notfound",
+        "markdown",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#95baf212,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,self-check,excerptcheck,notfound,markdown]}",
+      "bad_code": "emp_violation_013_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_013_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_013_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_013_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:59Z",
+      "fingerprint": "bec13cc06d5eb498"
+    },
+    {
+      "id": "KS-EMP-014",
+      "title": "@OP/1[ID:KS-EMP-014|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-014_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "two-pull",
+        "headers",
+        "rule13f",
+        "progress_note",
+        "confidence"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#e21cc354,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,two-pull,headers,rule13f,progress_note]}",
+      "bad_code": "emp_violation_014_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_014_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_014_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_014_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:03Z",
+      "fingerprint": "37d45c2477a4140e"
+    },
+    {
+      "id": "KS-EMP-015",
+      "title": "@OP/1[ID:KS-EMP-015|SEV:MEDIUM|CAT:daemon|LANG:py|OP:OP_1_ID_KS-EMP-015_SEV_MEDIUM_CAT_DA]",
+      "severity": "MEDIUM",
+      "category": "daemon",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "daemon",
+        "background_task",
+        "duplicate",
+        "polling",
+        "flock",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#65796533,fault:DAEMON_VIOLATION,origin:OP/1,tags:[daemon,background_task,duplicate,polling,flock]}",
+      "bad_code": "emp_violation_015_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_015_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_015_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_015_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:15Z",
+      "fingerprint": "b832f5fb9a453f82"
+    },
+    {
+      "id": "KS-EMP-016",
+      "title": "@OP/1[ID:KS-EMP-016|SEV:MEDIUM|CAT:muse|LANG:py|OP:OP_1_ID_KS-EMP-016_SEV_MEDIUM_CAT_MU]",
+      "severity": "MEDIUM",
+      "category": "muse",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "muse",
+        "cdp",
+        "indexeddb",
+        "websocket",
+        "proxy",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#9ff34b26,fault:MUSE_VIOLATION,origin:OP/1,tags:[muse,cdp,indexeddb,websocket,proxy]}",
+      "bad_code": "emp_violation_016_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_016_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_016_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_016_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:25Z",
+      "fingerprint": "7c7a34c20c6077ad"
+    },
+    {
+      "id": "KS-EMP-017",
+      "title": "@OP/1[ID:KS-EMP-017|SEV:HIGH|CAT:council|LANG:py|OP:CH_P_NH_N_FALLBACK_KH_C_MODEL_HO_C_T]",
+      "severity": "HIGH",
+      "category": "council",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "council",
+        "grok",
+        "routing",
+        "model_identity",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#e9ec5f66,fault:COUNCIL_VIOLATION,origin:OP/1,tags:[council,grok,routing,model_identity,empirical-cm]}",
+      "bad_code": "emp_violation_017_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_017_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_017_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_017_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:03Z",
+      "fingerprint": "2b66246e23d72162"
+    },
+    {
+      "id": "KS-EMP-018",
+      "title": "@OP/1[ID:KS-EMP-018|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:COI_HTTP_200_TRANG_REQUEST_ACCESS_L]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "http",
+        "source_validation",
+        "redirect",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#f77ea0b8,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,http,source_validation,redirect,empirical-cm]}",
+      "bad_code": "emp_violation_018_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_018_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_018_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_018_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:05Z",
+      "fingerprint": "452834b5571ab1e2"
+    },
+    {
+      "id": "KS-EMP-019",
+      "title": "@OP/1[ID:KS-EMP-019|SEV:MEDIUM|CAT:python|LANG:py|OP:T_N_PH_NG_TH_C_PARSER_TR_NG_THU_C_T]",
+      "severity": "MEDIUM",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "python",
+        "htmlparser",
+        "inheritance",
+        "raw_excerpt",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#82f5034a,fault:PYTHON_VIOLATION,origin:OP/1,tags:[python,htmlparser,inheritance,raw_excerpt,empirical-cm]}",
+      "bad_code": "emp_violation_019_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_019_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_019_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_019_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:40Z",
+      "fingerprint": "0857dd42d7e33893"
+    },
+    {
+      "id": "KS-EMP-020",
+      "title": "@OP/1[ID:KS-EMP-020|SEV:CRITICAL|CAT:security|LANG:py|OP:OP_1_ID_KS-EMP-020_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "security",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "security",
+        "mass_assignment",
+        "privilege_escalation",
+        "multi_tenant",
+        "cache_key",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#bba52108,fault:SECURITY_VIOLATION,origin:OP/1,tags:[security,mass_assignment,privilege_escalation,multi_tenant,cache_key]}",
+      "bad_code": "emp_violation_020_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_020_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_020_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_020_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:02Z",
+      "fingerprint": "5639de6a8efcf8fa"
+    },
+    {
+      "id": "KS-EMP-021",
+      "title": "@OP/1[ID:KS-EMP-021|SEV:HIGH|CAT:ast|LANG:py|OP:OP_1_ID_KS-EMP-021_SEV_HIGH_CAT_AST]",
+      "severity": "HIGH",
+      "category": "ast",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "ast",
+        "grounding",
+        "symbol_table",
+        "hallucination_guard",
+        "neuro_symbolic",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#dbbab38c,fault:AST_VIOLATION,origin:OP/1,tags:[ast,grounding,symbol_table,hallucination_guard,neuro_symbolic]}",
+      "bad_code": "emp_violation_021_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_021_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_021_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_021_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:56Z",
+      "fingerprint": "eed6212f6e0b3b97"
+    },
+    {
+      "id": "KS-EMP-022",
+      "title": "@OP/1[ID:KS-EMP-022|SEV:HIGH|CAT:gmail|LANG:py|OP:OP_1_ID_KS-EMP-022_SEV_HIGH_CAT_GMAI]",
+      "severity": "HIGH",
+      "category": "gmail",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "gmail",
+        "jxa",
+        "osascript",
+        "javascript",
+        "newline",
+        "contenteditable"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#04a4cb16,fault:GMAIL_VIOLATION,origin:OP/1,tags:[gmail,jxa,osascript,javascript,newline]}",
+      "bad_code": "emp_violation_022_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_022_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_022_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_022_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:39Z",
+      "fingerprint": "e4f327597f4011f9"
+    },
+    {
+      "id": "KS-EMP-023",
+      "title": "@OP/1[ID:KS-EMP-023|SEV:CRITICAL|CAT:github|LANG:py|OP:net!dual_slot->build_isolated_opener]",
+      "severity": "CRITICAL",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "deterministic-tech-bounty",
+        "proxy",
+        "ip_isolation",
+        "anti_correlation",
+        "cdp"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#61475681,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,deterministic-tech-bount,proxy,ip_isolation,anti_correlation]}",
+      "bad_code": "urllib.request.urlopen(\"https://api.github.com/user#UNISOLATED_SLOT\")",
+      "good_code": "opener, headers, verified_ip = build_isolated_opener(\"slot-a-worker\")",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:opener,_headers,_verified_ip_build_isolated_,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "urllib\\.request\\.urlopen\\([^)]*api\\.github\\.com/user#UNISOLATED_SLOT",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:29Z",
+      "fingerprint": "03b24e35d27b6a02"
+    },
+    {
+      "id": "KS-EMP-024",
+      "title": "@OP/1[ID:KS-EMP-024|SEV:CRITICAL|CAT:fintech_execution|LANG:py|OP:OP_1_ID_KS-EMP-024_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "fintech_execution",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "fintech_execution",
+        "usdc",
+        "decimal",
+        "settlement",
+        "bug_bounty",
+        "precision_loss"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#915d8c08,fault:FINTECH_EXECUTION_VIOLATION,origin:OP/1,tags:[fintech_execution,usdc,decimal,settlement,bug_bounty]}",
+      "bad_code": "emp_violation_024_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_024_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_024_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_024_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:34Z",
+      "fingerprint": "cf5c3728aee2980c"
+    },
+    {
+      "id": "KS-EMP-025",
+      "title": "@OP/1[ID:KS-EMP-025|SEV:HIGH|CAT:fintech_execution|LANG:py|OP:OP_1_ID_KS-EMP-025_SEV_HIGH_CAT_FINT]",
+      "severity": "HIGH",
+      "category": "fintech_execution",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "fintech_execution",
+        "multi-pull-api-escrow",
+        "deterministic-tech-bounty",
+        "ed25519-zerovalue-cosign",
+        "rate_limit",
+        "idempotency"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#31e4ad19,fault:FINTECH_EXECUTION_VIOLATION,origin:OP/1,tags:[fintech_execution,multi-pull-api-escrow,deterministic-tech-bount,ed25519-zerovalue-cosign,rate_limit]}",
+      "bad_code": "emp_violation_025_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_025_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_025_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_025_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:48Z",
+      "fingerprint": "b6348cdd703143a6"
+    },
+    {
+      "id": "KS-EMP-026",
+      "title": "@OP/1[ID:KS-EMP-026|SEV:CRITICAL|CAT:security|LANG:py|OP:OP_1_ID_KS-EMP-026_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "security",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "security",
+        "osv",
+        "redirect",
+        "authorization_leak",
+        "urllib",
+        "requests"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#323c39a9,fault:SECURITY_VIOLATION,origin:OP/1,tags:[security,osv,redirect,authorization_leak,urllib]}",
+      "bad_code": "emp_violation_026_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_026_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_026_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_026_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:36Z",
+      "fingerprint": "6d7c50b63a69c29b"
+    },
+    {
+      "id": "KS-EMP-027",
+      "title": "@OP/1[ID:KS-EMP-027|SEV:CRITICAL|CAT:wallet|LANG:py|OP:OP_1_ID_KS-EMP-027_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "wallet",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "wallet",
+        "ed25519-zerovalue-cosign",
+        "solana",
+        "evm",
+        "cosign",
+        "zero_deposit"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#5d3b99dd,fault:WALLET_VIOLATION,origin:OP/1,tags:[wallet,ed25519-zerovalue-cosign,solana,evm,cosign]}",
+      "bad_code": "emp_violation_027_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_027_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_027_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_027_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:16Z",
+      "fingerprint": "72b8e224b205742a"
+    },
+    {
+      "id": "KS-EMP-028",
+      "title": "@OP/1[ID:KS-EMP-028|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-028_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "eip191-zerodeposit-cli",
+        "utf8_bom",
+        "sha256",
+        "raw_body",
+        "stackoverflow"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#81c8c2a6,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,eip191-zerodeposit-cli,utf8_bom,sha256,raw_body]}",
+      "bad_code": "emp_violation_028_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_028_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_028_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_028_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:35Z",
+      "fingerprint": "b7371f3c7916072e"
+    },
+    {
+      "id": "KS-EMP-029",
+      "title": "@OP/1[ID:KS-EMP-029|SEV:HIGH|CAT:github|LANG:py|OP:OP_1_ID_KS-EMP-029_SEV_HIGH_CAT_GITH]",
+      "severity": "HIGH",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr",
+        "bounty",
+        "deterministic-tech-bounty",
+        "ci_gate",
+        "artifacts"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#38eac316,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr,bounty,deterministic-tech-bount,ci_gate]}",
+      "bad_code": "emp_violation_029_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_029_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_029_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_029_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:17Z",
+      "fingerprint": "65e7ee44d067cfea"
+    },
+    {
+      "id": "KS-EMP-030",
+      "title": "@OP/1[ID:KS-EMP-030|SEV:CRITICAL|CAT:kintsugi|LANG:py|OP:OP_1_ID_KS-EMP-030_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "kintsugi",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "kintsugi",
+        "autofix",
+        "hooks",
+        "ast_parse",
+        "self_extension",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#9caff179,fault:KINTSUGI_VIOLATION,origin:OP/1,tags:[kintsugi,autofix,hooks,ast_parse,self_extension]}",
+      "bad_code": "emp_violation_030_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_030_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_030_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_030_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:35Z",
+      "fingerprint": "81168631ea7193b4"
+    },
+    {
+      "id": "KS-EMP-031",
+      "title": "@OP/1[ID:KS-EMP-031|SEV:CRITICAL|CAT:gitguardian|LANG:py|OP:OP_1_ID_KS-EMP-031_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "gitguardian",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "gitguardian",
+        "kintsugi",
+        "secrets",
+        "entropy",
+        "unit_tests",
+        "github"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#be2aabc0,fault:GITGUARDIAN_VIOLATION,origin:OP/1,tags:[gitguardian,kintsugi,secrets,entropy,unit_tests]}",
+      "bad_code": "emp_violation_031_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_031_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_031_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_031_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:31Z",
+      "fingerprint": "9cea1b189aae20b6"
+    },
+    {
+      "id": "KS-EMP-032",
+      "title": "@OP/1[ID:KS-EMP-032|SEV:CRITICAL|CAT:git|LANG:py|OP:http!raw_wire_bytes->no_json_redump]",
+      "severity": "CRITICAL",
+      "category": "git",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "git",
+        "staged",
+        "scanner",
+        "symlink",
+        "unicode",
+        "ast_span"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#340185a4,fault:GIT_VIOLATION,origin:OP/1,tags:[git,staged,scanner,symlink,unicode]}",
+      "bad_code": "raw_body = json.dumps(parsed_response)",
+      "good_code": "raw_body = response_bytes.decode('utf-8', errors='replace')",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:raw_body_response_bytes.decode_utf-8_,_error,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "raw_body\\s*=\\s*json\\.dumps\\(parsed_response\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:52Z",
+      "fingerprint": "595135df7cda1486"
+    },
+    {
+      "id": "KS-EMP-033",
+      "title": "@OP/1[ID:KS-EMP-033|SEV:HIGH|CAT:hooks|LANG:py|OP:escrow!payee->verify_repoint_status]",
+      "severity": "HIGH",
+      "category": "hooks",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "hooks",
+        "claude_code",
+        "pre_commit",
+        "settings_json",
+        "worktree",
+        "kintsugi"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#a5090f71,fault:HOOKS_VIOLATION,origin:OP/1,tags:[hooks,claude_code,pre_commit,settings_json,worktree]}",
+      "bad_code": "submit_claim(payee_verified=False)",
+      "good_code": "submit_claim(payee_verified=True, escrow_repoint_checked=True)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:submit_claim_payee_verified_True,_escrow_rep,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "submit_claim\\(payee_verified=False\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:44Z",
+      "fingerprint": "2d8c1db31f13020d"
+    },
+    {
+      "id": "KS-EMP-034",
+      "title": "@OP/1[ID:KS-EMP-034|SEV:HIGH|CAT:license|LANG:py|OP:ed25519!auth->moves_funds_false]",
+      "severity": "HIGH",
+      "category": "license",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "license",
+        "apache_2_0",
+        "pip_install",
+        "cursor_mdc",
+        "yaml",
+        "awesome_list"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#2690dba5,fault:LICENSE_VIOLATION,origin:OP/1,tags:[license,apache_2_0,pip_install,cursor_mdc,yaml]}",
+      "bad_code": "bind_completer_key(task_id, moves_funds=True)",
+      "good_code": "bind_completer_key(task_id, moves_funds=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:bind_completer_key_task_id,_moves_funds_Fals,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "bind_completer_key\\([^)]*moves_funds=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:52Z",
+      "fingerprint": "57ad8fd1c79b1ad0"
+    },
+    {
+      "id": "KS-EMP-035",
+      "title": "@OP/1[ID:KS-EMP-035|SEV:HIGH|CAT:veo3|LANG:py|OP:OP_1_ID_KS-EMP-035_SEV_HIGH_CAT_VEO3]",
+      "severity": "HIGH",
+      "category": "veo3",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "veo3",
+        "video",
+        "cinematic_director",
+        "openmontage",
+        "audio_bleed",
+        "continuity"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#6c0a3cb2,fault:VEO3_VIOLATION,origin:OP/1,tags:[veo3,video,cinematic_director,openmontage,audio_bleed]}",
+      "bad_code": "emp_violation_035_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_035_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_035_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_035_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:26Z",
+      "fingerprint": "c5b207185df24288"
+    },
+    {
+      "id": "KS-EMP-036",
+      "title": "@OP/1[ID:KS-EMP-036|SEV:HIGH|CAT:git_diff|LANG:py|OP:OP_1_ID_KS-EMP-036_SEV_HIGH_CAT_GIT]",
+      "severity": "HIGH",
+      "category": "git_diff",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "git_diff",
+        "splitlines",
+        "unicode_u2028",
+        "excluded_dirs",
+        "cors",
+        "ks_015"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#d9ca395e,fault:GIT_DIFF_VIOLATION,origin:OP/1,tags:[git_diff,splitlines,unicode_u2028,excluded_dirs,cors]}",
+      "bad_code": "emp_violation_036_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_036_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_036_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_036_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:54Z",
+      "fingerprint": "5989b41071c9e72d"
+    },
+    {
+      "id": "KS-EMP-037",
+      "title": "@OP/1[ID:KS-EMP-037|SEV:HIGH|CAT:github|LANG:py|OP:KH_NG_T_WILDCARD_GLOB_B_T_U_B_NG_TRO]",
+      "severity": "HIGH",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr_review",
+        "auto_evolved",
+        "ci_check_run",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#a1c66780,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr_review,auto_evolved,ci_check_run,empirical-cm]}",
+      "bad_code": "emp_violation_037_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_037_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_037_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_037_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:39Z",
+      "fingerprint": "a4852add3041200f"
+    },
+    {
+      "id": "KS-EMP-038",
+      "title": "@OP/1[ID:KS-EMP-038|SEV:HIGH|CAT:kintsugi|LANG:py|OP:OP_1_ID_KS-EMP-038_SEV_HIGH_CAT_KINT]",
+      "severity": "HIGH",
+      "category": "kintsugi",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "kintsugi",
+        "cli",
+        "oss",
+        "import",
+        "creed-r128",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#9a9afa16,fault:KINTSUGI_VIOLATION,origin:OP/1,tags:[kintsugi,cli,oss,import,creed-r128]}",
+      "bad_code": "emp_violation_038_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_038_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_038_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_038_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:03Z",
+      "fingerprint": "d417aa7fcd390b37"
+    },
+    {
+      "id": "KS-EMP-039",
+      "title": "@OP/1[ID:KS-EMP-039|SEV:CRITICAL|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-039_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "escrow",
+        "multi_pull",
+        "sha256",
+        "evidence_integrity",
+        "creed-r128"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#2f6b07d2,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,escrow,multi_pull,sha256,evidence_integrity]}",
+      "bad_code": "emp_violation_039_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_039_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_039_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_039_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:18Z",
+      "fingerprint": "a2b7cd0e2668d76a"
+    },
+    {
+      "id": "KS-EMP-040",
+      "title": "@OP/1[ID:KS-EMP-040|SEV:HIGH|CAT:video|LANG:py|OP:OP_1_ID_KS-EMP-040_SEV_HIGH_CAT_VIDE]",
+      "severity": "HIGH",
+      "category": "video",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "video",
+        "veo3",
+        "edl",
+        "cv_metrics",
+        "histogram",
+        "spatial_corr"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#835be78b,fault:VIDEO_VIOLATION,origin:OP/1,tags:[video,veo3,edl,cv_metrics,histogram]}",
+      "bad_code": "emp_violation_040_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_040_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_040_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_040_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:44Z",
+      "fingerprint": "8fd8e7f343e183a1"
+    },
+    {
+      "id": "KS-EMP-041",
+      "title": "@OP/1[ID:KS-EMP-041|SEV:CRITICAL|CAT:security|LANG:py|OP:OP_1_ID_KS-EMP-041_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "security",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "security",
+        "hook",
+        "ssh",
+        "cortex_race",
+        "flock",
+        "csrf"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#4109f4d1,fault:SECURITY_VIOLATION,origin:OP/1,tags:[security,hook,ssh,cortex_race,flock]}",
+      "bad_code": "emp_violation_041_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_041_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_041_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_041_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:00Z",
+      "fingerprint": "c5a935053505052e"
+    },
+    {
+      "id": "KS-EMP-042",
+      "title": "@OP/1[ID:KS-EMP-042|SEV:HIGH|CAT:local_brain|LANG:py|OP:OP_1_ID_KS-EMP-042_SEV_HIGH_CAT_LOCA]",
+      "severity": "HIGH",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "reporting",
+        "causal_atoms",
+        "upsert",
+        "lora",
+        "validation_leakage"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#50920a91,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,reporting,causal_atoms,upsert,lora]}",
+      "bad_code": "emp_violation_042_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_042_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_042_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_042_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:11Z",
+      "fingerprint": "eb4be9fce9e696c3"
+    },
+    {
+      "id": "KS-EMP-043",
+      "title": "@OP/1[ID:KS-EMP-043|SEV:HIGH|CAT:local_brain|LANG:py|OP:OP_1_ID_KS-EMP-043_SEV_HIGH_CAT_LOCA]",
+      "severity": "HIGH",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "lora",
+        "adapter_promotion",
+        "provenance",
+        "rollback",
+        "cli_result"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#1892b2a4,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,lora,adapter_promotion,provenance,rollback]}",
+      "bad_code": "emp_violation_043_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_043_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_043_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_043_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:53Z",
+      "fingerprint": "117c23a125e9e80c"
+    },
+    {
+      "id": "KS-EMP-044",
+      "title": "@OP/1[ID:KS-EMP-044|SEV:HIGH|CAT:local_brain|LANG:py|OP:OP_1_ID_KS-EMP-044_SEV_HIGH_CAT_LOCA]",
+      "severity": "HIGH",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "offline",
+        "egress",
+        "false_success",
+        "provenance",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#83ddcaed,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,offline,egress,false_success,provenance]}",
+      "bad_code": "emp_violation_044_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_044_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_044_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_044_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:53Z",
+      "fingerprint": "540eb714923a48c1"
+    },
+    {
+      "id": "KS-EMP-045",
+      "title": "@OP/1[ID:KS-EMP-045|SEV:MEDIUM|CAT:local_brain|LANG:py|OP:REQUIRING_A_CHANGED_ADAPTER_SHA_MISC]",
+      "severity": "MEDIUM",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "lora",
+        "deterministic_training",
+        "verification",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#4329f079,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,lora,deterministic_training,verification,empirical-cm]}",
+      "bad_code": "emp_violation_045_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_045_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_045_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_045_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:22Z",
+      "fingerprint": "32b14a76d0ce95b1"
+    },
+    {
+      "id": "KS-EMP-046",
+      "title": "@OP/1[ID:KS-EMP-046|SEV:MEDIUM|CAT:local_brain|LANG:py|OP:A_CORTEX_VERIFIER_ASSUMES_EVERY_ATOM]",
+      "severity": "MEDIUM",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "cortex",
+        "schema",
+        "verification",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#f2f736d6,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,cortex,schema,verification,empirical-cm]}",
+      "bad_code": "emp_violation_046_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_046_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_046_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_046_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:49Z",
+      "fingerprint": "3d7848dbf40ee071"
+    },
+    {
+      "id": "KS-EMP-047",
+      "title": "@OP/1[ID:KS-EMP-047|SEV:HIGH|CAT:local_brain|LANG:py|OP:OP_1_ID_KS-EMP-047_SEV_HIGH_CAT_LOCA]",
+      "severity": "HIGH",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "daemon",
+        "shutdown",
+        "provenance",
+        "staging",
+        "cas"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#97541d4b,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,daemon,shutdown,provenance,staging]}",
+      "bad_code": "emp_violation_047_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_047_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_047_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_047_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:44Z",
+      "fingerprint": "ce709dda526a2171"
+    },
+    {
+      "id": "KS-EMP-048",
+      "title": "@OP/1[ID:KS-EMP-048|SEV:HIGH|CAT:local_brain|LANG:py|OP:OP_1_ID_KS-EMP-048_SEV_HIGH_CAT_LOCA]",
+      "severity": "HIGH",
+      "category": "local_brain",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "local_brain",
+        "lora",
+        "contrastive_learning",
+        "prefix_collapse",
+        "format_calibration",
+        "continual_learning"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#115a0df7,fault:LOCAL_BRAIN_VIOLATION,origin:OP/1,tags:[local_brain,lora,contrastive_learning,prefix_collapse,format_calibration]}",
+      "bad_code": "emp_violation_048_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_048_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_048_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_048_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:07Z",
+      "fingerprint": "8aa32450e6dea91b"
+    },
+    {
+      "id": "KS-EMP-049",
+      "title": "@OP/1[ID:KS-EMP-049|SEV:HIGH|CAT:github|LANG:py|OP:KH_NG_KI_M_TRA_NG_D_N_VA_CH_M_TR_C_K]",
+      "severity": "HIGH",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr_review",
+        "auto_evolved",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#ceca7705,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr_review,auto_evolved,empirical-cm]}",
+      "bad_code": "emp_violation_049_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_049_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_049_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_049_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:36Z",
+      "fingerprint": "0a46e0dcb92d6274"
+    },
+    {
+      "id": "KS-EMP-050",
+      "title": "@OP/1[ID:KS-EMP-050|SEV:MEDIUM|CAT:github|LANG:py|OP:KH_NG_B_QUA_RESPONSE_L_I_T_CALLBACK]",
+      "severity": "MEDIUM",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr_review",
+        "auto_evolved",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#e081555b,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr_review,auto_evolved,empirical-cm]}",
+      "bad_code": "emp_violation_050_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_050_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_050_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_050_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:52Z",
+      "fingerprint": "ecdb0e0e119bcecc"
+    },
+    {
+      "id": "KS-EMP-051",
+      "title": "@OP/1[ID:KS-EMP-051|SEV:MEDIUM|CAT:github|LANG:py|OP:B_S_T_KI_M_TH_KHI_TH_M_C_G_C_NG_I_D]",
+      "severity": "MEDIUM",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr_review",
+        "auto_evolved",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#4c742cda,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr_review,auto_evolved,empirical-cm]}",
+      "bad_code": "emp_violation_051_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_051_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_051_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_051_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:25Z",
+      "fingerprint": "b2e0789787aacbe9"
+    },
+    {
+      "id": "KS-EMP-052",
+      "title": "@OP/1[ID:KS-EMP-052|SEV:HIGH|CAT:github|LANG:py|OP:KH_NG_B_QU_T_B_S_T_C_U_H_NH_TLS_V_T]",
+      "severity": "HIGH",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "pr_review",
+        "auto_evolved",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#2e94aeea,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,pr_review,auto_evolved,empirical-cm]}",
+      "bad_code": "emp_violation_052_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_052_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_052_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_052_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:14Z",
+      "fingerprint": "d2e12a4f02a26171"
+    },
+    {
+      "id": "KS-EMP-053",
+      "title": "@OP/1[ID:KS-EMP-053|SEV:HIGH|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-053_SEV_HIGH_CAT_MULT]",
+      "severity": "HIGH",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "deterministic-tech-bounty",
+        "evidence_hosting",
+        "cdn",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#1bfccb84,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,deterministic-tech-bount,evidence_hosting,cdn,empirical-cm]}",
+      "bad_code": "emp_violation_053_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_053_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_053_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_053_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:26Z",
+      "fingerprint": "f41a2e8f1974c30b"
+    },
+    {
+      "id": "KS-EMP-054",
+      "title": "@OP/1[ID:KS-EMP-054|SEV:HIGH|CAT:agent_forge|LANG:py|OP:OP_1_ID_KS-EMP-054_SEV_HIGH_CAT_AGEN]",
+      "severity": "HIGH",
+      "category": "agent_forge",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "agent_forge",
+        "decentralized-task-escrow",
+        "scope_guard",
+        "check_limit",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#49cb700d,fault:AGENT_FORGE_VIOLATION,origin:OP/1,tags:[agent_forge,decentralized-task-escro,scope_guard,check_limit,empirical-cm]}",
+      "bad_code": "emp_violation_054_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_054_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_054_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_054_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:56Z",
+      "fingerprint": "5650d9504bba94c7"
+    },
+    {
+      "id": "KS-EMP-055",
+      "title": "@OP/1[ID:KS-EMP-055|SEV:HIGH|CAT:nodejs|LANG:py|OP:OP_1_ID_KS-EMP-055_SEV_HIGH_CAT_NODE]",
+      "severity": "HIGH",
+      "category": "nodejs",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "nodejs",
+        "ipv6",
+        "fetch",
+        "daemon",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#ff766176,fault:NODEJS_VIOLATION,origin:OP/1,tags:[nodejs,ipv6,fetch,daemon,empirical-cm]}",
+      "bad_code": "emp_violation_055_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_055_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_055_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_055_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:42Z",
+      "fingerprint": "3bcf088934ed1d5b"
+    },
+    {
+      "id": "KS-EMP-056",
+      "title": "@OP/1[ID:KS-EMP-056|SEV:MEDIUM|CAT:python39|LANG:py|OP:OP_1_ID_KS-EMP-056_SEV_MEDIUM_CAT_PY]",
+      "severity": "MEDIUM",
+      "category": "python39",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "python39",
+        "fstring",
+        "git_clean",
+        "staging",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#58d612de,fault:PYTHON39_VIOLATION,origin:OP/1,tags:[python39,fstring,git_clean,staging,empirical-cm]}",
+      "bad_code": "emp_violation_056_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_056_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_056_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_056_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:10Z",
+      "fingerprint": "6f9e124282b4a23b"
+    },
+    {
+      "id": "KS-EMP-057",
+      "title": "@OP/1[ID:KS-EMP-057|SEV:MEDIUM|CAT:javascript|LANG:py|OP:OP_1_ID_KS-EMP-057_SEV_MEDIUM_CAT_JA]",
+      "severity": "MEDIUM",
+      "category": "javascript",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "javascript",
+        "kintsugi",
+        "ks003",
+        "regex",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#4faa0651,fault:JAVASCRIPT_VIOLATION,origin:OP/1,tags:[javascript,kintsugi,ks003,regex,empirical-cm]}",
+      "bad_code": "emp_violation_057_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_057_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_057_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_057_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:11Z",
+      "fingerprint": "08efe73a39534990"
+    },
+    {
+      "id": "KS-EMP-058",
+      "title": "@OP/1[ID:KS-EMP-058|SEV:HIGH|CAT:daemon|LANG:py|OP:OP_1_ID_KS-EMP-058_SEV_HIGH_CAT_DAEM]",
+      "severity": "HIGH",
+      "category": "daemon",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "daemon",
+        "multi-pull-api-escrow",
+        "hot_reload",
+        "multi_pull",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#5c202864,fault:DAEMON_VIOLATION,origin:OP/1,tags:[daemon,multi-pull-api-escrow,hot_reload,multi_pull,empirical-cm]}",
+      "bad_code": "emp_violation_058_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_058_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_058_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_058_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:30Z",
+      "fingerprint": "143ad73ce1a276c0"
+    },
+    {
+      "id": "KS-EMP-059",
+      "title": "@OP/1[ID:KS-EMP-059|SEV:CRITICAL|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-059_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "multi_pull",
+        "panel_id",
+        "verbatim_json",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#a44917f0,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,multi_pull,panel_id,verbatim_json,empirical-cm]}",
+      "bad_code": "emp_violation_059_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_059_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_059_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_059_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:31Z",
+      "fingerprint": "5240d81702f6df1c"
+    },
+    {
+      "id": "KS-EMP-060",
+      "title": "@OP/1[ID:KS-EMP-060|SEV:CRITICAL|CAT:multi-pull-api-escrow|LANG:py|OP:OP_1_ID_KS-EMP-060_SEV_CRITICAL_CAT]",
+      "severity": "CRITICAL",
+      "category": "multi-pull-api-escrow",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "multi-pull-api-escrow",
+        "csv_schema",
+        "multi_pull",
+        "empirical-cm"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#4ec303d6,fault:MULTI-PULL-API-ESCROW_VIOLATION,origin:OP/1,tags:[multi-pull-api-escrow,csv_schema,multi_pull,empirical-cm]}",
+      "bad_code": "emp_violation_060_unverified_call(unsafe=True)",
+      "good_code": "emp_verified_060_safe_guard(unsafe=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_060_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "emp_violation_060_unverified_call\\(unsafe=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:13Z",
+      "fingerprint": "1fc0938bdd1707dc"
+    },
+    {
+      "id": "KS-EMP-061",
+      "title": "@OP/1[ID:KS-EMP-061|SEV:HIGH|CAT:host-b|LANG:py|OP:git!push->GIT_TERMINAL_PROMPT=0]",
+      "severity": "HIGH",
+      "category": "host-b",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "host-b",
+        "outbox",
+        "windows_schtasks",
+        "multi-pull-api-escrow",
+        "multi_pull",
+        "offline_resilience"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#bb7538b1,fault:PC2_VIOLATION,origin:OP/1,tags:[host-b,outbox,windows_schtasks,multi-pull-api-escrow,multi_pull]}",
+      "bad_code": "subprocess.run([\"git\", \"push\"], env={\"GIT_TERMINAL_PROMPT\": \"1\"})",
+      "good_code": "subprocess.run([\"git\", \"push\"], env={\"GIT_TERMINAL_PROMPT\": \"0\"}, timeout=30)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:subprocess.run_git_,_push_,_env_GIT_TERMINAL,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "subprocess\\.run\\(\\[\\\"git\\\",\\s*\\\"push\\\"\\],\\s*env=\\{\\\"GIT_TERMINAL_PROMPT\\\":\\s*\\\"1\\\"\\}\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:39Z",
+      "fingerprint": "37582272e7e7e792"
+    },
+    {
+      "id": "KS-EMP-062",
+      "title": "@OP/1[ID:KS-EMP-062|SEV:HIGH|CAT:github|LANG:py|OP:oss!pr_state_open_and_doc_count_parity]",
+      "severity": "HIGH",
+      "category": "github",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "github",
+        "oss_pr",
+        "awesome_list",
+        "license",
+        "spdx",
+        "mcp_tools_count"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#c4ec7387,fault:GITHUB_VIOLATION,origin:OP/1,tags:[github,oss_pr,awesome_list,license,spdx]}",
+      "bad_code": "resubmit_closed_pr(allow_closed=True, verify_doc_counts=False)",
+      "good_code": "verify_pr_open_and_doc_count_parity(allow_closed=False, verify_doc_counts=True)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:verify_pr_open_and_doc_count_parity_allow_cl,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "resubmit_closed_pr\\(allow_closed=True,\\s*verify_doc_counts=False\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:19Z",
+      "fingerprint": "e8c2f67eead1ad0b"
+    },
+    {
+      "id": "KS-EMP-063",
+      "title": "@OP/1[ID:KS-EMP-063|SEV:CRITICAL|CAT:security|LANG:py|OP:dlp!public_repo->zero_private_project_or_ip]",
+      "severity": "CRITICAL",
+      "category": "security",
+      "languages": [
+        "python"
+      ],
+      "tags": [
+        "security",
+        "dlp",
+        "confidentiality",
+        "oss_pr",
+        "github",
+        "deliverable"
+      ],
+      "root_cause": "@TRAP/1{guard:RX#cf052234,fault:SECURITY_VIOLATION,origin:OP/1,tags:[security,dlp,confidentiality,oss_pr,github]}",
+      "bad_code": "export_to_public_repo(payload, skip_dlp_sanitization=True)",
+      "good_code": "export_to_public_repo(dlp_sanitize_payload(payload), skip_dlp_sanitization=False)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:export_to_public_repo_dlp_sanitize_payload_p,verify:DETERMINISTIC_PASS}",
+      "regex_pattern": "export_to_public_repo\\([^)]*skip_dlp_sanitization=True\\)",
+      "ast_rule": null,
+      "verified_by": [
+        "empirical-cortex-v2.4.0",
+        "council-tier2",
+        "ast-shield"
+      ],
+      "hits": 1,
+      "created_at": "2026-04-06T00:00:31Z",
+      "fingerprint": "ca3c81f9d9101769"
+    },
+    {
       "id": "KS-LOGIC-001",
       "title": "@OP/1[ID:KS-LOGIC-001|SEV:CRITICAL|CAT:state-machine-logic|LANG:py|OP:NON_ATOMIC_STATE_MUTATION->COMPARE_A]",
       "severity": "CRITICAL",
@@ -511,7 +2441,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:58:44Z",
-      "fingerprint": "0221e0850840b628"
+      "fingerprint": "204f24f3c1ccaea8"
     },
     {
       "id": "KS-LOGIC-002",
@@ -542,7 +2472,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:58:48Z",
-      "fingerprint": "59dcaec7888ed92d"
+      "fingerprint": "8fbafb3c85dc067c"
     },
     {
       "id": "KS-LOGIC-003",
@@ -573,7 +2503,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:58:46Z",
-      "fingerprint": "cbb759ef2998bca7"
+      "fingerprint": "3434110ac9e90140"
     },
     {
       "id": "KS-LOGIC-004",
@@ -604,7 +2534,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:59:35Z",
-      "fingerprint": "41cba670f0f817d6"
+      "fingerprint": "07bacf73780df5a1"
     },
     {
       "id": "KS-LOGIC-005",
@@ -635,7 +2565,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:59:38Z",
-      "fingerprint": "9207af3db7926c46"
+      "fingerprint": "019d5e138d503712"
     },
     {
       "id": "KS-LOGIC-006",
@@ -666,7 +2596,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T05:59:11Z",
-      "fingerprint": "463edd6cef9ae260"
+      "fingerprint": "bd1422d6aa487cff"
     },
     {
       "id": "KS-LOGIC-007",
@@ -697,7 +2627,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T06:01:38Z",
-      "fingerprint": "b1bd5a55c4020f80"
+      "fingerprint": "c68443c3c0a526fe"
     },
     {
       "id": "KS-LOGIC-008",
@@ -728,7 +2658,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T06:01:21Z",
-      "fingerprint": "0ad9656ef44f03fe"
+      "fingerprint": "a86148e6ecc9cfcc"
     },
     {
       "id": "KS-LOGIC-009",
@@ -759,7 +2689,7 @@
       ],
       "hits": 11,
       "created_at": "2026-11-06T06:01:54Z",
-      "fingerprint": "c755330e84e904b5"
+      "fingerprint": "5da5ffbf9360f58b"
     },
     {
       "id": "KS-LOGIC-010",
@@ -790,7 +2720,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:03:30Z",
-      "fingerprint": "2d366d5c48584b17"
+      "fingerprint": "230cf0357ce9c1f7"
     },
     {
       "id": "KS-LOGIC-011",
@@ -821,7 +2751,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:03:31Z",
-      "fingerprint": "60cfd9d42a51c7f9"
+      "fingerprint": "1d1710060a49351d"
     },
     {
       "id": "KS-LOGIC-012",
@@ -852,7 +2782,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:03:34Z",
-      "fingerprint": "9b4dbf44397cd577"
+      "fingerprint": "c77a2751ee536f99"
     },
     {
       "id": "KS-LOGIC-013",
@@ -883,7 +2813,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:05:45Z",
-      "fingerprint": "39bc9db7e9513591"
+      "fingerprint": "5e1472f378d91828"
     },
     {
       "id": "KS-LOGIC-014",
@@ -914,7 +2844,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:05:45Z",
-      "fingerprint": "704c9561a96d0137"
+      "fingerprint": "34cfdb56d8bea8f6"
     },
     {
       "id": "KS-LOGIC-015",
@@ -945,7 +2875,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:05:01Z",
-      "fingerprint": "9bdab30cb6b67b73"
+      "fingerprint": "e70a1f9d78c9be26"
     },
     {
       "id": "KS-LOGIC-016",
@@ -976,7 +2906,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:07:01Z",
-      "fingerprint": "2502dd6c4ea5a144"
+      "fingerprint": "2f97b675fef06394"
     },
     {
       "id": "KS-LOGIC-017",
@@ -1007,7 +2937,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:07:28Z",
-      "fingerprint": "4d64e8a62cb5e1bc"
+      "fingerprint": "d4d7ed7baa3a0d58"
     },
     {
       "id": "KS-LOGIC-018",
@@ -1038,7 +2968,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:07:56Z",
-      "fingerprint": "4b6ab8a22b1461ef"
+      "fingerprint": "a3088db4077f1351"
     },
     {
       "id": "KS-LOGIC-019",
@@ -1069,7 +2999,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:09:47Z",
-      "fingerprint": "db6a574456b0d064"
+      "fingerprint": "85762c2b23a7c55d"
     },
     {
       "id": "KS-LOGIC-020",
@@ -1100,7 +3030,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:09:29Z",
-      "fingerprint": "a889274355801849"
+      "fingerprint": "dc015707cdaa1873"
     },
     {
       "id": "KS-LOGIC-021",
@@ -1131,7 +3061,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:09:53Z",
-      "fingerprint": "dd42ed67b5925ef4"
+      "fingerprint": "c5b2c40cda9fb807"
     },
     {
       "id": "KS-LOGIC-022",
@@ -1162,7 +3092,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:11:43Z",
-      "fingerprint": "25f48341f3f52b21"
+      "fingerprint": "d8196da9a5e7b222"
     },
     {
       "id": "KS-LOGIC-023",
@@ -1193,7 +3123,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:11:43Z",
-      "fingerprint": "bd437db20d3d9046"
+      "fingerprint": "2070665aea0defad"
     },
     {
       "id": "KS-LOGIC-024",
@@ -1224,7 +3154,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:11:15Z",
-      "fingerprint": "2409ee7ffb5f342f"
+      "fingerprint": "fb1cf7760c9d8fdc"
     },
     {
       "id": "KS-LOGIC-025",
@@ -1255,7 +3185,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:13:20Z",
-      "fingerprint": "fb631ba4229c370d"
+      "fingerprint": "2fffd75688c2c8a7"
     },
     {
       "id": "KS-LOGIC-026",
@@ -1286,7 +3216,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:13:38Z",
-      "fingerprint": "2f67cd9fe374a447"
+      "fingerprint": "de15092ac66df79f"
     },
     {
       "id": "KS-LOGIC-027",
@@ -1317,7 +3247,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:13:51Z",
-      "fingerprint": "4f39e2ee0a307225"
+      "fingerprint": "7a4de2abc10d0cfe"
     },
     {
       "id": "KS-LOGIC-028",
@@ -1348,7 +3278,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:15:44Z",
-      "fingerprint": "d615a9626fb870fa"
+      "fingerprint": "c83f239221c84cc1"
     },
     {
       "id": "KS-LOGIC-029",
@@ -1379,7 +3309,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:15:47Z",
-      "fingerprint": "882cfa74a80906ef"
+      "fingerprint": "55c9880c9771c537"
     },
     {
       "id": "KS-LOGIC-030",
@@ -1410,7 +3340,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:15:37Z",
-      "fingerprint": "e73d2045a98f55fc"
+      "fingerprint": "df78eb2825493263"
     },
     {
       "id": "KS-LOGIC-031",
@@ -1441,7 +3371,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:18:53Z",
-      "fingerprint": "77588f8583f6cd11"
+      "fingerprint": "bf34787d836909d1"
     },
     {
       "id": "KS-LOGIC-032",
@@ -1472,7 +3402,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:18:12Z",
-      "fingerprint": "317485d49bfe1743"
+      "fingerprint": "6331b99fe22fefad"
     },
     {
       "id": "KS-LOGIC-033",
@@ -1503,7 +3433,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:18:50Z",
-      "fingerprint": "e4022bfc2145ff26"
+      "fingerprint": "bb5c739ca43263b0"
     },
     {
       "id": "KS-LOGIC-034",
@@ -1535,7 +3465,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:20:52Z",
-      "fingerprint": "809a70b32a3e190b"
+      "fingerprint": "80dae2356016b3b4"
     },
     {
       "id": "KS-LOGIC-035",
@@ -1568,7 +3498,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:20:37Z",
-      "fingerprint": "df42357822fcb5ac"
+      "fingerprint": "f2ab358fc48d5301"
     },
     {
       "id": "KS-LOGIC-036",
@@ -1601,7 +3531,7 @@
       ],
       "hits": 5,
       "created_at": "2026-11-06T06:20:27Z",
-      "fingerprint": "52abcc4006ccba08"
+      "fingerprint": "c886b22afcb0e153"
     },
     {
       "id": "KS-OSS-1000",
@@ -41779,6 +43709,5 @@
       "created_at": "2026-11-05T17:09:05Z",
       "fingerprint": "b2a4997828de9032"
     }
-  ],
-  "encoding_protocol": "KML/1.0-MACHINE-AST-IR"
+  ]
 }
