@@ -1,4 +1,5 @@
-//! `kintsugi-rs` — Native Rust CLI for sub-millisecond PreToolUse hooks,
+//! `kintsugi-rs` v2.4.0 — Native Rust CLI for sub-millisecond PreToolUse hooks,
+//! Grade S3 `@CT2` Seam Auditing, Read-Only Memory Integrity Verification,
 //! git-diff scanning, and `KMI/1` Ultra-Low-Token compression.
 
 use std::env;
@@ -9,7 +10,8 @@ use std::time::Instant;
 
 use kintsugi_core::{
     compute_token_benchmark, evaluate_pre_tool_json, inspect_kml_corpus_file, json_escape,
-    render_kmi_compact_header, render_kml_builtin_corpus, scan_git_staged, scan_path, scan_text,
+    render_creed_json, render_kmi_compact_header, render_kml_builtin_corpus, s3_audit_path,
+    scan_git_staged, scan_path, scan_text, verify_memories_readonly,
     verify_outbound_destination_allowed, Severity, ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
 
@@ -17,10 +19,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn print_help() {
     println!(
-        "kintsugi-rs {VERSION} — Native Rust @KML/1 Machine-Language Guardrail Engine\n\
+        "kintsugi-rs {VERSION} — Native Rust @KML/1 & Grade-S3 Guardrail Engine\n\
          \n\
          USAGE:\n\
-         \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--fail-on HIGH]\n\
+         \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--fail-on HIGH] [-- <PATH>]\n\
+         \x20 kintsugi-rs s3-audit [PATH] [--format text|json] [-- <PATH>]\n\
+         \x20 kintsugi-rs memories-verify [WORKSPACE_ROOT] [--format text|json]\n\
+         \x20 kintsugi-rs creed\n\
          \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH]\n\
          \x20 kintsugi-rs kml [PATH_TO_SCARS_KML]\n\
          \x20 kintsugi-rs compress [--kml]\n\
@@ -47,10 +52,19 @@ fn main() {
             let mut format = "text".to_string();
             let mut min_sev = Severity::Low;
             let mut fail_on = Some(Severity::High);
+            let mut after_double_dash = false;
 
             let mut i = 1;
             while i < args.len() {
+                if after_double_dash {
+                    target = args[i].clone();
+                    i += 1;
+                    continue;
+                }
                 match args[i].as_str() {
+                    "--" => {
+                        after_double_dash = true;
+                    }
                     "--staged" => staged = true,
                     "--format" if i + 1 < args.len() => {
                         format = args[i + 1].clone();
@@ -103,7 +117,8 @@ fn main() {
                     })
                     .collect();
                 println!(
-                    "{{\"engine\":\"kintsugi-rs\",\"scanned_files\":{},\"active_scars\":{},\"elapsed_ms\":{:.3},\"findings\":[{}]}}",
+                    "{{\"schema_version\":\"2.4.0\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"scanned_files\":{},\"active_scars\":{},\"elapsed_ms\":{:.3},\"findings\":[{}]}}",
+                    VERSION,
                     summary.scanned_files,
                     summary.active_rules,
                     ms,
@@ -137,6 +152,131 @@ fn main() {
                     process::exit(1);
                 }
             }
+        }
+        "s3-audit" => {
+            let mut target = ".".to_string();
+            let mut format = "json".to_string();
+            let mut after_double_dash = false;
+            let mut i = 1;
+            while i < args.len() {
+                if after_double_dash {
+                    target = args[i].clone();
+                    i += 1;
+                    continue;
+                }
+                match args[i].as_str() {
+                    "--" => after_double_dash = true,
+                    "--format" if i + 1 < args.len() => {
+                        format = args[i + 1].clone();
+                        i += 1;
+                    }
+                    arg if !arg.starts_with('-') => {
+                        target = arg.to_string();
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+            let rep = s3_audit_path(Path::new(&target));
+            if format == "text" {
+                println!(
+                    "Kintsugi-RS v{VERSION} Grade-S3 Seam Audit: files={} functions={} classes={} seams={}/{} S0_unguarded={} elapsed={:.3}ms verdict={}",
+                    rep.files_scanned,
+                    rep.total_functions,
+                    rep.total_classes,
+                    rep.s3_locked_seams,
+                    rep.total_seams,
+                    rep.unguarded_s0_seams,
+                    rep.elapsed_ms,
+                    rep.verdict
+                );
+                for f in &rep.files {
+                    println!(
+                        "  {} | sha={} | {:.2}ms | fn/cls={}/{} | seams={}/{} | S0={} | {}",
+                        f.file_path,
+                        f.manifest_sha,
+                        f.elapsed_ms,
+                        f.functions_count,
+                        f.classes_count,
+                        f.s3_locked_seams,
+                        f.total_seams,
+                        f.unguarded_s0_seams,
+                        f.verdict
+                    );
+                }
+            } else {
+                let file_objs: Vec<String> = rep
+                    .files
+                    .iter()
+                    .map(|f| {
+                        format!(
+                            "{{\"file_path\":\"{}\",\"manifest_sha\":\"{}\",\"elapsed_ms\":{:.3},\"functions_count\":{},\"classes_count\":{},\"total_seams\":{},\"s3_locked_seams\":{},\"unguarded_s0_seams\":{},\"verdict\":\"{}\"}}",
+                            json_escape(&f.file_path),
+                            json_escape(&f.manifest_sha),
+                            f.elapsed_ms,
+                            f.functions_count,
+                            f.classes_count,
+                            f.total_seams,
+                            f.s3_locked_seams,
+                            f.unguarded_s0_seams,
+                            f.verdict
+                        )
+                    })
+                    .collect();
+                println!(
+                    "{{\"ok\":{},\"schema_version\":\"2.4.0\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"target\":\"{}\",\"files_scanned\":{},\"total_functions\":{},\"total_classes\":{},\"total_seams\":{},\"s3_locked_seams\":{},\"unguarded_s0_seams\":{},\"elapsed_ms\":{:.3},\"verdict\":\"{}\",\"files\":[{}]}}",
+                    rep.unguarded_s0_seams == 0,
+                    VERSION,
+                    json_escape(&rep.target),
+                    rep.files_scanned,
+                    rep.total_functions,
+                    rep.total_classes,
+                    rep.total_seams,
+                    rep.s3_locked_seams,
+                    rep.unguarded_s0_seams,
+                    rep.elapsed_ms,
+                    rep.verdict,
+                    file_objs.join(",")
+                );
+            }
+            if rep.unguarded_s0_seams > 0 {
+                process::exit(1);
+            }
+        }
+        "memories-verify" => {
+            let mut workspace = ".".to_string();
+            let mut i = 1;
+            while i < args.len() {
+                if !args[i].starts_with('-') {
+                    workspace = args[i].clone();
+                }
+                i += 1;
+            }
+            let rep = verify_memories_readonly(Path::new(&workspace));
+            println!(
+                "{{\"ok\":{},\"read_only_enforced\":{},\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"workspace_root\":\"{}\",\"memories_index_exists\":{},\"memories_index_bytes\":{},\"memories_index_fnv64\":\"{}\",\"lessons_count\":{},\"archive_files_count\":{},\"changelogs_count\":{},\"backups_dirs_count\":{},\"symlinks_detected\":{},\"empty_or_corrupt_files\":{},\"elapsed_ms\":{:.3},\"status\":\"{}\"}}",
+                rep.ok,
+                rep.read_only_enforced,
+                VERSION,
+                json_escape(&rep.workspace_root),
+                rep.memories_index_exists,
+                rep.memories_index_bytes,
+                json_escape(&rep.memories_index_fnv64),
+                rep.lessons_count,
+                rep.archive_files_count,
+                rep.changelogs_count,
+                rep.backups_dirs_count,
+                rep.symlinks_detected,
+                rep.empty_or_corrupt_files,
+                rep.elapsed_ms,
+                rep.status
+            );
+            if !rep.ok {
+                process::exit(1);
+            }
+        }
+        "creed" => {
+            println!("{}", render_creed_json());
         }
         "hook" => {
             let mut block_on = Severity::High;

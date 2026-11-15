@@ -2713,6 +2713,64 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(bench["f1_score_pct"], 100.0)
         self.assertGreaterEqual(len(bench["per_language_confusion_matrices"]), 4)
 
+    def test_v2_4_0_domain_partitioned_context_compression_and_shards(self) -> None:
+        from kintsugi.compressor import (
+            DOMAIN_SHARD_REGISTRY,
+            compute_token_savings_report,
+            estimate_tokens,
+            partition_by_domain,
+            render_domain_kmi_pack,
+        )
+
+        repo_root = Path(__file__).resolve().parent.parent
+        scars_16 = get_starter_scars()
+        partitioned = partition_by_domain(scars_16)
+        self.assertEqual(set(partitioned.keys()), {"security", "backend", "database", "frontend", "devops", "ai_mcp"})
+        self.assertEqual(sum(len(v) for v in partitioned.values()), len(scars_16))
+        for dom_key, meta in DOMAIN_SHARD_REGISTRY.items():
+            self.assertGreaterEqual(len(partitioned[dom_key]), 1)
+            shard_file = repo_root / meta["doc_path"]
+            self.assertTrue(shard_file.is_file(), f"Missing domain shard: {shard_file}")
+            shard_text = shard_file.read_text(encoding="utf-8")
+            self.assertIn("Apache-2.0", shard_text)
+            self.assertIn(f"KINTSUGI:KMI/1:DOMAIN={dom_key}", shard_text)
+
+            pack = render_domain_kmi_pack(scars_16, domain=dom_key)
+            self.assertIn(f"domain={dom_key};doc={meta['doc_path']}", pack)
+            self.assertLessEqual(estimate_tokens(pack), 110)
+
+        verbose_md = SkillCompiler(scars_16).render_skill_markdown(
+            "kintsugi-guardrails",
+            "Verbose baseline comparison",
+            scars_16,
+        )
+        rep = compute_token_savings_report(scars_16, verbose_md, turns_per_session=50, active_domain="security")
+        self.assertEqual(rep["verbose_tokens_per_turn"], 3641)
+        self.assertEqual(rep["kmi_tokens_per_turn"], 226)
+        self.assertEqual(rep["tokens_saved_per_turn"], 3415)
+        self.assertEqual(rep["reduction_percent"], 93.8)
+        self.assertEqual(rep["avg_domain_kmi_tokens_per_turn"], 80.5)
+        self.assertEqual(rep["avg_domain_reduction_percent"], 97.79)
+        self.assertEqual(rep["active_domain"], "security")
+        self.assertEqual(rep["active_domain_report"]["doc_path"], "docs/domains/01_security_appsec.md")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = KintsugiMCPServer(Path(tmp) / "scars.json")
+            prompts_resp = server.handle_request({"jsonrpc": "2.0", "id": 10, "method": "prompts/list"})
+            prompt_names = [p["name"] for p in prompts_resp["result"]["prompts"]]
+            self.assertEqual(prompt_names, ["kintsugi-audit-code", "kintsugi-evolve-scar"])
+            dom_call = server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 11,
+                    "method": "tools/call",
+                    "params": {"name": "kintsugi_list_scars", "arguments": {"domain": "security"}},
+                }
+            )
+            dom_payload = json.loads(dom_call["result"]["content"][0]["text"])
+            self.assertEqual(dom_payload["domain"], "security")
+            self.assertIn("KMI/1;domain=security", dom_payload["domain_kmi_pack"])
+
 
 if __name__ == "__main__":
     unittest.main()

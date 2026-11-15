@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kintsugi-harness"
 version = "2.4.0"
-description = "Hybrid Rust + Python PreToolUse guardrail engine, Multi-Language Zero-Dependency Structural AST-Lite Analyzer, 4-Pillar Autopoietic Evolution Creed (@CREED/1), Universal Drop-In Third-Party Harness Integrator (@HARNESS_BRIDGE/1), OpenMontage Cinema Director's Cut Extension (@OPENMONTAGE_CINEMA/1), and KMI/1 ultra-low-token skill compressor (>93% token savings)."
+description = "Hybrid Rust + Python PreToolUse guardrail engine (~16 µs/call), Sovereign Tier-1 DARPA AIxCC CRS (v2.4.0), 5-Pillar Autopoietic Evolution Creed (@CREED/1), Universal Drop-In Harness Integrator (@HARNESS_BRIDGE/1), OpenMontage Cinema Extension (@OPENMONTAGE_CINEMA/1), and KMI/1 + Domain-Partitioned skill compressor (93.8%-99.96% token savings; Apache-2.0)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"

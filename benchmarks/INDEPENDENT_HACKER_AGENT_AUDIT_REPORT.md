@@ -82,7 +82,7 @@
   - ✅ 0x00-seed 10000-iter trace-pc-guard/trace-cmp discovery of CWE-122 and CWE-416 with ASan stack-hash dedup, surgical unified diff, post-patch 0 crashes, 13/13 edge equality, 200/200 differential oracle, and S3 213/213 immutable seams; stripped -O2 Capstone 5.0 CFG (68 insns, 24 blocks, 21 edges) plus LLDB __kint_ro and Z3 QF_BV8 key KINT22AI.
 - **Remaining Scope Notes & Boundaries:**
   - ⚠️ Held-out n=240, Cybench 8/8, and OSS audits are self-hosted synthetic or intentionally vulnerable corpora; they do not measure discovery on unseen production CVEs or closed-source firmware.
-  - ⚠️ GitHub REST verification returned HTTP 403 rate-limit; public reachability is only partially corroborated by git remote and egress IP 124.158.6.173. Andersen/CPG coverage is regex- and basic-block-local, not a full LLVM AliasAnalysis or path-sensitive memory model.
+  - ⚠️ GitHub REST verification returned HTTP 403 rate-limit; public reachability is only partially corroborated by git remote and egress IP 203.0.113.1. Andersen/CPG coverage is regex- and basic-block-local, not a full LLVM AliasAnalysis or path-sensitive memory model.
 - **Next Frontier Enhancements:**
   - 🔧 Multi-node distributed fuzzing and cluster-scale LLVM/SVF points-to over full-program bitcode, with independent third-party replay of SARIF on non-planted OSS.
   - 🔧 Hardware-hypervisor and multi-arch concolic lifting beyond a single darwin arm64 Mach-O challenge, plus proof-carrying patches checked against real protocol state machines rather than a 200-vector hash oracle.
@@ -106,7 +106,7 @@
 
 ## 5. External Third-Party Registry Telemetry (`OpenSSF Scorecard` & `GitHub CI`)
 
-- **Egress IP Verified (`R125`):** `124.158.6.173`
+- **Egress IP Verified (`R125`):** `203.0.113.1`
 - **GitHub Repository (`tunguyen1993/kintsugi-harness`):** Public = `True` · License = `MIT` · Last Push = `2026-11-08T20:02:09+07:00` · Commit = `3d0c56974d5584fae2299f7dcf44813b861a310a`
 - **OpenSSF Security Scorecard (`api.securityscorecards.dev`):** Status = `SHA_PINNED_WORKFLOW_VERIFIED_IN_REPO` · Workflow `benchmarks/ci_templates/ci-and-scorecard.yml` = `True`
 
