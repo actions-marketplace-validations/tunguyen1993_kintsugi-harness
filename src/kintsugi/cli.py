@@ -104,9 +104,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_audit.add_argument("--format", choices=["text", "markdown", "json"], default="markdown")
 
     # token-report
-    p_tok = sub.add_parser("token-report", help="Benchmark KMI/1 ultra-low-token compression vs verbose Markdown skills")
+    p_tok = sub.add_parser(
+        "token-report",
+        help="Benchmark Global KMI/1 & Domain-Partitioned KMI/1 Shards vs verbose Markdown skills",
+    )
     p_tok.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_tok.add_argument("--turns", type=int, default=50, help="Number of turns per coding session")
+    p_tok.add_argument(
+        "--domain",
+        default=None,
+        help="Optional active domain shard (security, backend, database, frontend, devops, ai_mcp)",
+    )
+    p_tok.add_argument(
+        "--starter-only",
+        action="store_true",
+        help="Benchmark strictly the 16 Core Starter Scars (get_starter_scars)",
+    )
     p_tok.add_argument("--format", choices=["text", "json"], default="text")
 
     # autofix
@@ -485,24 +498,53 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "token-report":
-        ledger = _load_or_seed_ledger(args.ledger)
-        scars = ledger.all()
+        if getattr(args, "starter_only", False):
+            from kintsugi.starter_pack import get_starter_scars
+
+            scars = get_starter_scars()
+        else:
+            ledger = _load_or_seed_ledger(args.ledger)
+            scars = ledger.all()
         verbose_md = SkillCompiler(scars).render_skill_markdown(
             "kintsugi-guardrails",
             "Verbose baseline comparison",
             scars,
         )
-        stats = compute_token_savings_report(scars, verbose_md, turns_per_session=args.turns)
+        stats = compute_token_savings_report(
+            scars,
+            verbose_md,
+            turns_per_session=args.turns,
+            active_domain=getattr(args, "domain", None),
+        )
         if args.format == "json":
             print(json.dumps(stats, indent=2, ensure_ascii=False))
         else:
+            dom_rows = []
+            for dom_key, dinfo in stats["domain_partitions"].items():
+                dom_rows.append(
+                    f"  | {dom_key:<10} | {dinfo['doc_path']:<35} | {dinfo['rules_count']:>5} | "
+                    f"~{dinfo['domain_kmi_tokens_per_turn']:>4} tok/turn | "
+                    f"{dinfo['domain_reduction_percent']:>6.2f}% | "
+                    f"~{dinfo['domain_tokens_saved_per_session']:>10,} tok |"
+                )
+            dom_table = "\n".join(dom_rows)
+            preview_block = (
+                stats["active_domain_report"]["domain_kmi_preview"]
+                if stats.get("active_domain_report")
+                else stats["kmi_preview"]
+            )
             print(
-                f"=== Kintsugi KMI/1 Token-Compression Benchmark ({stats['rules_compiled']} active scars) ===\n"
-                f"• Verbose Markdown Context : ~{stats['verbose_tokens_per_turn']} tokens/turn\n"
-                f"• Kintsugi KMI/1 Wire Index: ~{stats['kmi_tokens_per_turn']} tokens/turn\n"
-                f"• Per-Turn Token Reduction : {stats['reduction_percent']}% ({stats['tokens_saved_per_turn']} tokens saved/turn)\n"
-                f"• {stats['turns_per_session']}-Turn Session Savings  : ~{stats['tokens_saved_per_session']:,} tokens\n\n"
-                f"{stats['kmi_preview']}"
+                f"=== Kintsugi KMI/1 & Domain-Partitioned Token-Compression Benchmark ({stats['rules_compiled']} active scars) ===\n"
+                f"• 1. Full Verbose Markdown (All Domains) : ~{stats['verbose_tokens_per_turn']} tokens/turn\n"
+                f"• 2. Global KMI/1 Compressed Wire Index  : ~{stats['kmi_tokens_per_turn']} tokens/turn "
+                f"({stats['reduction_percent']}% reduction, {stats['tokens_saved_per_turn']} tokens saved/turn, ~{stats['tokens_saved_per_session']:,} tokens/{stats['turns_per_session']} turns)\n"
+                f"• 3. Domain-Routed KMI/1 Shard (Avg)     : ~{stats['avg_domain_kmi_tokens_per_turn']} tokens/turn "
+                f"({stats['avg_domain_reduction_percent']}% reduction vs Full Verbose Markdown)\n\n"
+                f"--- Domain-Partitioned Documentation Shards (`docs/domains/`) ---\n"
+                f"  | Domain     | Documentation Shard                 | Rules | Shard Cost     | Reduction | {stats['turns_per_session']}-Turn Saved |\n"
+                f"  | :--------- | :---------------------------------- | ----: | -------------: | --------: | ------------: |\n"
+                f"{dom_table}\n\n"
+                f"{preview_block}"
             )
         return 0
 

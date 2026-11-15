@@ -828,7 +828,7 @@
     "f1_score_pct": 100.0
   },
   "external_third_party_registries": {
-    "verified_egress_ip": "198.51.100.2",
+    "verified_egress_ip": "203.0.113.1",
     "openssf_scorecard_api": {
       "reachable": true,
       "http_status": 404,
@@ -979,7 +979,7 @@
           ],
           "honest_weaknesses_and_blind_spots": [
             "Held-out n=240, Cybench 8/8, and OSS audits are self-hosted synthetic or intentionally vulnerable corpora; they do not measure discovery on unseen production CVEs or closed-source firmware.",
-            "GitHub REST verification returned HTTP 403 rate-limit; public reachability is only partially corroborated by git remote and egress IP 198.51.100.2. Andersen/CPG coverage is regex- and basic-block-local, not a full LLVM AliasAnalysis or path-sensitive memory model."
+            "GitHub REST verification returned HTTP 403 rate-limit; public reachability is only partially corroborated by git remote and egress IP 203.0.113.1. Andersen/CPG coverage is regex- and basic-block-local, not a full LLVM AliasAnalysis or path-sensitive memory model."
           ],
           "priority_upgrades_for_frontier_crs": [
             "Multi-node distributed fuzzing and cluster-scale LLVM/SVF points-to over full-program bitcode, with independent third-party replay of SARIF on non-planted OSS.",

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, List, Sequence, Tuple
 
 from kintsugi import __version__
 from kintsugi.models import GoldenScar, ScanFinding, Severity
@@ -145,8 +145,9 @@ def compute_token_savings_report(
     scars: Sequence[GoldenScar],
     verbose_markdown: str,
     turns_per_session: int = 50,
+    active_domain: str | None = None,
 ) -> Dict[str, Any]:
-    """Compare verbose Markdown skill context vs KMI/1 Ultra-Low-Token Index."""
+    """Compare verbose Markdown skill context vs Global KMI/1 and Domain-Partitioned KMI/1 Shards."""
     kmi_text = render_kmi_index(scars)
     verbose_tokens = max(estimate_tokens(verbose_markdown), len(scars) * 185)
     kmi_tokens = estimate_tokens(kmi_text)
@@ -154,8 +155,36 @@ def compute_token_savings_report(
     reduction_pct = round((saved_per_turn / verbose_tokens) * 100.0, 1) if verbose_tokens else 0.0
     saved_per_session = saved_per_turn * turns_per_session
 
+    partitioned = partition_by_domain(scars)
+    domain_partitions: Dict[str, Dict[str, Any]] = {}
+    domain_tok_list: List[int] = []
+    for dom_key, dom_meta in DOMAIN_SHARD_REGISTRY.items():
+        dom_scars = partitioned.get(dom_key, [])
+        dom_pack = render_domain_kmi_pack(scars, domain=dom_key)
+        dom_tok = estimate_tokens(dom_pack)
+        domain_tok_list.append(dom_tok)
+        dom_saved = max(0, verbose_tokens - dom_tok)
+        dom_red_pct = round((dom_saved / verbose_tokens) * 100.0, 2) if verbose_tokens else 0.0
+        domain_partitions[dom_key] = {
+            "domain": dom_key,
+            "title": dom_meta["title"],
+            "doc_path": dom_meta["doc_path"],
+            "rules_count": len(dom_scars),
+            "domain_kmi_tokens_per_turn": dom_tok,
+            "domain_tokens_saved_per_turn": dom_saved,
+            "domain_reduction_percent": dom_red_pct,
+            "domain_tokens_saved_per_session": dom_saved * turns_per_session,
+            "domain_kmi_preview": dom_pack,
+        }
+
+    avg_dom_tokens = round(sum(domain_tok_list) / max(len(domain_tok_list), 1), 1)
+    avg_dom_saved = max(0.0, verbose_tokens - avg_dom_tokens)
+    avg_dom_red_pct = round((avg_dom_saved / verbose_tokens) * 100.0, 2) if verbose_tokens else 0.0
+
+    selected_domain = normalize_domain_key(active_domain) if active_domain else None
+
     return {
-        "protocol": "KMI/1 (Kintsugi Micro-Index v1 + JIT PreToolUse)",
+        "protocol": "KMI/1 (Kintsugi Micro-Index v1 + Domain-Routed Shards + JIT PreToolUse)",
         "rules_compiled": len(scars),
         "verbose_tokens_per_turn": verbose_tokens,
         "kmi_tokens_per_turn": kmi_tokens,
@@ -164,7 +193,212 @@ def compute_token_savings_report(
         "turns_per_session": turns_per_session,
         "tokens_saved_per_session": saved_per_session,
         "kmi_preview": kmi_text,
+        "avg_domain_kmi_tokens_per_turn": avg_dom_tokens,
+        "avg_domain_reduction_percent": avg_dom_red_pct,
+        "active_domain": selected_domain,
+        "active_domain_report": domain_partitions.get(selected_domain) if selected_domain else None,
+        "domain_partitions": domain_partitions,
     }
+
+
+DOMAIN_SHARD_REGISTRY: Dict[str, Dict[str, str]] = {
+    "security": {
+        "doc_path": "docs/domains/01_security_appsec.md",
+        "title": "Application Security, Cryptography & Secrets",
+    },
+    "backend": {
+        "doc_path": "docs/domains/02_backend_api.md",
+        "title": "Backend APIs, HTTP Resilience & Concurrency",
+    },
+    "database": {
+        "doc_path": "docs/domains/03_database_sql.md",
+        "title": "Database Queries, Parameterized SQL & Persistence",
+    },
+    "frontend": {
+        "doc_path": "docs/domains/04_frontend_ui.md",
+        "title": "Frontend UI, DOM/XSS Hygiene, CORS & Browser Automation",
+    },
+    "devops": {
+        "doc_path": "docs/domains/05_devops_cloud.md",
+        "title": "DevOps, Shell/Git Safety, Subprocess & Containers",
+    },
+    "ai_mcp": {
+        "doc_path": "docs/domains/06_ai_mcp_agents.md",
+        "title": "AI Coding Agents, MCP Prompt Security & Token FinOps",
+    },
+}
+
+_DOMAIN_ALIASES: Dict[str, str] = {
+    "security": "security",
+    "01_security_appsec": "security",
+    "appsec": "security",
+    "sec": "security",
+    "backend": "backend",
+    "02_backend_api": "backend",
+    "api": "backend",
+    "database": "database",
+    "03_database_sql": "database",
+    "sql": "database",
+    "db": "database",
+    "frontend": "frontend",
+    "04_frontend_ui": "frontend",
+    "ui": "frontend",
+    "web": "frontend",
+    "devops": "devops",
+    "05_devops_cloud": "devops",
+    "cloud": "devops",
+    "shell": "devops",
+    "ai_mcp": "ai_mcp",
+    "06_ai_mcp_agents": "ai_mcp",
+    "mcp": "ai_mcp",
+    "agents": "ai_mcp",
+    "ai": "ai_mcp",
+}
+
+_EXPLICIT_SCAR_DOMAIN_MAP: Dict[str, str] = {
+    "KS-001": "security",
+    "KS-002": "devops",
+    "KS-003": "devops",
+    "KS-004": "backend",
+    "KS-005": "backend",
+    "KS-006": "security",
+    "KS-007": "database",
+    "KS-008": "backend",
+    "KS-009": "ai_mcp",
+    "KS-010": "frontend",
+    "KS-011": "security",
+    "KS-012": "ai_mcp",
+    "KS-013": "devops",
+    "KS-014": "security",
+    "KS-015": "frontend",
+    "KS-016": "backend",
+    "KS-017": "devops",
+    "KS-018": "security",
+    "KS-019": "security",
+    "KS-020": "security",
+    "KS-021": "security",
+    "KS-022": "security",
+    "KS-023": "security",
+    "KS-024": "security",
+    "KS-WILD-501": "backend",
+    "KS-WILD-502": "security",
+    "KS-WILD-503": "backend",
+    "KS-WILD-504": "security",
+    "KS-WILD-505": "backend",
+    "KS-WILD-506": "backend",
+    "KS-WILD-507": "backend",
+    "KS-WILD-508": "backend",
+    "KS-WILD-509": "backend",
+    "KS-WILD-510": "devops",
+    "KS-WILD-511": "security",
+    "KS-WILD-512": "backend",
+    "KS-WILD-513": "security",
+    "KS-WILD-514": "database",
+    "KS-WILD-515": "backend",
+    "KS-WILD-516": "security",
+    "KS-WILD-517": "backend",
+    "KS-WILD-518": "backend",
+}
+
+
+def normalize_domain_key(domain: str | None) -> str:
+    """Normalize a user-supplied domain name or alias into one of the 6 canonical domain keys."""
+    if not domain:
+        return "security"
+    cleaned = domain.strip().lower().replace("-", "_").removesuffix(".md")
+    if cleaned in _DOMAIN_ALIASES:
+        return _DOMAIN_ALIASES[cleaned]
+    raise ValueError(
+        f"Unknown domain '{domain}'. Valid domains: {', '.join(DOMAIN_SHARD_REGISTRY.keys())}"
+    )
+
+
+def classify_scar_domain(scar: GoldenScar) -> str:
+    """Deterministically assign any GoldenScar into one of the 6 canonical software engineering domains."""
+    sid = scar.id.strip().upper()
+    if sid in _EXPLICIT_SCAR_DOMAIN_MAP:
+        return _EXPLICIT_SCAR_DOMAIN_MAP[sid]
+
+    haystack = " ".join(
+        [
+            scar.category.lower(),
+            scar.title.lower(),
+            " ".join(t.lower() for t in (scar.tags or [])),
+            (scar.bad_code or "").lower()[:160],
+        ]
+    )
+    if any(k in haystack for k in ("sql", "database", "sqlite", "postgres", "cursor.execute", "param_query")):
+        return "database"
+    if any(k in haystack for k in ("cors", "frontend", "browser", "puppeteer", "playwright", "innerhtml", "xss", "dom")):
+        return "frontend"
+    if any(k in haystack for k in ("mcp", "prompt-injection", "prompt_injection", "agent-epistemic", "finops", "anti-hallucination", "claude-code")):
+        return "ai_mcp"
+    if any(k in haystack for k in ("docker", "subprocess", "shell=true", "git reset", "git push", "rm -rf", "child_process", "devops", "tar.extractall")):
+        return "devops"
+    if any(k in haystack for k in ("crypto", "secret", "jwt", "tls", "deserializ", "pickle", "yaml", "trojan", "security")):
+        return "security"
+    if sid.startswith("KS-OSS-"):
+        domain_keys = tuple(DOMAIN_SHARD_REGISTRY.keys())
+        idx = int(hashlib.sha256(sid.encode("utf-8")).hexdigest()[:8], 16) % len(domain_keys)
+        return domain_keys[idx]
+    return "backend"
+
+
+def partition_by_domain(scars: Sequence[GoldenScar]) -> Dict[str, List[GoldenScar]]:
+    """Partition a sequence of GoldenScars into the 6 canonical software engineering domain shards."""
+    buckets: Dict[str, List[GoldenScar]] = {k: [] for k in DOMAIN_SHARD_REGISTRY}
+    for scar in scars:
+        dom = classify_scar_domain(scar)
+        buckets[dom].append(scar)
+    for dom in buckets:
+        buckets[dom].sort(key=lambda s: (-s.severity.rank, s.id))
+    return buckets
+
+
+def render_domain_kmi_pack(
+    scars: Sequence[GoldenScar],
+    domain: str = "security",
+    *,
+    max_inline_rules: int = 8,
+) -> str:
+    """
+    Render a Domain-Routed `KMI/1` Wire Shard for a specific engineering domain (`security`,
+    `backend`, `database`, `frontend`, `devops`, `ai_mcp`), linking directly to its partitioned
+    documentation shard under `docs/domains/` and bounding inline rules via Merkle deferral.
+    """
+    dom_key = normalize_domain_key(domain)
+    dom_meta = DOMAIN_SHARD_REGISTRY[dom_key]
+    partitioned = partition_by_domain(scars)
+    dom_scars = partitioned.get(dom_key, [])
+
+    inline_scars = dom_scars[:max_inline_rules]
+    deferred_scars = dom_scars[max_inline_rules:]
+
+    digest_basis = "|".join(f"{s.id}:{s.fingerprint}" for s in dom_scars)
+    digest8 = hashlib.sha256(digest_basis.encode("utf-8")).hexdigest()[:8] if dom_scars else "00000000"
+
+    tiers = {
+        Severity.CRITICAL: "@CRIT",
+        Severity.HIGH: "@HIGH",
+        Severity.MEDIUM: "@MED ",
+        Severity.LOW: "@LOW ",
+    }
+    lines = [
+        f"<!-- KINTSUGI:KMI/1:DOMAIN={dom_key} START -->",
+        f"# KMI/1;domain={dom_key};doc={dom_meta['doc_path']};rules={len(inline_scars)}/{len(dom_scars)};sha256={digest8};jit=pre-tool-use",
+    ]
+    for sev in (Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW):
+        bucket = [scar_to_micro_token(s) for s in inline_scars if s.severity == sev]
+        if bucket:
+            lines.append(f"{tiers[sev]}: " + " | ".join(bucket))
+    if deferred_scars:
+        def_basis = "|".join(s.id for s in deferred_scars)
+        def_sha8 = hashlib.sha256(def_basis.encode("utf-8")).hexdigest()[:8]
+        lines.append(
+            f"@DEFERRED_DOMAIN_POOL: n={len(deferred_scars)};sha256={def_sha8};jit_expand=pre-tool-use"
+        )
+    lines.append(f"<!-- KINTSUGI:KMI/1:DOMAIN={dom_key} END -->")
+    return "\n".join(lines)
 
 
 def render_domain_sliced_kmi_index(
