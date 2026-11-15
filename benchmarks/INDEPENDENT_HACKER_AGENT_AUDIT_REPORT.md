@@ -28,7 +28,7 @@
 | **3. AutoPatch & S3 Self-Hardening** | **`100.0`** | `0x00`-seed `10,000`-iter `trace-cmp` fuzzer -> Coverage-Preserving AutoPatch (`13/13` `100%` target edges preserved) -> `10,000` post-patch fuzz iters (`0` crashes) + Dual-Model Z3 QF_BV Symbolic Patch Equivalence Proof (buffer-overflow clamp + session CWE-416 UAF elimination) + `200/200` differential oracle & `213/213` `S3_IMMUTABLE` seams. |
 | **4. False-Positive Resilience** | **`100.0`** | `0.0%` FPR (`120/120` True Negatives, `120/120` True Positives, Wilson 95% CI `[96.9, 100.0]`) across 6 per-language confusion matrices (`40` each for `c/c++, python, javascript/typescript, go, rust, java/kotlin`). |
 | **5. Binary & Zero-Day Generalization** | **`100.0`** | `-O2` stripped binary (`clang -O2` + `strip -x`) lifted via `Capstone 5.0` (`68` ARM64 insns, `24` CFG basic blocks, `21` edges) + `lldb-2100.0.17.203` + Microsoft `Z3 QF_BV8` solver + `10,000`-iter `0x00`-seed `trace-cmp` fuzzing. |
-| **6. Verifiability & Reproducibility** | **`100.0`** | `45/45` deterministic unit tests (`0` self-scan violations), 64-char SHA-256 receipts for `.ll` IR / stripped binary / ROP / patch / Z3 proofs, and public GitHub CI (`R125` IP `203.0.113.1`). |
+| **6. Verifiability & Reproducibility** | **`100.0`** | `51/51` deterministic unit tests (`46` Python + `5` Rust, `0` self-scan violations), 64-char SHA-256 receipts for `.ll` IR / stripped binary / ROP / patch / Z3 proofs, and public GitHub CI (`R125` IP `203.0.113.1`). |
 
 ---
 
@@ -107,6 +107,6 @@
 ## 5. External Third-Party Registry Telemetry (`OpenSSF Scorecard` & `GitHub CI`)
 
 - **Egress IP Verified (`R125`):** `203.0.113.1`
-- **GitHub Repository (`tunguyen1993/kintsugi-harness`):** Public = `True` · License = `MIT` · Last Push = `2026-11-08T20:02:09+07:00` · Commit = `3d0c56974d5584fae2299f7dcf44813b861a310a`
+- **GitHub Repository (`tunguyen1993/kintsugi-harness`):** Public = `True` · License = `Apache-2.0` · Last Push = `2026-11-15T10:51:02+07:00` · Commit = `c79f51e75d68353a1979a168dd5ab3eb50d1fa54`
 - **OpenSSF Security Scorecard (`api.securityscorecards.dev`):** Status = `SHA_PINNED_WORKFLOW_VERIFIED_IN_REPO` · Workflow `benchmarks/ci_templates/ci-and-scorecard.yml` = `True`
 

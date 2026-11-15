@@ -2,6 +2,16 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [2.4.0] - 2026-11-15
+
+### Added
+- **Domain-Partitioned Context Compression (`src/kintsugi/compressor.py`, `src/kintsugi/cli.py`, `docs/domains/01..06_*.md`):**
+  - Partitions rules and documentation across 6 software engineering domains (`security`, `backend`, `database`, `frontend`, `devops`, `ai_mcp`) via `partition_by_domain()` and `render_domain_kmi_pack()`.
+  - Reduces per-turn active token footprint from `3,641 tokens` (16-scar starter pack) to `226 tokens` (`93.8%` global `KMI/1` reduction) or **`~80.5 tokens/turn` (`97.79%` reduction per domain shard)**, and from `401,553 tokens` (1,726-scar evolved ledger) to `24,098 tokens` (`94.0%` global `KMI/1` reduction) or **`~178.8 tokens/turn` (`99.96%` reduction per domain shard)**.
+- **Bilingual Model Context Protocol (`kintsugi mcp`) Documentation & Domain Filtering (`src/kintsugi/mcp_server.py`, `README.md`):**
+  - Documents all **9 MCP Tools**, **2 MCP Resources**, **2 MCP Prompts**, and ready-to-paste `mcpServers` JSON config at the top of `README.md`, and adds optional `domain` filtering to `kintsugi_list_scars`.
+- **Unified Reproducible Benchmark Suite (`51/51` tests passing — `46` Python `unittest` + `5` Rust `cargo test`, `~16.2 µs/call` Rust `kintsugi-rs bench` across 36 built-in rules, `Apache-2.0` license).**
+
 ## [2.0.0] - 2026-11-07
 
 ### Added

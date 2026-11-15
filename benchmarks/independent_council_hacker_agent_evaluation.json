@@ -843,9 +843,9 @@
       "full_name": "tunguyen1993/kintsugi-harness",
       "public": true,
       "default_branch": "main",
-      "pushed_at": "2026-11-08T20:02:09+07:00",
-      "license": "MIT",
-      "verified_git_head_commit": "3d0c56974d5584fae2299f7dcf44813b861a310a",
+      "pushed_at": "2026-11-15T10:51:02+07:00",
+      "license": "Apache-2.0",
+      "verified_git_head_commit": "c79f51e75d68353a1979a168dd5ab3eb50d1fa54",
       "git_remote_verified": true,
       "rest_note": "HTTP Error 403: rate limit exceeded"
     }

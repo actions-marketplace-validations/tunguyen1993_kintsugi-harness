@@ -12,8 +12,8 @@
     "role_title_vi": "Kỹ Sư Trưởng Bảo Mật AI & Kiến Trúc Sư Chính Hệ Thống Kintsugi-Harness / Kintsugi-Brain"
   },
   "autonomous_agent_system": {
-    "system_name": "Kintsugi-Brain v10.7 & Kintsugi-Harness v1.7.0",
-    "core_engine": "Native Rust kintsugi-rs (7.6 us/call PreToolUse Guard) + Local Apple Silicon MLX Qwen2.5-Coder-1.5B-Instruct LoRA",
+    "system_name": "Kintsugi-Brain v10.7 & Kintsugi-Harness v2.4.0",
+    "core_engine": "Native Rust kintsugi-rs (~16.2 us/call PreToolUse Guard across 36 rules) + Local Apple Silicon MLX Qwen2.5-Coder-1.5B-Instruct LoRA",
     "reasoning_architecture": "@LOGIC/2 5-Pillar Neuro-Symbolic Verifier + 5-Gate Anti-False-Positive Reality Filter + S3 Formal Patch Synthesizer",
     "verified_cumulative_metrics": {
       "multi_file_repositories_solved": "112/112 (472 interdependent source files across Suites 29..43)",

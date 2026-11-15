@@ -2,7 +2,7 @@
 
 ```text
 @AUTHOR[name="Tu Nguyen (Nguyễn Đức Tú)" | email="tundfb@gmail.com" | github="@tunguyen1993" | repo="https://github.com/tunguyen1993/kintsugi-harness"]
-@SYSTEM[brain="Kintsugi-Brain v10.7" | harness="Kintsugi-Harness v2.0.0" | engine="Rust kintsugi-rs (7.6 µs/call) + MLX Qwen-LoRA + @LOGIC/2 + @CREED/1"]
+@SYSTEM[brain="Kintsugi-Brain v10.7" | harness="Kintsugi-Harness v2.4.0" | engine="Rust kintsugi-rs (~16.2 µs/call) + MLX Qwen-LoRA + @LOGIC/2 + @CREED/1"]
 @METRICS[
   repos_solved:  "112/112 (472 files across Suites 29..43)"
   blind_exams:   "231/231 (100.0% First-Shot Zero-Hint)"
