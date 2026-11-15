@@ -1719,7 +1719,7 @@ def forage_github_star_harnesses_with_gemini_grok(live_github_probe: bool = True
             "pillar_id": "COMPETITIVE-MOAT-2",
             "inspired_by": "anthropics/claude-code + Kintsugi @COMPACT/2 & @USER_PERSONA/1",
             "title": "Sub-Millisecond Rust PreToolUse + Zero-Amnesia Conversation/Excel Compactor + Cognitive Twin",
-            "description": "Combines <0.5ms Rust PreToolUse enforcement, 95.3% KMI/1 token compression, OpenXML .xlsx exact aggregation, and local-only @USER_PERSONA/1 adaptation.",
+            "description": "Combines <0.5ms Rust PreToolUse enforcement (~16.2 µs/call), 93.8% starter / 94.0% full KMI/1 & 97.79%-99.96% domain-shard token compression, OpenXML .xlsx exact aggregation, and local-only @USER_PERSONA/1 adaptation.",
         },
         {
             "pillar_id": "COMPETITIVE-MOAT-3",
