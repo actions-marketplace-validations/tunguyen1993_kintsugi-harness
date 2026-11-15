@@ -112,11 +112,11 @@ Add the following block to `claude_desktop_config.json`, `.cursor/mcp.json`, or 
 
 ## 📊 Reproducible Benchmarks / 可复现基准测试说明 (`v2.4.0`)
 
-> **English:** Every latency, token-compression, and test count metric in Kintsugi is 100% deterministic, arithmetic-checked (`reduction_pct = round(((verbose - compact) / verbose) * 100, 1)`), and reproducible on your local machine using the exact commands below.
+> **English:** Every token-compression and test-count metric in Kintsugi is deterministic and arithmetic-checked (`global_pct = round(((verbose - compact) / verbose) * 100, 1)`, `domain_shard_pct = round(((verbose - shard) / verbose) * 100, 2)` using `estimate_tokens`), and latency figures are environment-dependent measured reference benchmarks (macOS Apple Silicon M-series, `rustc --release`, Python 3.12) reproducible locally using the exact commands below. When running `kintsugi mcp --ledger .kintsugi/scars.json`, relative ledger paths resolve against the active project working directory (`cwd`) and automatically fall back to the built-in 16-rule starter pack if no `.kintsugi/scars.json` file exists yet.
 >
-> **中文说明:** Kintsugi 中的每一项延迟、Token 压缩率与测试通过数均可在本机 100% 确定性复现。通过将规则文档按 **6 大软件工程领域分片 (`docs/domains/01..06`)** 并结合 `KMI/1` 符号微索引，单轮上下文开销从完整的 `401,553 tokens`（1,726 条演进规则）或 `3,641 tokens`（16 条核心规则）降至按领域按需加载的 **`~178.8 tokens/turn`（节省 `99.96%`）** 或 **`~80.5 tokens/turn`（节省 `97.79%`）**。
+> **中文说明:** Kintsugi 中的每一项 Token 压缩率（基于确定性 BPE 估算函数 `estimate_tokens`）与测试通过数均可在本机 100% 确定性复现，延迟数据为参考硬件实测值（macOS Apple Silicon，`--release` 编译，200 次迭代均值）。通过将规则文档按 **6 大软件工程领域分片 (`docs/domains/01..06`)** 并结合 `KMI/1` 符号微索引，单轮上下文开销从完整的 `401,553 tokens`（1,726 条演进规则）或 `3,641 tokens`（16 条核心规则）降至按领域按需加载的 **`~178.8 tokens/turn`（6 个领域均值，节省 `99.96%`）** 或 **`~80.5 tokens/turn`（6 个领域均值，节省 `97.79%`）**。
 
-### 1. Run All 4 Verification & Benchmark Commands Locally
+### 1. Run All 5 Verification & Benchmark Commands Locally
 
 ```bash
 # 1. Python Unit Test Suite (46/46 tests passing, including Z3/LLVM CRS & Domain-Partitioned Compression):
@@ -125,11 +125,16 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 # 2. Native Rust Unit Test Suite (5/5 tests passing — 51/51 combined with Python):
 cargo test
 
-# 3. Native Rust Single-File Scan & @KML/1 Shield Benchmark (36 builtin rules, 200 iterations):
+# 3. Native Rust Single-File Scan & @KML/1 Shield Benchmark (36 builtin rules, 200 iterations, ~16.2 µs/call):
 cargo build --release && ./target/release/kintsugi-rs bench
 
-# 4. Global KMI/1 & 6-Domain Partitioned Context Compression Benchmark:
+# 4. Python AST+Regex Corpus Recall/Precision (16 Pos + 16 Neg, F1=1.000, ~28 ms) & Edition Verifier:
+python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
+
+# 5. Global KMI/1 & 6-Domain Partitioned Context Compression Benchmarks (Starter 16-rule & Evolved 1,726-rule):
 PYTHONPATH=src python3 -m kintsugi.cli token-report --starter-only
+PYTHONPATH=src python3 -m kintsugi.cli token-report
+PYTHONPATH=src python3 -m kintsugi.cli token-report --starter-only --domain security
 PYTHONPATH=src python3 -m kintsugi.cli token-report --domain security
 ```
 
