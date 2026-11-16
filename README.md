@@ -18,6 +18,7 @@
 [![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](ci/ci-and-arena-verification.yml)
 [![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
+[![M8ven Score](https://m8ven.ai/badge/mcp/tunguyen1993/kintsugi-harness)](https://m8ven.ai/mcp/tunguyen1993/kintsugi-harness?s=readme)
 [![Release: v2.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.8% - 99.96%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.8%25--99.96%25-00C853)](src/kintsugi/compressor.py)

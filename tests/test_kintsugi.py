@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tempfile
 import time
 import unittest
+import unittest.mock
+import urllib.parse
 import zipfile
 from pathlib import Path
 
@@ -594,6 +597,163 @@ class TestThreeAgentCouncilAndMCP(unittest.TestCase):
             scan_payload = json.loads(responses[2]["result"]["content"][0]["text"])
             self.assertFalse(scan_payload["passed"])
             self.assertEqual(scan_payload["findings"][0]["scar_id"], "KS-006")
+
+    def test_mcp_all_nine_tools_and_annotations_100_percent_coverage(self) -> None:
+        expected_tools = (
+            "kintsugi_scan_code",
+            "kintsugi_list_scars",
+            "kintsugi_record_failure",
+            "kintsugi_compile_skills",
+            "kintsugi_multi_model_guide",
+            "kintsugi_compact_context",
+            "kintsugi_integrate_harness",
+            "kintsugi_verify_logic",
+            "kintsugi_cinema_produce",
+        )
+        required_hints = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+
+        external_network_attempts: list[str] = []
+
+        def fail_closed_urlopen(url_or_req, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raw_url = getattr(url_or_req, "full_url", str(url_or_req))
+            host = (urllib.parse.urlsplit(raw_url).hostname or "").lower()
+            if host not in {"127.0.0.1", "localhost"}:
+                external_network_attempts.append(raw_url)
+            raise OSError(f"Network disabled in hermetic MCP test: {raw_url}")
+
+        clean_env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in {"GEMINI_API_KEY", "DEEPSEEK_API_KEY", "MUSE_API_KEY", "OPENAI_API_KEY"}
+        }
+
+        with (
+            unittest.mock.patch.dict(os.environ, clean_env, clear=True),
+            unittest.mock.patch("urllib.request.urlopen", side_effect=fail_closed_urlopen),
+            tempfile.TemporaryDirectory() as tmp,
+        ):
+            ws = Path(tmp)
+            (ws / ".cursorrules").write_text(
+                "Always use parameterized SQL queries.\n",
+                encoding="utf-8",
+            )
+            ledger_file = ws / ".kintsugi" / "scars.json"
+            server = KintsugiMCPServer(ledger_file)
+
+            list_resp = server.handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+            self.assertIsNotNone(list_resp)
+            tools = list_resp["result"]["tools"]
+            self.assertEqual(len(tools), 9)
+            self.assertEqual(tuple(t["name"] for t in tools), expected_tools)
+
+            for tool_def in tools:
+                annotations = tool_def.get("annotations")
+                self.assertIsInstance(annotations, dict, f"Missing annotations on {tool_def['name']}")
+                for hint in required_hints:
+                    self.assertIn(hint, annotations, f"Missing {hint} on {tool_def['name']}")
+                    self.assertIs(
+                        type(annotations[hint]),
+                        bool,
+                        f"Annotation {hint} on {tool_def['name']} must be bool",
+                    )
+
+            tool_invocations = [
+                (
+                    "kintsugi_scan_code",
+                    {"code": "eval(user_input)", "file_path": "handler.py"},
+                    lambda p: (self.assertFalse(p["passed"]), self.assertGreaterEqual(p["findings_count"], 1)),
+                ),
+                (
+                    "kintsugi_list_scars",
+                    {"language": "python", "domain": "security"},
+                    lambda p: (self.assertEqual(p["domain"], "security"), self.assertGreaterEqual(p["count"], 1)),
+                ),
+                (
+                    "kintsugi_record_failure",
+                    {
+                        "error_summary": "Unsafe legacy_unsafe_hook() call",
+                        "raw_trace": "legacy_unsafe_hook(payload)",
+                        "language": "python",
+                        "offending_snippet": "legacy_unsafe_hook(payload)",
+                        "fixed_snippet": "safe_validated_hook(payload)",
+                        "workspace_root": str(ws),
+                        "co_run": False,
+                    },
+                    lambda p: (self.assertTrue(p["is_new"]), self.assertTrue(p["scar"]["id"].startswith("KS-"))),
+                ),
+                (
+                    "kintsugi_compile_skills",
+                    {"workspace_root": str(ws), "targets": ["skills", "claude", "agents", "cursor"]},
+                    lambda p: self.assertGreaterEqual(len(p["compiled_files"]), 4),
+                ),
+                (
+                    "kintsugi_multi_model_guide",
+                    {
+                        "question": "How does multi-model co-execution work?",
+                        "workspace_root": str(ws),
+                        "auto_configure-byok": False,
+                    },
+                    lambda p: (
+                        self.assertIn("direct_answer_markdown", p),
+                        self.assertIn("current_entitlement", p),
+                    ),
+                ),
+                (
+                    "kintsugi_compact_context",
+                    {
+                        "raw_conversation": (
+                            "User: Fix auth timeout in src/app.py:42\n"
+                            "Assistant: Updated src/app.py:42 with timeout=15.\n"
+                        ),
+                        "workspace_root": str(ws),
+                        "inject_agents_md": False,
+                        "co_run": False,
+                    },
+                    lambda p: self.assertTrue(p["ok"]),
+                ),
+                (
+                    "kintsugi_integrate_harness",
+                    {"action": "discover", "workspace_root": str(ws)},
+                    lambda p: (self.assertTrue(p["ok"]), self.assertGreaterEqual(p["candidates_count"], 1)),
+                ),
+                (
+                    "kintsugi_verify_logic",
+                    {"code": "def login(user, otp):\n    return otp == user.otp\n", "self_test": True},
+                    lambda p: (self.assertTrue(p["self_test"]["ok"]), self.assertTrue(p["login_audit"]["ok"])),
+                ),
+                (
+                    "kintsugi_cinema_produce",
+                    {
+                        "workspace_root": str(ws),
+                        "style_mode": "live_action",
+                        "provider": "veo",
+                        "auto_heal": True,
+                        "pull_remote_openmontage": False,
+                    },
+                    lambda p: (self.assertTrue(p["ok"]), self.assertTrue(p["qa_report"]["ok"])),
+                ),
+            ]
+
+            called_names = []
+            for req_id, (tool_name, arguments, verify_fn) in enumerate(tool_invocations, start=2):
+                resp = server.handle_request(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "method": "tools/call",
+                        "params": {"name": tool_name, "arguments": arguments},
+                    }
+                )
+                self.assertIsNotNone(resp, f"Null response for {tool_name}")
+                self.assertNotIn("error", resp, f"JSON-RPC error for {tool_name}: {resp}")
+                result = resp["result"]
+                self.assertFalse(result.get("isError", False), f"isError=True for {tool_name}: {result}")
+                payload = json.loads(result["content"][0]["text"])
+                verify_fn(payload)
+                called_names.append(tool_name)
+
+            self.assertEqual(tuple(called_names), expected_tools)
+            self.assertEqual(external_network_attempts, [])
 
 
 class TestCLIDogfooding(unittest.TestCase):
