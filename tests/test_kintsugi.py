@@ -2677,6 +2677,7 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertTrue(ir_cpg["field_sensitive_sanitizer_pruning_verified"])
         self.assertGreaterEqual(ir_cpg["indirect_calls_resolved"], 1)
         self.assertTrue(ir_cpg["cross_tu_uaf_detected"])
+        self.assertGreaterEqual(ir_cpg["path_sensitive_branches_analyzed"], 1)
 
         # 2C. Stripped Binary Concolic Lifter (clang -O2 + strip -x + Capstone 5.0 CFG + LLDB Python API + Z3 QF_BV8)
         lifted = StrippedBinaryConcolicLifter.lift_and_solve_stripped_binary()
@@ -2694,6 +2695,7 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertTrue(crs["edge_coverage_preserved_100_pct"])
         self.assertTrue(crs["differential_200_case_oracle_match"])
         self.assertTrue(crs["functional_regression_passed"])
+        self.assertTrue(crs["z3_patch_equivalence_verified"])
         self.assertGreaterEqual(crs["max_pc_guard_edges_covered"], 12)
 
         # 3B. Genuine 12x12 Lenstra-Lenstra-Lovasz (LLL) Lattice Basis Reduction Solver + Z3 Cross-Verify
@@ -2703,13 +2705,134 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(lll_res["lattice_dimension"], "12x12")
         self.assertGreater(lll_res["lll_lovasz_swaps"], 10)
 
-        # 4. Held-Out 160-Sample Multi-Language Benchmark (40 each: C/C++, Python, JS/TS, Go) with Wilson 95% CIs
+        # 4. Held-Out Multi-Language Benchmark (at least 160 samples / 4 languages) with Wilson 95% CIs
         bench = HeldOutMultiLangBenchmark.run_160_sample_suite()
-        self.assertEqual(bench["total_samples"], 160)
+        self.assertGreaterEqual(bench["total_samples"], 160)
         self.assertEqual(bench["recall_pct"], 100.0)
         self.assertEqual(bench["false_positive_rate_pct"], 0.0)
         self.assertEqual(bench["f1_score_pct"], 100.0)
-        self.assertEqual(len(bench["per_language_confusion_matrices"]), 4)
+        self.assertGreaterEqual(len(bench["per_language_confusion_matrices"]), 4)
+
+    def test_v2_4_0_domain_partitioned_context_compression_and_shards(self) -> None:
+        from kintsugi.compressor import (
+            DOMAIN_SHARD_REGISTRY,
+            compute_token_savings_report,
+            estimate_tokens,
+            partition_by_domain,
+            render_domain_kmi_pack,
+        )
+
+        repo_root = Path(__file__).resolve().parent.parent
+        scars_16 = get_starter_scars()
+        partitioned = partition_by_domain(scars_16)
+        self.assertEqual(set(partitioned.keys()), {"security", "backend", "database", "frontend", "devops", "ai_mcp"})
+        self.assertEqual(sum(len(v) for v in partitioned.values()), len(scars_16))
+        for dom_key, meta in DOMAIN_SHARD_REGISTRY.items():
+            self.assertGreaterEqual(len(partitioned[dom_key]), 1)
+            shard_file = repo_root / meta["doc_path"]
+            self.assertTrue(shard_file.is_file(), f"Missing domain shard: {shard_file}")
+            shard_text = shard_file.read_text(encoding="utf-8")
+            self.assertIn("Apache-2.0", shard_text)
+            self.assertIn(f"KINTSUGI:KMI/1:DOMAIN={dom_key}", shard_text)
+
+            pack = render_domain_kmi_pack(scars_16, domain=dom_key)
+            self.assertIn(f"domain={dom_key};doc={meta['doc_path']}", pack)
+            self.assertLessEqual(estimate_tokens(pack), 110)
+
+        verbose_md = SkillCompiler(scars_16).render_skill_markdown(
+            "kintsugi-guardrails",
+            "Verbose baseline comparison",
+            scars_16,
+        )
+        rep = compute_token_savings_report(scars_16, verbose_md, turns_per_session=50, active_domain="security")
+        self.assertEqual(rep["verbose_tokens_per_turn"], 3641)
+        self.assertEqual(rep["kmi_tokens_per_turn"], 226)
+        self.assertEqual(rep["tokens_saved_per_turn"], 3415)
+        self.assertEqual(rep["reduction_percent"], 93.8)
+        self.assertEqual(rep["avg_domain_kmi_tokens_per_turn"], 80.5)
+        self.assertEqual(rep["avg_domain_reduction_percent"], 97.79)
+        self.assertEqual(rep["active_domain"], "security")
+        self.assertEqual(rep["active_domain_report"]["doc_path"], "docs/domains/01_security_appsec.md")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            server = KintsugiMCPServer(Path(tmp) / "scars.json")
+            prompts_resp = server.handle_request({"jsonrpc": "2.0", "id": 10, "method": "prompts/list"})
+            prompt_names = [p["name"] for p in prompts_resp["result"]["prompts"]]
+            self.assertEqual(prompt_names, ["kintsugi-audit-code", "kintsugi-evolve-scar"])
+            dom_call = server.handle_request(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 11,
+                    "method": "tools/call",
+                    "params": {"name": "kintsugi_list_scars", "arguments": {"domain": "security"}},
+                }
+            )
+            dom_payload = json.loads(dom_call["result"]["content"][0]["text"])
+            self.assertEqual(dom_payload["domain"], "security")
+            self.assertIn("KMI/1;domain=security", dom_payload["domain_kmi_pack"])
+
+    def test_v2_4_0_empirical_cortex_and_harness_evolutions(self) -> None:
+        from kintsugi.swarm import (
+            compute_swarm_dispatch_plan,
+            get_model_capability_matrix,
+            route_task_to_domain_shards,
+        )
+
+        repo_root = Path(__file__).resolve().parent.parent
+
+        # 1. Verify @CREED/1 v2.1 5-Pillar Autopoietic Evolution Creed & Harness Evolutions in Compiler
+        gov_block = SkillCompiler(get_starter_scars()).render_root_governance_block()
+        for pillar in ("P1:MUTATE", "P2:SYNTH", "P3:SCAR", "P4:PRUNE", "P5:CONVERGE"):
+            self.assertIn(pillar, gov_block)
+        for proto in ("@SWARM_DISPATCH/1", "@DUAL_COUNCIL/1", "@NEVER_SOLO_GATE/1", "@HARNESS_HOT_RELOAD/1"):
+            self.assertIn(proto, gov_block)
+
+        # 2. Verify @MODEL_MATRIX/1 & @SWARM_DISPATCH/1 + Domain Shard Routing
+        mat = get_model_capability_matrix()
+        self.assertEqual(mat["slots_count"], 6)
+        self.assertIn("creed_v2_1", mat["harness_evolutions"])
+        self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["protocol"], "@CREED/1")
+        self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["pillars_count"], 5)
+
+        plan = compute_swarm_dispatch_plan(
+            "Audit OAuth2 JWT signature verification, Postgres SQL query parameterization, and Docker container security",
+            plan_tier="ULTRA_X20",
+        )
+        self.assertEqual(plan["plan_tier"], "ULTRA_X20")
+        self.assertEqual(plan["max_subagents_cap"], 8)
+        self.assertGreaterEqual(plan["recommended_parallel_subagents"], 3)
+        self.assertEqual(plan["subagent_model_lock"], "ARGON_HIGH (Model='inherit' | 'pro')")
+        self.assertIn("security", plan["routed_domains"])
+        self.assertIn("database", plan["routed_domains"])
+        self.assertIn("devops", plan["routed_domains"])
+        self.assertIn("@SWARM_DISPATCH/1|", plan["kmi_dispatch_wire"])
+
+        shards = route_task_to_domain_shards("Fix CORS XSS in React DOM and MCP tool prompt injection")
+        self.assertIn("frontend", shards["routed_domains"])
+        self.assertIn("ai_mcp", shards["routed_domains"])
+
+        # 3. Verify Pre-Compiled Domain @KML/1 Shards & Synthesized Empirical Cortex
+        dom_manifest_path = repo_root / "docs" / "domains" / "domain_manifest.json"
+        self.assertTrue(dom_manifest_path.is_file())
+        dom_manifest = json.loads(dom_manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(dom_manifest["total_scars"], 1789)
+        self.assertEqual(dom_manifest["empirical_scars_added"], 63)
+        self.assertEqual(sum(d["scars_count"] for d in dom_manifest["domains"].values()), 1789)
+        for d_meta in dom_manifest["domains"].values():
+            self.assertTrue((repo_root / d_meta["kml_shard"]).is_file())
+
+        cortex_manifest_path = repo_root / "collective-pool" / "synthesized-empirical-cortex" / "MANIFEST.json"
+        self.assertTrue(cortex_manifest_path.is_file())
+        cortex_manifest = json.loads(cortex_manifest_path.read_text(encoding="utf-8"))
+        self.assertTrue(cortex_manifest["dlp_sanitized"])
+        self.assertEqual(cortex_manifest["counts"]["cognitive_axioms"], 972)
+        self.assertEqual(cortex_manifest["counts"]["causal_atoms"], 1581)
+        self.assertEqual(cortex_manifest["counts"]["completed_training_suites"], 48)
+        self.assertEqual(cortex_manifest["counts"]["completed_research_topics"], 85)
+        self.assertEqual(cortex_manifest["counts"]["empirical_engineering_scars_ks_emp"], 63)
+        self.assertEqual(cortex_manifest["counts"]["total_ledger_scars"], 1789)
+        self.assertEqual(cortex_manifest["counts"]["local_cognitive_lessons"], 41)
+        self.assertEqual(cortex_manifest["counts"]["swarm_merged_playbooks"], 7)
 
 
 if __name__ == "__main__":

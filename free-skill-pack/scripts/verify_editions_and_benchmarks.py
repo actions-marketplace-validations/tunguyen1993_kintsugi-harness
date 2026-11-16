@@ -4,7 +4,7 @@ Deterministic Live Proof & Edition Verification Suite (`v1.3.0` · `@KML/1`).
 
 Reproducibly verifies on any machine:
 1. `@KML/1` Universal Agent Machine Language compression, zero-prose invariant, and parse speed
-   across all 1,690 evolved open-source scars in `.kintsugi/scars.json` & `.kintsugi/scars.kml`.
+   across all 1,789 evolved open-source scars in `.kintsugi/scars.json` & `.kintsugi/scars.kml`.
 2. Native Rust `kintsugi-rs v1.3.0` sub-millisecond `PreToolUse` benchmark & `verify-kml` audit.
 3. All 4 Kintsugi Editions (`Core Guard Free $0`, `Tier 1 FinOps & Reliability Pro $15`,
    `Tier 2 Zero-Trust AppSec & MCP Pro $19`, `Tier 3 Enterprise Complete Pro $29`):
@@ -362,7 +362,7 @@ def verify_all_four_editions() -> Dict[str, Any]:
             "edition_3_enterprise_complete_pro_29usd": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 32,
-                "kml_evolved_rules": 1706,
+                "kml_evolved_rules": len(all_oss),
                 "co_execution_tier": "ENTERPRISE_PAID_COUNCIL (Primary + 5 Free Models + BYOK Paid Council)",
                 "autofix_codemods_verified": 12,
                 "frontier_lessons_verified": len(lessons),

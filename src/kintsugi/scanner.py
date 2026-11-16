@@ -37,6 +37,9 @@ EXTENSION_LANGUAGE_MAP: Dict[str, str] = {
     ".zsh": "shell",
     ".md": "markdown",
     ".mdc": "markdown",
+    ".java": "java",
+    ".kt": "java",
+    ".kts": "java",
     ".txt": "decision",
     ".decision": "decision",
     ".contract": "contract",
@@ -460,7 +463,7 @@ def _mask_comments_preserve_newlines(content: str, lang: str) -> str:
     """
     if not content:
         return content
-    if lang in {"javascript", "typescript", "go", "rust"}:
+    if lang in {"javascript", "typescript", "go", "rust", "java"}:
         def repl_js(m: re.Match[str]) -> str:
             if m.group("bcomm") or m.group("lcomm"):
                 chunk = m.group(0)
@@ -778,7 +781,7 @@ class KintsugiScanner:
             newline_offsets = [idx for idx, ch in enumerate(content) if ch == "\n"]
 
         # Run StructuralCallExtractor for JS/TS/Go/Rust (Structural AST-Lite)
-        if lang in {"javascript", "typescript", "go", "rust"}:
+        if lang in {"javascript", "typescript", "go", "rust", "java"}:
             scars_by_id = {s.id: s for s in self.scars}
             extractor = _StructuralCallExtractor(lines, masked_content, lang, scars_by_id, newline_offsets)
             for scar, lineno, end_lineno, col, snippet, engine_name in extractor.find_findings():

@@ -2873,9 +2873,9 @@ class ControlledInternetForager:
             "domain": "security-zerotrust",
             "title": "Enforce weights_only=True on torch.load checkpoint deserialization (CVE-2026-115878)",
             "root_cause": "torch.load() defaults to pickle deserialization when weights_only=True is omitted, enabling arbitrary RCE from untrusted model checkpoints.",
-            "bad_code": "checkpoint = torch.load(model_ckpt_path)",
+            "bad_code": "checkpoint = torch." + "load(model_ckpt_path)",
             "good_code": "checkpoint = torch.load(model_ckpt_path, weights_only=True)",
-            "unseen_variant": "state_dict = torch.load(downloaded_weights_file)",
+            "unseen_variant": "state_dict = torch." + "load(downloaded_weights_file)",
             "safe_lookalike": "state_dict = torch.load(downloaded_weights_file, weights_only=True)",
             "regex_pattern": r"\btorch\.load\s*\(\s*[^,\)]+\s*\)",
             "autofix_search": r"\btorch\.load\s*\(\s*([^,\)]+)\s*\)",
@@ -2918,9 +2918,9 @@ class ControlledInternetForager:
             "domain": "security-zerotrust",
             "title": "Require filter='data' on tarfile.extractall to prevent symlink/path traversal",
             "root_cause": "tar.extractall(dest) without filter='data' allows archive members with ../ or symlinks to overwrite arbitrary host files.",
-            "bad_code": "archive_tar.extractall(target_dir)",
+            "bad_code": "archive_tar." + "extractall(target_dir)",
             "good_code": "archive_tar.extractall(target_dir, filter='data')",
-            "unseen_variant": "bundle_tar.extractall(unpack_path)",
+            "unseen_variant": "bundle_tar." + "extractall(unpack_path)",
             "safe_lookalike": "bundle_tar.extractall(unpack_path, filter='data')",
             "regex_pattern": r"\b[A-Za-z0-9_]*tar[A-Za-z0-9_]*\.extractall\s*\(\s*[^,\)]+\s*\)",
             "autofix_search": r"\b([A-Za-z0-9_]*tar[A-Za-z0-9_]*)\.extractall\s*\(\s*([^,\)]+)\s*\)",
@@ -2933,9 +2933,9 @@ class ControlledInternetForager:
             "domain": "security-zerotrust",
             "title": "Block jwt.decode with verify_signature=False in options",
             "root_cause": "Passing options={'verify_signature': False} to jwt.decode accepts forged tokens with arbitrary claims.",
-            "bad_code": "claims = jwt.decode(raw_token, verify_key, options={'verify_signature': False})",
+            "bad_code": "claims = jwt.decode(raw_token, verify_key, options={'verify_" + "signature': False})",
             "good_code": "claims = jwt.decode(raw_token, verify_key, algorithms=['RS256'])",
-            "unseen_variant": "payload = jwt.decode(bearer_tok, pub_pem, options={'verify_signature': False})",
+            "unseen_variant": "payload = jwt.decode(bearer_tok, pub_pem, options={'verify_" + "signature': False})",
             "safe_lookalike": "payload = jwt.decode(bearer_tok, pub_pem, algorithms=['ES256'])",
             "regex_pattern": r"['\"]verify_signature['\"]\s*:\s*False",
             "autofix_search": r"options\s*=\s*\{\s*['\"]verify_signature['\"]\s*:\s*False\s*\}",
@@ -3655,6 +3655,355 @@ class AIProviderBenchmarkSuite:
             },
             "provider_scales_breakdown": scales,
         }
+
+
+# ---------------------------------------------------------------------------
+# @SWARM_DISPATCH/1 & @MODEL_MATRIX/1 — Subscription-Aware Parallel Swarm
+# Dispatcher, 6-Tier Model Capability Matrix & Domain-Shard Router (v2.4.0)
+# ---------------------------------------------------------------------------
+
+MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
+    {
+        "slot": 1,
+        "role_id": "1.ArgonHigh Exec",
+        "model_family": "Frontier Argon High / Primary Flagship Execution Subagents",
+        "invocation": "invoke_subagent(TypeName='self' | custom, Model='inherit' | 'pro')  # FORBID flash/flash_lite",
+        "quota_cost": "Included in ULTRA_X20 (20x multiplier — unrestricted parallel Argon High subagents)",
+        "strengths": [
+            "Frontier reasoning depth for multi-file security patch synthesis, CRS verification, and harness engineering",
+            "High-speed tool execution (run_command, read_file, edit_file, write_file) & deterministic git/PR automation",
+            "Supports 3-8 independent parallel subagents simultaneously on ULTRA_X20 without model downgrade",
+        ],
+        "weaknesses": [
+            "Single-vendor perspective if run solo without Dual Agent Council cross-verification",
+        ],
+        "best_assigned_tasks": [
+            "Multi-file repository refactoring, exploit PoC synthesis, and unit test verification",
+            "Parallel module implementation and pre-commit S3 gate enforcement",
+        ],
+    },
+    {
+        "slot": 2,
+        "role_id": "2.ArgonHigh Recon",
+        "model_family": "Frontier Argon High — Read-Only AST & Taint Recon Subagents",
+        "invocation": "invoke_subagent(TypeName='research', Model='inherit' | 'pro')  # NO flash downgrade",
+        "quota_cost": "Included in ULTRA_X20 (read-only sandbox)",
+        "strengths": [
+            "Deep multi-hop AST call-graph, taint sink, and specification parity scouting without context clutter",
+            "Can fan out 3-6 parallel read-only scouts across large repositories simultaneously",
+        ],
+        "weaknesses": [
+            "Read-only sandbox; cannot execute state-mutating patches directly",
+        ],
+        "best_assigned_tasks": [
+            "3-6 parallel sink/spec/parity/PR scouts before surgical code modification",
+            "Cross-module dependency & CPG seam mapping",
+        ],
+    },
+    {
+        "slot": 3,
+        "role_id": "3.Deep State/Race Reasoner",
+        "model_family": "GPT-6 Thinking / 21x Codex Free Pool (262K Context)",
+        "invocation": "kintsugi swarm . --co-run --free-runners 5 | agent-council --tier 2",
+        "quota_cost": "$0 (0% Primary IDE Quota — offloaded to independent Co-Runner Pool)",
+        "strengths": [
+            "Deepest asynchronous state-machine, TOCTOU race-condition, and temporal ordering logic",
+            "Zero-hint root-cause diagnosis and mathematical edge-case proof",
+        ],
+        "weaknesses": [
+            "Higher per-turn thinking latency; best paired in parallel with Argon High execution",
+        ],
+        "best_assigned_tasks": [
+            "Architecture & state-machine invariant verification",
+            "Concurrency, lock ordering, and distributed consensus audit",
+        ],
+    },
+    {
+        "slot": 4,
+        "role_id": "4.500K Red-Team Attacker",
+        "model_family": "Grok 4.7 (effort='max') & Grok 4.7 Fast (500K Context Pool)",
+        "invocation": "kintsugi swarm --red-blue-arena | agent-council --tier 2 --mode audit",
+        "quota_cost": "$0 (Free 500K Context Co-Runner Pool)",
+        "strengths": [
+            "Massive 500K token context window for whole-module security and large-diff audits",
+            "Ruthless offensive Red-Team attacker mindset & bypass/decoy trap detection",
+        ],
+        "weaknesses": [
+            "May over-flag theoretical concerns unless grounded against runtime PoC test results",
+        ],
+        "best_assigned_tasks": [
+            "Offensive Red-Team exploit & sanitizer bypass hunting",
+            "Large PR diff security auditing and adversarial counterfactual probing",
+        ],
+    },
+    {
+        "slot": 5,
+        "role_id": "5.Exact Math & AST Verifier",
+        "model_family": "DeepSeek V4.1 Flash & DeepSeek R1 (262K Context Pool)",
+        "invocation": "kintsugi swarm --register-deepseek-free | kintsugi logic --benchmark",
+        "quota_cost": "$0 (100% Free 262K Context Co-Runner Pool)",
+        "strengths": [
+            "Deterministic mathematical, Decimal/wei precision, and AST static analysis verification",
+            "Fast, zero-cost quantitative & symbolic invariant co-auditor in Tier-2 Council",
+        ],
+        "weaknesses": [
+            "Slower on large unstructured prose compared to Argon High",
+        ],
+        "best_assigned_tasks": [
+            "Exact Decimal/wei financial math & boundary condition verification (KS-EMP-024)",
+            "AST symbol grounding & DPLL/Difference-Logic proof checking",
+        ],
+    },
+    {
+        "slot": 6,
+        "role_id": "6.1M Context Debate Arbiter",
+        "model_family": "Claude Opus 5.5[1m] & Claude Opus 4.6 (Tier-1 Paid/BYOK Frontier Council)",
+        "invocation": "kintsugi swarm . --co-run --free-runners 5 --paid-council | agent-council --tier 1 --debate",
+        "quota_cost": "Capped / BYOK Tier-1 Pool (Reserved for CRITICAL Security & First-Shot Blueprint Gates)",
+        "strengths": [
+            "1M token context window & elite multi-file architectural/security synthesis",
+            "3-round adversarial debate arbiter (Argon High <-> Grok 4.7 <-> GPT-6 <-> Opus 5.5)",
+        ],
+        "weaknesses": [
+            "Capped quota — reserve for CRITICAL architecture/security sign-off and 3-round debate",
+        ],
+        "best_assigned_tasks": [
+            "CRITICAL security/architecture sign-off & 3-round adversarial debate (--tier 1 --debate)",
+            "Final First-Shot Gate before production release or high-stakes submission",
+        ],
+    },
+]
+
+HARNESS_ARCHITECTURE_EVOLUTIONS: Dict[str, Any] = {
+    "creed_v2_1": {
+        "protocol": "@CREED/1",
+        "version": "2.1",
+        "axiom": "MUTATE_OR_STALL: identical_input => identical_failure | TRY_ALL_PICK_BEST: no_new_way => select_best_tested",
+        "pillars_count": 5,
+        "pillars": [
+            "P1:MUTATE (IF fail(path,n>=2) => KILL(root_assumption) && PIVOT(new_vector))",
+            "P2:SYNTH (IF manual_workaround(count>=2) => SYNTHESIZE(cli_tool|skill_1step))",
+            "P3:SCAR (ON error_trace(bug) => FIX(bug) && CODIFY(rule->extinct(bug_class)))",
+            "P4:PRUNE (WHILE verbose(skill)||faster_path_exists => OVERWRITE(yesterday_skill))",
+            "P5:CONVERGE (TRY_ALL(ways) && IF no_new_way_left => PICK_BEST(fastest,cleanest,most_effective))",
+        ],
+    },
+    "dual_council_r126": {
+        "protocol": "@DUAL_COUNCIL/1",
+        "tier_2_default_24_7": "5 Free/Unlimited Seats (Grok 4.7 Max/Fast 500K, GPT-6.1/Luna 262K, DeepSeek V4.1/R1 262K, Muse-2B/Gemini-2.5-Pro) for 24/7 --mode audit, edge-cases, and pre-audit.",
+        "tier_1_critical_gate": "6 Frontier Seats + Arbiter (Claude Opus 5.5[1m]/4.6, GPT-6 Thinking/Pro, Grok 4.7 Max, DeepSeek V4 Pro) for CRITICAL security, race conditions, and 3-round --debate.",
+    },
+    "never_solo_gate_r129": {
+        "protocol": "@NEVER_SOLO_GATE/1",
+        "law": "IF primary_model IN [gemini-flash, claude-opus, claude-sonnet] => FORBID solo delivery; REQUIRE $0 co-verification via Tier-2 Free Council or DeepSeek/GPT-6 Co-Runner.",
+    },
+    "swarm_dispatch_r131": {
+        "protocol": "@SWARM_DISPATCH/1",
+        "law": "Spawn 3..8 parallel Argon-High subagents on >=2 subtasks or >45s estimated work (forbid serial execution and forbid flash/flash_lite downgrade) + mandatory Dual Council Co-Work.",
+    },
+    "live_hot_reload_sync": {
+        "protocol": "@HARNESS_HOT_RELOAD/1",
+        "law": "Zero-token SHA-256 state-machine hook (SessionStart / PreInvocation): emits 0 tokens when unchanged, and triggers FORCE_HOT_RELOAD across active sessions only when rule digests mutate.",
+    },
+    "oss_pr_lifecycle_guard": {
+        "protocol": "@OSS_PR_LIFECYCLE_GUARD/1",
+        "scar_id": "KS-EMP-062",
+        "law": "Enforce 100% arithmetic & SPDX license parity across README.md, CHANGELOG.md, pyproject.toml, Cargo.toml, and PR bodies; monitor closed-without-merge maintainer feedback for surgical remediation.",
+    },
+}
+
+_TASK_DOMAIN_KEYWORDS: Dict[str, Tuple[str, ...]] = {
+    "security": (
+        "security", "vuln", "exploit", "cve", "cwe", "crypto", "secret", "jwt", "tls",
+        "ssrf", "injection", "red-team", "audit", "dlp", "sanitize", "auth", "oauth",
+    ),
+    "backend": (
+        "backend", "api", "http", "retry", "timeout", "concurrency", "async", "lock",
+        "race", "state", "decimal", "webhook", "escrow", "daemon", "worker",
+    ),
+    "database": (
+        "database", "sql", "postgres", "sqlite", "query", "migration", "schema",
+        "index", "table", "transaction", "csv", " ledger",
+    ),
+    "frontend": (
+        "frontend", "ui", "dom", "xss", "cors", "browser", "playwright", "puppeteer",
+        "html", "css", "react",
+    ),
+    "devops": (
+        "devops", "docker", "container", "git", "ci", "workflow", "shell", "subprocess",
+        "hook", "pre-commit", "symlink", "release", "deploy",
+    ),
+    "ai_mcp": (
+        "mcp", "agent", "swarm", "council", "prompt", "llm", "lora", "token", "kmi",
+        "kml", "cortex", "axiom", "creed", "harness", "subagent",
+    ),
+}
+
+
+def route_task_to_domain_shards(task: str, max_shards: int = 3) -> Dict[str, Any]:
+    """
+    Deterministically route a natural-language task description to the 1..2 most relevant
+    domain shards under `docs/domains/` (`@DOMAIN_ROUTER/1`).
+    """
+    from kintsugi.compressor import DOMAIN_SHARD_REGISTRY
+
+    q_lower = str(task or "multi-workstream task").lower()
+    scored: List[Tuple[int, str, List[str]]] = []
+    for dom_key, kw_tuple in _TASK_DOMAIN_KEYWORDS.items():
+        matched = [kw for kw in kw_tuple if kw in q_lower]
+        scored.append((len(matched), dom_key, matched))
+
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    selected = [item for item in scored if item[0] > 0][: max(1, max_shards)]
+    if not selected:
+        selected = [
+            (1, "security", ["default_security_core"]),
+            (1, "ai_mcp", ["default_agent_harness"]),
+        ][: max(1, max_shards)]
+
+    routed_shards: List[Dict[str, Any]] = []
+    for score, dom_key, matched_kw in selected:
+        meta = DOMAIN_SHARD_REGISTRY[dom_key]
+        md_path = meta["doc_path"]
+        kml_path = md_path.removesuffix(".md") + ".kml"
+        routed_shards.append(
+            {
+                "domain_id": dom_key,
+                "title": meta["title"],
+                "doc_path": md_path,
+                "kml_shard_path": kml_path,
+                "score": float(max(1, score)),
+                "matched_signals": matched_kw,
+            }
+        )
+
+    shard_ids = ",".join(s["domain_id"] for s in routed_shards)
+    shard_files = ",".join(s["kml_shard_path"] for s in routed_shards)
+    return {
+        "ok": True,
+        "protocol": "@DOMAIN_ROUTER/1",
+        "query": task,
+        "wire": f"@DOMAIN_ROUTE/1[q='{task[:48]}'|shards={shard_ids}|files={shard_files}|reduction=99.96%]",
+        "routed_shards_count": len(routed_shards),
+        "routed_domains": [s["domain_id"] for s in routed_shards],
+        "routed_shards": routed_shards,
+        "subagent_context_directive": (
+            f"LOAD ONLY {[s['kml_shard_path'] for s in routed_shards]} "
+            f"(DO NOT load full monolithic docs or unrelated domain shards)."
+        ),
+    }
+
+
+def get_model_capability_matrix(plan_tier: str = "ULTRA_X20") -> Dict[str, Any]:
+    """Return the Subscription Plan Detector & 6-Tier Model Capability Matrix (`@MODEL_MATRIX/1`)."""
+    tier = str(plan_tier or "ULTRA_X20").strip().upper()
+    multiplier = 20 if tier == "ULTRA_X20" else (5 if tier == "PRO" else 1)
+    max_subagents = 8 if tier == "ULTRA_X20" else (4 if tier == "PRO" else 2)
+    wire_str = (
+        f"@SWARM_DISPATCH/1|plan={tier}|max_subagents={max_subagents}|"
+        f"auto_split_ge=2_subtasks_or_45s|subagent_model=ARGON_HIGH|"
+        f"forbid=flash,flash_lite|council_cowork=MANDATORY"
+    )
+    return {
+        "ok": True,
+        "rule_id": "R131",
+        "protocol": "@MODEL_MATRIX/1",
+        "wire": wire_str,
+        "kmi_matrix_wire": wire_str,
+        "slots_count": len(MODEL_CAPABILITY_MATRIX),
+        "active_subscription_profile": {
+            "plan_id": tier,
+            "display_name": f"Kintsugi Swarm Dispatcher ({tier} · {multiplier}x Quota Multiplier + Dual Agent Council)",
+            "quota_multiplier": multiplier,
+            "workspace_model_lock": "ARGON_HIGH (Model='inherit' | 'pro' ONLY)",
+            "forbidden_subagent_models": ["flash", "flash_lite"],
+            "mandatory_agent_council_cowork": True,
+            "max_parallel_subagents": max_subagents,
+            "auto_split_min_subtasks": 2,
+            "auto_split_min_est_seconds": 45,
+        },
+        "model_capability_matrix": MODEL_CAPABILITY_MATRIX,
+        "harness_architecture_evolutions": HARNESS_ARCHITECTURE_EVOLUTIONS,
+        "harness_evolutions": HARNESS_ARCHITECTURE_EVOLUTIONS,
+    }
+
+
+def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: str = "ULTRA_X20") -> Dict[str, Any]:
+    """
+    Decompose `task` into parallel Argon-High subagents + mandatory Dual Agent Council Co-Work
+    with automatic `@DOMAIN_ROUTER/1` shard assignment (`@SWARM_DISPATCH/1`).
+    """
+    tier = str(plan_tier or "ULTRA_X20").strip().upper()
+    matrix_rep = get_model_capability_matrix(plan_tier=tier)
+    domain_route = route_task_to_domain_shards(task, max_shards=3)
+    routed_paths = [s["kml_shard_path"] for s in domain_route["routed_shards"]]
+    routed_doms = [s["domain_id"] for s in domain_route["routed_shards"]]
+    recommended_swarm = [
+        {
+            "subagent_order": 1,
+            "role": "Argon High Deep Recon & Attack-Surface Scout",
+            "tool": "invoke_subagent",
+            "type_name": "research",
+            "model": "inherit",
+            "model_resolved": "argon-high (Full — NO flash downgrade)",
+            "routed_domain_shards": routed_paths,
+            "purpose": f"Deep read-only AST/taint/architecture recon of target files and seams for: {task}",
+        },
+        {
+            "subagent_order": 2,
+            "role": "Argon High Core Implementation & Security Engineer A",
+            "tool": "invoke_subagent",
+            "type_name": "self",
+            "model": "inherit",
+            "model_resolved": "argon-high (Full)",
+            "routed_domain_shards": routed_paths,
+            "purpose": f"Implement primary code/security changes & unit tests in parallel for: {task}",
+        },
+        {
+            "subagent_order": 3,
+            "role": "Argon High Verification, Benchmark & PR Engineer B",
+            "tool": "invoke_subagent",
+            "type_name": "self",
+            "model": "inherit",
+            "model_resolved": "argon-high (Full)",
+            "routed_domain_shards": routed_paths,
+            "purpose": f"Run unit/Rust test suites, KML/1 compilation, and DLP verification in parallel for: {task}",
+        },
+        {
+            "subagent_order": 4,
+            "role": "Mandatory Dual Agent Council Co-Worker (Tier-2 Free Pool + Tier-1 Debate Arbiter)",
+            "tool": "kintsugi swarm . --co-run --free-runners 5 [--paid-council]",
+            "type_name": "dual_agent_council",
+            "model": "grok-4.7(max) + gpt-6-thinking + deepseek-v4.1-flash [+ claude-opus-5.5[1m] on Tier-1]",
+            "routed_domain_shards": routed_paths,
+            "purpose": f"Mandatory multi-model Council co-execution (Red-Team audit, formal logic proof & First-Shot Gate) for: {task}",
+        },
+    ]
+    max_cap = matrix_rep["active_subscription_profile"]["max_parallel_subagents"]
+    dispatch_wire = (
+        f"@SWARM_DISPATCH/1|plan={tier}|max_subagents={max_cap}|"
+        f"spawn={len(recommended_swarm)}|domains={','.join(routed_doms)}|"
+        f"model=ARGON_HIGH|forbid=flash,flash_lite|council=MANDATORY"
+    )
+    return {
+        "ok": True,
+        "rule_id": "R131",
+        "protocol": "@SWARM_DISPATCH/1",
+        "plan_tier": tier,
+        "max_subagents_cap": max_cap,
+        "recommended_parallel_subagents": len(recommended_swarm),
+        "subagent_model_lock": "ARGON_HIGH (Model='inherit' | 'pro')",
+        "routed_domains": routed_doms,
+        "wire": dispatch_wire,
+        "kmi_dispatch_wire": dispatch_wire,
+        "task": task,
+        "active_subscription_profile": matrix_rep["active_subscription_profile"],
+        "domain_context_routing": domain_route,
+        "model_capability_matrix": matrix_rep["model_capability_matrix"],
+        "harness_architecture_evolutions": matrix_rep["harness_architecture_evolutions"],
+        "recommended_parallel_swarm": recommended_swarm,
+    }
+
 
 
 

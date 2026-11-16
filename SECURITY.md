@@ -1,10 +1,10 @@
-# Security Policy & OpenSSF Best Practices Compliance (`v2.0.1` · Grade S3 Locked)
+# Security Policy & OpenSSF Best Practices Compliance (`v2.4.0` · Grade S3 Locked)
 
 ## Supported Versions
 
 | Version | Supported | Security Guardrails & Provenance |
 | :--- | :--- | :--- |
-| `2.0.x` | ✅ Yes | Native Rust `kintsugi-rs` (`7.6 µs/call`) + Grade S3 Atomic Security Core (`@S3_ATOMIC_SECURITY_CORE/1`) + OpenSSF Scorecard + SLSA Provenance |
+| `2.4.x` | ✅ Yes | Native Rust `kintsugi-rs` (`~16.2 µs/call` across 36 rules) + Grade S3 Atomic Security Core (`@S3_ATOMIC_SECURITY_CORE/1`) + OpenSSF Scorecard + SLSA Provenance |
 | `1.9.x` | ✅ Yes | Security fixes backported |
 | `< 1.9.0` | ❌ No | Upgrade to `>= 2.0.1` |
 
@@ -36,7 +36,7 @@ All 7 core Harness & Guard Hook modules have been audited by the Neuro-Symbolic 
 
 - **Zero Third-Party Runtime Dependencies:** `kintsugi-harness` uses exclusively the Python 3.9+ standard library and a standalone zero-dependency Rust binary (`rust/src/main.rs`), eliminating transitive `pip`/`cargo` supply-chain attacks.
 - **Static & Structural AST-Lite Analysis (SAST):** Built-in `kintsugi scan --staged --fail-on HIGH` enforces 63+ formal guardrails (`KS-001`..`KS-028`, SSRF canonical IP verification, Unicode Bidi/zero-width prompt-injection stripping, unsafe deserialization blocking, and Git staged-index symlink protection).
-- **Automated Regression & Arena Verification Suite:** Every release passes `unittest` (`44/44` unit & adversarial tests) and `python3 benchmarks/run_verifiable_arena_cert_suite.py --verify` (`10/10` international AI & security benchmarks at `100.0%` accuracy).
+- **Automated Regression & Arena Verification Suite:** Every release passes `unittest` + `cargo test` (`51/51` unit & adversarial tests: `46` Python + `5` Rust) and `python3 benchmarks/run_verifiable_arena_cert_suite.py --verify` (`10/10` international AI & security benchmarks at `100.0%` accuracy).
 - **Least-Privilege CI Workflows:** All GitHub Actions workflows enforce top-level `permissions: read-all` and pin third-party actions to immutable 40-character commit SHAs.
 
 ## Reporting a Vulnerability (RFC 9116 Compliant)

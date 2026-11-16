@@ -59,6 +59,8 @@ from kintsugi.swarm import (
     ControlledInternetForager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
+    compute_swarm_dispatch_plan,
+    get_model_capability_matrix,
 )
 
 
@@ -104,9 +106,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_audit.add_argument("--format", choices=["text", "markdown", "json"], default="markdown")
 
     # token-report
-    p_tok = sub.add_parser("token-report", help="Benchmark KMI/1 ultra-low-token compression vs verbose Markdown skills")
+    p_tok = sub.add_parser(
+        "token-report",
+        help="Benchmark Global KMI/1 & Domain-Partitioned KMI/1 Shards vs verbose Markdown skills",
+    )
     p_tok.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_tok.add_argument("--turns", type=int, default=50, help="Number of turns per coding session")
+    p_tok.add_argument(
+        "--domain",
+        default=None,
+        help="Optional active domain shard (security, backend, database, frontend, devops, ai_mcp)",
+    )
+    p_tok.add_argument(
+        "--starter-only",
+        action="store_true",
+        help="Benchmark strictly the 16 Core Starter Scars (get_starter_scars)",
+    )
     p_tok.add_argument("--format", choices=["text", "json"], default="text")
 
     # autofix
@@ -316,6 +331,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--paid-council-status", action="store_true", help="Show Paid Frontier Council BYOK status and supported seats")
     p_swm.add_argument("--guide", action="store_true", help="Display the Bilingual Agent Onboarding & Tier-Upgrade Guide (Free vs Pro Multi-Free vs Enterprise Paid Council)")
     p_swm.add_argument("--ask", metavar="QUESTION", default=None, help="Answer any user question in Vietnamese/English about Multi-Model Co-Execution, BYOK Paid Council keys, or Edition Tiers")
+    p_swm.add_argument("--model-matrix", action="store_true", help="Display the 6-Tier Model Capability Matrix (@MODEL_MATRIX/1) & Harness Architecture Evolutions")
+    p_swm.add_argument("--swarm-plan", metavar="TASK", default=None, help="Compute Subscription-Aware Parallel Subagent Swarm Dispatch Plan (@SWARM_DISPATCH/1) & Domain Shard Routing")
+    p_swm.add_argument("--plan-tier", default="ULTRA_X20", choices=["ULTRA_X20", "PRO", "FREE_STARTER"], help="Subscription plan tier for --swarm-plan (default: ULTRA_X20)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (answers user questions about Multi-Model, Free Models, and BYOK Paid Council)")
@@ -485,24 +503,53 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "token-report":
-        ledger = _load_or_seed_ledger(args.ledger)
-        scars = ledger.all()
+        if getattr(args, "starter_only", False):
+            from kintsugi.starter_pack import get_starter_scars
+
+            scars = get_starter_scars()
+        else:
+            ledger = _load_or_seed_ledger(args.ledger)
+            scars = ledger.all()
         verbose_md = SkillCompiler(scars).render_skill_markdown(
             "kintsugi-guardrails",
             "Verbose baseline comparison",
             scars,
         )
-        stats = compute_token_savings_report(scars, verbose_md, turns_per_session=args.turns)
+        stats = compute_token_savings_report(
+            scars,
+            verbose_md,
+            turns_per_session=args.turns,
+            active_domain=getattr(args, "domain", None),
+        )
         if args.format == "json":
             print(json.dumps(stats, indent=2, ensure_ascii=False))
         else:
+            dom_rows = []
+            for dom_key, dinfo in stats["domain_partitions"].items():
+                dom_rows.append(
+                    f"  | {dom_key:<10} | {dinfo['doc_path']:<35} | {dinfo['rules_count']:>5} | "
+                    f"~{dinfo['domain_kmi_tokens_per_turn']:>4} tok/turn | "
+                    f"{dinfo['domain_reduction_percent']:>6.2f}% | "
+                    f"~{dinfo['domain_tokens_saved_per_session']:>10,} tok |"
+                )
+            dom_table = "\n".join(dom_rows)
+            preview_block = (
+                stats["active_domain_report"]["domain_kmi_preview"]
+                if stats.get("active_domain_report")
+                else stats["kmi_preview"]
+            )
             print(
-                f"=== Kintsugi KMI/1 Token-Compression Benchmark ({stats['rules_compiled']} active scars) ===\n"
-                f"• Verbose Markdown Context : ~{stats['verbose_tokens_per_turn']} tokens/turn\n"
-                f"• Kintsugi KMI/1 Wire Index: ~{stats['kmi_tokens_per_turn']} tokens/turn\n"
-                f"• Per-Turn Token Reduction : {stats['reduction_percent']}% ({stats['tokens_saved_per_turn']} tokens saved/turn)\n"
-                f"• {stats['turns_per_session']}-Turn Session Savings  : ~{stats['tokens_saved_per_session']:,} tokens\n\n"
-                f"{stats['kmi_preview']}"
+                f"=== Kintsugi KMI/1 & Domain-Partitioned Token-Compression Benchmark ({stats['rules_compiled']} active scars) ===\n"
+                f"• 1. Full Verbose Markdown (All Domains) : ~{stats['verbose_tokens_per_turn']} tokens/turn\n"
+                f"• 2. Global KMI/1 Compressed Wire Index  : ~{stats['kmi_tokens_per_turn']} tokens/turn "
+                f"({stats['reduction_percent']}% reduction, {stats['tokens_saved_per_turn']} tokens saved/turn, ~{stats['tokens_saved_per_session']:,} tokens/{stats['turns_per_session']} turns)\n"
+                f"• 3. Domain-Routed KMI/1 Shard (Avg)     : ~{stats['avg_domain_kmi_tokens_per_turn']} tokens/turn "
+                f"({stats['avg_domain_reduction_percent']}% reduction vs Full Verbose Markdown)\n\n"
+                f"--- Domain-Partitioned Documentation Shards (`docs/domains/`) ---\n"
+                f"  | Domain     | Documentation Shard                 | Rules | Shard Cost     | Reduction | {stats['turns_per_session']}-Turn Saved |\n"
+                f"  | :--------- | :---------------------------------- | ----: | -------------: | --------: | ------------: |\n"
+                f"{dom_table}\n\n"
+                f"{preview_block}"
             )
         return 0
 
@@ -891,6 +938,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "swarm":
+        if getattr(args, "model_matrix", False):
+            mat_rep = get_model_capability_matrix()
+            if args.wire:
+                print(mat_rep["kmi_matrix_wire"])
+                return 0
+            print(json.dumps(mat_rep, indent=2, ensure_ascii=False))
+            return 0
+        if getattr(args, "swarm_plan", None) is not None:
+            plan_rep = compute_swarm_dispatch_plan(
+                args.swarm_plan,
+                plan_tier=getattr(args, "plan_tier", "ULTRA_X20"),
+            )
+            if args.wire:
+                print(plan_rep["kmi_dispatch_wire"])
+                return 0
+            print(json.dumps(plan_rep, indent=2, ensure_ascii=False))
+            return 0
         if args.provider_benchmarks:
             pb_rep = AIProviderBenchmarkSuite().run_all_provider_benchmarks(fetch_live_network=True)
             print(json.dumps(pb_rep, indent=2, ensure_ascii=False))

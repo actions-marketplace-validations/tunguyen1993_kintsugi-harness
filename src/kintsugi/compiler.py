@@ -71,12 +71,15 @@ class SkillCompiler:
         lines.extend(
             [
                 "",
-                "### `@GUIDE/1` & `@COMPACT/1` Machine-Native Execution Protocol",
+                "### `@GUIDE/1`, `@SWARM_DISPATCH/1`, `@DUAL_COUNCIL/1` & `@COMPACT/1` Machine-Native Execution Protocol",
                 "",
                 "```text",
                 '@GUIDE/1[cmd="kintsugi guide \\"<question>\\"" | mcp="kintsugi_multi_model_guide"]',
                 '@TIERS/1[FREE_STARTER="$0: Primary + 1 Free (--register-deepseek-free, --co-run)" | PRO_MULTI_FREE="$15/$19: Primary + 2..5 Free (--free-runners 5)" | ENTERPRISE_PAID_COUNCIL="$29: Primary + 5 Free + 6 BYOK Paid Seats"]',
                 '@BYOK/1[store=".kintsugi/paid_council_pool.json(0600)" | add="kintsugi swarm --add-paid-key <anthropic_opus|openai_frontier|xai_grok_paid> <KEY>" | status="--paid-council-status" | run="--co-run --free-runners 5 --paid-council"]',
+                '@SWARM_DISPATCH/1[plan="ULTRA_X20|PRO|FREE_STARTER" | max_subagents=8 | auto_split=">=2_subtasks_or_45s" | subagent_model="ARGON_HIGH(inherit|pro)" | forbid="flash,flash_lite" | matrix="kintsugi swarm --model-matrix" | plan_cmd="kintsugi swarm --swarm-plan \\"<task>\\""]',
+                '@DUAL_COUNCIL/1[tier_2="24/7 $0 Free Unlimited Audit/Scan/Draft" | tier_1="Quota-Capped Paid Frontier 3-Round Debate & First-Shot Blueprint Gate" | never_solo="@NEVER_SOLO_GATE/1(FORBID solo delivery on critical paths)"]',
+                '@HARNESS_HOT_RELOAD/1[hook="SessionStart/PreInvocation SHA-256 Digest Check" | idle_token_overhead=0 | domains="docs/domains/01..06_*.kml" | pr_guard="@OSS_PR_LIFECYCLE_GUARD/1(KS-EMP-062)"]',
                 '@COMPACT/1[trigger="pressure>=70%_soft|>=85%_hard" | cmd="kintsugi compact --inject-agents" | mcp="kintsugi_compact_context" | preserve="@USER_INTENTS,@HARD_ANCHORS,@ERRORS_AND_FIXES" | out=".kintsugi/context_checkpoints/latest_checkpoint.{md,kml}"]',
                 "```",
                 "",
@@ -211,7 +214,15 @@ class SkillCompiler:
         if "skills" in target_set:
             kml_file = root / ".kintsugi" / "scars.kml"
             kml_file.parent.mkdir(parents=True, exist_ok=True)
-            kml_file.write_text(render_kml_corpus(self.scars), encoding="utf-8")
+            kml_scars: Sequence[GoldenScar] = self.scars
+            full_ledger_path = root / ".kintsugi" / "scars.json"
+            if full_ledger_path.is_file():
+                from kintsugi.ledger import ScarLedger
+
+                full_ledger = ScarLedger(full_ledger_path)
+                if len(full_ledger.scars) > len(self.scars):
+                    kml_scars = full_ledger.scars
+            kml_file.write_text(render_kml_corpus(kml_scars), encoding="utf-8")
             written.append(kml_file)
 
             master_skill = root / ".claude" / "skills" / "kintsugi-guardrails" / "SKILL.md"

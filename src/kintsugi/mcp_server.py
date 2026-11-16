@@ -10,6 +10,11 @@ from typing import Any, Dict, Optional, TextIO
 from kintsugi import __version__
 from kintsugi.compactor import ConversationCompactor
 from kintsugi.compiler import SkillCompiler
+from kintsugi.compressor import (
+    DOMAIN_SHARD_REGISTRY,
+    partition_by_domain,
+    render_domain_kmi_pack,
+)
 from kintsugi.council import EvolutionCouncil, answer_user_multi_model_question
 from kintsugi.ledger import ScarLedger
 from kintsugi.models import FailureTrace, Severity
@@ -60,6 +65,10 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                 "properties": {
                     "language": {"type": "string"},
                     "tag": {"type": "string"},
+                    "domain": {
+                        "type": "string",
+                        "description": "Optional domain shard filter (security, backend, database, frontend, devops, ai_mcp)",
+                    },
                     "min_severity": {
                         "type": "string",
                         "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
@@ -217,7 +226,7 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                 "Autonomously discovers existing `.cursorrules`, `.cursor/rules/*.mdc`, `CLAUDE.md`, `AGENTS.md`, "
                 "`.windsurfrules`, `.clinerules`, and `.github/copilot-instructions.md` in a workspace, runs an 8-stage "
                 "Zero-Execution Security Quarantine (`@QUARANTINE/1`), checks for rule contradictions via a Joint SAT + "
-                "Difference Logic (`SAT+DL`) verifier, and mounts them into `KMI/1` ultra-low-token wire format (`95.3%` fewer tokens)."
+                "Difference Logic (`SAT+DL`) verifier, and mounts them into `KMI/1` ultra-low-token wire format (`93.8%–99.96%` fewer tokens)."
             ),
             "annotations": {
                 "title": "Universal Drop-In Third-Party Harness Integrator",
@@ -405,9 +414,15 @@ class KintsugiMCPServer:
                 else:
                     payload = {
                         "version": __version__,
+                        "license": "Apache-2.0",
                         "scars_count": len(self.ledger.all()),
-                        "kmi_token_savings_pct": 95.3,
-                        "rust_pretool_latency_us": 7.6,
+                        "kmi_token_savings_pct": 94.0,
+                        "starter_kmi_token_savings_pct": 93.8,
+                        "domain_kmi_token_savings_pct": 99.95,
+                        "rust_pretool_latency_us": 16.2,
+                        "domain_shards": {
+                            k: v["doc_path"] for k, v in DOMAIN_SHARD_REGISTRY.items()
+                        },
                     }
                 return {
                     "jsonrpc": "2.0",
@@ -448,14 +463,19 @@ class KintsugiMCPServer:
                                 ],
                             },
                             {
-                                "name": "kintsugi-integrate-harness",
-                                "description": "Discover and integrate existing .cursorrules, CLAUDE.md, or AGENTS.md files into KMI/1 wire format.",
+                                "name": "kintsugi-evolve-scar",
+                                "description": "Evolve a runtime failure or bug traceback into a self-verified Golden Scar and domain-routed KMI/1 shard.",
                                 "arguments": [
                                     {
-                                        "name": "workspace_root",
-                                        "description": "Workspace root directory",
+                                        "name": "error_summary",
+                                        "description": "Concise summary of the runtime failure or security bug",
+                                        "required": True,
+                                    },
+                                    {
+                                        "name": "raw_trace",
+                                        "description": "Stack trace or offending code snippet",
                                         "required": False,
-                                    }
+                                    },
                                 ],
                             },
                         ]
@@ -465,7 +485,15 @@ class KintsugiMCPServer:
             if method == "prompts/get":
                 pname = str(params.get("name") or "kintsugi-audit-code")
                 pargs = params.get("arguments") or {}
-                if pname == "kintsugi-integrate-harness":
+                if pname == "kintsugi-evolve-scar":
+                    err_sum = str(pargs.get("error_summary") or "Runtime failure")
+                    trace_txt = str(pargs.get("raw_trace") or "")
+                    prompt_text = (
+                        f"Call `kintsugi_record_failure` with `error_summary='{err_sum}'` and `raw_trace='{trace_txt}'` "
+                        "to synthesize a self-verified Golden Scar (`scan(bad) >= 1` and `scan(good) == 0`), "
+                        "then call `kintsugi_compile_skills` to update the KMI/1 wire index."
+                    )
+                elif pname == "kintsugi-integrate-harness":
                     ws = str(pargs.get("workspace_root") or ".")
                     prompt_text = (
                         f"Call `kintsugi_integrate_harness` with `action='discover'` and `workspace_root='{ws}'` "
@@ -550,6 +578,20 @@ class KintsugiMCPServer:
                 tag=args.get("tag"),
                 min_severity=sev,
             )
+            domain_arg = args.get("domain")
+            if domain_arg:
+                partitioned = partition_by_domain(scars)
+                from kintsugi.compressor import normalize_domain_key
+
+                dom_key = normalize_domain_key(str(domain_arg))
+                dom_scars = partitioned.get(dom_key, [])
+                return {
+                    "domain": dom_key,
+                    "doc_path": DOMAIN_SHARD_REGISTRY[dom_key]["doc_path"],
+                    "count": len(dom_scars),
+                    "domain_kmi_pack": render_domain_kmi_pack(scars, domain=dom_key),
+                    "scars": [s.to_dict() for s in dom_scars],
+                }
             return {"count": len(scars), "scars": [s.to_dict() for s in scars]}
 
         if name == "kintsugi_record_failure":

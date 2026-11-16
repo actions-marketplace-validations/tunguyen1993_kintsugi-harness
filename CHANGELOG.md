@@ -2,6 +2,22 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [2.4.0] - 2026-11-15
+
+### Added
+- **Synthesized Empirical Cortex (`collective-pool/synthesized-empirical-cortex/`) & 63 `KS-EMP-*` Empirical Engineering Scars (`.kintsugi/scars.json`, `.kintsugi/scars.kml`):**
+  - Distills `972` Cognitive Axioms and `1,581` Causal Atoms across `48` completed verification suites and `85` security/systems research topics, alongside `41` Local Cognitive Lessons, `7` BFT Swarm Playbooks, and `63` `KS-EMP-001..KS-EMP-063` empirical engineering guardrails (expanding the verified ledger to `1,789` scars with `0` shield quarantines) into `collective-pool/synthesized-empirical-cortex/empirical_cortex_v240.kml` and `MANIFEST.json`.
+- **Harness Architecture Evolutions (`@CREED/1 v2.1`, `@SWARM_DISPATCH/1`, `@MODEL_MATRIX/1`, `@DUAL_COUNCIL/1`, `@NEVER_SOLO_GATE/1`, `@HARNESS_HOT_RELOAD/1`, `@OSS_PR_LIFECYCLE_GUARD/1`):**
+  - Upgrades `@CREED/1` to all **5 Pillars** (`P1:MUTATE` 2-strike dead-path pivot, `P2:SYNTH` 2x manual workaround $\to$ 1-step tool, `P3:SCAR` error trace $\to$ verified rule, `P4:PRUNE` overwrite verbose paths, and `P5:CONVERGE` `TRY_ALL(ways) && IF no_new_way_left => PICK_BEST(fastest, cleanest, most_effective)`).
+  - Adds Subscription-Aware Parallel Swarm Dispatcher (`compute_swarm_dispatch_plan`, `kintsugi swarm --swarm-plan "<task>"`) and 6-Tier Model Capability Matrix (`get_model_capability_matrix`, `kintsugi swarm --model-matrix`) with automatic task-to-domain shard routing (`route_task_to_domain_shards`).
+  - Encodes `@DUAL_COUNCIL/1`, `@NEVER_SOLO_GATE/1`, `@HARNESS_HOT_RELOAD/1` (zero-token SHA-256 live sync hook), and `@OSS_PR_LIFECYCLE_GUARD/1` (`KS-EMP-062`).
+- **Domain-Partitioned Context Compression (`src/kintsugi/compressor.py`, `src/kintsugi/cli.py`, `docs/domains/01..06_*.{md,kml}`, `docs/domains/domain_manifest.json`):**
+  - Partitions rules, documentation, and pre-compiled `@KML/1` shards across 6 software engineering domains (`security`, `backend`, `database`, `frontend`, `devops`, `ai_mcp`) via `partition_by_domain()` and `render_domain_kmi_pack()`.
+  - Reduces per-turn active token footprint from `3,641 tokens` (16-scar starter pack) to `226 tokens` (`93.8%` global `KMI/1` reduction) or **`~80.5 tokens/turn` (`97.79%` reduction per domain shard)**, and from `414,267 tokens` (`1,789`-scar evolved ledger) to `24,967 tokens` (`94.0%` global `KMI/1` reduction) or **`~175.7 tokens/turn` (`99.96%` reduction per domain shard)**.
+- **Bilingual Model Context Protocol (`kintsugi mcp`) Documentation & Domain Filtering (`src/kintsugi/mcp_server.py`, `README.md`):**
+  - Documents all **9 MCP Tools**, **2 MCP Resources**, **2 MCP Prompts**, and ready-to-paste `mcpServers` JSON config at the top of `README.md`, and adds optional `domain` filtering to `kintsugi_list_scars`.
+- **Unified Reproducible Benchmark Suite (`52/52` tests passing — `47` Python `unittest` + `5` Rust `cargo test`, `~16.2 µs/call` Rust `kintsugi-rs bench` across 36 built-in rules, `Apache-2.0` license).**
+
 ## [2.0.0] - 2026-11-07
 
 ### Added
