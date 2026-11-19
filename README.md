@@ -23,7 +23,7 @@
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.8% - 99.96%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.8%25--99.96%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 16.2 µs](https://img.shields.io/badge/Rust_Core-16.2_%C2%B5s%2Fcall_%2836_rules%29-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 51/51 Passing](https://img.shields.io/badge/Tests-51%2F51_Passing_%2846_Py_%2B_5_Rust%29-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 56/56 Passing](https://img.shields.io/badge/Tests-56%2F56_Passing_%2849_Py_%2B_7_Rust%29-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
 > ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
@@ -120,10 +120,10 @@ Add the following block to `claude_desktop_config.json`, `.cursor/mcp.json`, or 
 ### 1. Run All 5 Verification & Benchmark Commands Locally
 
 ```bash
-# 1. Python Unit Test Suite (47/47 tests passing, including Z3/LLVM CRS, Empirical Cortex, @SWARM_DISPATCH/1 & Domain-Partitioned Compression):
+# 1. Python Unit Test Suite (49/49 tests passing, including Z3/LLVM CRS, Empirical Cortex, @SWARM_DISPATCH/1, @STEP_ECONOMICS/1 & Domain-Partitioned Compression):
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-# 2. Native Rust Unit Test Suite (5/5 tests passing — 52/52 combined with Python):
+# 2. Native Rust Unit Test Suite (7/7 tests passing — 56/56 combined with Python):
 cargo test
 
 # 3. Native Rust Single-File Scan & @KML/1 Shield Benchmark (36 builtin rules, 200 iterations, ~16.2 µs/call):
@@ -479,7 +479,7 @@ kintsugi swarm --swarm-plan "Audit OAuth2 PKCE redirect_uri validation, Postgres
   - `P3:SCAR`: `ON error_trace(bug) => FIX(bug) && CODIFY(rule -> extinct(bug_class))` (crack-to-scar bug-class extinction)
   - `P4:PRUNE`: `WHILE verbose(skill) || faster_path_exists => OVERWRITE(yesterday_skill)` (overwrite verbose/legacy paths)
   - `P5:CONVERGE`: `TRY_ALL(ways) && IF no_new_way_left => PICK_BEST(fastest, cleanest, most_effective)` (test all viable ways and converge on the single best)
-- **Subscription-Aware Parallel Subagent Swarm Dispatcher (`@SWARM_DISPATCH/1`) & 6-Tier Model Capability Matrix (`@MODEL_MATRIX/1`):** Self-identifies plan tier (`UNLIMITED_LOCAL` / `PRO` / `APACHE_2_OPEN_SOURCE`), spawns `3..8` parallel Frontier High subagents (`Model="inherit" | "pro"`, forbidding `flash`/`flash_lite` downgrades on security/architecture paths) whenever a task has $\ge 2$ independent subtasks or $>45\text{s}$ runtime, and automatically routes tasks across the 6 pre-compiled `@KML/1` domain shards (`docs/domains/01..06_*.kml`).
+- **Subscription-Aware Parallel Subagent Swarm Dispatcher (`@SWARM_DISPATCH/1`), Step-Economics Auditor (`@STEP_ECONOMICS/1`) & 6-Tier Model Capability Matrix (`@MODEL_MATRIX/1`):** Self-identifies plan tier (`UNLIMITED_LOCAL` / `PRO` / `APACHE_2_OPEN_SOURCE`), spawns `3..8` parallel Frontier High subagents (`Model="inherit" | "pro"`, forbidding `flash`/`flash_lite` downgrades on security/architecture paths) ONLY when a task has $\ge 3$ independent subtasks or $>120\text{s}$ runtime (smaller tasks execute directly via shell-batched `R132` with `>=60%` shell calls and `subagent<=12` / `task<=25` step caps, measurable natively in Python and Rust via `kintsugi-rs step-audit`), and automatically routes tasks across the 6 pre-compiled `@KML/1` domain shards (`docs/domains/01..06_*.kml`).
 - **2-Tier Multi-Agent Council (`@DUAL_COUNCIL/1`), Never-Solo Gate (`@NEVER_SOLO_GATE/1`), Zero-Token SHA-256 Hot-Reload (`@HARNESS_HOT_RELOAD/1`) & OSS PR Lifecycle Guard (`@OSS_PR_LIFECYCLE_GUARD/1` / `KS-EMP-062`):** Separates Tier 2 (`24/7 $0 Free Unlimited` audit/scan/draft) from Tier 1 (`Quota-Capped Paid Frontier 3-Round Debate`), forbids solo delivery on critical paths, hot-reloads updated rules via SHA-256 digest checks at `0` idle token cost, and prevents resubmitting closed PRs or drifting doc counts.
 - **Synthesized Empirical Cortex ([`collective-pool/synthesized-empirical-cortex/`](collective-pool/synthesized-empirical-cortex/)):** Contains **`972` Cognitive Axioms**, **`1,581` Causal Atoms** (distilled across **`48` completed verification suites** and **`85` security/systems research topics**), **`63` `KS-EMP-001..063` Empirical Engineering Scars**, **`41` Local Cognitive Lessons**, and **`7` BFT Swarm Playbooks** in `@KML/1` symbolic wire format (`empirical_cortex_v240.kml` + `MANIFEST.json`).
 
@@ -500,7 +500,7 @@ Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`R
 - **3-State Grounding Gate & Alpha-Normalized AST Quotient (`ASTQ/1`):** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms` · **`100%`** Alpha-Rename Semantic Equivalence verified via De Bruijn index AST quotient hashing.
 - **Disjoint Scar Holdout Verifier (`T_gen != T_ver`):** Enforces `holdout_precision >= 0.95`, `recall_drop <= 0.05`, and `0` paraphrase-mutated negative false positives before admitting any synthesized `GoldenScar`.
 - **Shadow-Clone Covariance-Aware BFT Swarm (`@SWARM/1`) & Consent-Gated Free Pool (`@POOL/1`):** Discounts correlated votes via Equicorrelation Inverse Log-Odds ($N_{\text{eff}} = \frac{K}{1 + (K-1)\hat{\rho}} = 3.40$ across 4 distinct free model families), verifies **`0.0%` sycophancy** via Blinded Contrary Probes, and reduces BFT false-accept errors by **`12.5x` (`98.80%` consensus accuracy)**.
-- **Automated Verification Suite:** **`52/52` Total Automated Tests Passing (`47/47` Python `unittest` `OK` + `5/5` Rust `cargo test` `OK`)** + **`41/41` Frontier Pool Lessons Verified** + **`972` Cognitive Axioms & `1,581` Causal Atoms** in `collective-pool/synthesized-empirical-cortex/`.
+- **Automated Verification Suite:** **`56/56` Total Automated Tests Passing (`49/49` Python `unittest` `OK` + `7/7` Rust `cargo test` `OK`)** + **`41/41` Frontier Pool Lessons Verified** + **`972` Cognitive Axioms & `1,581` Causal Atoms** in `collective-pool/synthesized-empirical-cortex/`.
 
 ---
 

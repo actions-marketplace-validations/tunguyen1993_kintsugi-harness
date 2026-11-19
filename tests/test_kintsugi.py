@@ -2944,12 +2944,16 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         gov_block = SkillCompiler(get_starter_scars()).render_root_governance_block()
         for pillar in ("P1:MUTATE", "P2:SYNTH", "P3:SCAR", "P4:PRUNE", "P5:CONVERGE"):
             self.assertIn(pillar, gov_block)
-        for proto in ("@SWARM_DISPATCH/1", "@DUAL_COUNCIL/1", "@NEVER_SOLO_GATE/1", "@HARNESS_HOT_RELOAD/1"):
+        for proto in ("@SWARM_DISPATCH/1", "@STEP_ECONOMICS/1", "@DUAL_COUNCIL/1", "@NEVER_SOLO_GATE/1", "@HARNESS_HOT_RELOAD/1"):
             self.assertIn(proto, gov_block)
+        self.assertIn(">=3_indep_or_120s", gov_block)
 
-        # 2. Verify @MODEL_MATRIX/1 & @SWARM_DISPATCH/1 + Domain Shard Routing
+        # 2. Verify @MODEL_MATRIX/1 & @SWARM_DISPATCH/1 + @STEP_ECONOMICS/1 + Domain Shard Routing
         mat = get_model_capability_matrix()
         self.assertEqual(mat["slots_count"], 6)
+        self.assertEqual(mat["active_subscription_profile"]["auto_split_min_subtasks"], 3)
+        self.assertEqual(mat["active_subscription_profile"]["auto_split_min_est_seconds"], 120)
+        self.assertIn("step_economics_r132", mat["harness_evolutions"])
         self.assertIn("creed_v2_1", mat["harness_evolutions"])
         self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["protocol"], "@CREED/1")
         self.assertEqual(mat["harness_evolutions"]["creed_v2_1"]["pillars_count"], 5)
@@ -2993,6 +2997,43 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
         self.assertEqual(cortex_manifest["counts"]["total_ledger_scars"], 1789)
         self.assertEqual(cortex_manifest["counts"]["local_cognitive_lessons"], 41)
         self.assertEqual(cortex_manifest["counts"]["swarm_merged_playbooks"], 7)
+
+    def test_step_economics_audit_optimal_vs_bloated(self) -> None:
+        from kintsugi.swarm import audit_step_economics
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tdir = Path(tmp)
+            opt_path = tdir / "optimal.jsonl"
+            opt_lines = [json.dumps({"type": "USER_INPUT", "content": "fix bug"})]
+            for i in range(8):
+                calls = [{"name": "run_command"}] if i < 7 else [{"name": "edit_file"}]
+                opt_lines.append(
+                    json.dumps({"type": "PLANNER_RESPONSE", "status": "DONE", "tool_calls": calls})
+                )
+            opt_path.write_text("\n".join(opt_lines) + "\n", encoding="utf-8")
+
+            opt_rep = audit_step_economics(str(opt_path))
+            self.assertTrue(opt_rep["ok"])
+            self.assertEqual(opt_rep["grade"], "OPTIMAL")
+            self.assertEqual(opt_rep["cap_breaches"], 0)
+            self.assertGreaterEqual(opt_rep["shell_call_ratio_pct"], 80.0)
+            self.assertIn("@STEP_ECONOMICS/1[", opt_rep["kmi_step_wire"])
+
+            bloat_path = tdir / "bloated.jsonl"
+            bloat_lines = []
+            for i in range(38):
+                calls = [{"name": "run_command"}] if i < 8 else [{"name": "read_file"}]
+                st = "ERROR" if i < 6 else "DONE"
+                bloat_lines.append(
+                    json.dumps({"type": "PLANNER_RESPONSE", "status": st, "tool_calls": calls})
+                )
+            bloat_path.write_text("\n".join(bloat_lines) + "\n", encoding="utf-8")
+
+            bloat_rep = audit_step_economics(str(bloat_path))
+            self.assertTrue(bloat_rep["ok"])
+            self.assertEqual(bloat_rep["grade"], "STEP_BLOAT_ALERT")
+            self.assertEqual(bloat_rep["cap_breaches"], 1)
+            self.assertLess(bloat_rep["shell_call_ratio_pct"], 45.0)
 
 
 if __name__ == "__main__":

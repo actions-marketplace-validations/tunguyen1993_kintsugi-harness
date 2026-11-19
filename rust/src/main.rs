@@ -9,8 +9,9 @@ use std::process;
 use std::time::Instant;
 
 use kintsugi_core::{
-    compute_token_benchmark, evaluate_pre_tool_json, inspect_kml_corpus_file, json_escape,
-    render_creed_json, render_kmi_compact_header, render_kml_builtin_corpus, s3_audit_path,
+    audit_step_economics_path, compute_token_benchmark, evaluate_pre_tool_json,
+    inspect_kml_corpus_file, json_escape, render_creed_json, render_kmi_compact_header,
+    render_kml_builtin_corpus, render_step_audit_json, render_swarm_plan_json, s3_audit_path,
     scan_git_staged, scan_path, scan_text, verify_memories_readonly,
     verify_outbound_destination_allowed, Severity, ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
@@ -26,6 +27,8 @@ fn print_help() {
          \x20 kintsugi-rs s3-audit [PATH] [--format text|json] [-- <PATH>]\n\
          \x20 kintsugi-rs memories-verify [WORKSPACE_ROOT] [--format text|json]\n\
          \x20 kintsugi-rs creed\n\
+         \x20 kintsugi-rs swarm-plan [TASK_DESC]\n\
+         \x20 kintsugi-rs step-audit [PATH] [--max-sessions N] [--sub-cap 12] [--task-cap 25] [--wire]\n\
          \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH]\n\
          \x20 kintsugi-rs kml [PATH_TO_SCARS_KML]\n\
          \x20 kintsugi-rs compress [--kml]\n\
@@ -277,6 +280,55 @@ fn main() {
         }
         "creed" => {
             println!("{}", render_creed_json());
+        }
+        "swarm-plan" => {
+            let task_desc = if args.len() > 1 {
+                args[1..].join(" ")
+            } else {
+                "multi-workstream task".to_string()
+            };
+            println!("{}", render_swarm_plan_json(&task_desc));
+        }
+        "step-audit" => {
+            let mut target = ".".to_string();
+            let mut max_sessions: usize = 25;
+            let mut sub_cap: usize = 12;
+            let mut task_cap: usize = 25;
+            let mut wire_only = false;
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--max-sessions" if i + 1 < args.len() => {
+                        max_sessions = args[i + 1].parse::<usize>().unwrap_or(25).max(1);
+                        i += 1;
+                    }
+                    "--sub-cap" if i + 1 < args.len() => {
+                        sub_cap = args[i + 1].parse::<usize>().unwrap_or(12).max(1);
+                        i += 1;
+                    }
+                    "--task-cap" if i + 1 < args.len() => {
+                        task_cap = args[i + 1].parse::<usize>().unwrap_or(25).max(1);
+                        i += 1;
+                    }
+                    "--wire" => {
+                        wire_only = true;
+                    }
+                    arg if !arg.starts_with('-') => {
+                        target = arg.to_string();
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+            let rep = audit_step_economics_path(Path::new(&target), max_sessions, sub_cap, task_cap, 60.0);
+            if wire_only {
+                println!("{}", rep.wire);
+            } else {
+                println!("{}", render_step_audit_json(&rep));
+            }
+            if !rep.ok {
+                process::exit(1);
+            }
         }
         "hook" => {
             let mut block_on = Severity::High;

@@ -3799,7 +3799,18 @@ HARNESS_ARCHITECTURE_EVOLUTIONS: Dict[str, Any] = {
     },
     "swarm_dispatch_r131": {
         "protocol": "@SWARM_DISPATCH/1",
-        "law": "Spawn 3..8 parallel Frontier-High subagents on >=2 subtasks or >45s estimated work (forbid serial execution and forbid flash/flash_lite downgrade) + mandatory Dual Council Co-Work.",
+        "law": (
+            "Spawn 3..8 parallel Frontier-High subagents ONLY on >=3 independent subtasks or >120s estimated work "
+            "(for <3 small/same-repo subtasks, execute directly with shell-batched R132; forbid flash/flash_lite downgrade) "
+            "+ mandatory Dual Council Co-Work."
+        ),
+    },
+    "step_economics_r132": {
+        "protocol": "@STEP_ECONOMICS/1",
+        "law": (
+            "Cut agent steps before trimming prompt tokens: target >=60% shell-batched tool calls, "
+            "cap subagents at <=12 steps and tasks at <=25 steps, and pivot after 2 consecutive failures."
+        ),
     },
     "live_hot_reload_sync": {
         "protocol": "@HARNESS_HOT_RELOAD/1",
@@ -3901,8 +3912,8 @@ def get_model_capability_matrix(plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str,
     max_subagents = 8 if tier == "UNLIMITED_LOCAL" else (4 if tier == "PRO" else 2)
     wire_str = (
         f"@SWARM_DISPATCH/1|plan={tier}|max_subagents={max_subagents}|"
-        f"auto_split_ge=2_subtasks_or_45s|subagent_model=FRONTIER_HIGH|"
-        f"forbid=flash,flash_lite|council_cowork=MANDATORY"
+        f"auto_split_ge=3_indep_or_120s|step_cap=sub12,task25|shell>=60%|"
+        f"subagent_model=FRONTIER_HIGH|forbid=flash,flash_lite|council_cowork=MANDATORY"
     )
     return {
         "ok": True,
@@ -3919,8 +3930,11 @@ def get_model_capability_matrix(plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str,
             "forbidden_subagent_models": ["flash", "flash_lite"],
             "mandatory_agent_council_cowork": True,
             "max_parallel_subagents": max_subagents,
-            "auto_split_min_subtasks": 2,
-            "auto_split_min_est_seconds": 45,
+            "auto_split_min_subtasks": 3,
+            "auto_split_min_est_seconds": 120,
+            "step_budget_subagent": 12,
+            "step_budget_task": 25,
+            "shell_batch_target_pct": 60,
         },
         "model_capability_matrix": MODEL_CAPABILITY_MATRIX,
         "harness_architecture_evolutions": HARNESS_ARCHITECTURE_EVOLUTIONS,
@@ -3931,10 +3945,13 @@ def get_model_capability_matrix(plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str,
 def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str, Any]:
     """
     Decompose `task` into parallel Frontier-High subagents + mandatory Dual Agent Council Co-Work
-    with automatic `@DOMAIN_ROUTER/1` shard assignment (`@SWARM_DISPATCH/1`).
+    with automatic `@DOMAIN_ROUTER/1` shard assignment (`@SWARM_DISPATCH/1` + `R132` step budgets).
     """
     tier = str(plan_tier or "UNLIMITED_LOCAL").strip().upper()
     matrix_rep = get_model_capability_matrix(plan_tier=tier)
+    profile = matrix_rep["active_subscription_profile"]
+    step_cap = profile["step_budget_subagent"]
+    shell_target = profile["shell_batch_target_pct"]
     domain_route = route_task_to_domain_shards(task, max_shards=3)
     routed_paths = [s["kml_shard_path"] for s in domain_route["routed_shards"]]
     routed_doms = [s["domain_id"] for s in domain_route["routed_shards"]]
@@ -3946,6 +3963,8 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "type_name": "research",
             "model": "inherit",
             "model_resolved": "Frontier-high (Full — NO flash downgrade)",
+            "step_budget": step_cap,
+            "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
             "purpose": f"Deep read-only AST/taint/architecture recon of target files and seams for: {task}",
         },
@@ -3956,6 +3975,8 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "type_name": "self",
             "model": "inherit",
             "model_resolved": "Frontier-high (Full)",
+            "step_budget": step_cap,
+            "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
             "purpose": f"Implement primary code/security changes & unit tests in parallel for: {task}",
         },
@@ -3966,6 +3987,8 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "type_name": "self",
             "model": "inherit",
             "model_resolved": "Frontier-high (Full)",
+            "step_budget": step_cap,
+            "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
             "purpose": f"Run unit/Rust test suites, KML/1 compilation, and DLP verification in parallel for: {task}",
         },
@@ -3975,14 +3998,17 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "tool": "kintsugi swarm . --co-run --free-runners 5 [--paid-council]",
             "type_name": "dual_agent_council",
             "model": "Grok-3(max) + gpt-5.4 + DeepSeek-R1 [+ claude-opus-4[1m] on Tier-1]",
+            "step_budget": step_cap,
+            "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
             "purpose": f"Mandatory multi-model Council co-execution (Red-Team audit, formal logic proof & First-Shot Gate) for: {task}",
         },
     ]
-    max_cap = matrix_rep["active_subscription_profile"]["max_parallel_subagents"]
+    max_cap = profile["max_parallel_subagents"]
     dispatch_wire = (
         f"@SWARM_DISPATCH/1|plan={tier}|max_subagents={max_cap}|"
-        f"spawn={len(recommended_swarm)}|domains={','.join(routed_doms)}|"
+        f"auto_split_ge=3_indep_or_120s|step_cap=sub{step_cap},task{profile['step_budget_task']}|"
+        f"shell>={shell_target}%|spawn={len(recommended_swarm)}|domains={','.join(routed_doms)}|"
         f"model=FRONTIER_HIGH|forbid=flash,flash_lite|council=MANDATORY"
     )
     return {
@@ -3997,11 +4023,154 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
         "wire": dispatch_wire,
         "kmi_dispatch_wire": dispatch_wire,
         "task": task,
-        "active_subscription_profile": matrix_rep["active_subscription_profile"],
+        "step_economics": {
+            "protocol": "@STEP_ECONOMICS/1",
+            "subagent_step_cap": profile["step_budget_subagent"],
+            "task_step_cap": profile["step_budget_task"],
+            "shell_batch_target_pct": shell_target,
+        },
+        "active_subscription_profile": profile,
         "domain_context_routing": domain_route,
         "model_capability_matrix": matrix_rep["model_capability_matrix"],
         "harness_architecture_evolutions": matrix_rep["harness_architecture_evolutions"],
         "recommended_parallel_swarm": recommended_swarm,
+    }
+
+
+def audit_step_economics(
+    target_path: str,
+    subagent_step_cap: int = 12,
+    task_step_cap: int = 25,
+    target_shell_pct: float = 60.0,
+) -> Dict[str, Any]:
+    """
+    Audit a `.jsonl` transcript file or directory of transcripts for FrontierHarness Eval v1.1
+    step-economics (`@STEP_ECONOMICS/1`: agent steps, shell-batching ratio, and error-burn rate).
+    """
+    target = Path(target_path)
+    if target.is_symlink() or not target.exists():
+        wire = "@STEP_ECONOMICS/1[grade=NO_DATA|sessions=0|shell_pct=0.0|avg_steps=0.0|breaches=0|err_pct=0.0]"
+        return {
+            "ok": False,
+            "protocol": "@STEP_ECONOMICS/1",
+            "error": "TARGET_MISSING_OR_SYMLINK",
+            "grade": "NO_DATA",
+            "sessions_scanned": 0,
+            "wire": wire,
+            "kmi_step_wire": wire,
+        }
+
+    files: List[Path] = []
+    if target.is_file():
+        files = [target]
+    elif target.is_dir():
+        for cand in sorted(target.rglob("*.jsonl")):
+            if not cand.is_symlink() and cand.is_file():
+                files.append(cand)
+
+    total_planner_steps = 0
+    total_tool_calls = 0
+    total_shell_calls = 0
+    total_error_steps = 0
+    cap_breaches = 0
+    sessions_scanned = 0
+
+    for tf in files:
+        if tf.is_symlink() or not tf.is_file():
+            continue
+        user_turns = 0
+        steps = 0
+        tools = 0
+        shell = 0
+        errs = 0
+        try:
+            with tf.open("r", encoding="utf-8", errors="replace") as fh:
+                for raw in fh:
+                    line = raw.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(obj, dict):
+                        continue
+                    ev = obj.get("type")
+                    if ev == "USER_INPUT":
+                        user_turns += 1
+                    elif ev == "PLANNER_RESPONSE":
+                        steps += 1
+                        for tc in obj.get("tool_calls") or []:
+                            if not isinstance(tc, dict):
+                                continue
+                            tools += 1
+                            tname = str(tc.get("name") or "")
+                            if tname in ("run_command", "shell", "bash", "exec_command"):
+                                shell += 1
+                    if obj.get("status") == "ERROR":
+                        errs += 1
+        except OSError:
+            continue
+
+        sessions_scanned += 1
+        total_planner_steps += steps
+        total_tool_calls += tools
+        total_shell_calls += shell
+        total_error_steps += errs
+
+        if user_turns >= 2:
+            if (steps / float(user_turns)) > float(task_step_cap):
+                cap_breaches += 1
+        elif steps > subagent_step_cap:
+            cap_breaches += 1
+
+    shell_pct = round((total_shell_calls / total_tool_calls) * 100.0, 1) if total_tool_calls > 0 else 0.0
+    err_pct = round((total_error_steps / total_planner_steps) * 100.0, 1) if total_planner_steps > 0 else 0.0
+    avg_steps = round(total_planner_steps / sessions_scanned, 1) if sessions_scanned > 0 else 0.0
+
+    if sessions_scanned == 0:
+        grade = "NO_DATA"
+    elif shell_pct >= target_shell_pct and cap_breaches == 0 and err_pct <= 10.0:
+        grade = "OPTIMAL"
+    elif shell_pct < 45.0 or (cap_breaches > 0 and err_pct > 10.0) or avg_steps > float(task_step_cap):
+        grade = "STEP_BLOAT_ALERT"
+    else:
+        grade = "NEEDS_BATCHING"
+
+    recs: List[str] = []
+    if shell_pct < target_shell_pct and sessions_scanned > 0:
+        recs.append(
+            f"Increase shell batching from {shell_pct:.1f}% to >={target_shell_pct:.0f}% by merging file reads/greps."
+        )
+    if cap_breaches > 0:
+        recs.append(
+            f"{cap_breaches} transcript(s) exceeded step cap (subagent<={subagent_step_cap}, task<={task_step_cap}/turn)."
+        )
+    if err_pct > 10.0:
+        recs.append(
+            f"Error burn is {err_pct:.1f}% (>10%): apply 2-strike P1:MUTATE pivot to stop failed-loop waste."
+        )
+    if not recs and sessions_scanned > 0:
+        recs.append("Transcript meets @STEP_ECONOMICS/1 targets.")
+
+    wire = (
+        f"@STEP_ECONOMICS/1[grade={grade}|sessions={sessions_scanned}|shell_pct={shell_pct:.1f}"
+        f"|avg_steps={avg_steps:.1f}|breaches={cap_breaches}|err_pct={err_pct:.1f}]"
+    )
+    return {
+        "ok": True,
+        "protocol": "@STEP_ECONOMICS/1",
+        "grade": grade,
+        "sessions_scanned": sessions_scanned,
+        "total_planner_steps": total_planner_steps,
+        "total_tool_calls": total_tool_calls,
+        "shell_call_ratio_pct": shell_pct,
+        "error_step_ratio_pct": err_pct,
+        "avg_steps_per_session": avg_steps,
+        "cap_breaches": cap_breaches,
+        "recommendations": recs,
+        "wire": wire,
+        "kmi_step_wire": wire,
     }
 
 

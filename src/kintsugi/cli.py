@@ -59,6 +59,7 @@ from kintsugi.swarm import (
     ControlledInternetForager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
+    audit_step_economics,
     compute_swarm_dispatch_plan,
     get_model_capability_matrix,
 )
@@ -334,6 +335,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_swm.add_argument("--model-matrix", action="store_true", help="Display the 6-Tier Model Capability Matrix (@MODEL_MATRIX/1) & Harness Architecture Evolutions")
     p_swm.add_argument("--swarm-plan", metavar="TASK", default=None, help="Compute Subscription-Aware Parallel Subagent Swarm Dispatch Plan (@SWARM_DISPATCH/1) & Domain Shard Routing")
     p_swm.add_argument("--plan-tier", default="UNLIMITED_LOCAL", choices=["UNLIMITED_LOCAL", "PRO", "APACHE_2_OPEN_SOURCE"], help="Subscription plan tier for --swarm-plan (default: UNLIMITED_LOCAL)")
+    p_swm.add_argument("--step-audit", metavar="PATH", default=None, help="Audit agent transcript (.jsonl or dir) for step-economics (@STEP_ECONOMICS/1: steps, shell ratio, error burn)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
     p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (answers user questions about Multi-Model, Free Models, and BYOK Paid Council)")
@@ -954,6 +956,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(plan_rep["kmi_dispatch_wire"])
                 return 0
             print(json.dumps(plan_rep, indent=2, ensure_ascii=False))
+            return 0
+        if getattr(args, "step_audit", None) is not None:
+            step_rep = audit_step_economics(args.step_audit)
+            if args.wire:
+                print(step_rep["kmi_step_wire"])
+                return 0
+            print(json.dumps(step_rep, indent=2, ensure_ascii=False))
             return 0
         if args.provider_benchmarks:
             pb_rep = AIProviderBenchmarkSuite().run_all_provider_benchmarks(fetch_live_network=True)
