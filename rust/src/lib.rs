@@ -1373,6 +1373,7 @@ pub fn render_kmi_compact_header() -> String {
             }
         }
     }
+    out.push_str("@STEP_ECONOMICS/1[rule=R132|shell>=60%|sub<=12|task<=25|split>=3_or_120s]\n");
     out.push_str("<!-- KINTSUGI:KMI/1 END -->");
     out
 }
@@ -1677,6 +1678,491 @@ pub fn inspect_kml_corpus_file(path: &Path) -> Result<KmlCorpusReport, String> {
     })
 }
 
+#[derive(Debug, Clone)]
+pub struct StepAuditReport {
+    pub ok: bool,
+    pub target: String,
+    pub grade: String,
+    pub sessions_scanned: usize,
+    pub main_sessions_count: usize,
+    pub subagent_runs_count: usize,
+    pub total_planner_steps: usize,
+    pub total_tool_calls: usize,
+    pub total_shell_calls: usize,
+    pub total_error_steps: usize,
+    pub overall_shell_call_ratio_pct: f64,
+    pub overall_error_step_ratio_pct: f64,
+    pub main_avg_steps_per_turn: f64,
+    pub subagent_avg_steps: f64,
+    pub subagent_max_steps: usize,
+    pub subagent_cap_breaches_count: usize,
+    pub cap_breaches: usize,
+    pub subagent_step_cap: usize,
+    pub task_step_cap: usize,
+    pub target_shell_pct: f64,
+    pub elapsed_ms: f64,
+    pub wire: String,
+}
+
+fn skip_json_ws(bytes: &[u8], mut i: usize) -> usize {
+    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    i
+}
+
+fn read_json_string(bytes: &[u8], start_quote: usize) -> Option<(String, usize)> {
+    if bytes.get(start_quote) != Some(&b'"') {
+        return None;
+    }
+    let mut raw: Vec<u8> = Vec::new();
+    let mut i = start_quote + 1;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'"' {
+            return Some((String::from_utf8_lossy(&raw).into_owned(), i + 1));
+        }
+        if b == b'\\' {
+            i += 1;
+            if i >= bytes.len() {
+                return None;
+            }
+            match bytes[i] {
+                b'"' => raw.push(b'"'),
+                b'\\' => raw.push(b'\\'),
+                b'/' => raw.push(b'/'),
+                b'n' => raw.push(b'\n'),
+                b'r' => raw.push(b'\r'),
+                b't' => raw.push(b'\t'),
+                other => {
+                    raw.push(b'\\');
+                    raw.push(other);
+                }
+            }
+            i += 1;
+            continue;
+        }
+        raw.push(b);
+        i += 1;
+    }
+    None
+}
+
+fn inspect_jsonl_transcript_line(line: &str) -> (Option<String>, Option<String>, Vec<String>) {
+    let bytes = line.trim().as_bytes();
+    let mut msg_type: Option<String> = None;
+    let mut status: Option<String> = None;
+    let mut tool_names: Vec<String> = Vec::new();
+    if !bytes.starts_with(b"{") {
+        return (msg_type, status, tool_names);
+    }
+
+    let mut brace_depth: usize = 0;
+    let mut bracket_depth: usize = 0;
+    let mut pending_top_key: Option<String> = None;
+    let mut tool_array_bracket: Option<usize> = None;
+    let mut pending_tool_key: Option<String> = None;
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'"' {
+            if let Some((s, next_i)) = read_json_string(bytes, i) {
+                let after = skip_json_ws(bytes, next_i);
+                if bytes.get(after) == Some(&b':') {
+                    if brace_depth == 1 && bracket_depth == 0 {
+                        pending_top_key = Some(s);
+                    } else if tool_array_bracket == Some(bracket_depth) && brace_depth == 2 {
+                        pending_tool_key = Some(s);
+                    }
+                } else if brace_depth == 1 && bracket_depth == 0 {
+                    if let Some(ref k) = pending_top_key {
+                        if k == "type" {
+                            msg_type = Some(s);
+                        } else if k == "status" {
+                            status = Some(s);
+                        }
+                    }
+                    pending_top_key = None;
+                } else if tool_array_bracket == Some(bracket_depth) && brace_depth == 2 {
+                    if pending_tool_key.as_deref() == Some("name") {
+                        tool_names.push(s);
+                    }
+                    pending_tool_key = None;
+                }
+                i = next_i;
+                continue;
+            } else {
+                break;
+            }
+        }
+        match b {
+            b'{' => {
+                brace_depth += 1;
+                if brace_depth > 1 {
+                    pending_top_key = None;
+                }
+                if brace_depth > 2 {
+                    pending_tool_key = None;
+                }
+            }
+            b'}' => {
+                if brace_depth == 2 {
+                    pending_tool_key = None;
+                }
+                brace_depth = brace_depth.saturating_sub(1);
+            }
+            b'[' => {
+                bracket_depth += 1;
+                if brace_depth == 1 && bracket_depth == 1 && pending_top_key.as_deref() == Some("tool_calls") {
+                    tool_array_bracket = Some(bracket_depth);
+                    pending_top_key = None;
+                }
+            }
+            b']' => {
+                if tool_array_bracket == Some(bracket_depth) {
+                    tool_array_bracket = None;
+                    pending_tool_key = None;
+                }
+                bracket_depth = bracket_depth.saturating_sub(1);
+            }
+            b',' => {
+                if brace_depth == 1 && bracket_depth == 0 {
+                    pending_top_key = None;
+                } else if tool_array_bracket == Some(bracket_depth) && brace_depth == 2 {
+                    pending_tool_key = None;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    (msg_type, status, tool_names)
+}
+
+fn collect_jsonl_candidates(dir: &Path, out: &mut Vec<(u128, PathBuf)>, depth: usize) {
+    if depth > 4 {
+        return;
+    }
+    let entries = match fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let meta = match fs::symlink_metadata(&path) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        if meta.is_dir() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str == ".git" || name_str == "target" || name_str == "node_modules" {
+                continue;
+            }
+            collect_jsonl_candidates(&path, out, depth + 1);
+        } else if meta.is_file() && path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            let mtime_ns = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            out.push((mtime_ns, path));
+        }
+    }
+}
+
+fn discover_transcripts_for_step_audit(target: &Path, max_sessions: usize) -> Vec<PathBuf> {
+    let meta = match fs::symlink_metadata(target) {
+        Ok(m) => m,
+        Err(_) => return Vec::new(),
+    };
+    if meta.file_type().is_symlink() {
+        return Vec::new();
+    }
+    if meta.is_file() {
+        return vec![target.to_path_buf()];
+    }
+    if !meta.is_dir() {
+        return Vec::new();
+    }
+
+    let mut brain_style: Vec<(u128, PathBuf)> = Vec::new();
+    if let Ok(entries) = fs::read_dir(target) {
+        for entry in entries.flatten() {
+            let sub = entry.path();
+            let sm = match fs::symlink_metadata(&sub) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            if sm.file_type().is_symlink() || !sm.is_dir() {
+                continue;
+            }
+            let cand = sub.join(".system_generated").join("logs").join("transcript.jsonl");
+            if let Ok(cm) = fs::symlink_metadata(&cand) {
+                if !cm.file_type().is_symlink() && cm.is_file() {
+                    let mtime_ns = cm
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_nanos())
+                        .unwrap_or(0);
+                    brain_style.push((mtime_ns, cand));
+                }
+            }
+        }
+    }
+
+    let mut candidates = if !brain_style.is_empty() {
+        brain_style
+    } else {
+        let mut generic: Vec<(u128, PathBuf)> = Vec::new();
+        collect_jsonl_candidates(target, &mut generic, 0);
+        generic
+    };
+
+    candidates.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    candidates
+        .into_iter()
+        .take(max_sessions.max(1))
+        .map(|(_, p)| p)
+        .collect()
+}
+
+pub fn audit_step_economics_path(
+    target: &Path,
+    max_sessions: usize,
+    subagent_step_cap: usize,
+    task_step_cap: usize,
+    target_shell_pct: f64,
+) -> StepAuditReport {
+    use std::io::{BufRead, BufReader};
+
+    let t0 = Instant::now();
+    let target_str = target.display().to_string();
+    let files = discover_transcripts_for_step_audit(target, max_sessions);
+    if files.is_empty() {
+        let wire = format!(
+            "@STEP_ECONOMICS/1[rule=R132|engine=kintsugi-rs|grade=NO_DATA|sessions=0|shell_pct=0.0|sub_avg_steps=0.0|breaches=0|err_pct=0.0|caps=sub{},task{}]",
+            subagent_step_cap, task_step_cap
+        );
+        return StepAuditReport {
+            ok: false,
+            target: target_str,
+            grade: "NO_DATA".to_string(),
+            sessions_scanned: 0,
+            main_sessions_count: 0,
+            subagent_runs_count: 0,
+            total_planner_steps: 0,
+            total_tool_calls: 0,
+            total_shell_calls: 0,
+            total_error_steps: 0,
+            overall_shell_call_ratio_pct: 0.0,
+            overall_error_step_ratio_pct: 0.0,
+            main_avg_steps_per_turn: 0.0,
+            subagent_avg_steps: 0.0,
+            subagent_max_steps: 0,
+            subagent_cap_breaches_count: 0,
+            cap_breaches: 0,
+            subagent_step_cap,
+            task_step_cap,
+            target_shell_pct,
+            elapsed_ms: (t0.elapsed().as_micros() as f64) / 1000.0,
+            wire,
+        };
+    }
+
+    let mut sessions_scanned = 0usize;
+    let mut main_sessions_count = 0usize;
+    let mut subagent_runs_count = 0usize;
+    let mut total_planner_steps = 0usize;
+    let mut total_tool_calls = 0usize;
+    let mut total_shell_calls = 0usize;
+    let mut total_error_steps = 0usize;
+    let mut main_steps_per_turn_sum = 0.0f64;
+    let mut subagent_steps_sum = 0usize;
+    let mut subagent_max_steps = 0usize;
+    let mut subagent_cap_breaches_count = 0usize;
+    let mut cap_breaches = 0usize;
+
+    for tf in &files {
+        let file = match fs::File::open(tf) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+        let reader = BufReader::new(file);
+        let mut user_turns = 0usize;
+        let mut planner_steps = 0usize;
+        let mut tool_calls = 0usize;
+        let mut shell_calls = 0usize;
+        let mut error_steps = 0usize;
+
+        for line_res in reader.lines() {
+            let line = match line_res {
+                Ok(l) => l,
+                Err(_) => continue,
+            };
+            if line.trim().is_empty() {
+                continue;
+            }
+            let (ev, st, tools) = inspect_jsonl_transcript_line(&line);
+            if ev.as_deref() == Some("USER_INPUT") {
+                user_turns += 1;
+            } else if ev.as_deref() == Some("PLANNER_RESPONSE") {
+                planner_steps += 1;
+                for tn in &tools {
+                    tool_calls += 1;
+                    if matches!(tn.as_str(), "run_command" | "shell" | "bash" | "exec_command") {
+                        shell_calls += 1;
+                    }
+                }
+            }
+            if st.as_deref() == Some("ERROR") {
+                error_steps += 1;
+            }
+        }
+
+        sessions_scanned += 1;
+        total_planner_steps += planner_steps;
+        total_tool_calls += tool_calls;
+        total_shell_calls += shell_calls;
+        total_error_steps += error_steps;
+
+        if user_turns >= 2 {
+            main_sessions_count += 1;
+            let per_turn = (planner_steps as f64) / (user_turns as f64);
+            main_steps_per_turn_sum += per_turn;
+            if per_turn > (task_step_cap as f64) {
+                cap_breaches += 1;
+            }
+        } else {
+            subagent_runs_count += 1;
+            subagent_steps_sum += planner_steps;
+            if planner_steps > subagent_max_steps {
+                subagent_max_steps = planner_steps;
+            }
+            if planner_steps > subagent_step_cap {
+                subagent_cap_breaches_count += 1;
+                cap_breaches += 1;
+            }
+        }
+    }
+
+    let round1 = |v: f64| -> f64 { (v * 10.0).round() / 10.0 };
+    let shell_pct = if total_tool_calls > 0 {
+        round1(((total_shell_calls as f64) / (total_tool_calls as f64)) * 100.0)
+    } else {
+        0.0
+    };
+    let err_pct = if total_planner_steps > 0 {
+        round1(((total_error_steps as f64) / (total_planner_steps as f64)) * 100.0)
+    } else {
+        0.0
+    };
+    let main_avg = if main_sessions_count > 0 {
+        round1(main_steps_per_turn_sum / (main_sessions_count as f64))
+    } else {
+        0.0
+    };
+    let sub_avg = if subagent_runs_count > 0 {
+        round1((subagent_steps_sum as f64) / (subagent_runs_count as f64))
+    } else {
+        0.0
+    };
+
+    let grade = if sessions_scanned == 0 {
+        "NO_DATA".to_string()
+    } else if shell_pct >= target_shell_pct && sub_avg <= (subagent_step_cap as f64) && cap_breaches == 0 && err_pct <= 10.0 {
+        "OPTIMAL".to_string()
+    } else if shell_pct < 45.0 || sub_avg > 20.0 || err_pct > 25.0 || (cap_breaches > 0 && err_pct > 10.0) {
+        "STEP_BLOAT_ALERT".to_string()
+    } else {
+        "NEEDS_BATCHING".to_string()
+    };
+
+    let wire = format!(
+        "@STEP_ECONOMICS/1[rule=R132|engine=kintsugi-rs|grade={}|sessions={}|shell_pct={:.1}|sub_avg_steps={:.1}|breaches={}|err_pct={:.1}|caps=sub{},task{}]",
+        grade,
+        sessions_scanned,
+        shell_pct,
+        sub_avg,
+        subagent_cap_breaches_count,
+        err_pct,
+        subagent_step_cap,
+        task_step_cap
+    );
+
+    StepAuditReport {
+        ok: sessions_scanned > 0,
+        target: target_str,
+        grade,
+        sessions_scanned,
+        main_sessions_count,
+        subagent_runs_count,
+        total_planner_steps,
+        total_tool_calls,
+        total_shell_calls,
+        total_error_steps,
+        overall_shell_call_ratio_pct: shell_pct,
+        overall_error_step_ratio_pct: err_pct,
+        main_avg_steps_per_turn: main_avg,
+        subagent_avg_steps: sub_avg,
+        subagent_max_steps,
+        subagent_cap_breaches_count,
+        cap_breaches,
+        subagent_step_cap,
+        task_step_cap,
+        target_shell_pct,
+        elapsed_ms: (t0.elapsed().as_micros() as f64) / 1000.0,
+        wire,
+    }
+}
+
+pub fn render_step_audit_json(rep: &StepAuditReport) -> String {
+    let eng_ver = env!("CARGO_PKG_VERSION");
+    format!(
+        "{{\"ok\":{},\"rule_id\":\"R132\",\"protocol\":\"@STEP_ECONOMICS/1\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"grade\":\"{}\",\"wire\":\"{}\",\"elapsed_ms\":{:.3},\"sessions_scanned\":{},\"main_sessions_count\":{},\"subagent_runs_count\":{},\"total_planner_steps\":{},\"total_tool_calls\":{},\"total_shell_calls\":{},\"total_error_steps\":{},\"overall_shell_call_ratio_pct\":{:.1},\"overall_error_step_ratio_pct\":{:.1},\"main_avg_steps_per_turn\":{:.1},\"subagent_avg_steps\":{:.1},\"subagent_max_steps\":{},\"subagent_cap_breaches_count\":{},\"cap_breaches\":{},\"targets\":{{\"shell_batch_target_pct\":{:.1},\"subagent_step_cap\":{},\"task_step_cap\":{},\"auto_split_min_subtasks\":3,\"auto_split_min_est_seconds\":120}}}}",
+        rep.ok,
+        eng_ver,
+        json_escape(&rep.grade),
+        json_escape(&rep.wire),
+        rep.elapsed_ms,
+        rep.sessions_scanned,
+        rep.main_sessions_count,
+        rep.subagent_runs_count,
+        rep.total_planner_steps,
+        rep.total_tool_calls,
+        rep.total_shell_calls,
+        rep.total_error_steps,
+        rep.overall_shell_call_ratio_pct,
+        rep.overall_error_step_ratio_pct,
+        rep.main_avg_steps_per_turn,
+        rep.subagent_avg_steps,
+        rep.subagent_max_steps,
+        rep.subagent_cap_breaches_count,
+        rep.cap_breaches,
+        rep.target_shell_pct,
+        rep.subagent_step_cap,
+        rep.task_step_cap
+    )
+}
+
+pub fn render_swarm_plan_json(task_desc: &str) -> String {
+    let eng_ver = env!("CARGO_PKG_VERSION");
+    let trimmed = task_desc.trim();
+    let clean = if trimmed.is_empty() { "multi-workstream task" } else { trimmed };
+    let esc_task = json_escape(clean);
+    format!(
+        "{{\"ok\":true,\"rule\":\"R131\",\"step_economics_rule\":\"R132\",\"protocol\":\"@SWARM_DISPATCH/1\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"wire\":\"@SWARM_DISPATCH/1|plan=ULTRA_X20|max_subagents=8|auto_split_ge=3_indep_or_120s|step_cap=sub12,task25|shell>=60%|subagent_model=ARGON_HIGH|forbid=flash,flash_lite|council_cowork=MANDATORY\",\"task_desc\":\"{}\",\"subscription_tier\":\"ULTRA_X20\",\"subagent_model_lock\":\"ARGON_HIGH (Model='inherit' | 'pro' ONLY; FORBID flash/flash_lite)\",\"max_parallel_subagents\":8,\"auto_split_min_subtasks\":3,\"auto_split_min_est_seconds\":120,\"step_budget_subagent\":12,\"step_budget_task\":25,\"shell_batch_target_pct\":60,\"roles\":[\"Argon High Recon Scout (research/inherit)\",\"Argon High Patch Engineer A (self/inherit)\",\"Argon High Test & PR Engineer B (self/inherit)\",\"Dual Agent Council Co-Worker (Tier-2 Free + Tier-1 Paid)\"]}}",
+        eng_ver, esc_task
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1733,5 +2219,63 @@ mod tests {
         assert!(!verify_outbound_destination_allowed("https://ntfy.sh/kintsugi-collective-pool-v1"));
         assert!(!verify_outbound_destination_allowed("https://webhook.site/exfil"));
         assert!(!verify_outbound_destination_allowed("https://github.com/attacker/fork.git"));
+    }
+
+    #[test]
+    fn swarm_plan_enforces_r131_and_r132_step_budgets() {
+        let json = render_swarm_plan_json("Audit auth & DB migrations");
+        assert!(json.contains("\"rule\":\"R131\""));
+        assert!(json.contains("\"step_economics_rule\":\"R132\""));
+        assert!(json.contains("\"auto_split_min_subtasks\":3"));
+        assert!(json.contains("\"auto_split_min_est_seconds\":120"));
+        assert!(json.contains("\"step_budget_subagent\":12"));
+        assert!(json.contains("\"step_budget_task\":25"));
+        assert!(json.contains("\"shell_batch_target_pct\":60"));
+        assert!(json.contains("ARGON_HIGH"));
+    }
+
+    #[test]
+    fn step_audit_grades_optimal_vs_bloated_transcripts() {
+        let base = std::env::temp_dir().join(format!("kintsugi_rs_step_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+
+        // Optimal run with escaped decoy prose inside content field
+        let opt = base.join("opt.jsonl");
+        let mut opt_lines = vec![r#"{"type":"USER_INPUT","content":"status\":\"ERROR\" decoy \"name\":\"fake\""}"#.to_string()];
+        for i in 0..8 {
+            let tool = if i < 7 { "run_command" } else { "edit_file" };
+            opt_lines.push(format!(
+                r#"{{"type":"PLANNER_RESPONSE","status":"DONE","content":"escaped \\"status\\":\\"ERROR\\" decoy","tool_calls":[{{"name":"{}","args":{{"name":"ignored"}}}}]}}"#,
+                tool
+            ));
+        }
+        fs::write(&opt, opt_lines.join("\n") + "\n").unwrap();
+        let rep_opt = audit_step_economics_path(&opt, 10, 12, 25, 60.0);
+        assert!(rep_opt.ok);
+        assert_eq!(rep_opt.grade, "OPTIMAL");
+        assert_eq!(rep_opt.cap_breaches, 0);
+        assert_eq!(rep_opt.total_error_steps, 0);
+        assert!(rep_opt.overall_shell_call_ratio_pct >= 80.0);
+
+        // Bloated run (>12 steps, low shell, errors)
+        let bloat = base.join("bloat.jsonl");
+        let mut bloat_lines = Vec::new();
+        for i in 0..30 {
+            let st = if i < 10 { "ERROR" } else { "DONE" };
+            let tool = if i < 5 { "run_command" } else { "read_file" };
+            bloat_lines.push(format!(
+                r#"{{"type":"PLANNER_RESPONSE","status":"{}","tool_calls":[{{"name":"{}"}}]}}"#,
+                st, tool
+            ));
+        }
+        fs::write(&bloat, bloat_lines.join("\n") + "\n").unwrap();
+        let rep_bloat = audit_step_economics_path(&bloat, 10, 12, 25, 60.0);
+        assert!(rep_bloat.ok);
+        assert_eq!(rep_bloat.grade, "STEP_BLOAT_ALERT");
+        assert_eq!(rep_bloat.subagent_cap_breaches_count, 1);
+        assert!(rep_bloat.overall_shell_call_ratio_pct < 45.0);
+
+        let _ = fs::remove_dir_all(&base);
     }
 }
