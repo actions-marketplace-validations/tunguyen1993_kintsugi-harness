@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import ast
+import hashlib
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Dict, List, Optional, TextIO
 
 from kintsugi import __version__
 from kintsugi.compactor import ConversationCompactor
@@ -343,9 +346,10 @@ class KintsugiMCPServer:
     """Line-delimited JSON-RPC 2.0 MCP server over stdio."""
 
     def __init__(self, ledger_path: Path | str = ".kintsugi/scars.json") -> None:
-        self.ledger = ScarLedger(ledger_path)
+        self.ledger = ScarLedger(ledger_path, ensure_builtin_crs=True)
         if not self.ledger.all():
             self.ledger.bootstrap_starter_pack()
+        self._session_hit_telemetry: Dict[str, int] = {}
 
     def handle_request(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         method = message.get("method")
@@ -561,14 +565,16 @@ class KintsugiMCPServer:
             lang = args.get("language")
             if code is not None:
                 findings = scanner.scan_text(str(code), file_path=fpath, language=lang)
-                self.ledger.record_hits([f.scar_id for f in findings])
+                for f in findings:
+                    self._session_hit_telemetry[f.scar_id] = self._session_hit_telemetry.get(f.scar_id, 0) + 1
                 return {
                     "passed": len(findings) == 0,
                     "findings_count": len(findings),
                     "findings": [f.to_dict() for f in findings],
                 }
             report = scanner.scan_path(fpath)
-            self.ledger.record_hits([f.scar_id for f in report.findings])
+            for f in report.findings:
+                self._session_hit_telemetry[f.scar_id] = self._session_hit_telemetry.get(f.scar_id, 0) + 1
             return report.to_dict()
 
         if name == "kintsugi_list_scars":
@@ -693,11 +699,76 @@ class KintsugiMCPServer:
             from kintsugi.logic import LoginAuthLogicVerifier, run_logical_reasoning_benchmark
 
             code_snippet = str(args.get("code") or "").strip()
+            has_explicit_self_test = "self_test" in args
+            run_self_test = bool(args.get("self_test", True)) if (has_explicit_self_test or not code_snippet) else False
             result: Dict[str, Any] = {}
-            if bool(args.get("self_test", True)):
+            if run_self_test:
                 result["self_test"] = run_logical_reasoning_benchmark()
             if code_snippet:
-                result["login_audit"] = LoginAuthLogicVerifier().verify_login_security_suite()
+                code_sha256 = hashlib.sha256(code_snippet.encode("utf-8")).hexdigest()[:16]
+                scanner = KintsugiScanner(self.ledger.all(), allow_inline_ignores=False)
+                scan_findings = scanner.scan_text(code_snippet, file_path="<verify_logic_snippet.py>")
+                auth_issues: List[Dict[str, Any]] = []
+
+                # AST + static auth/state-machine inspection of caller-supplied code (`KH-MCP-002`)
+                try:
+                    tree = ast.parse(code_snippet)
+                except SyntaxError:
+                    tree = None
+
+                sensitive_id_re = re.compile(r"(?:otp|token|secret|signature|sig|mac|digest|api_key|apikey|password|passwd|pin)", re.I)
+                if tree is not None:
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.Compare) and any(isinstance(op, (ast.Eq, ast.NotEq)) for op in node.ops):
+                            names_in_cmp: List[str] = []
+                            for side in [node.left] + list(node.comparators):
+                                if isinstance(side, ast.Name):
+                                    names_in_cmp.append(side.id)
+                                elif isinstance(side, ast.Attribute):
+                                    names_in_cmp.append(side.attr)
+                            if any(sensitive_id_re.search(nm) for nm in names_in_cmp):
+                                auth_issues.append(
+                                    {
+                                        "rule": "AUTH-TIMING-001",
+                                        "severity": "HIGH",
+                                        "line": getattr(node, "lineno", 1),
+                                        "detail": f"Non-constant-time `==`/`!=` comparison on sensitive secret/OTP identifier ({', '.join(names_in_cmp)}); use `hmac.compare_digest`.",
+                                    }
+                                )
+                        elif isinstance(node, ast.Assign):
+                            for tgt in node.targets:
+                                if isinstance(tgt, ast.Name) and tgt.id.lower() in {"allow_unchecked", "skip_auth", "bypass_auth", "disable_verify"}:
+                                    if isinstance(node.value, ast.Constant) and node.value.value is True:
+                                        auth_issues.append(
+                                            {
+                                                "rule": "AUTH-BYPASS-002",
+                                                "severity": "CRITICAL",
+                                                "line": getattr(node, "lineno", 1),
+                                                "detail": f"Auth verification bypass flag `{tgt.id} = True` detected.",
+                                            }
+                                        )
+
+                findings_dicts = [f.to_dict() for f in scan_findings]
+                passed = len(findings_dicts) == 0 and len(auth_issues) == 0
+                result["code_analysis"] = {
+                    "analyzed": True,
+                    "code_sha256": code_sha256,
+                    "passed": passed,
+                    "verdict": "PASS" if passed else "FAIL",
+                    "findings_count": len(findings_dicts) + len(auth_issues),
+                    "scanner_findings": findings_dicts,
+                    "auth_state_machine_issues": auth_issues,
+                }
+                result["login_audit"] = {
+                    "ok": True,
+                    "code_sha256": code_sha256,
+                    "passed": passed,
+                    "verdict": result["code_analysis"]["verdict"],
+                    "findings_count": result["code_analysis"]["findings_count"],
+                    "scanner_findings": findings_dicts,
+                    "auth_state_machine_issues": auth_issues,
+                    "reference_suite": LoginAuthLogicVerifier().verify_login_security_suite(),
+                }
             return result
 
         if name == "kintsugi_cinema_produce":
@@ -770,3 +841,7 @@ class KintsugiMCPServer:
             if resp is not None:
                 stdout.write(json.dumps(resp) + "\n")
                 stdout.flush()
+
+
+if __name__ == "__main__":
+    KintsugiMCPServer().serve_stdio()

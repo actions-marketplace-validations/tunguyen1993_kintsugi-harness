@@ -1,5 +1,6 @@
 {
   "sphinx-doc__sphinx-8282": {
+    "evaluation_scope": "synthetic_swe_like_regression_suite_not_official_swebench_leaderboard",
     "patch_is_None": false,
     "patch_exists": true,
     "patch_successfully_applied": true,

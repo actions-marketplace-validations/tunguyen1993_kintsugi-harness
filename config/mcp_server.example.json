@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0.1",
+  "mcpServers": {
+    "kintsugi-harness": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "kintsugi.mcp_server"
+      ],
+      "env": {
+        "PYTHONPATH": "src"
+      },
+      "transport": "stdio",
+      "verified_entrypoint": "BOTH `python3 -m kintsugi.mcp_server` AND `python3 -m kintsugi mcp`",
+      "tools": [
+        {
+          "name": "kintsugi_scan_code",
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_list_scars",
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_record_failure",
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_compile_skills",
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_multi_model_guide",
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_compact_context",
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_integrate_harness",
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_verify_logic",
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          }
+        },
+        {
+          "name": "kintsugi_cinema_produce",
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          }
+        }
+      ]
+    }
+  }
+}

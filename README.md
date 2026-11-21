@@ -2,7 +2,7 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v2.4.0` · `Apache-2.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v2.4.1` · `Apache-2.0`)
 
 ### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `16.2 µs`.
 
@@ -11,19 +11,19 @@
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/tunguyen1993/kintsugi-harness/badge)](https://securityscorecards.dev/viewer/?uri=github.com/tunguyen1993/kintsugi-harness)
-[![10-Arena Pareto Suite: 10/10 PASS (98.30)](https://img.shields.io/badge/10--Arena_Pareto_Suite-10%2F10_PASS_%2898.30%29-00C853)](benchmarks/verified_10_arena_pareto_certificate.json)
-[![4-Vendor CRS Audit: 100.0/100 (v2.4.0)](https://img.shields.io/badge/4--Vendor_CRS_Audit-100.0%2F100_%28v2.4.0%29-00C853)](benchmarks/INDEPENDENT_HACKER_AGENT_AUDIT_REPORT.md)
-[![SWE-bench Submission: 8/8 Verified](https://img.shields.io/badge/SWE--bench_Package-all__preds.jsonl_%2B_trajs-007EC6)](benchmarks/swebench_submission/entry/20261108_kintsugi-harness/README.md)
-[![GAIA Submission: Verified JSONL](https://img.shields.io/badge/GAIA_Leaderboard-Submission_Package_Ready-FFB300)](benchmarks/gaia_submission/README.md)
-[![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](ci/ci-and-arena-verification.yml)
+[![10-Arena Synthetic Suite: 10/10 PASS (98.30)](https://img.shields.io/badge/10--Arena_Synthetic_Suite-10%2F10_PASS_%2898.30%29-00C853)](benchmarks/verified_10_arena_pareto_certificate.json)
+[![Synthetic 4-Vendor Audit: 100.0/100 (v2.4.1)](https://img.shields.io/badge/Synthetic_4--Vendor_Audit-100.0%2F100_%28v2.4.1%29-00C853)](benchmarks/INDEPENDENT_HACKER_AGENT_AUDIT_REPORT.md)
+[![Synthetic SWE-like Suite: 8/8 Local](https://img.shields.io/badge/Synthetic_SWE--like_Suite-8%2F8_Local-007EC6)](benchmarks/swebench_submission/entry/20261108_kintsugi-harness/README.md)
+[![Synthetic GAIA Fixture: JSONL Pack](https://img.shields.io/badge/Synthetic_GAIA_Fixture-JSONL_Pack-FFB300)](benchmarks/gaia_submission/README.md)
+[![SLSA Provenance: Ready](https://img.shields.io/badge/SLSA_Provenance-Verified_SHA256-blue)](.github/workflows/ci-and-arena-verification.yml)
 [![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
 [![M8ven Score](https://m8ven.ai/badge/mcp/tunguyen1993-kintsugi-harness-63r6eu?v=d87df8708272650e30986e1a3ce790a6)](https://m8ven.ai/mcp/tunguyen1993-kintsugi-harness-63r6eu?s=readme)
-[![Release: v2.4.0](https://img.shields.io/github/v/release/tunguyen1993/kintsugi-harness)](https://github.com/tunguyen1993/kintsugi-harness/releases)
+[![Release: v2.4.1](https://img.shields.io/badge/Release-v2.4.1-blue)](CHANGELOG.md)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.8% - 99.96%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.8%25--99.96%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 16.2 µs](https://img.shields.io/badge/Rust_Core-16.2_%C2%B5s%2Fcall_%2836_rules%29-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 56/56 Passing](https://img.shields.io/badge/Tests-56%2F56_Passing_%2849_Py_%2B_7_Rust%29-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 60 Py + 18 Rust (Local & CI)](https://img.shields.io/badge/Tests-60_Py_%2B_18_Rust_%28CI%29-brightgreen)](tests/test_kintsugi.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
 > ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
@@ -105,13 +105,13 @@ Add the following block to `claude_desktop_config.json`, `.cursor/mcp.json`, or 
 | **MCP Tool (`8/9`)** | `kintsugi_multi_model_guide` | `readOnlyHint=true`, `openWorldHint=true` (`question`, `auto_register_deepseek_free`) | Interactive Bilingual (`EN/VI`) User Onboarding Guide for Multi-Model Co-Execution, BYOK Paid Frontier Council keys, and `$0` DeepSeek Free token provisioning. |
 | **MCP Tool (`9/9`)** | `kintsugi_cinema_produce` | `idempotentHint=true`, `openWorldHint=true` (`style_mode`, `provider`, `auto_heal`, `manifest`) | OpenMontage Cinema Director's Cut Extension (`@OPENMONTAGE_CINEMA/1`): 9-provider video router, 6-Gate Component Video QA, and `@CINEMA_EVOLVE/1` auto-healing. |
 | **MCP Resource (`1/2`)** | `kintsugi://ledger/scars` | `application/json` | Full JSON ledger of all verified AST + Regex Golden Scars in the active workspace. |
-| **MCP Resource (`2/2`)** | `kintsugi://posture/summary` | `application/json` | Live posture summary: version (`2.4.0`), license (`Apache-2.0`), active scar count, `KMI/1` & Domain Shard compression metrics (`93.8%` / `94.0%` / `99.96%`), Rust latency (`16.2 µs`), and `docs/domains/` shard map. |
+| **MCP Resource (`2/2`)** | `kintsugi://posture/summary` | `application/json` | Live posture summary: version (`2.4.1`), license (`Apache-2.0`), active scar count, `KMI/1` & Domain Shard compression metrics (`93.8%` / `94.0%` / `99.96%`), Rust latency (`16.2 µs`), and `docs/domains/` shard map. |
 | **MCP Prompt (`1/2`)** | `kintsugi-audit-code` | Required arg: `file_path` | Structured workflow prompt that runs `kintsugi_scan_code` + `kintsugi_verify_logic` on a target file. |
 | **MCP Prompt (`2/2`)** | `kintsugi-evolve-scar` | Required arg: `error_summary`; Optional: `raw_trace` | Structured workflow prompt that synthesizes a self-verified Golden Scar via `kintsugi_record_failure` and updates the `KMI/1` wire index. |
 
 ---
 
-## 📊 Reproducible Benchmarks / 可复现基准测试说明 (`v2.4.0`)
+## 📊 Reproducible Benchmarks / 可复现基准测试说明 (`v2.4.1`)
 
 > **English:** Every token-compression and test-count metric in Kintsugi is deterministic and arithmetic-checked (`global_pct = round(((verbose - compact) / verbose) * 100, 1)`, `domain_shard_pct = round(((verbose - shard) / verbose) * 100, 2)` using `estimate_tokens`), and latency figures are environment-dependent measured reference benchmarks (macOS Apple Silicon M-series, `rustc --release`, Python 3.12) reproducible locally using the exact commands below. When running `kintsugi mcp --ledger .kintsugi/scars.json`, relative ledger paths resolve against the active project working directory (`cwd`) and automatically fall back to the built-in 16-rule starter pack if no `.kintsugi/scars.json` file exists yet.
 >
@@ -120,11 +120,11 @@ Add the following block to `claude_desktop_config.json`, `.cursor/mcp.json`, or 
 ### 1. Run All 5 Verification & Benchmark Commands Locally
 
 ```bash
-# 1. Python Unit Test Suite (49/49 tests passing, including Z3/LLVM CRS, Empirical Cortex, @SWARM_DISPATCH/1, @STEP_ECONOMICS/1 & Domain-Partitioned Compression):
+# 1. Python Unit Test Suite (60 Python unittest cases verified, plus optional `.[proof]` Z3 patch equivalence):
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 
-# 2. Native Rust Unit Test Suite (7/7 tests passing — 56/56 combined with Python):
-cargo test
+# 2. Native Rust Unit Test Suite (15 kintsugi_core + 3 rust-neuro-symbolic-core = 18 Rust tests via `cargo test --all-targets`):
+cargo test --all-targets && cargo build --release --bins
 
 # 3. Native Rust Single-File Scan & @KML/1 Shield Benchmark (36 builtin rules, 200 iterations, ~16.2 µs/call):
 cargo build --release && ./target/release/kintsugi-rs bench
@@ -132,7 +132,7 @@ cargo build --release && ./target/release/kintsugi-rs bench
 # 4. Python AST+Regex Corpus Recall/Precision (16 Pos + 16 Neg, F1=1.000, ~28 ms) & Edition Verifier:
 python3 free-skill-pack/scripts/verify_editions_and_benchmarks.py
 
-# 5. Global KMI/1 & 6-Domain Partitioned Context Compression Benchmarks (Starter 16-rule & Evolved 1,789-rule):
+# 5. Global KMI/1 & 6-Domain Partitioned Context Compression Benchmarks (Starter 16-rule & Evolved 1,797-rule):
 PYTHONPATH=src python3 -m kintsugi.cli token-report --starter-only
 PYTHONPATH=src python3 -m kintsugi.cli token-report
 PYTHONPATH=src python3 -m kintsugi.cli token-report --starter-only --domain security
@@ -142,7 +142,7 @@ PYTHONPATH=src python3 -m kintsugi.cli token-report --domain security
 ### 2. Methodology & Arithmetic Breakdown
 
 - **Token Estimator (`src/kintsugi/compressor.py:estimate_tokens`):** Deterministic BPE approximation `max((len(text) + 3) // 4, int(len(words_and_punct) * 0.78))`.
-- **Verbose Baseline (`SkillCompiler.render_skill_markdown`):** Full Markdown tutorials containing `Root Cause`, `Rationale`, `❌ Bad Code`, and `✅ Verified Fix` blocks (`max(estimate_tokens(verbose_md), len(scars) * 185)`).
+- **Verbose Baseline (`SkillCompiler.render_skill_markdown`):** Full Markdown tutorials containing `Root Cause`, `Rationale`, `❌ Bad Code`, and `✅ Verified Fix` blocks measured directly with `estimate_tokens(verbose_md)`.
 - **Global `KMI/1` Wire Index (`render_kmi_index`):** Compiles every rule into a `<12-token` symbolic micro-signature (`KS-001(secret!=literal->os.environ)`) with full prose expanded only Just-In-Time (`<95 tokens`) when a `PreToolUse` violation occurs:
   - **16-Scar Core Starter Pack (`--starter-only`):** `3,641` verbose tokens $\to$ `226` `KMI/1` tokens/turn = **`3,415` tokens saved/turn (`(3641 - 226) / 3641 = 93.8%` reduction; `170,750` tokens saved per 50-turn session)**.
   - **1,789-Scar Full Evolved Ledger (`.kintsugi/scars.json`):** `414,267` verbose tokens $\to$ `24,967` `KMI/1` tokens/turn = **`389,300` tokens saved/turn (`(414267 - 24967) / 414267 = 94.0%` reduction; `19,465,000` tokens saved per 50-turn session)**.
@@ -206,7 +206,7 @@ Existing agent harnesses and rule repositories (`Superpowers`, static `.cursorru
 2. **Advisory Prose != Enforcement:** Markdown instructions are merely suggestions; agents still run `subprocess(..., shell=True)`, hardcode secrets, or execute destructive shell commands under pressure.
 3. **Slow Hook Latency:** Heavy linters add `300–1,500ms` of overhead on every tool call.
 
-**Kintsugi v2.4.0** solves all three with a **Native Rust Engine (`kintsugi-rs`, `~16.2 µs/call` across 36 builtin rules)**, **Multi-Language Zero-Dependency Structural AST-Lite (`Python, JS/TS, Go, Rust, C/C++, Java`)**, an **Ultra-Compact Wire Index (`KMI/1` — `226 tokens/turn` on 16 Core Scars [`93.8%` savings] and `80.5 tokens/turn` with Domain-Partitioned Shards [`97.79%` savings]; `99.96%` savings on the 1,789-scar evolved ledger)**, **`@CREED/1 v2.1` 5-Pillar Autopoietic Evolution IR**, **`@SWARM_DISPATCH/1` Subscription-Aware Auto-Subagent Swarm Dispatcher & `@MODEL_MATRIX/1` 6-Tier Model Capability Matrix**, **`@DUAL_COUNCIL/1` & `@NEVER_SOLO_GATE/1`**, **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
+**Kintsugi v2.4.1** solves all three with a **Native Rust Engine (`kintsugi-rs`, `~16.2 µs/call` across 36 builtin rules)**, **Multi-Language Zero-Dependency Structural AST-Lite (`Python, JS/TS, Go, Rust, C/C++, Java`)**, an **Ultra-Compact Wire Index (`KMI/1` — `226 tokens/turn` on 16 Core Scars [`93.8%` savings] and `80.5 tokens/turn` with Domain-Partitioned Shards [`97.79%` savings]; `99.96%` savings on the `1,797`-scar evolved ledger)**, **`@CREED/1 v2.1` 5-Pillar Autopoietic Evolution IR**, **`@SWARM_DISPATCH/1` Subscription-Aware Auto-Subagent Swarm Dispatcher & `@MODEL_MATRIX/1` 6-Tier Model Capability Matrix**, **`@DUAL_COUNCIL/1` & `@NEVER_SOLO_GATE/1`**, **`@HARNESS_BRIDGE/1` Universal Drop-In Third-Party Harness Integrator (`kintsugi integrate`)**, **3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Frontier Council`)**, **`@LOGIC/2` 5-Pillar Neuro-Symbolic Verification + `@PROOF_DAG/1` Signed Compliance Proofs**, and **Just-In-Time (JIT) `PreToolUse` Rule Expansion**:
 
 ```mermaid
 flowchart LR
@@ -219,9 +219,9 @@ flowchart LR
 
 ---
 
-## Benchmark: Kintsugi v2.4.0 vs Other Agent Harnesses
+## Benchmark: Kintsugi v2.4.1 vs Other Agent Harnesses
 
-| Capability / Metric | **Kintsugi Harness (`v2.4.0`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
+| Capability / Metric | **Kintsugi Harness (`v2.4.1`)** | Static `CLAUDE.md` / `CursorRules` | Prompt-Heavy Skill Frameworks | Traditional `pre-commit` Linters |
 | :--- | :--- | :--- | :--- | :--- |
 | **Per-Turn Context Cost (16 Core / 1,789 Full)** | **`226 tok` (Global `KMI/1`) / `80.5 tok` (Domain Shard)** | `3,641 tokens` (`16` rules) / `414,267 tokens` (`1,789` rules) | `4,500–9,000+ tokens` | `0` (no agent awareness) |
 | **Tokens Saved per 50-Turn Session** | **`170,750 tok` (`93.8%`) to `20,705,150 tok` (`99.96%` Domain Shard)** | `0` (Baseline) | Negative (`-225k+ tokens`) | N/A |
@@ -500,7 +500,7 @@ Beyond software security and API governance, Kintsugi's Neuro-Symbolic Brain (`R
 - **3-State Grounding Gate & Alpha-Normalized AST Quotient (`ASTQ/1`):** **`5/5` (`100%`)** True Violations `VERIFIED` · **`5/5` (`100%`)** `S3` Safe Counterexamples `REFUTED` (`0` false positives) · **`3/3` (`100%`)** Hallucinated Symbols & Docstring Traps `REFUTED` in `<0.1ms` · **`100%`** Alpha-Rename Semantic Equivalence verified via De Bruijn index AST quotient hashing.
 - **Disjoint Scar Holdout Verifier (`T_gen != T_ver`):** Enforces `holdout_precision >= 0.95`, `recall_drop <= 0.05`, and `0` paraphrase-mutated negative false positives before admitting any synthesized `GoldenScar`.
 - **Shadow-Clone Covariance-Aware BFT Swarm (`@SWARM/1`) & Consent-Gated Free Pool (`@POOL/1`):** Discounts correlated votes via Equicorrelation Inverse Log-Odds ($N_{\text{eff}} = \frac{K}{1 + (K-1)\hat{\rho}} = 3.40$ across 4 distinct free model families), verifies **`0.0%` sycophancy** via Blinded Contrary Probes, and reduces BFT false-accept errors by **`12.5x` (`98.80%` consensus accuracy)**.
-- **Automated Verification Suite:** **`56/56` Total Automated Tests Passing (`49/49` Python `unittest` `OK` + `7/7` Rust `cargo test` `OK`)** + **`41/41` Frontier Pool Lessons Verified** + **`972` Cognitive Axioms & `1,581` Causal Atoms** in `collective-pool/synthesized-empirical-cortex/`.
+- **Automated Verification Suite:** Separated verification suites across Python (`unittest` — `tests/test_kintsugi.py`, install optional `pip install -e ".[proof]"` for Z3 patch-equivalence proof) and Native Rust (`cargo test --all-targets` covering both `kintsugi-rs` and `rust-neuro-symbolic-core`), plus **`41/41` Frontier Pool Lessons Verified** + **`972` Cognitive Axioms & `1,581` Causal Atoms** in `collective-pool/synthesized-empirical-cortex/` (reproducible live counts logged in CI & `artifacts/`).
 
 ---
 

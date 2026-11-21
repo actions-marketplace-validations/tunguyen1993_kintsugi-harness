@@ -568,6 +568,7 @@ def run_suite(seed: int = 20261107) -> Dict[str, Any]:
     avg_pareto = round(sum(r["selected_pareto_winner"]["pareto_score"] for r in results) / len(results), 2)
     cert_payload = {
         "schema_version": "KINTSUGI_10_ARENA_5PILLAR_PARETO_CERTIFICATE_V2",
+        "evaluation_scope": "internal_regression_31_vectors_not_external_leaderboard",
         "repository": "https://github.com/tunguyen1993/kintsugi-harness",
         "maintainer": "@tunguyen1993",
         "philosophy_creed": "@CREED/1[P1:MUTATE|P2:SYNTH|P3:SCAR|P4:PRUNE|P5:CONVERGE_TRY_ALL_PICK_BEST]",

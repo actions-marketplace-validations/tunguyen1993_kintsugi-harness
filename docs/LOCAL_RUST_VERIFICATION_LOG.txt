@@ -1,0 +1,54 @@
+# Kintsugi Harness v2.4.1 — Local Author-Host Rust Verification Log
+
+Generated locally via Cargo on author workstation (NOTE: Author-host log; independent auditors with cargo/rustc can reproduce identically via `cargo test --all-targets && cargo build --release --bins`).
+
+## Release Binary SHA-256 Digests
+- `target/release/kintsugi-rs`: `1ccdbe1cd53e2ab7a12972b30562e855012a206445a5b72a08d0b09b65ed284e`
+- `target/release/rust-neuro-symbolic-core`: `850a9524e476061eb21551690ea85008971a71093adb083ba1a08f6538af0806`
+
+## `cargo test --all-targets`
+```text
+Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests rust/src/lib.rs (target/debug/deps/kintsugi_core-639e447938f9ff7c)
+     Running unittests rust/src/main.rs (target/debug/deps/kintsugi_rs-7dea9018195d29c5)
+     Running unittests rust/src/neuro_symbolic_core.rs (target/debug/deps/rust_neuro_symbolic_core-ce9788dbaa98fdf4)
+
+
+running 15 tests
+test tests::active_builtin_rules_count_is_36 ... ok
+test tests::pre_tool_use_denies_non_object_tool_input_array ... ok
+test tests::rule_ir_v1_validates_allowed_and_rejects_unsupported_predicates ... ok
+test tests::pre_tool_use_jit_hook_blocks_destructive_push_and_malformed_json ... ok
+test tests::kmi_token_compression_exceeds_88_percent ... ok
+test tests::detects_critical_rules_and_respects_inline_ignore ... ok
+test tests::swarm_plan_enforces_r131_and_r132_step_budgets ... ok
+test tests::kml_parser_shield_and_outbound_egress_firewall ... ok
+test tests::round5_nested_build_name_is_not_authorized_cleanup_root ... ok
+test tests::step_audit_grades_optimal_vs_bloated_transcripts ... ok
+test tests::pre_tool_use_blocks_ignore_file_and_inline_ignore_bypass ... ok
+test tests::pre_tool_use_blocks_shell_flag_evasions_and_git_c_reset ... ok
+test tests::round3_audit_closure_workspace_shell_policy_b19_sql_and_policy_trust ... ok
+test tests::round2_hardening_blocks_home_var_paths_shell_expr_and_prompt_injection ... ok
+test tests::round5_audit_closure_parity ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test tests::fnv1a_64_is_deterministic ... ok
+test tests::ct2_neutral_transform_grading_s0_to_s3 ... ok
+test tests::bft_quorum_tolerates_single_byzantine_clone ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+```
+
+## `./target/release/kintsugi-rs scan src/ --fail-on HIGH`
+```text
+Kintsugi-RS Native Scan: 27 file(s) checked against 36 scars in 592.328ms (592328 µs)
+PASS: 0 anti-pattern violations found.
+```

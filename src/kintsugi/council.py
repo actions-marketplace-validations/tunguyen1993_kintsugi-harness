@@ -27,7 +27,107 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from kintsugi.models import FailureTrace, GoldenScar, Severity
 from kintsugi.scanner import KintsugiScanner
-from kintsugi.shield import audit_scar_security
+from kintsugi.shield import audit_scar_security, assert_not_symlink, atomic_write_text
+
+_BOOL_ASSIGN_RE = re.compile(
+    r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\(?\s*(True|False|None|1|0|not\s+True|not\s+False|1\s*==\s*1|1\s*==\s*0)\s*\)?\s*(?:#.*)?$"
+)
+
+_TRUTHY_EXPR_RE = r"(?:True|1|not\s+False|not\s+0|bool\(\s*1\s*\)|\(\s*(?:True|1|not\s+False|not\s+0|1\s*==\s*1|0\s*==\s*0|1\s*!=\s*0)\s*\))"
+_FALSY_EXPR_RE = r"(?:False|0|not\s+True|not\s+1|bool\(\s*0\s*\)|\(\s*(?:False|0|not\s+True|not\s+1|1\s*==\s*0|0\s*==\s*1|1\s*!=\s*1)\s*\))"
+_NONE_EXPR_RE = r"(?:None|\(\s*None\s*\))"
+_CALL_MOD_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)")
+_KWARG_BOOL_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\(?\s*(?:True|False|None|1|0|not\s+True|not\s+False|not\s+0|not\s+1|1\s*==\s*1|1\s*==\s*0|0\s*==\s*0)\s*\)?)\s*(?:,|$)"
+)
+_KWARG_ATTR_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?)\s*(?:,|$)"
+)
+
+
+def _tokens_to_regex(cleaned: str) -> str:
+    tokens = re.findall(
+        r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|\"[^\"]*\"|'[^']*'|==|!=|<=|>=|[=(),:\[\]\.]|\S+",
+        cleaned,
+    )
+    if len(tokens) >= 2:
+        parts: List[str] = []
+        for idx, tok in enumerate(tokens):
+            if idx > 0:
+                prev = tokens[idx - 1]
+                both_word = (prev[-1].isalnum() or prev[-1] == "_") and (tok[0].isalnum() or tok[0] == "_")
+                parts.append(r"\s+" if both_word else r"\s*")
+            if tok in ("True", "False") and idx >= 1 and tokens[idx - 1] in ("=", ":", "==", "!="):
+                parts.append(_TRUTHY_EXPR_RE if tok == "True" else _FALSY_EXPR_RE)
+            elif tok == "None" and idx >= 1 and tokens[idx - 1] in ("=", ":", "==", "!="):
+                parts.append(_NONE_EXPR_RE)
+            elif len(tok) >= 2 and ((tok[0] == '"' and tok[-1] == '"') or (tok[0] == "'" and tok[-1] == "'")):
+                inner = tok[1:-1]
+                parts.append(rf"""["']{re.escape(inner)}["']""")
+            else:
+                parts.append(re.escape(tok))
+        return "".join(parts)
+    return re.escape(cleaned)
+
+
+def _synthesize_generalized_pattern(bad_line: str, good_code: Optional[str] = None) -> str:
+    """Generalize a regression snippet into a variable/whitespace/quote/None/kwarg-equivalent regex (`KH-EVO-002`, `KH-R4-EVO-08`)."""
+    cleaned = bad_line.strip()
+    candidates: List[str] = []
+
+    m_bool = _BOOL_ASSIGN_RE.match(cleaned)
+    if m_bool:
+        ident, val_raw = m_bool.group(1), re.sub(r"\s+", " ", m_bool.group(2))
+        if val_raw == "None":
+            rhs = _NONE_EXPR_RE
+        else:
+            truthy = val_raw in ("True", "1", "not False", "not 0", "1 == 1", "1==1", "0 == 0")
+            rhs = _TRUTHY_EXPR_RE if truthy else _FALSY_EXPR_RE
+        candidates.append(rf"\b{re.escape(ident)}\s*=\s*{rhs}(?!\w)")
+
+    m_call = _CALL_MOD_RE.search(cleaned)
+    if m_call:
+        mod_name, fn_name, arg_str = m_call.group(1), m_call.group(2), m_call.group(3).strip()
+        m_kw = _KWARG_BOOL_RE.search(arg_str)
+        if m_kw:
+            kw_name, kw_val = m_kw.group(1), re.sub(r"\s+", " ", m_kw.group(2)).strip("() ")
+            if kw_val == "None":
+                rhs = _NONE_EXPR_RE
+            else:
+                truthy = kw_val in ("True", "1", "not False", "not 0", "1 == 1", "1==1", "0 == 0")
+                rhs = _TRUTHY_EXPR_RE if truthy else _FALSY_EXPR_RE
+            candidates.append(rf"\b{re.escape(mod_name)}\s*\.\s*{re.escape(fn_name)}\s*\([^)]*\b{re.escape(kw_name)}\s*=\s*{rhs}(?!\w)")
+        else:
+            m_attr = _KWARG_ATTR_RE.search(arg_str)
+            if m_attr and good_code:
+                kw_name = m_attr.group(1)
+                bad_leaf = m_attr.group(2).split(".")[-1].strip()
+                good_match = re.search(
+                    rf"\b{re.escape(mod_name)}\s*\.\s*{re.escape(fn_name)}\s*\([^)]*\b{re.escape(kw_name)}\s*=\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)?)",
+                    good_code,
+                )
+                if good_match:
+                    safe_leaf = good_match.group(1).split(".")[-1].strip()
+                    if safe_leaf and safe_leaf != bad_leaf:
+                        safe_leaves = {re.escape(safe_leaf)}
+                        if safe_leaf in ("SafeLoader", "CSafeLoader"):
+                            safe_leaves.update({"SafeLoader", "CSafeLoader"})
+                        safe_alt = "|".join(sorted(safe_leaves))
+                        candidates.append(
+                            rf"\b{re.escape(mod_name)}\s*\.\s*{re.escape(fn_name)}\s*\([^)]*\b{re.escape(kw_name)}\s*=\s*(?!(?:{re.escape(mod_name)}\s*\.\s*)?(?:{safe_alt})\b)[^,)]+"
+                        )
+            candidates.append(rf"\b{re.escape(mod_name)}\s*\.\s*{re.escape(fn_name)}\s*\([^)]+\)")
+
+    candidates.append(_tokens_to_regex(cleaned))
+    for pat in candidates:
+        try:
+            rx = re.compile(pat)
+        except re.error:
+            continue
+        if rx.search(cleaned):
+            if good_code is None or not rx.search(good_code):
+                return pat
+    return re.escape(cleaned)
 
 
 @dataclass
@@ -535,8 +635,9 @@ class PaidFrontierCouncilBYOKRegistry:
         return f"{clean[:5]}***{clean[-4:]}"
 
     def _write_secure_json(self, payload: Dict[str, Any]) -> None:
+        assert_not_symlink(self.kintsugi_dir)
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
-        self.pool_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        atomic_write_text(self.pool_path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n", mode=0o600)
         try:
             os.chmod(self.pool_path, 0o600)
         except OSError as exc:
@@ -1862,7 +1963,7 @@ class EvolutionCouncil:
         """
         combined = f"{trace.error_summary}\n{trace.raw_trace}\n{trace.offending_snippet}"
 
-        if "yaml.load(" in combined and "Loader" not in combined:
+        if "yaml.load(" in combined and "SafeLoader" not in combined and "CSafeLoader" not in combined:
             return GoldenScar(
                 id=scar_id,
                 title="Unsafe yaml.load() call without SafeLoader",
@@ -1899,7 +2000,7 @@ class EvolutionCouncil:
                 (ln.strip() for ln in trace.offending_snippet.splitlines() if ln.strip()),
                 trace.offending_snippet.strip(),
             )
-            escaped = re.escape(bad_line)
+            escaped = _synthesize_generalized_pattern(bad_line, trace.fixed_snippet.strip())
             return GoldenScar(
                 id=scar_id,
                 title=trace.error_summary[:90] or "Regression pattern captured from failure trace",

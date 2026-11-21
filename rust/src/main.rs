@@ -9,27 +9,45 @@ use std::process;
 use std::time::Instant;
 
 use kintsugi_core::{
-    audit_step_economics_path, compute_token_benchmark, evaluate_pre_tool_json,
+    audit_step_economics_path, compute_token_benchmark, evaluate_pre_tool_json_with_workspace,
     inspect_kml_corpus_file, json_escape, render_creed_json, render_kmi_compact_header,
     render_kml_builtin_corpus, render_step_audit_json, render_swarm_plan_json, s3_audit_path,
-    scan_git_staged, scan_path, scan_text, verify_memories_readonly,
-    verify_outbound_destination_allowed, Severity, ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
+    scan_git_staged, scan_path_with_policy_sha, scan_text, validate_rule_ir_json,
+    verify_memories_readonly, verify_outbound_destination_allowed, Severity,
+    ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn require_flag_value(flag: &str, idx: &mut usize, args: &[String]) -> String {
+    if *idx + 1 >= args.len() {
+        eprintln!("Error: Missing value for option '{flag}'");
+        process::exit(2);
+    }
+    *idx += 1;
+    args[*idx].clone()
+}
+
+fn reject_unknown_flag(arg: &str) {
+    if arg.starts_with('-') {
+        eprintln!("Error: Unknown option '{arg}'");
+        process::exit(2);
+    }
+}
 
 fn print_help() {
     println!(
         "kintsugi-rs {VERSION} — Native Rust @KML/1 & Grade-S3 Guardrail Engine\n\
          \n\
          USAGE:\n\
-         \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--fail-on HIGH] [-- <PATH>]\n\
+         \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--min-severity LEVEL] [--fail-on LEVEL] [--policy-file PATH] [--policy-sha256 HEX] [-- <PATH>]\n\
          \x20 kintsugi-rs s3-audit [PATH] [--format text|json] [-- <PATH>]\n\
          \x20 kintsugi-rs memories-verify [WORKSPACE_ROOT] [--format text|json]\n\
          \x20 kintsugi-rs creed\n\
          \x20 kintsugi-rs swarm-plan [TASK_DESC]\n\
          \x20 kintsugi-rs step-audit [PATH] [--max-sessions N] [--sub-cap 12] [--task-cap 25] [--wire]\n\
-         \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH]\n\
+         \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH] [--workspace PATH]\n\
+         \x20 kintsugi-rs rule-ir-check [PATH|-]\n\
          \x20 kintsugi-rs kml [PATH_TO_SCARS_KML]\n\
          \x20 kintsugi-rs compress [--kml]\n\
          \x20 kintsugi-rs bench\n\
@@ -55,6 +73,8 @@ fn main() {
             let mut format = "text".to_string();
             let mut min_sev = Severity::Low;
             let mut fail_on = Some(Severity::High);
+            let mut policy_file: Option<String> = None;
+            let mut policy_sha256: Option<String> = None;
             let mut after_double_dash = false;
 
             let mut i = 1;
@@ -69,26 +89,31 @@ fn main() {
                         after_double_dash = true;
                     }
                     "--staged" => staged = true,
-                    "--format" if i + 1 < args.len() => {
-                        format = args[i + 1].clone();
-                        i += 1;
+                    "--format" => {
+                        format = require_flag_value("--format", &mut i, &args);
                     }
-                    "--min-severity" if i + 1 < args.len() => {
-                        min_sev = Severity::from_str(&args[i + 1]);
-                        i += 1;
+                    "--policy-file" => {
+                        policy_file = Some(require_flag_value("--policy-file", &mut i, &args));
                     }
-                    "--fail-on" if i + 1 < args.len() => {
-                        if args[i + 1].eq_ignore_ascii_case("NONE") {
+                    "--policy-sha256" => {
+                        policy_sha256 = Some(require_flag_value("--policy-sha256", &mut i, &args));
+                    }
+                    "--min-severity" => {
+                        let v = require_flag_value("--min-severity", &mut i, &args);
+                        min_sev = Severity::from_str(&v);
+                    }
+                    "--fail-on" => {
+                        let v = require_flag_value("--fail-on", &mut i, &args);
+                        if v.eq_ignore_ascii_case("NONE") {
                             fail_on = None;
                         } else {
-                            fail_on = Some(Severity::from_str(&args[i + 1]));
+                            fail_on = Some(Severity::from_str(&v));
                         }
-                        i += 1;
                     }
                     arg if !arg.starts_with('-') => {
                         target = arg.to_string();
                     }
-                    _ => {}
+                    arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
@@ -96,7 +121,12 @@ fn main() {
             let summary = if staged {
                 scan_git_staged(Path::new(&target), min_sev)
             } else {
-                scan_path(Path::new(&target), min_sev)
+                scan_path_with_policy_sha(
+                    Path::new(&target),
+                    min_sev,
+                    policy_file.as_deref().map(Path::new),
+                    policy_sha256.as_deref(),
+                )
             };
 
             let ms = (summary.elapsed_micros as f64) / 1000.0;
@@ -169,14 +199,13 @@ fn main() {
                 }
                 match args[i].as_str() {
                     "--" => after_double_dash = true,
-                    "--format" if i + 1 < args.len() => {
-                        format = args[i + 1].clone();
-                        i += 1;
+                    "--format" => {
+                        format = require_flag_value("--format", &mut i, &args);
                     }
                     arg if !arg.starts_with('-') => {
                         target = arg.to_string();
                     }
-                    _ => {}
+                    arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
@@ -248,13 +277,21 @@ fn main() {
         }
         "memories-verify" => {
             let mut workspace = ".".to_string();
+            let mut format = "json".to_string();
             let mut i = 1;
             while i < args.len() {
-                if !args[i].starts_with('-') {
-                    workspace = args[i].clone();
+                match args[i].as_str() {
+                    "--format" => {
+                        format = require_flag_value("--format", &mut i, &args);
+                    }
+                    arg if !arg.starts_with('-') => {
+                        workspace = arg.to_string();
+                    }
+                    arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
+            let _ = format;
             let rep = verify_memories_readonly(Path::new(&workspace));
             println!(
                 "{{\"ok\":{},\"read_only_enforced\":{},\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"workspace_root\":\"{}\",\"memories_index_exists\":{},\"memories_index_bytes\":{},\"memories_index_fnv64\":\"{}\",\"lessons_count\":{},\"archive_files_count\":{},\"changelogs_count\":{},\"backups_dirs_count\":{},\"symlinks_detected\":{},\"empty_or_corrupt_files\":{},\"elapsed_ms\":{:.3},\"status\":\"{}\"}}",
@@ -298,17 +335,17 @@ fn main() {
             let mut i = 1;
             while i < args.len() {
                 match args[i].as_str() {
-                    "--max-sessions" if i + 1 < args.len() => {
-                        max_sessions = args[i + 1].parse::<usize>().unwrap_or(25).max(1);
-                        i += 1;
+                    "--max-sessions" => {
+                        let v = require_flag_value("--max-sessions", &mut i, &args);
+                        max_sessions = v.parse::<usize>().unwrap_or(25).max(1);
                     }
-                    "--sub-cap" if i + 1 < args.len() => {
-                        sub_cap = args[i + 1].parse::<usize>().unwrap_or(12).max(1);
-                        i += 1;
+                    "--sub-cap" => {
+                        let v = require_flag_value("--sub-cap", &mut i, &args);
+                        sub_cap = v.parse::<usize>().unwrap_or(12).max(1);
                     }
-                    "--task-cap" if i + 1 < args.len() => {
-                        task_cap = args[i + 1].parse::<usize>().unwrap_or(25).max(1);
-                        i += 1;
+                    "--task-cap" => {
+                        let v = require_flag_value("--task-cap", &mut i, &args);
+                        task_cap = v.parse::<usize>().unwrap_or(25).max(1);
                     }
                     "--wire" => {
                         wire_only = true;
@@ -316,7 +353,7 @@ fn main() {
                     arg if !arg.starts_with('-') => {
                         target = arg.to_string();
                     }
-                    _ => {}
+                    arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
@@ -332,17 +369,29 @@ fn main() {
         }
         "hook" => {
             let mut block_on = Severity::High;
+            let mut workspace: Option<String> = None;
             let mut i = 1;
             while i < args.len() {
-                if args[i] == "--block-on" && i + 1 < args.len() {
-                    block_on = Severity::from_str(&args[i + 1]);
-                    i += 1;
+                match args[i].as_str() {
+                    "--block-on" => {
+                        let v = require_flag_value("--block-on", &mut i, &args);
+                        block_on = Severity::from_str(&v);
+                    }
+                    "--workspace" => {
+                        workspace = Some(require_flag_value("--workspace", &mut i, &args));
+                    }
+                    "claude-pre-tool" => {}
+                    arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
             let mut stdin_buf = String::new();
             let _ = io::stdin().read_to_string(&mut stdin_buf);
-            let decision = evaluate_pre_tool_json(&stdin_buf, block_on);
+            let decision = evaluate_pre_tool_json_with_workspace(
+                &stdin_buf,
+                block_on,
+                workspace.as_deref().map(Path::new),
+            );
             println!("{decision}");
         }
         "kml" => {
@@ -429,6 +478,38 @@ def fetch_data(url: str) -> str:
                     krep.elapsed_micros,
                     (krep.elapsed_micros as f64) / 1000.0
                 );
+            }
+        }
+        "rule-ir-check" => {
+            let mut src_arg = "-".to_string();
+            for a in args.iter().skip(1) {
+                if a == "-" {
+                    src_arg = "-".to_string();
+                } else if !a.starts_with('-') {
+                    src_arg = a.clone();
+                } else {
+                    reject_unknown_flag(a);
+                }
+            }
+            let raw = if src_arg == "-" {
+                let mut buf = String::new();
+                let _ = io::stdin().read_to_string(&mut buf);
+                buf
+            } else {
+                match std::fs::read_to_string(&src_arg) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&e.to_string()));
+                        process::exit(1);
+                    }
+                }
+            };
+            match validate_rule_ir_json(&raw) {
+                Ok(out) => println!("{out}"),
+                Err(err) => {
+                    eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&err));
+                    process::exit(1);
+                }
             }
         }
         _ => {

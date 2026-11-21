@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.1",
+  "harness_edition": "kintsugi-rust-ultimate-audit-v2.4.1",
+  "rust_binaries": {
+    "kintsugi_rs": "./target/release/kintsugi-rs",
+    "rust_neuro_symbolic_core": "./target/release/rust-neuro-symbolic-core"
+  },
+  "hooks": {
+    "PreToolUse": {
+      "command": "kintsugi-rs hook claude-pre-tool --block-on HIGH",
+      "fail_closed": true,
+      "allow_inline_ignores": false,
+      "timeout_ms": 500
+    }
+  },
+  "swarm_dispatch_r131": {
+    "auto_split_ge_indep": 3,
+    "auto_split_gt_seconds": 120,
+    "max_subagents": 8,
+    "enforce_tier_caps": true
+  },
+  "step_economics_r132": {
+    "shell_target_pct_min": 60,
+    "subagent_step_cap": 12,
+    "task_step_cap": 25,
+    "fail_fast_consecutive_strikes": 2
+  },
+  "providers": {
+    "openai": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "anthropic": {
+      "api_key": "${ANTHROPIC_API_KEY}",
+      "base_url": "https://api.anthropic.com"
+    },
+    "deepseek": {
+      "api_key": "${DEEPSEEK_API_KEY}",
+      "base_url": "https://api.deepseek.com/v1"
+    },
+    "compliance_signing": {
+      "hmac_secret": "${KINTSUGI_HMAC_SECRET}"
+    }
+  },
+  "trusted_policy": {
+    "mode": "explicit_out_of_repo_only",
+    "in_repo_policy_auto_load": false,
+    "flag": "--policy-file /abs/outside-repo/policy.json"
+  }
+}
