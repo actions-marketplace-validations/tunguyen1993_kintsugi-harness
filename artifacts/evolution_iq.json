@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "schema": "EvolutionIntelligenceReport/1",
+  "evolution_iq_score": 100.0,
+  "maturity_tier": "LEVEL_5_AUTOPOIETIC_COGNITIVE_TWIN",
+  "pillar_scores": {
+    "structural_generalization": 100.0,
+    "anti_recurrence_immunity": 100.0,
+    "compaction_and_excel_fidelity": 100.0,
+    "user_persona_cognitive_twin": 100.0,
+    "zero_trust_egress_shield": 100.0
+  },
+  "recurrence_shield_proof": {
+    "schema": "RecurrenceProposal/1",
+    "incident_id": "INC-GITGUARDIAN-HIGH-ENTROPY",
+    "category": "security-zerotrust",
+    "structural_class_signature": "CLASS:security-zerotrust:HIGH_ENTROPY_CREDENTIAL_ASSIGNMENT",
+    "variant_class_signature": "CLASS:security-zerotrust:HIGH_ENTROPY_CREDENTIAL_ASSIGNMENT",
+    "generalized_class_equivalence": true,
+    "detector_id": "SHIELD-ENTROPY-001",
+    "first_occurrence_decision": "BLOCK",
+    "unseen_variant_decision": "BLOCK",
+    "good_code_decision": "ALLOW",
+    "recurrence_blocked_verified": true,
+    "status": "active"
+  },
+  "unseen_vendor_prefix_blocked": true,
+  "user_persona_snapshot": {
+    "profile_id": "developer_cognitive_profile_v1",
+    "schema_version": "USER_PERSONA/1",
+    "version": 1,
+    "digest": "6554f2207441",
+    "preferred_language": "vi",
+    "communication_style": "direct, concise, evidence-verified",
+    "standing_constraints": [
+      "Mandatory Dual-Council Review (Free Agent Council Tier 2 + Paid Frontier Council Tier 1) on architecture & upgrades",
+      "Run full empirical tests, edge-case benchmarks, and pre-push security checks (`PASS 100%`) before shipping",
+      "Keep GitHub releases, tags, and all marketplace skill packs/manifests synchronized to the latest verified version"
+    ],
+    "workflow_preferences": [],
+    "frustration_watchouts": [
+      "[Step #1 User Watchout] User: hội đồng agent free và thu phí cần review các phần đã nâng cấp, tại sao lại gặp lỗi này tới 2 lần, cần test đầy đủ có kiểm chứng sau đó update các bản mới nhất cho các chợ và github"
+    ],
+    "preferences": [
+      {
+        "preference_id": "PREF-COUNCIL_CO_REVIEW",
+        "key": "council_co_review",
+        "value": "Mandatory Dual-Council Review (Free Agent Council Tier 2 + Paid Frontier Council Tier 1) on architecture & upgrades",
+        "source_turn_id": 1,
+        "source_type": "explicit",
+        "scope": "workspace",
+        "confidence": 0.99,
+        "updated_at": "2026-11-21T17:50:03Z",
+        "status": "active"
+      },
+      {
+        "preference_id": "PREF-VERIFIED_TESTING_BEFORE_RELEASE",
+        "key": "verified_testing_before_release",
+        "value": "Run full empirical tests, edge-case benchmarks, and pre-push security checks (`PASS 100%`) before shipping",
+        "source_turn_id": 1,
+        "source_type": "explicit",
+        "scope": "workspace",
+        "confidence": 0.99,
+        "updated_at": "2026-11-21T17:50:03Z",
+        "status": "active"
+      },
+      {
+        "preference_id": "PREF-SYNC_GITHUB_AND_MARKETPLACES",
+        "key": "sync_github_and_marketplaces",
+        "value": "Keep GitHub releases, tags, and all marketplace skill packs/manifests synchronized to the latest verified version",
+        "source_turn_id": 1,
+        "source_type": "explicit",
+        "scope": "workspace",
+        "confidence": 0.99,
+        "updated_at": "2026-11-21T17:50:03Z",
+        "status": "active"
+      },
+      {
+        "preference_id": "WATCHOUT-1",
+        "key": "watchout_step_1",
+        "value": "User: hội đồng agent free và thu phí cần review các phần đã nâng cấp, tại sao lại gặp lỗi này tới 2 lần, cần test đầy đủ có kiểm chứng sau đó update các bản mới nhất cho các chợ và github",
+        "source_turn_id": 1,
+        "source_type": "explicit",
+        "scope": "workspace",
+        "confidence": 1.0,
+        "updated_at": "2026-11-21T17:50:03Z",
+        "status": "active"
+      },
+      {
+        "preference_id": "PREF-LANGUAGE",
+        "key": "language",
+        "value": "vi",
+        "source_turn_id": 2,
+        "source_type": "explicit",
+        "scope": "workspace",
+        "confidence": 0.99,
+        "updated_at": "2026-11-21T17:50:03Z",
+        "status": "active"
+      }
+    ],
+    "tombstones": [],
+    "updated_at": "2026-11-21T17:50:03Z"
+  }
+}

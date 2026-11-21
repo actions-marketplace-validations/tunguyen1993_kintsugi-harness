@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import re
+import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Any, Dict, Iterable, List, Sequence
 
 from kintsugi.compressor import render_kmi_index, render_kml_corpus, scar_to_kml_wire
 from kintsugi.models import GoldenScar
+from kintsugi.shield import assert_not_symlink, atomic_write_json
 
 BOUNDARY_START = "<!-- KINTSUGI:START -->"
 BOUNDARY_END = "<!-- KINTSUGI:END -->"

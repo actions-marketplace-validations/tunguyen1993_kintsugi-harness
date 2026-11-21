@@ -1,0 +1,157 @@
+{
+  "ok": true,
+  "suite_version": "2.4.1",
+  "protocol": "@EVAL_SUITE/1",
+  "cases_passed": 6,
+  "total_cases": 6,
+  "confirmed_patch_correctness_rate_pct": 100.0,
+  "unsafe_actions_prevented": 6,
+  "false_positive_rate_pct": 0.0,
+  "benign_negative_controls_tested": 3,
+  "unknown_or_out_of_scope_rate_pct": 0.0,
+  "signed_compliance_proofs_emitted": 6,
+  "reproducibility_sha256": "dbd8f3b55430476b31c389ed54dcbcf297384c231f7360e875c6923a32329a11",
+  "wire": "@EVAL_SUITE/1[cases=6/6|pass=100.0%|false_pos=0.0%|proofs=6|repro=dbd8f3b55430]",
+  "cases": [
+    {
+      "ok": true,
+      "case_id": "EVAL-AUTH-001",
+      "category": "auth_mfa_step_up",
+      "title": "MFA Step-Up Bypass Patch Regression",
+      "framework_control": "SOC2_CC6.1",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_unreachable_gate_patch_rejected": true,
+        "step_2_mus_counterexample": [
+          "POLICY_MFA_GATE",
+          "TARGET_ISSUES_SESSION",
+          "AST_FACT_MFA"
+        ],
+        "step_3_remediated_bundle_verified": true,
+        "signed_manifest_sha256": "41f86cd7ac2b5a8e19bc075e35003e820f1d3e034e30ed4921a2817508e61cf3"
+      },
+      "reproducibility_sha256": "ef36627e9bd860d6167476f7ffd7cc932c275b0c039128eeb32b5f8bad7e3b17"
+    },
+    {
+      "ok": true,
+      "case_id": "EVAL-SESS-002",
+      "category": "session_revocation_datalog",
+      "title": "Stale Session Revocation After Password Reset",
+      "framework_control": "SOC2_CC6.6",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_stale_session_blocked": true,
+        "step_2_rotated_session_active": true,
+        "step_3_proof_dag_verified": true,
+        "step_4_forged_axiom_rejected": true,
+        "signed_manifest_sha256": "e404168727461c9aaef4ea19bce59a6de6a996d8bee377639dd3177c1e9a264a"
+      },
+      "reproducibility_sha256": "16de03ba0ce72e712f238dc3303af91235602e902e584949b24a4639844a7b38"
+    },
+    {
+      "ok": true,
+      "case_id": "EVAL-OTP-003",
+      "category": "otp_window_difference_logic",
+      "title": "OTP Replay Window & Tight Rational Slack Verification",
+      "framework_control": "SOC2_CC6.6",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_expired_otp_rejected": true,
+        "step_2_contradiction_cycle": [
+          "REPLAY_AT_305S",
+          "POLICY_MAX_300S"
+        ],
+        "step_3_tight_rational_witness": {
+          "x": "-1/200",
+          "y": "0"
+        },
+        "step_4_witness_inequalities_verified": true,
+        "signed_manifest_sha256": "138e24a12c21f2e4b2a0bc8c72f39a1880226ae041b9aa37050224a14727ff32"
+      },
+      "reproducibility_sha256": "d47b40465037591dfe92acc42823238ea0f1205cd318389b7081da2bcba24448"
+    },
+    {
+      "ok": true,
+      "case_id": "EVAL-DLP-004",
+      "category": "outbound_entropy_dlp_cm031",
+      "title": "High-Entropy Secret Leak Prevention in Test Fixtures (CM-031)",
+      "framework_control": "SOC2_CC7.2",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_structural_class_equivalence": true,
+        "step_2_high_entropy_blocked": true,
+        "step_3_zero_entropy_fixture_clean": true,
+        "signed_manifest_sha256": "40dfb87db7eebbc104435a26a6bf16ff8807341eed680e7958427928f456c78a"
+      },
+      "reproducibility_sha256": "8d9355f83171c454639fc0d7b023947f9b2d645e095182b6cc3c77f394cce8e6"
+    },
+    {
+      "ok": true,
+      "case_id": "EVAL-COT-005",
+      "category": "fallacy_guard_cot",
+      "title": "JWT Affirming-the-Consequent & Circular CoT Trap",
+      "framework_control": "EU_AI_ACT_ART15",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_invalid_cot_rejected": true,
+        "step_2_detected_fallacies": [
+          "FALLACY_AFFIRMING_THE_CONSEQUENT",
+          "FALLACY_CIRCULAR_REASONING"
+        ],
+        "signed_manifest_sha256": "4ca03acc242420e7898198a01a40fb53bdbbffcaa260691f65bd7bcdc6e6e33e"
+      },
+      "reproducibility_sha256": "51ccc0fa533a2a626377e1c2ec93ffe768339c06065e08dd01e2d202e1fb2b70"
+    },
+    {
+      "ok": true,
+      "case_id": "EVAL-MHS-006",
+      "category": "abductive_mhs_ci_repair",
+      "title": "Multi-Failure CI Triage via Reiter's Minimal Hitting Set",
+      "framework_control": "ISO_27001_A.8.28",
+      "verdict": "VERIFIED_WITHIN_SCOPE",
+      "trace": {
+        "step_1_minimum_cardinality": 2,
+        "step_2_total_minimal_diagnoses": 4,
+        "step_3_top_minimal_diagnosis": [
+          "accounting_negative_unparsed",
+          "missing_pre_push_entropy_gate"
+        ],
+        "step_4_necessity_witnesses": {
+          "accounting_negative_unparsed": "symptom_1_neg_accounting",
+          "missing_pre_push_entropy_gate": "symptom_3_gitguardian_leak"
+        },
+        "signed_manifest_sha256": "ac5054cdf45c0180889a8383166b12d61f828e8aaf07412c51af7e42c50619c9"
+      },
+      "reproducibility_sha256": "afc6d4e41ef4d7121e4a1f221a7e1fd461ee081abdcf578f9b6ca24876e68e2c"
+    }
+  ],
+  "ablation_comparison": {
+    "unassisted_naive_ast_baseline": {
+      "description": "Syntactic name-only gate check without reachability, alias resolution, or @LOGIC/2 solvers",
+      "cases_passed": 0,
+      "total_cases": 6,
+      "pass_rate_pct": 0.0,
+      "unsafe_actions_prevented": 0,
+      "signed_compliance_proofs_emitted": 0
+    },
+    "logic_verifier_without_proof_signing": {
+      "description": "@LOGIC/2 + @RECURRENCE_SHIELD/1 verification without @PROOF_DAG/1 cryptographic bundle signing",
+      "cases_passed": 6,
+      "total_cases": 6,
+      "pass_rate_pct": 100.0,
+      "unsafe_actions_prevented": 6,
+      "signed_compliance_proofs_emitted": 0
+    },
+    "full_kintsugi_v170_proof_carrying": {
+      "description": "Full @LOGIC/2 + @ZK_AST_DIFF/1 reachability + @PROOF_DAG/1 signed compliance bundle",
+      "cases_passed": 6,
+      "total_cases": 6,
+      "pass_rate_pct": 100.0,
+      "unsafe_actions_prevented": 6,
+      "false_positive_rate_pct": 0.0,
+      "benign_negative_controls_tested": 3,
+      "unknown_or_out_of_scope_rate_pct": 0.0,
+      "signed_compliance_proofs_emitted": 6
+    }
+  }
+}

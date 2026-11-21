@@ -2,6 +2,21 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [2.4.1] - 2026-11-21
+
+### Security & Guardrails Hardening
+- **Argv / AST Shell Protection (`KH-SEC-001`, `KH-R2-SEC-01`):** Replaced naive string regex matching with structured quote-aware POSIX shell tokenization & canonical path auditing across both Python (`src/kintsugi/hooks.py`) and Rust (`rust/src/lib.rs`), blocking split/merged `rm` flags, wrapper verbs (`timeout`, `sudo`, `env`, `nohup`, `nice`, `xargs`), `sh -c`/`bash -c` nesting, `git -C` global flags (`reset --hard`, `push -f` without `--force-with-lease`, `clean -fd`), pipe-to-shell fetch/base64 chains, symlink traversals, and destructive operations on OS/user roots (`/home`, `/root`, `/var/lib`, `/var/log`, `$HOME/...`, `${HOME}/...`, `~/...`) while permitting scoped build/cache and temp directories.
+- **Python Constant Folding & Indirect `shell=` Prevention (`KH-SEC-004`, `KH-R2-SEC-02`):** Upgraded `_PythonASTVisitor` (`_const_eval`, `_const_bool`) and Rust `KS-002` checks to fold comparison/boolean expressions (`shell=(1 == 1)`, `shell=not False`, `shell=bool(1)`), module/symbol aliases, `getattr(__builtins__, ...)`, `py_sql_injection_concat`, JS/TS structural `new Function` / SQL string concatenation, and fail-closed rejection when `subprocess(..., shell=...)` cannot be proven statically `False`/`0`/`None`.
+- **Untrusted Inline Ignore & Natural-Language Prompt Injection Defense (`KH-SEC-002`, `KH-R2-SEC-03`, `B19`, `B20`):** Disabled untrusted `kintsugi: ignore-file` directives by default in `KintsugiScanner`, CLI `scan` (both inline and file-level ignores disabled unless explicitly opted in or listed in external `.kintsugi/policy.json`), MCP `kintsugi_scan_code` / `kintsugi_verify_logic`, PreToolUse hooks (`KS-S3-IGNORE-BYPASS`), and Rust `scan_path`/`evaluate_pre_tool_json`; added cross-line natural-language indirect prompt-injection detection under `KS-012` / `KS-S3-01`.
+- **Full Ledger & Fail-Closed Hook Parity (`KH-SEC-003`, `KH-HOOK-001`):** Persisted all `KS-001..KS-024` built-in CRS rules (`1,797` verified scars) into `.kintsugi/scars.json` & `.kintsugi/scars.kml` (escaping raw bidirectional Unicode control characters safely), enabled `ensure_builtin_crs=True` on runtime CLI & MCP entrypoints, and rejected non-object `tool_input` / `toolCall` / `args` payloads fail-closed.
+
+### Fixed
+- **MCP Server, Cross-Platform CRS, Evolution, Swarm, Benchmarks & CI (`KH-MCP-001..003`, `KH-FUNC-001`, `KH-R2-FUNC-04`, `KH-EVO-001..002`, `KH-SWARM-001`, `KH-BENCH-001..002`, `KH-R2-BENCH-05`, `KH-REL-06`, `KH-CI-01`, `KH-CI-07`):**
+  - Added `python3 -m kintsugi.mcp_server` stdio entrypoint, real AST+scanner code analysis in `kintsugi_verify_logic`, and in-memory telemetry for read-only `kintsugi_scan_code`.
+  - Added Linux GCC/Clang + pure-Python ELF64 `.kint_ro` fallback in `crs_engine.py`, plus dependency-free `finite_domain_patch_equivalence_verified` proof & honest `z3_available` reporting when optional `z3-solver` is absent.
+  - Enabled auto-loading `evolution_memory/lessons_local.json` (`41` empirical lessons), upgraded `EvolutionCouncil._synthesize_generalized_pattern` semantic/boolean/quote generalization (`KH-EVO-002`), and made `transpile_scar_dict_to_kml` idempotent.
+  - Enforced `FREE` tier parallel cap (`<= 2` subagents + deferred queue), removed fake verbose token baseline floor in `compressor.py`, synchronized `2.4.1` version metadata everywhere, clearly labeled local SWE-like / GAIA-like evaluation artifacts as `synthetic` suites, and added `.github/workflows/{ci-and-arena-verification,scorecard}.yml` with Z3 proof extra & `cargo test --all-targets`.
+
 ## [2.4.0] - 2026-11-15
 
 ### Added

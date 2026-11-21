@@ -1,0 +1,96 @@
+{
+  "compiler_and_sanitizers": "/usr/bin/clang -O1 -g -fsanitize-coverage=trace-pc-guard,trace-cmp -fsanitize=address,undefined",
+  "initial_seed": "0x00 (single 1-byte zero seed; zero pre-planted magic headers)",
+  "fuzzer_engine": "In-Process Persistent Mutational + RedQueen I2S (__sanitizer_cov_trace_cmp1/2/4/8)",
+  "fuzz_iterations_executed": 10000,
+  "fuzz_executions_per_sec": 18033.4,
+  "corpus_entries_evolved": 8,
+  "crashes_discovered_count": 2,
+  "unique_asan_stack_hashes": 2,
+  "crashes_discovered": [
+    {
+      "vulnerability_class": "CWE-122 Heap-Buffer-Overflow",
+      "discovered_at_fuzz_iter": 8,
+      "seed_hex": "4b4d0408d76ddd284141414141414141",
+      "returncode": -6,
+      "asan_error": "==56414==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000105352bb4 bp 0x00016b318710 sp 0x00016b317ec0",
+      "asan_stack_dedup_hash": "98edbee1fa4a"
+    },
+    {
+      "vulnerability_class": "CWE-416 Heap-Use-After-Free",
+      "discovered_at_fuzz_iter": 69,
+      "seed_hex": "a54dee08d76ddd284141414141414141",
+      "returncode": -6,
+      "asan_error": "==56416==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x000104652af8 bp 0x00016b7ac750 sp 0x00016b7ac748",
+      "asan_stack_dedup_hash": "477244f5f2f7"
+    }
+  ],
+  "max_pc_guard_edges_covered": 13,
+  "covered_guard_ids_pre": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    8,
+    9,
+    11,
+    13,
+    14,
+    16,
+    18,
+    19
+  ],
+  "autopatch_unified_diff": "--- a/crs_targets.c\n+++ b/crs_targets.c\n@@ -1,6 +1,9 @@\n int parse_protocol_frame(const uint8_t *data, size_t size) {\n     char *heap_buf = (char *)malloc(alloc_cap);\n     if (!heap_buf) return -5;\n+    if (copy_len > alloc_cap) {\n+        copy_len = alloc_cap;\n+    }\n     memcpy(heap_buf, data + 4, copy_len);\n     int checksum = (unsigned char)heap_buf[0];\n     free(heap_buf);\n@@ -11,11 +14,9 @@\n     if (!sess) return -1;\n     memset(sess, badge_id, 16);\n     if (op_flags == 0xA5) {\n-        free(sess);\n+        sess[0] = 0;\n     }\n     int res = sess[0];\n-    if (op_flags != 0xA5) {\n-        free(sess);\n-    }\n+    free(sess);\n     return res;\n }\n",
+  "patch_sha256": "37dbe8b9505fd2e013d89096c73606ff33fb61cfffd84ad7b649c197a64e8d0e",
+  "post_patch_crash_retirement": [
+    {
+      "seed_hex": "4b4d0408d76ddd284141414141414141",
+      "pre_patch_error": "==56414==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x6020000000f4 at pc 0x000105352bb4 bp 0x00016b318710 sp 0x00016b317ec0",
+      "asan_stack_dedup_hash": "98edbee1fa4a",
+      "post_patch_returncode": 0,
+      "post_patch_stdout": "SEED_DONE:215:77:EDGES=7",
+      "crash_retired": true
+    },
+    {
+      "seed_hex": "a54dee08d76ddd284141414141414141",
+      "pre_patch_error": "==56416==ERROR: AddressSanitizer: heap-use-after-free on address 0x6020000000f0 at pc 0x000104652af8 bp 0x00016b7ac750 sp 0x00016b7ac748",
+      "asan_stack_dedup_hash": "477244f5f2f7",
+      "post_patch_returncode": 0,
+      "post_patch_stdout": "SEED_DONE:-2:0:EDGES=3",
+      "crash_retired": true
+    }
+  ],
+  "all_crashes_retired": true,
+  "post_patch_4000_iter_fuzz_zero_crashes": true,
+  "post_patch_10000_iter_fuzz_zero_crashes": true,
+  "post_patch_fuzz_edges_covered": 13,
+  "covered_guard_ids_post": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    8,
+    9,
+    11,
+    13,
+    14,
+    16,
+    18,
+    19
+  ],
+  "exact_edge_set_equality": true,
+  "edge_coverage_preserved_100_pct": true,
+  "differential_100_case_oracle_match": true,
+  "differential_200_case_oracle_match": true,
+  "differential_oracle_cases": 200,
+  "differential_oracle_hash": "c4cb771d",
+  "functional_regression_passed": true,
+  "regression_stdout": "REGRESSION_OK:79:42:0:EDGES=10",
+  "z3_available": true,
+  "z3_patch_equivalence_verified": true,
+  "z3_patch_equivalence_proof": "parse_protocol_frame: unsat; clamped copy_len <= alloc_cap and identical output on valid copy_len <= alloc_cap (alloc_cap in [1,64]). process_session_event: unsat; zero post-patch read-after-free for all 8-bit op_flags and badge_id; identical badge_id output when op_flags != 0xA5. [Z3 QF_BV; successful allocation and initialized checksum byte assumed]",
+  "finite_domain_patch_equivalence_verified": true,
+  "elapsed_ms": 1890.76
+}

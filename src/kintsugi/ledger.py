@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from kintsugi.models import GoldenScar, Severity
-from kintsugi.shield import audit_scar_security
-from kintsugi.starter_pack import get_starter_scars
+from kintsugi.shield import audit_scar_security, assert_not_symlink, atomic_write_text
+from kintsugi.starter_pack import get_full_crs_scars, get_starter_scars
 
 
 class ScarLedger:
@@ -16,15 +16,18 @@ class ScarLedger:
 
     SCHEMA_VERSION = "1.0"
 
-    def __init__(self, path: Path | str = ".kintsugi/scars.json") -> None:
+    def __init__(self, path: Path | str = ".kintsugi/scars.json", *, ensure_builtin_crs: bool = False) -> None:
         self.path = Path(path)
+        self._ensure_builtin_crs = bool(ensure_builtin_crs)
         self._scars: Dict[str, GoldenScar] = {}
         self._fingerprints: Dict[str, str] = {}
         self.quarantined: List[Tuple[str, str]] = []
         if self.path.exists():
-            self.load()
+            self.load(ensure_builtin_crs=self._ensure_builtin_crs)
 
-    def load(self) -> None:
+    def load(self, *, ensure_builtin_crs: Optional[bool] = None) -> None:
+        assert_not_symlink(self.path.parent)
+        assert_not_symlink(self.path)
         raw = json.loads(self.path.read_text(encoding="utf-8"))
         entries = raw.get("scars", []) if isinstance(raw, dict) else raw
         self._scars.clear()
@@ -36,10 +39,37 @@ class ScarLedger:
             if not ok:
                 self.quarantined.append((scar.id, reason))
                 continue
+            if scar.id in self._scars and self._scars[scar.id].fingerprint != scar.fingerprint:
+                self.quarantined.append((scar.id, "DUPLICATE_ID_CONFLICT"))
+                continue
             self._scars[scar.id] = scar
             self._fingerprints[scar.fingerprint] = scar.id
+        use_crs = self._ensure_builtin_crs if ensure_builtin_crs is None else bool(ensure_builtin_crs)
+        if use_crs:
+            self.ensure_builtin_crs_rules(persist=False)
+
+    def ensure_builtin_crs_rules(self, *, persist: bool = False) -> int:
+        """Merge any missing built-in CRS baseline rules (`KS-001..KS-024`) without overwriting custom scars."""
+        added = 0
+        for scar in get_full_crs_scars():
+            if scar.id in self._scars:
+                continue
+            existing_fp_id = self._fingerprints.get(scar.fingerprint)
+            if existing_fp_id and existing_fp_id in self._scars:
+                continue
+            ok, _reason = audit_scar_security(scar)
+            if not ok:
+                continue
+            self._scars[scar.id] = scar
+            self._fingerprints[scar.fingerprint] = scar.id
+            added += 1
+        if persist and added > 0:
+            self.save()
+        return added
 
     def save(self) -> None:
+        assert_not_symlink(self.path.parent)
+        assert_not_symlink(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         ordered = sorted(self._scars.values(), key=lambda s: s.id)
         payload = {
@@ -47,15 +77,19 @@ class ScarLedger:
             "total_scars": len(ordered),
             "scars": [s.to_dict() for s in ordered],
         }
-        self.path.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        raw_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        # Escape bidirectional control characters so Trojan Source fixtures don't store raw bidi bytes on disk
+        for cp in list(range(0x202A, 0x202F)) + list(range(0x2066, 0x206A)):
+            ch = chr(cp)
+            if ch in raw_text:
+                raw_text = raw_text.replace(ch, f"\\u{cp:04x}")
+        atomic_write_text(self.path, raw_text, mode=0o600)
 
-    def bootstrap_starter_pack(self) -> int:
-        """Seed baseline starter scars if missing; returns count of newly added scars."""
+    def bootstrap_starter_pack(self, *, include_crs: bool = True) -> int:
+        """Seed baseline scars (`KS-001..KS-024` by default) if missing; returns count of newly added scars."""
+        corpus = get_full_crs_scars() if include_crs else get_starter_scars()
         added = 0
-        for scar in get_starter_scars():
+        for scar in corpus:
             is_new, _ = self.upsert(scar)
             if is_new:
                 added += 1
@@ -77,9 +111,11 @@ class ScarLedger:
         so repeated failures strengthen hit counters instead of bloating context.
         Enforces the 7-Layer Zero-Trust Evolution Shield (`audit_scar_security`).
         """
-        if not scar.id or scar.id in self._scars:
-            if scar.id not in self._scars:
-                scar.id = self.next_id()
+        if not scar.id:
+            scar.id = self.next_id()
+        elif scar.id in self._scars and self._scars[scar.id].fingerprint != scar.fingerprint:
+            # Never allow a newly synthesized rule to replace an existing guard by ID.
+            raise ValueError(f"SCAR_ID_CONFLICT: {scar.id} already belongs to a different rule")
         ok, reason = audit_scar_security(scar)
         if not ok:
             raise ValueError(f"Zero-Trust Evolution Shield blocked scar '{scar.id}': {reason}")

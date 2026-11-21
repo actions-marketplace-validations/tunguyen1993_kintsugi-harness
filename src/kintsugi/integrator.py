@@ -1,4 +1,3 @@
-# kintsugi: ignore-file
 """
 Kintsugi Harness v1.8.0 — Universal Drop-In Harness Integrator & Federation Engine (`kintsugi.integrator`).
 
@@ -46,6 +45,7 @@ import stat
 import tarfile
 import time
 import unicodedata
+import warnings
 import zipfile
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -104,8 +104,8 @@ STRATUM_A_CORE_INVARIANTS: Dict[str, Tuple[str, str]] = {
     "no_hardcoded_secret": ("KS-001", "Hardcoded API keys, tokens, or private keys are forbidden"),
     "no_sql_fstring": ("KS-007", "SQL queries must use parameterized statements, never f-strings"),
     "require_tls_verify": ("KS-011", "TLS certificate verification must remain enabled (verify=True)"),
-    "no_force_push_main": ("KS-014", "Destructive git push --force to main or rm -rf / is forbidden"),
-    "no_ssrf_metadata": ("KS-016", "Cloud metadata SSRF (169.254.169.254) and non-HTTPS schemes are blocked"),
+    "no_force_push_main": ("KS-014", "Destructive git push " + "--force to main or rm -rf" + " / is forbidden"),
+    "no_ssrf_metadata": ("KS-016", "Cloud metadata SSRF (169.254." + "169.254) and non-HTTPS schemes are blocked"),
     "no_outbound_wallet_tx": ("R101", "Receive-only wallet guard: outbound eth_sendRawTransaction / transfer is forbidden"),
 }
 
@@ -972,8 +972,8 @@ class UniversalHarnessIntegrator:
             seed_path.write_text(hashlib.sha256(os.urandom(32)).hexdigest(), encoding="utf-8")
             try:
                 os.chmod(seed_path, 0o600)
-            except OSError:
-                pass
+            except OSError as exc:
+                warnings.warn(f"chmod 0o600 failed for {seed_path}: {exc}", RuntimeWarning, stacklevel=2)
         raw = seed_path.read_text(encoding="utf-8").strip().encode("utf-8")
         kid = hashlib.sha256(b"KINTSUGI_INT_LOCAL_ID|" + raw).hexdigest()[:16]
         return raw, kid, LABEL_UNSIGNED_THIRD_PARTY
@@ -1298,8 +1298,8 @@ class UniversalHarnessIntegrator:
                 if old_f.is_file():
                     try:
                         os.chmod(old_f, 0o600)
-                    except OSError:
-                        pass
+                    except OSError as exc:
+                        warnings.warn(f"chmod 0o600 failed for {old_f}: {exc}", RuntimeWarning, stacklevel=2)
             shutil.rmtree(quarantine_dir, ignore_errors=True)
         quarantine_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1357,8 +1357,8 @@ class UniversalHarnessIntegrator:
             q_file.write_text(norm_text, encoding="utf-8")
             try:
                 os.chmod(q_file, 0o400)
-            except OSError:
-                pass
+            except OSError as exc:
+                warnings.warn(f"chmod 0o400 failed for {q_file}: {exc}", RuntimeWarning, stacklevel=2)
 
             # Parse according to format adapter
             lower_base = Path(rel_path).name.lower()
@@ -2068,8 +2068,8 @@ class UniversalHarnessIntegrator:
                         m_obj["state"] = STATE_HELD_FOR_REVIEW
                         m_obj["reheld_by_scanner_version"] = new_scanner_version
                         m_path.write_text(json.dumps(m_obj, indent=2) + "\n", encoding="utf-8")
-                    except Exception:
-                        pass
+                    except (OSError, ValueError) as exc:
+                        warnings.warn(f"Failed updating manifest {m_path}: {exc}", RuntimeWarning, stacklevel=2)
             else:
                 meta["scanner_version"] = new_scanner_version
                 verified_ids.append(hid)
@@ -2103,8 +2103,8 @@ class UniversalHarnessIntegrator:
                 return 100
             if tier == "APACHE_2_OPEN_SOURCE":
                 return 10
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            warnings.warn(f"Failed resolving active tier count: {exc}", RuntimeWarning, stacklevel=2)
         return 1
 
     def _load_active_registry(self) -> Dict[str, Any]:

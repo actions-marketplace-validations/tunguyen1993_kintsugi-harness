@@ -1,0 +1,152 @@
+{
+  "ok": true,
+  "protocol": "@PROOF_DAG/1",
+  "verdict": "VERIFIED_WITHIN_SCOPE",
+  "trust_level": "LOCAL_DEV_ATTESTATION",
+  "key_id": "dc66ca2edb14630c",
+  "signing_domain": "KINTSUGI_PROOF_DAG_V1_COMPLIANCE_SEAL",
+  "manifest_sha256": "32deac2451bcfd347705b00070d3518597cc3b4d436f1813d6c883fa41b2e1ea",
+  "signature_hmac_sha256": "d92d5e3516780ea717418fc7b6c7591aeeaad353f9c3a6847aec99f11f8baaac",
+  "wire": "@PROOF_DAG/1[verdict=VERIFIED_WITHIN_SCOPE|trust=LOCAL_DEV_ATTESTATION|patch=f4af5b86c046|zk_root=96f890580e26|controls=5/5]",
+  "manifest": {
+    "schema": "@PROOF_DAG/1",
+    "kintsugi_version": "2.4.1",
+    "verdict": "VERIFIED_WITHIN_SCOPE",
+    "trust_level": "LOCAL_DEV_ATTESTATION",
+    "key_id": "dc66ca2edb14630c",
+    "patch_description": "Verify authentication, session revocation, OTP window, and DLP invariants",
+    "patch_sha256": "f4af5b86c046130bc3e245c7c88f739e2b12953380191c32b221db9b61df45eb",
+    "baseline_sha256": "2d74de615c2d66c193bc0b4bc854e9f8d987859eb0170b75329cd4ba3687641a",
+    "scope_and_assumptions": {
+      "encoded_properties": [
+        "MFA step-up gate reachable prior to return",
+        "Session revocation gate reachable prior to return",
+        "OTP window verification gate reachable prior to return",
+        "Zero high-entropy secrets (>= 3.55 bits/char) in target patch",
+        "Zero local shadowing of security gates"
+      ],
+      "invalidation_rule": "Any modification to manifest, outer envelope, patch_sha256, or zk_ast_proof invalidates signature_hmac_sha256."
+    },
+    "source_bound_logic_proof": {
+      "ok": true,
+      "target_ast_sat_status": "SAT",
+      "target_ast_unsat_mus": [],
+      "reachable_gates_bound": [
+        "check_otp_window",
+        "revoke_session",
+        "verify_mfa",
+        "verify_proof_dag"
+      ],
+      "shadowed_gates_bound": [],
+      "reference_solver_suite": {
+        "ok": true,
+        "schema": "LoginAuthVerificationReport/1",
+        "mfa_stepup_bypass_caught": true,
+        "hardened_mfa_policy_mus": [
+          "POLICY_SESS_REQUIRES_MFA",
+          "ATTEMPT_SESS_GRANT",
+          "ATTACKER_NO_MFA"
+        ],
+        "revoked_old_session_blocked": true,
+        "rotated_new_session_active": true,
+        "expired_otp_replay_conflict_core": [
+          "EXPIRED_REPLAY_AT_301S",
+          "OTP_TTL_MAX_300S"
+        ],
+        "login_fallacy_caught": "FALLACY_AFFIRMING_THE_CONSEQUENT"
+      }
+    },
+    "entropy_dlp_proof": {
+      "schema": "ScanResult/1",
+      "context": "compliance_target_patch",
+      "decision": "ALLOW",
+      "ok": true,
+      "payload_sha256": "f4af5b86c046130bc3e245c7c88f739e2b12953380191c32b221db9b61df45eb",
+      "findings_count": 0,
+      "findings": [],
+      "coverage": "complete"
+    },
+    "zk_ast_proof": {
+      "protocol": "@ZK_AST_DIFF/1",
+      "ok": true,
+      "commitment_salt_hex": "25630b104715160b5ac9291df9a0f270",
+      "gate_binding_tag": "02e2e09e4b05a85db7b5f050",
+      "ast_merkle_root": "96f890580e26531ccaf4cf1086fdb5cc348c9091bde55c5c7b60dd74f48af1c4",
+      "baseline_ast_merkle_root": "deb2a8fdf152d6ed7125f169bbfb130981c47339379583bfcfa8f05a720d51e8",
+      "function_count": 1,
+      "function_commitments": [
+        {
+          "slot_index": 0,
+          "scope_depth": 1,
+          "is_async": false,
+          "decorator_count": 0,
+          "arity": 3,
+          "statement_count": 5,
+          "alpha_skeleton_sha256": "814a5b1d91add9b6fa20cb39ca9c266f92586a4fff4595781cb337a6554639de"
+        }
+      ],
+      "module_statement_hashes": [],
+      "salted_leaf_hashes": [
+        "bf41cd91a0f7c4193db97fbd4d83e8fea3597426c850dcecc16d2d4f3e09e35a"
+      ],
+      "detected_security_gates": [
+        "check_otp_window",
+        "revoke_session",
+        "verify_mfa",
+        "verify_proof_dag"
+      ],
+      "required_security_gates": [
+        "check_otp_window",
+        "revoke_session",
+        "verify_mfa"
+      ],
+      "unreachable_security_gates": [],
+      "shadowed_security_gates": [],
+      "missing_security_gates": [],
+      "zero_gate_regression": true,
+      "identifiers_and_literals_redacted": true
+    },
+    "compliance_controls": [
+      {
+        "framework": "SOC2_TYPE_II",
+        "control_id": "CC6.1",
+        "title": "Logical Access Security & MFA Step-Up Enforcement",
+        "proof_pillar": "DPLLSatSolver (Source-Bound AST Gate + MUS Extraction)",
+        "verified": true,
+        "evidence_digest": "8ce9441476a0ed0d5d9e97842be50a3415c63188bb02bcd0495375b8a2588e56"
+      },
+      {
+        "framework": "SOC2_TYPE_II",
+        "control_id": "CC6.6",
+        "title": "Session Revocation After Credential Rotation & Replay Prevention",
+        "proof_pillar": "StratifiedDatalogEngine (ProofDAG/1) + DifferenceLogicSolver",
+        "verified": true,
+        "evidence_digest": "a8bb71641e2dc85417bf2f41df126fcd2fa8abbd78870a2acdca66928cbba87a"
+      },
+      {
+        "framework": "SOC2_TYPE_II",
+        "control_id": "CC7.2",
+        "title": "Outbound Secret & High-Entropy Leak Prevention (CM-031)",
+        "proof_pillar": "RecurrencePatternShield (@RECURRENCE_SHIELD/1)",
+        "verified": true,
+        "evidence_digest": "04f67c73aa4724aed8ac947550d013cae2d72fea696915de4cb05bddd7acef56"
+      },
+      {
+        "framework": "ISO_IEC_27001_2022",
+        "control_id": "A.8.28",
+        "title": "Zero-Knowledge Secure Coding & Structural Gate Preservation",
+        "proof_pillar": "ZeroKnowledgeASTDiffVerifier (@ZK_AST_DIFF/1)",
+        "verified": true,
+        "evidence_digest": "96f890580e26531ccaf4cf1086fdb5cc348c9091bde55c5c7b60dd74f48af1c4"
+      },
+      {
+        "framework": "EU_AI_ACT",
+        "control_id": "ARTICLE_15",
+        "title": "Accuracy, Robustness & Fallacy-Free Automated Reasoning",
+        "proof_pillar": "FormalFallacyAndCoTAuditor (@FALLACY_GUARD/1)",
+        "verified": true,
+        "evidence_digest": "e027a39b112cb8e2b4e7c6ace78da4fad532e279e37dc44b108cf83379079eed"
+      }
+    ]
+  }
+}

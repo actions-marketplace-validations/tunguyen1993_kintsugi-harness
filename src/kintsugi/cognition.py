@@ -44,6 +44,8 @@ from kintsugi.models import GoldenScar, Severity
 from kintsugi.shield import (
     ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG,
     audit_scar_security,
+    assert_not_symlink,
+    atomic_write_text,
     resolve_safe_child_path,
     scan_artifact_egress,
     scan_high_entropy_secrets,
@@ -413,10 +415,13 @@ class CognitiveMemoryManager:
         self.kintsugi_dir = self.workspace_root / ".kintsugi"
         self.config_path = self.kintsugi_dir / "learn_config.json"
         self.local_lessons_path = self.kintsugi_dir / "lessons_local.json"
+        self.fallback_lessons_path = self.workspace_root / "evolution_memory" / "lessons_local.json"
         self.relay_outbox_path = self.kintsugi_dir / "relay_outbox.jsonl"
         self.pool_root = Path(pool_root).resolve() if pool_root else (self.workspace_root / "collective-pool")
 
     def load_config(self) -> Dict[str, Any]:
+        assert_not_symlink(self.kintsugi_dir)
+        assert_not_symlink(self.config_path)
         default_cfg = {
             "sync_mode": SyncMode.LOCAL_ONLY.value,
             "subscribed_domains": [
@@ -472,18 +477,29 @@ class CognitiveMemoryManager:
         if remote_repo is not None:
             ok_dest, _ = verify_outbound_destination_allowed(remote_repo.strip())
             cfg["remote_repo"] = remote_repo.strip() if ok_dest else ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG
+        assert_not_symlink(self.kintsugi_dir)
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
-        self.config_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        atomic_write_text(self.config_path, json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", mode=0o600)
         return cfg
 
     def load_local_lessons(self) -> List[CognitiveLesson]:
-        if not self.local_lessons_path.exists():
-            return []
-        raw = json.loads(self.local_lessons_path.read_text(encoding="utf-8"))
-        items = raw.get("lessons", []) if isinstance(raw, dict) else raw
-        return [CognitiveLesson.from_dict(item) for item in items]
+        """Load `.kintsugi/lessons_local.json` and auto-merge packaged `evolution_memory/lessons_local.json` (`KH-EVO-001`)."""
+        by_id: Dict[str, CognitiveLesson] = {}
+        assert_not_symlink(self.kintsugi_dir)
+        for candidate in (self.local_lessons_path, self.fallback_lessons_path):
+            assert_not_symlink(candidate)
+            if not candidate.exists():
+                continue
+            raw = json.loads(candidate.read_text(encoding="utf-8"))
+            items = raw.get("lessons", []) if isinstance(raw, dict) else raw
+            for item in items:
+                lesson = CognitiveLesson.from_dict(item)
+                if lesson.id not in by_id:
+                    by_id[lesson.id] = lesson
+        return list(by_id.values())
 
     def save_local_lessons(self, lessons: Sequence[CognitiveLesson]) -> None:
+        assert_not_symlink(self.kintsugi_dir)
         self.kintsugi_dir.mkdir(parents=True, exist_ok=True)
         ordered = sorted(lessons, key=lambda l: l.id)
         payload = {
@@ -492,9 +508,10 @@ class CognitiveMemoryManager:
             "total_lessons": len(ordered),
             "lessons": [l.to_dict() for l in ordered],
         }
-        self.local_lessons_path.write_text(
+        atomic_write_text(
+            self.local_lessons_path,
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
+            mode=0o600,
         )
 
     def load_pool_lessons(

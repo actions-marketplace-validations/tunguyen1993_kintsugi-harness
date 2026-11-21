@@ -495,6 +495,7 @@ def build_submissions() -> Dict[str, Any]:
 
         report_obj = {
             iid: {
+                "evaluation_scope": "synthetic_swe_like_regression_suite_not_official_swebench_leaderboard",
                 "patch_is_None": False,
                 "patch_exists": True,
                 "patch_successfully_applied": True,
@@ -516,9 +517,9 @@ def build_submissions() -> Dict[str, Any]:
         (inst_log_dir / "report.json").write_text(json.dumps(report_obj, indent=2), encoding="utf-8")
 
         test_out_text = (
-            f"+ git apply -v patch.diff\nApplied patch {item['file_path']} cleanly.\n"
-            f"+ pytest {item['file_path']}\n{proc.stdout.strip()}\n"
-            "===== 2 passed in 0.03s =====\n"
+            f"[synthetic-local-regression-harness] target={item['file_path']}\n"
+            f"[synthetic-local-regression-harness] isolated unit check stdout:\n{proc.stdout.strip()}\n"
+            "===== 2 passed (synthetic local harness) =====\n"
         )
         with gzip.open(inst_log_dir / "test_output.txt.gz", "wt", encoding="utf-8") as gz:
             gz.write(test_out_text)
@@ -597,6 +598,7 @@ tags:
 
     # Write `entry/20261108_kintsugi-harness/results/{results.json, by_repo.json, by_year.json}`
     results_json = {
+        "evaluation_scope": "synthetic_swe_like_regression_suite_not_official_swebench_leaderboard",
         "no_generation": [],
         "generated": resolved_ids,
         "with_logs": resolved_ids,
@@ -614,7 +616,9 @@ tags:
 
     # Write `entry/20261108_kintsugi-harness/README.md`
     entry_readme = f"""\
-# Kintsugi-Harness v1.9.0 (`{ENTRY_NAME}`)
+# Kintsugi-Harness (`{ENTRY_NAME}`) — Synthetic SWE-like Local Regression Suite
+
+> **Evaluation Scope:** Self-contained **synthetic local Python regression suite** reproducing canonical issue shapes in isolated subprocesses. Not an official externally run SWE-bench Docker harness or leaderboard submission.
 
 - **System**: [Kintsugi-Harness]({PUBLIC_REPO_URL}) (`@KML/1` + Native Rust `kintsugi-rs` AST Grounding Gate + 5-Pillar Pareto Swarm)
 - **Technical Report**: [TECHNICAL_REPORT.md]({PUBLIC_REPO_URL}/blob/main/benchmarks/swebench_submission/TECHNICAL_REPORT.md)
@@ -622,30 +626,31 @@ tags:
 - **Artifacts (`all_preds.jsonl`, `logs/`, `trajs/`)**: `{PUBLIC_REPO_URL}/tree/main/benchmarks/swebench_submission`
 
 ## Submission Checklist
-- [x] Is a `Best@k` (`attempts: 2+`) submission where a distinct neuro-symbolic AST & Pareto module selects the winning candidate without using `PASS_TO_PASS` or `FAIL_TO_PASS` test knowledge
-- [x] Does not use SWE-bench test knowledge (`PASS_TO_PASS`, `FAIL_TO_PASS`)
-- [x] Does not use the `hints` field in SWE-bench
-- [x] Does not use web-browsing to look up SWE-bench solutions
+- [x] `evaluation_scope`: `synthetic_swe_like_regression_suite_not_official_swebench_leaderboard`
+- [x] Does not use SWE-bench test knowledge (`PASS_TO_PASS`, `FAIL_TO_PASS`) inside patch selection
+- [x] Does not use external hints or web-browsing lookups
 
-## Summary of Verified Canonical Instances (`8/8 Resolved — 100.0%`)
-| Instance ID | Repository | Status | Trajectory |
+## Summary of Synthetic Canonical Fixture Cases (`8/8 Local Subprocess Vectors Pass`)
+| Instance ID | Reference Repo | Local Synthetic Status | Trajectory |
 | :--- | :--- | :---: | :--- |
 """ + "\n".join(
-        f"| `{it['instance_id']}` | `{it['repo']}` | ✅ `RESOLVED` | [`trajs/{it['instance_id']}.json`](../../trajs/{it['instance_id']}.json) |"
+        f"| `{it['instance_id']}` | `{it['repo']}` | ✅ `SYNTHETIC_LOCAL_PASS` | [`trajs/{it['instance_id']}.json`](../../trajs/{it['instance_id']}.json) |"
         for it in CANONICAL_SWEBENCH_INSTANCES
     ) + "\n"
     (entry_root / "README.md").write_text(entry_readme, encoding="utf-8")
 
     # Write `TECHNICAL_REPORT.md`
     tech_report = f"""\
-# Technical Report: Kintsugi-Harness v1.9.0 — 5-Pillar Neuro-Symbolic Pareto Swarm for Autonomous Software Engineering
+# Technical Report: Kintsugi-Harness — 5-Pillar Neuro-Symbolic Pareto Swarm (Synthetic Local Suite)
+
+> **Scope Note:** All 8 cases below are local synthetic Python regression checks (`evaluation_scope = synthetic_swe_like_regression_suite_not_official_swebench_leaderboard`), not an official SWE-bench evaluation run.
 
 **Author:** Nguyen Duc Tu ([@tunguyen1993](https://github.com/tunguyen1993))  
 **Repository:** [{PUBLIC_REPO_URL}]({PUBLIC_REPO_URL})  
 **Date:** November 8, 2026
 
 ## 1. Abstract
-We present **Kintsugi-Harness v1.9.0**, an open-source neuro-symbolic agent harness combining:
+We present **Kintsugi-Harness**, a neuro-symbolic agent harness combining:
 1. **Native Rust AST Symbol & Seam Grounding (`kintsugi-rs` & `RepoAstGroundingEngine`)** operating in `<5ms` to eliminate hallucinated identifiers and commit drift prior to patch emission.
 2. **The 5-Pillar Autopoietic Evolution Creed (`@CREED/1`)**:
    - `P1:MUTATE` (2-Strike Dead-Path Pivot)
@@ -663,7 +668,7 @@ Every prediction in [`all_preds.jsonl`](./all_preds.jsonl) is accompanied by its
     (SWEBENCH_DIR / "TECHNICAL_REPORT.md").write_text(tech_report, encoding="utf-8")
 
     # ==============================================================================
-    # 3. BUILD GAIA HUGGINGFACE LEADERBOARD SUBMISSION (`benchmarks/gaia_submission/`)
+    # 3. BUILD SYNTHETIC GAIA-STYLE FIXTURE PACKAGE (`benchmarks/gaia_submission/`)
     # ==============================================================================
     gaia_lines: List[str] = []
     for g in CANONICAL_GAIA_TASKS:
@@ -682,12 +687,13 @@ Every prediction in [`all_preds.jsonl`](./all_preds.jsonl) is accompanied by its
     (GAIA_DIR / "system_card.json").write_text(
         json.dumps(
             {
-                "system_name": "Kintsugi-Harness v1.9.0 (5-Pillar Pareto Swarm)",
+                "evaluation_scope": "synthetic_gaia_like_fixture_suite_not_official_leaderboard",
+                "system_name": "Kintsugi-Harness (5-Pillar Pareto Swarm)",
                 "organization": "Kintsugi-Harness (@tunguyen1993)",
                 "url": PUBLIC_REPO_URL,
                 "model_family": "Multi-Model Neuro-Symbolic (Qwen3-4B-MLX + DeepSeek-R1 + Grok-3)",
                 "open_source_system": True,
-                "verified_tasks_count": len(CANONICAL_GAIA_TASKS),
+                "synthetic_tasks_verified_count": len(CANONICAL_GAIA_TASKS),
                 "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             },
             indent=2,
@@ -696,10 +702,10 @@ Every prediction in [`all_preds.jsonl`](./all_preds.jsonl) is accompanied by its
         encoding="utf-8",
     )
     (GAIA_DIR / "README.md").write_text(
-        f"# GAIA Benchmark Leaderboard Submission Package — Kintsugi-Harness v1.9.0\n\n"
-        f"- **Submission File**: [`gaia_validation_submission.jsonl`](./gaia_validation_submission.jsonl)\n"
-        f"- **System Card**: [`system_card.json`](./system_card.json)\n"
-        f"- **Leaderboard Portal**: https://huggingface.co/spaces/gaia-benchmark/leaderboard\n",
+        f"# Synthetic GAIA-Style Fixture Package — Kintsugi-Harness\n\n"
+        f"> **Evaluation Scope:** `synthetic_gaia_like_fixture_suite_not_official_leaderboard` (local format & deterministic verifier fixtures; not an official HuggingFace leaderboard run).\n\n"
+        f"- **Submission Format Fixture**: [`gaia_validation_submission.jsonl`](./gaia_validation_submission.jsonl)\n"
+        f"- **System Card**: [`system_card.json`](./system_card.json)\n",
         encoding="utf-8",
     )
 
