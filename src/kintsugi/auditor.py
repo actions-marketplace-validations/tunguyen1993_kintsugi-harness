@@ -7,10 +7,14 @@ efficiency metrics (`KMI/1`), and generates Markdown scorecards + Shields.io bad
 
 from __future__ import annotations
 
+import hashlib
+import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Sequence, Tuple
 from urllib.parse import quote
 
+from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report
 from kintsugi.models import GoldenScar, Severity
 from kintsugi.packs import list_installed_packs
@@ -38,6 +42,45 @@ def run_posture_audit(
     root = Path(target_root).resolve()
     scanner = KintsugiScanner(scars, min_severity=Severity.LOW)
     report = scanner.scan_path(root)
+
+    # Exempt ONLY genuine SkillCompiler-generated `.claude/skills/kintsugi-*/SKILL.md`
+    # verified by exact SHA-256 digest (any tampered/untrusted file still triggers findings).
+    if report.findings:
+        comp = SkillCompiler(scars)
+        expected_hashes: Dict[Path, str] = {}
+        master_text = comp.render_skill_markdown(
+            "kintsugi-guardrails",
+            "Self-evolved security, reliability, and correctness guardrails enforced by Kintsugi AST/Regex scanner. Activate before editing code or running shell commands.",
+            comp.scars,
+        )
+        expected_hashes[(root / ".claude" / "skills" / "kintsugi-guardrails" / "SKILL.md").resolve()] = hashlib.sha256(
+            master_text.encode("utf-8")
+        ).hexdigest()
+        by_cat: Dict[str, list[GoldenScar]] = defaultdict(list)
+        for s in comp.scars:
+            slug_cat = re.sub(r"[^a-z0-9]+", "-", s.category.lower()).strip("-") or "general"
+            by_cat[slug_cat].append(s)
+        for cat, cat_scars in by_cat.items():
+            if len(cat_scars) >= 2:
+                cat_text = comp.render_skill_markdown(
+                    f"kintsugi-{cat}",
+                    f"Focused {cat} anti-patterns and verified code templates compiled by Kintsugi Harness.",
+                    cat_scars,
+                )
+                expected_hashes[(root / ".claude" / "skills" / f"kintsugi-{cat}" / "SKILL.md").resolve()] = hashlib.sha256(
+                    cat_text.encode("utf-8")
+                ).hexdigest()
+        verified_paths: set[Path] = set()
+        for cand_p, exp_sha in expected_hashes.items():
+            if cand_p.is_file() and not cand_p.is_symlink():
+                try:
+                    if hashlib.sha256(cand_p.read_bytes()).hexdigest() == exp_sha:
+                        verified_paths.add(cand_p)
+                except OSError:
+                    continue
+        if verified_paths:
+            report.findings = [f for f in report.findings if Path(f.file_path).resolve() not in verified_paths]
+
     counts = report.counts_by_severity()
 
     # 1. Codebase violation score (max 55)

@@ -1,4 +1,5 @@
 {
+  "evaluation_scope": "synthetic_swe_like_regression_suite_not_official_swebench_leaderboard",
   "no_generation": [],
   "generated": [
     "astropy__astropy-14995",

@@ -1,5 +1,6 @@
-# GAIA Benchmark Leaderboard Submission Package — Kintsugi-Harness v1.9.0
+# Synthetic GAIA-Style Fixture Package — Kintsugi-Harness
 
-- **Submission File**: [`gaia_validation_submission.jsonl`](./gaia_validation_submission.jsonl)
+> **Evaluation Scope:** `synthetic_gaia_like_fixture_suite_not_official_leaderboard` (local format & deterministic verifier fixtures; not an official HuggingFace leaderboard run).
+
+- **Submission Format Fixture**: [`gaia_validation_submission.jsonl`](./gaia_validation_submission.jsonl)
 - **System Card**: [`system_card.json`](./system_card.json)
-- **Leaderboard Portal**: https://huggingface.co/spaces/gaia-benchmark/leaderboard

@@ -99,6 +99,21 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"],
         default="HIGH",
     )
+    p_scan.add_argument(
+        "--allow-inline-ignores",
+        action="store_true",
+        help="Opt-in to honor line-level `# kintsugi: ignore[...]` comments (disabled by default for security)",
+    )
+    p_scan.add_argument(
+        "--policy-file",
+        default=None,
+        help="Explicit out-of-repo trusted ignore policy JSON (KH-R3-SEC-01: in-repo policy files are never trusted)",
+    )
+    p_scan.add_argument(
+        "--policy-sha256",
+        default=None,
+        help="Optional expected SHA-256 hex digest of --policy-file",
+    )
 
     # audit
     p_audit = sub.add_parser("audit", help="Run repository Security & Agent Readiness Posture Audit (Grade A+ to F)")
@@ -232,12 +247,16 @@ def _build_parser() -> argparse.ArgumentParser:
     p_evo = sub.add_parser("evolve", help="Evolve a new self-verified Golden Scar from a failure log or snippet pair")
     p_evo.add_argument("--workspace", default=".", help="Workspace root for .kintsugi tier entitlement")
     p_evo.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
-    p_evo.add_argument("--summary", required=True, help="One-line failure summary")
+    p_evo.add_argument("--summary", required=False, default="", help="One-line failure summary")
     p_evo.add_argument("--from-log", default=None, help="Path to traceback/CI log file")
     p_evo.add_argument("--language", default="python", help="Target language")
     p_evo.add_argument("--bad-code", default="", help="Offending code snippet")
     p_evo.add_argument("--good-code", default="", help="Verified replacement snippet")
     p_evo.add_argument("--compile-workspace", default=None, help="Auto-recompile skills in workspace after evolving")
+    p_evo.add_argument("--ir-synthesize", action="store_true", help="Synthesize typed RuleIR/1 and counterfactual validation attestation")
+    p_evo.add_argument("--consolidate-dry-run", action="store_true", help="Report behavioral duplicate clusters and conflicts across the ledger without mutating baselines")
+    p_evo.add_argument("--parity-check", action="store_true", help="Run live Python vs native Rust differential parity check over shared fixtures")
+    p_evo.add_argument("--rust-bin", default=None, help="Optional path to compiled kintsugi-rs binary for differential parity check")
     p_evo.add_argument(
         "--co-run",
         action="store_true",
@@ -264,6 +283,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_hook.add_argument("kind", choices=["claude-pre-tool"], help="Hook protocol")
     p_hook.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_hook.add_argument("--block-on", choices=["CRITICAL", "HIGH", "MEDIUM", "LOW"], default="HIGH")
+    p_hook.add_argument("--workspace", default=None, help="Trusted workspace root bound by runner (KH-R4-SEC-04)")
 
     # install-hooks
     p_inst = sub.add_parser("install-hooks", help="Wire Kintsugi into .claude/settings.json and .git/hooks/pre-commit")
@@ -423,7 +443,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _load_or_seed_ledger(ledger_path: str | Path, workspace_root: str | Path = ".") -> ScarLedger:
-    ledger = ScarLedger(ledger_path)
+    ledger = ScarLedger(ledger_path, ensure_builtin_crs=True)
     if not ledger.all():
         ledger.bootstrap_starter_pack()
     for pack_scar in load_installed_pack_scars(workspace_root):
@@ -452,6 +472,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         scanner = KintsugiScanner(
             ledger.all(),
             min_severity=Severity(args.min_severity),
+            allow_inline_ignores=bool(getattr(args, "allow_inline_ignores", False)),
+            allow_file_ignores=False,
+            trusted_policy_path=getattr(args, "policy_file", None),
+            trusted_policy_sha256=getattr(args, "policy_sha256", None),
         )
         if args.staged or args.diff:
             report = scanner.scan_git_changes(
@@ -780,6 +804,45 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "evolve":
         ledger = _load_or_seed_ledger(args.ledger, args.workspace)
+        if getattr(args, "consolidate_dry_run", False):
+            from kintsugi.evolution_v2 import plan_ledger_consolidation
+
+            plan = plan_ledger_consolidation(ledger.all())
+            print(json.dumps(plan, indent=2, ensure_ascii=False))
+            return 0
+        if getattr(args, "parity_check", False):
+            from kintsugi.evolution_v2 import default_parity_fixtures, run_python_rust_parity
+
+            rep = run_python_rust_parity(
+                default_parity_fixtures(),
+                rust_bin_path=getattr(args, "rust_bin", None),
+                scars=ledger.all(),
+            )
+            print(json.dumps(rep, indent=2, ensure_ascii=False))
+            return 0 if rep.get("mismatches", 0) == 0 else 1
+        if not args.summary and not getattr(args, "ir_synthesize", False):
+            print("[kintsugi] Error: --summary is required unless using --consolidate-dry-run or --parity-check.", file=sys.stderr)
+            return 2
+        if getattr(args, "ir_synthesize", False):
+            from kintsugi.evolution_v2 import (
+                FailureEnvelope,
+                generate_counterfactuals,
+                synthesize_rule_ir,
+                validate_candidate_rule,
+            )
+
+            env = FailureEnvelope.create(
+                task_id="cli-ir-evolve",
+                language=args.language,
+                offending_snippet=args.bad_code,
+                fixed_snippet=args.good_code,
+                error_summary=args.summary or "CLI Evolution v2 candidate",
+            )
+            rule_ir = synthesize_rule_ir(env, rule_id=ledger.next_id())
+            pos, neg = generate_counterfactuals(rule_ir, args.bad_code, args.good_code)
+            att = validate_candidate_rule(rule_ir, pos, neg)
+            print(json.dumps({"envelope": env.to_dict(), "rule_ir": rule_ir.to_dict(), "attestation": att.to_dict()}, indent=2, ensure_ascii=False))
+            return 0 if att.status != "REJECTED" else 1
         raw_log = ""
         if args.from_log:
             raw_log = Path(args.from_log).read_text(encoding="utf-8")
@@ -845,6 +908,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             payload,
             ledger.all(),
             block_threshold=Severity(args.block_on),
+            trusted_workspace_root=getattr(args, "workspace", None),
         )
         print(json.dumps(decision))
         return 0

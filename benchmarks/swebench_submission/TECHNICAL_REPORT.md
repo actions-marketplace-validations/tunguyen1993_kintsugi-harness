@@ -1,11 +1,13 @@
-# Technical Report: Kintsugi-Harness v1.9.0 — 5-Pillar Neuro-Symbolic Pareto Swarm for Autonomous Software Engineering
+# Technical Report: Kintsugi-Harness — 5-Pillar Neuro-Symbolic Pareto Swarm (Synthetic Local Suite)
+
+> **Scope Note:** All 8 cases below are local synthetic Python regression checks (`evaluation_scope = synthetic_swe_like_regression_suite_not_official_swebench_leaderboard`), not an official SWE-bench evaluation run.
 
 **Author:** Nguyen Duc Tu ([@tunguyen1993](https://github.com/tunguyen1993))  
 **Repository:** [https://github.com/tunguyen1993/kintsugi-harness](https://github.com/tunguyen1993/kintsugi-harness)  
 **Date:** November 8, 2026
 
 ## 1. Abstract
-We present **Kintsugi-Harness v1.9.0**, an open-source neuro-symbolic agent harness combining:
+We present **Kintsugi-Harness**, a neuro-symbolic agent harness combining:
 1. **Native Rust AST Symbol & Seam Grounding (`kintsugi-rs` & `RepoAstGroundingEngine`)** operating in `<5ms` to eliminate hallucinated identifiers and commit drift prior to patch emission.
 2. **The 5-Pillar Autopoietic Evolution Creed (`@CREED/1`)**:
    - `P1:MUTATE` (2-Strike Dead-Path Pivot)

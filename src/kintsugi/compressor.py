@@ -157,7 +157,9 @@ def compute_token_savings_report(
 ) -> Dict[str, Any]:
     """Compare verbose Markdown skill context vs Global KMI/1 and Domain-Partitioned KMI/1 Shards."""
     kmi_text = render_kmi_index(scars)
-    verbose_tokens = max(estimate_tokens(verbose_markdown), len(scars) * 185)
+    measured_tokens = estimate_tokens(verbose_markdown)
+    has_verbose_input = bool(verbose_markdown and verbose_markdown.strip())
+    verbose_tokens = measured_tokens if has_verbose_input else len(scars) * 185
     kmi_tokens = estimate_tokens(kmi_text)
     saved_per_turn = max(0, verbose_tokens - kmi_tokens)
     reduction_pct = round((saved_per_turn / verbose_tokens) * 100.0, 1) if verbose_tokens else 0.0
@@ -194,6 +196,8 @@ def compute_token_savings_report(
     return {
         "protocol": "KMI/1 (Kintsugi Micro-Index v1 + Domain-Routed Shards + JIT PreToolUse)",
         "rules_compiled": len(scars),
+        "baseline_source": "measured_markdown" if has_verbose_input else "estimated_rule_prose_fallback",
+        "tokenizer": "heuristic_bpe_approx_4char",
         "verbose_tokens_per_turn": verbose_tokens,
         "kmi_tokens_per_turn": kmi_tokens,
         "tokens_saved_per_turn": saved_per_turn,
@@ -519,6 +523,8 @@ def transpile_scar_dict_to_kml(item: Dict[str, Any]) -> Tuple[Dict[str, Any], bo
     old_title = str(item.get("title") or "")
     old_rc = str(item.get("root_cause") or "")
     old_rat = str(item.get("rationale") or "")
+    if old_title.startswith("@OP/1[") and old_rc.startswith("@TRAP/1{") and old_rat.startswith("@LAW/1{"):
+        return item, False
     bad_code = str(item.get("bad_code") or "")
     good_code = str(item.get("good_code") or "")
     ast_rule = item.get("ast_rule")
