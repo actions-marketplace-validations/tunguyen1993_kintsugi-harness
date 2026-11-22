@@ -308,9 +308,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mcp.add_argument(
         "--profile",
         dest="mcp_profile",
-        choices=["default", "nextgen", "coding"],
+        choices=["default", "nextgen", "coding", "build3", "cognitive"],
         default="default",
-        help="MCP tool surface profile (default: 9 core tools; nextgen/coding adds read-only Capability Fabric, RepoScout & LogForge tools)",
+        help="MCP tool surface profile (default: 9 core tools; nextgen/coding: 19 tools; build3/cognitive: 23 tools)",
     )
 
     # stats

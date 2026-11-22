@@ -11,6 +11,17 @@ from kintsugi.capability.schemas import (
     sha256_digest,
 )
 from kintsugi.runtime.experience_store import ExperienceStore
+from kintsugi.runtime.hermetic_worker import (
+    HermeticEntrypointSpec,
+    HermeticExecutionResult,
+    HermeticSpawnRunner,
+    PinnedModuleFile,
+    build_hermetic_seatbelt_profile,
+    pin_module_file,
+    validate_allowed_import_prefixes,
+    validate_safe_callable_attr,
+    validate_safe_module_path,
+)
 from kintsugi.runtime.orchestrator import Stage1ExecutionResult, run_stage1_vertical_slice
 from kintsugi.runtime.run_state import (
     ALLOWED_TRANSITIONS,
@@ -61,7 +72,11 @@ __all__ = [
     "ExecutionStatus",
     "Experience",
     "ExperienceStore",
+    "HermeticEntrypointSpec",
+    "HermeticExecutionResult",
+    "HermeticSpawnRunner",
     "InvalidStateTransitionError",
+    "PinnedModuleFile",
     "REQUIRED_STAGE4_METRICS",
     "ReconciliationRequiredError",
     "RunStateMachine",
@@ -77,12 +92,17 @@ __all__ = [
     "TraceStore",
     "TrustStatus",
     "WatchdogTimeoutError",
+    "build_hermetic_seatbelt_profile",
     "canonical_sha256",
     "coerce_run_status",
     "compute_callable_sha256",
     "compute_file_sha256_confined",
+    "pin_module_file",
     "probe_linux_landlock_available",
     "run_stage1_vertical_slice",
     "sha256_digest",
+    "validate_allowed_import_prefixes",
+    "validate_safe_callable_attr",
+    "validate_safe_module_path",
     "validate_trusted_host_callable_hygiene",
 ]

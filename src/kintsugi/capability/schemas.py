@@ -291,15 +291,19 @@ _PINNED_LIFECYCLE_ATTRS: Tuple[str, ...] = (
 
 
 def snapshot_class_lifecycle(cls: type) -> Callable[[Dict[str, Any]], None]:
-    """Capture import-time raw `tp_dict` lifecycle method identities inside a callable guard."""
+    """Capture import-time raw `tp_dict` lifecycle method identities (including absent attrs) inside a callable guard."""
     raw_dict = _SCHEMA_TYPE_DICT_DESCR.__get__(cls, type)
+    absent = object()
     pinned: Tuple[Tuple[str, Any], ...] = tuple(
-        (attr, raw_dict[attr]) for attr in _PINNED_LIFECYCLE_ATTRS if attr in raw_dict
+        (attr, raw_dict[attr] if attr in raw_dict else absent) for attr in _PINNED_LIFECYCLE_ATTRS
     )
 
     def _verify_lifecycle(base_view: Dict[str, Any]) -> None:
         for method_name, orig_fn in pinned:
-            if method_name not in base_view or base_view[method_name] is not orig_fn:
+            if orig_fn is absent:
+                if method_name in base_view:
+                    raise TypeError("UNTRUSTED_CONTRACT_CLASS_TAMPERED")
+            elif method_name not in base_view or base_view[method_name] is not orig_fn:
                 raise TypeError("UNTRUSTED_CONTRACT_CLASS_TAMPERED")
 
     return _verify_lifecycle

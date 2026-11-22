@@ -443,11 +443,16 @@ class KintsugiMCPServer:
 
     def active_tools(self) -> list[Dict[str, Any]]:
         tools = list(_tool_definitions())
-        if self.profile in {"nextgen", "coding"}:
-            from kintsugi.mcp_nextgen import nextgen_build2_tool_definitions
+        if self.profile in {"nextgen", "coding", "build3", "cognitive"}:
+            from kintsugi.mcp_nextgen import (
+                nextgen_build2_tool_definitions,
+                nextgen_build3_tool_definitions,
+            )
 
             tools.extend(_nextgen_tool_definitions())
             tools.extend(nextgen_build2_tool_definitions())
+            if self.profile in {"build3", "cognitive"}:
+                tools.extend(nextgen_build3_tool_definitions())
         return tools
 
     def handle_request(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -914,7 +919,7 @@ class KintsugiMCPServer:
                 "qa_report": qa_rep,
             }
 
-        if self.profile in {"nextgen", "coding"}:
+        if self.profile in {"nextgen", "coding", "build3", "cognitive"}:
             if name == "kintsugi_tools_discover":
                 from kintsugi.capability import SecurityContext, ToolRegistry
 
@@ -970,10 +975,17 @@ class KintsugiMCPServer:
                 )
                 return {"ok": True, "result": res.to_dict()}
 
-            from kintsugi.mcp_nextgen import NEXTGEN_BUILD2_TOOL_NAMES, dispatch_nextgen_build2_mcp_tool
+            from kintsugi.mcp_nextgen import (
+                NEXTGEN_BUILD2_TOOL_NAMES,
+                NEXTGEN_BUILD3_TOOL_NAMES,
+                dispatch_nextgen_build2_mcp_tool,
+                dispatch_nextgen_build3_mcp_tool,
+            )
 
             if name in NEXTGEN_BUILD2_TOOL_NAMES:
                 return dispatch_nextgen_build2_mcp_tool(name, args)
+            if self.profile in {"build3", "cognitive"} and name in NEXTGEN_BUILD3_TOOL_NAMES:
+                return dispatch_nextgen_build3_mcp_tool(name, args)
 
         raise ValueError(f"Unknown MCP tool: {name}")
 
