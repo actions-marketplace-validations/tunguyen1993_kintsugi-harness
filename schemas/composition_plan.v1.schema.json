@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/composition_plan.v1.schema.json",
+  "title": "CompositionPlan/1",
+  "description": "Content-addressed bounded DAG composition plan linking verified ToolSpec/1 and AdapterSpec/1 nodes with unioned permissions and effects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "goal_contract_hash",
+    "nodes",
+    "edges",
+    "input_bindings",
+    "tool_artifact_hashes",
+    "adapter_hashes",
+    "permission_union",
+    "effects_union",
+    "expected_outputs",
+    "oracle_ref",
+    "verification_plan",
+    "estimated_resources",
+    "plan_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "CompositionPlan/1"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "goal_contract_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "node_id",
+          "tool_id"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tool_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tool_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "adapter",
+              "synthesized",
+              "builtin"
+            ]
+          },
+          "binary_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "adapter_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "inputs_from": {
+            "type": "object"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requires_sandbox": {
+            "type": "boolean"
+          },
+          "requires_approval": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_node",
+          "to_node"
+        ],
+        "properties": {
+          "from_node": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_node": {
+            "type": "string",
+            "minLength": 1
+          },
+          "output_port": {
+            "type": "string"
+          },
+          "input_port": {
+            "type": "string"
+          },
+          "from_port": {
+            "type": "string"
+          },
+          "to_port": {
+            "type": "string"
+          },
+          "adapter_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adapter_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "input_bindings": {
+      "type": "object"
+    },
+    "tool_artifact_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "adapter_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "permission_union": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "effects_union": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "read_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "write_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "network_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "irreversible": {
+          "type": "boolean"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "resource_requirements": {
+          "type": "object"
+        }
+      }
+    },
+    "expected_outputs": {
+      "type": [
+        "array",
+        "object"
+      ]
+    },
+    "oracle_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "verification_plan": {
+      "type": "object"
+    },
+    "estimated_resources": {
+      "type": "object"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gap_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "max_depth": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "security_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "all_tools_verified": {
+          "type": "boolean"
+        },
+        "no_untrusted_native_on_host": {
+          "type": "boolean",
+          "const": true
+        },
+        "within_profile_limits": {
+          "type": "boolean"
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

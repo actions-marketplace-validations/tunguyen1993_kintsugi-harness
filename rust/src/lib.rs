@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
+pub mod ffi;
+pub mod kernels;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Severity {
     Low = 1,
@@ -719,67 +722,9 @@ fn collapse_slashes(path: &str) -> String {
     out
 }
 
-/// Pure-std FIPS 180-4 SHA-256 hex digest (`KH-R4-SEC-06`, zero external crates).
+/// Hardware-accelerated (when `FEAT_SHA256` available) FIPS 180-4 SHA-256 hex digest (`KH-R4-SEC-06`, zero external crates).
 pub fn sha256_hex(data: &[u8]) -> String {
-    const K: [u32; 64] = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-    ];
-    let mut h: [u32; 8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-    ];
-    let bit_len = (data.len() as u64).wrapping_mul(8);
-    let mut msg = data.to_vec();
-    msg.push(0x80);
-    while (msg.len() % 64) != 56 {
-        msg.push(0);
-    }
-    msg.extend_from_slice(&bit_len.to_be_bytes());
-
-    for chunk in msg.chunks_exact(64) {
-        let mut w = [0u32; 64];
-        for i in 0..16 {
-            w[i] = u32::from_be_bytes([chunk[4 * i], chunk[4 * i + 1], chunk[4 * i + 2], chunk[4 * i + 3]]);
-        }
-        for i in 16..64 {
-            let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
-            let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
-            w[i] = w[i - 16].wrapping_add(s0).wrapping_add(w[i - 7]).wrapping_add(s1);
-        }
-        let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut hh] = h;
-        for i in 0..64 {
-            let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-            let ch = (e & f) ^ ((!e) & g);
-            let t1 = hh.wrapping_add(s1).wrapping_add(ch).wrapping_add(K[i]).wrapping_add(w[i]);
-            let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
-            let maj = (a & b) ^ (a & c) ^ (b & c);
-            let t2 = s0.wrapping_add(maj);
-            hh = g;
-            g = f;
-            f = e;
-            e = d.wrapping_add(t1);
-            d = c;
-            c = b;
-            b = a;
-            a = t1.wrapping_add(t2);
-        }
-        let next = [a, b, c, d, e, f, g, hh];
-        for idx in 0..8 {
-            h[idx] = h[idx].wrapping_add(next[idx]);
-        }
-    }
-    let mut hex = String::with_capacity(64);
-    for word in h {
-        hex.push_str(&format!("{word:08x}"));
-    }
-    hex
+    crate::kernels::sha256_hw::sha256_hex_fast(data)
 }
 
 fn normalize_lexical_posix(path: &str) -> String {
@@ -1019,7 +964,12 @@ fn resolve_abs_uncollapsed(abs_raw: &str, real_ws: Option<&str>) -> Option<Strin
     Some(format!("/{}", canon_segs.join("/")))
 }
 
+#[allow(dead_code)]
 fn classify_workspace_rel_path(rel_raw: &str, ws_root: &Path, cwd_untrusted: bool) -> bool {
+    classify_workspace_rel_path_opt(rel_raw, Some(ws_root), cwd_untrusted)
+}
+
+fn classify_workspace_rel_path_opt(rel_raw: &str, ws_root: Option<&Path>, cwd_untrusted: bool) -> bool {
     if cwd_untrusted {
         return true;
     }
@@ -1036,12 +986,16 @@ fn classify_workspace_rel_path(rel_raw: &str, ws_root: &Path, cwd_untrusted: boo
         return true;
     }
 
-    let Ok(real_ws) = fs::canonicalize(ws_root) else {
-        return true;
+    let real_ws_opt: Option<PathBuf> = match ws_root {
+        Some(ws) => match fs::canonicalize(ws) {
+            Ok(p) => Some(p),
+            Err(_) => return true,
+        },
+        None => None,
     };
     let mut resolved_segs: Vec<String> = Vec::new();
     let mut glob_tail: Vec<String> = Vec::new();
-    let mut unseen_tail = false;
+    let mut unseen_tail = real_ws_opt.is_none();
 
     for (idx, seg) in raw_segs.iter().enumerate() {
         if has_glob_meta(seg) {
@@ -1065,6 +1019,10 @@ fn classify_workspace_rel_path(rel_raw: &str, ws_root: &Path, cwd_untrusted: boo
         if unseen_tail {
             continue;
         }
+        let Some(ref real_ws) = real_ws_opt else {
+            unseen_tail = true;
+            continue;
+        };
         let mut probe = real_ws.clone();
         for s in &resolved_segs {
             probe.push(s);
@@ -1074,10 +1032,10 @@ fn classify_workspace_rel_path(rel_raw: &str, ws_root: &Path, cwd_untrusted: boo
                 let Ok(real_cur) = fs::canonicalize(&probe) else {
                     return true;
                 };
-                if real_cur == real_ws || !real_cur.starts_with(&real_ws) {
+                if real_cur == *real_ws || !real_cur.starts_with(real_ws) {
                     return true;
                 }
-                let Ok(rel_resolved) = real_cur.strip_prefix(&real_ws) else {
+                let Ok(rel_resolved) = real_cur.strip_prefix(real_ws) else {
                     return true;
                 };
                 let new_segs: Vec<String> = rel_resolved
@@ -1122,6 +1080,10 @@ fn is_dangerous_rm_target(tgt: &str) -> bool {
 }
 
 fn is_dangerous_rm_target_with_ws(tgt: &str, ws_root: &Path, cwd_untrusted: bool, check_symlink: bool) -> bool {
+    is_dangerous_rm_target_with_ws_opt(tgt, Some(ws_root), cwd_untrusted, check_symlink)
+}
+
+fn is_dangerous_rm_target_with_ws_opt(tgt: &str, ws_root: Option<&Path>, cwd_untrusted: bool, check_symlink: bool) -> bool {
     let mut raw_owned = tgt.trim().to_string();
     if raw_owned.is_empty() {
         return false;
@@ -1141,7 +1103,7 @@ fn is_dangerous_rm_target_with_ws(tgt: &str, ws_root: &Path, cwd_untrusted: bool
                 if after.is_empty() || after == "/" || after == "/*" || !after.starts_with('/') {
                     return true;
                 }
-                return classify_workspace_rel_path(after.trim_start_matches('/'), ws_root, cwd_untrusted);
+                return classify_workspace_rel_path_opt(after.trim_start_matches('/'), ws_root, cwd_untrusted);
             }
             "HOME" => {
                 if after.is_empty() || after == "/" || after == "/*" || !after.starts_with('/') || after.split('/').any(|s| s == "..") {
@@ -1194,32 +1156,39 @@ fn is_dangerous_rm_target_with_ws(tgt: &str, ws_root: &Path, cwd_untrusted: bool
 
     if collapsed.starts_with('/') {
         let _ = check_symlink;
-        let mut ws_candidates: Vec<String> = Vec::new();
-        let ws_raw = collapse_slashes(&ws_root.to_string_lossy().replace('\\', "/"))
-            .trim_end_matches('/')
-            .to_string();
-        if ws_raw.split('/').filter(|s| !s.is_empty()).count() >= 2 {
-            ws_candidates.push(ws_raw);
-        }
-        let real_ws_str = fs::canonicalize(ws_root)
-            .map(|p| p.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_string())
-            .ok();
-        if let Some(ref rw) = real_ws_str {
-            if rw.split('/').filter(|s| !s.is_empty()).count() >= 2 && !ws_candidates.contains(rw) {
-                ws_candidates.push(rw.clone());
+        let (norm, real_ws_str) = if let Some(ws) = ws_root {
+            let mut ws_candidates: Vec<String> = Vec::new();
+            let ws_raw = collapse_slashes(&ws.to_string_lossy().replace('\\', "/"))
+                .trim_end_matches('/')
+                .to_string();
+            if ws_raw.split('/').filter(|s| !s.is_empty()).count() >= 2 {
+                ws_candidates.push(ws_raw);
             }
-        }
-        for wp in &ws_candidates {
-            if &collapsed == wp {
+            let real_ws_str = fs::canonicalize(ws)
+                .map(|p| p.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_string())
+                .ok();
+            if let Some(ref rw) = real_ws_str {
+                if rw.split('/').filter(|s| !s.is_empty()).count() >= 2 && !ws_candidates.contains(rw) {
+                    ws_candidates.push(rw.clone());
+                }
+            }
+            for wp in &ws_candidates {
+                if &collapsed == wp {
+                    return true;
+                }
+                if let Some(rel_tail) = collapsed.strip_prefix(&format!("{wp}/")) {
+                    return classify_workspace_rel_path_opt(rel_tail, ws_root, cwd_untrusted);
+                }
+            }
+            let Some(norm) = resolve_abs_uncollapsed(&collapsed, real_ws_str.as_deref()) else {
+                return true;
+            };
+            (norm, real_ws_str)
+        } else {
+            if collapsed.split('/').any(|s| s == "..") {
                 return true;
             }
-            if let Some(rel_tail) = collapsed.strip_prefix(&format!("{wp}/")) {
-                return classify_workspace_rel_path(rel_tail, ws_root, cwd_untrusted);
-            }
-        }
-
-        let Some(norm) = resolve_abs_uncollapsed(&collapsed, real_ws_str.as_deref()) else {
-            return true;
+            (lex_norm.clone(), None)
         };
         let parts: Vec<&str> = norm.split('/').filter(|s| !s.is_empty()).collect();
         if parts.len() <= 1 {
@@ -1240,7 +1209,7 @@ fn is_dangerous_rm_target_with_ws(tgt: &str, ws_root: &Path, cwd_untrusted: bool
             let ws_parts_count = ws_s.split('/').filter(|s| !s.is_empty()).count();
             if ws_parts_count >= 2 && norm.starts_with(&format!("{ws_s}/")) {
                 let rel_ws = &norm[ws_s.len() + 1..];
-                return classify_workspace_rel_path(rel_ws, ws_root, cwd_untrusted);
+                return classify_workspace_rel_path_opt(rel_ws, ws_root, cwd_untrusted);
             }
         }
         if matches!(parts[0], "home" | "Users") {
@@ -1264,19 +1233,19 @@ fn is_dangerous_rm_target_with_ws(tgt: &str, ws_root: &Path, cwd_untrusted: bool
         return true;
     }
 
-    classify_workspace_rel_path(&collapsed, ws_root, cwd_untrusted)
+    classify_workspace_rel_path_opt(&collapsed, ws_root, cwd_untrusted)
 }
 
 pub fn audit_shell_command_argv(cmd: &str) -> Option<&'static str> {
     let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    audit_shell_command_argv_inner(cmd, 0, &cwd, false)
+    audit_shell_command_argv_inner(cmd, 0, Some(&cwd), false)
 }
 
 pub fn audit_shell_command_argv_with_ws(cmd: &str, ws_root: &Path, cwd_untrusted: bool) -> Option<&'static str> {
-    audit_shell_command_argv_inner(cmd, 0, ws_root, cwd_untrusted)
+    audit_shell_command_argv_inner(cmd, 0, Some(ws_root), cwd_untrusted)
 }
 
-fn audit_shell_command_argv_inner(cmd: &str, depth: usize, ws_root: &Path, initial_untrusted: bool) -> Option<&'static str> {
+fn audit_shell_command_argv_inner(cmd: &str, depth: usize, ws_root: Option<&Path>, initial_untrusted: bool) -> Option<&'static str> {
     let (pipelines, stages) = split_shell_stages_and_pipelines(cmd);
     let mut cwd_untrusted = initial_untrusted;
     for chain in pipelines {
@@ -1369,13 +1338,13 @@ fn audit_shell_command_argv_inner(cmd: &str, depth: usize, ws_root: &Path, initi
                 }
             }
             if (no_preserve_root || has_r)
-                && targets.iter().any(|t| is_dangerous_rm_target_with_ws(t, ws_root, cwd_untrusted, true))
+                && targets.iter().any(|t| is_dangerous_rm_target_with_ws_opt(t, ws_root, cwd_untrusted, true))
             {
                 return Some("Destructive recursive rm targeting protected or unverified path");
             }
             if !has_r && has_f {
                 for t in &targets {
-                    if is_dangerous_rm_target_with_ws(t, ws_root, cwd_untrusted, true) {
+                    if is_dangerous_rm_target_with_ws_opt(t, ws_root, cwd_untrusted, true) {
                         return Some("Forced file removal targeting protected path");
                     }
                 }
@@ -1425,7 +1394,7 @@ fn audit_shell_command_argv_inner(cmd: &str, depth: usize, ws_root: &Path, initi
             let world = args.iter().any(|a| matches!(a.as_str(), "777" | "0777" | "a+rwx" | "o+w" | "o+rwx"));
             let protected_t = args
                 .iter()
-                .any(|a| !matches!(a.as_str(), "777" | "0777" | "a+rwx" | "o+w" | "o+rwx") && !a.starts_with('-') && is_dangerous_rm_target_with_ws(a, ws_root, cwd_untrusted, true));
+                .any(|a| !matches!(a.as_str(), "777" | "0777" | "a+rwx" | "o+w" | "o+rwx") && !a.starts_with('-') && is_dangerous_rm_target_with_ws_opt(a, ws_root, cwd_untrusted, true));
             if world && protected_t {
                 return Some("Destructive world-writable `chmod 777` on protected OS/home path");
             }
@@ -1433,11 +1402,11 @@ fn audit_shell_command_argv_inner(cmd: &str, depth: usize, ws_root: &Path, initi
             let root_arg = args.iter().find(|a| !a.starts_with('-') && a.as_str() != "!").map(|s| s.as_str()).unwrap_or(".");
             let has_del = args.iter().any(|a| a == "-delete");
             let has_exec_rm = args.windows(2).any(|w| w[0] == "-exec" && w[1].rsplit('/').next().unwrap_or(&w[1]).eq_ignore_ascii_case("rm"));
-            if (has_del || has_exec_rm) && is_dangerous_rm_target_with_ws(root_arg, ws_root, cwd_untrusted, true) {
+            if (has_del || has_exec_rm) && is_dangerous_rm_target_with_ws_opt(root_arg, ws_root, cwd_untrusted, true) {
                 return Some("Destructive `find ... -delete/-exec rm` targeting protected path");
             }
         } else if matches!(verb.as_str(), "shred" | "wipefs") {
-            if args.iter().any(|a| !a.starts_with('-') && is_dangerous_rm_target_with_ws(a, ws_root, cwd_untrusted, true)) {
+            if args.iter().any(|a| !a.starts_with('-') && is_dangerous_rm_target_with_ws_opt(a, ws_root, cwd_untrusted, true)) {
                 return Some("Destructive block/file wipe command targeting protected path");
             }
         } else if verb == "eval" && depth < 2 && !args.is_empty() {
@@ -1857,7 +1826,18 @@ fn check_line_against_rule(rule_id: &str, line: &str) -> bool {
 }
 
 fn check_line_against_rule_lang(rule_id: &str, line: &str, lang: &str) -> bool {
-    let trimmed = line.trim();
+    let mut ws_cache: Option<Option<PathBuf>> = None;
+    check_line_against_rule_lang_with_ctx(rule_id, line, line.trim(), lang, &mut ws_cache, false)
+}
+
+fn check_line_against_rule_lang_with_ctx(
+    rule_id: &str,
+    line: &str,
+    trimmed: &str,
+    lang: &str,
+    ws_cache: &mut Option<Option<PathBuf>>,
+    no_fs: bool,
+) -> bool {
     if trimmed.is_empty() {
         return false;
     }
@@ -1865,7 +1845,8 @@ fn check_line_against_rule_lang(rule_id: &str, line: &str, lang: &str) -> bool {
         return contains_bidi_control(line);
     }
     if rule_id == "KS-S3-01" {
-        return contains_prompt_injection_text(trimmed);
+        return crate::kernels::pi_flags_can_trigger(crate::kernels::pi_line_flags(trimmed))
+            && contains_prompt_injection_text(trimmed);
     }
     if rule_id != "KS-009" && rule_id != "KS-026" && rule_id != "KS-030" && (trimmed.starts_with('#') || trimmed.starts_with("//")) {
         return false;
@@ -1966,10 +1947,24 @@ fn check_line_against_rule_lang(rule_id: &str, line: &str, lang: &str) -> bool {
         }
         "KS-012" => trimmed.contains(".innerHTML =") || trimmed.contains(".innerHTML="),
         "KS-014" => {
-            (trimmed.contains("git push") && trimmed.contains("--force") && !trimmed.contains("--force-with-lease"))
+            if (trimmed.contains("git push") && trimmed.contains("--force") && !trimmed.contains("--force-with-lease"))
                 || trimmed.contains("rm -rf /")
                 || trimmed.contains("rm -rf ~")
-                || audit_shell_command_argv(trimmed).is_some()
+            {
+                return true;
+            }
+            if !crate::kernels::ks014_line_may_match(trimmed) {
+                return false;
+            }
+            if ws_cache.is_none() {
+                *ws_cache = Some(if no_fs {
+                    None
+                } else {
+                    Some(env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+                });
+            }
+            let resolved_ws = ws_cache.as_ref().and_then(|opt| opt.as_deref());
+            audit_shell_command_argv_inner(trimmed, 0, resolved_ws, false).is_some()
         }
         "KS-015" => {
             let go_discard = (trimmed.starts_with("_, _ =") || trimmed.starts_with("_ ="))
@@ -2106,6 +2101,40 @@ pub fn scan_text_with_policy(
     allow_inline_ignores: bool,
     allow_file_ignores: bool,
 ) -> Vec<Finding> {
+    scan_text_with_policy_impl(
+        content,
+        file_path,
+        lang,
+        min_severity,
+        allowed_lines,
+        allow_inline_ignores,
+        allow_file_ignores,
+        None,
+        false,
+    )
+}
+
+/// Pure-buffer scanner with zero filesystem/network syscalls (fail-closed untrusted mode matching `kintsugi-rs scan`).
+pub fn scan_text_buffer_no_fs(
+    content: &str,
+    file_path: &str,
+    lang: &str,
+    min_severity: Severity,
+) -> Vec<Finding> {
+    scan_text_with_policy_impl(content, file_path, lang, min_severity, None, false, false, None, true)
+}
+
+fn scan_text_with_policy_impl(
+    content: &str,
+    file_path: &str,
+    lang: &str,
+    min_severity: Severity,
+    allowed_lines: Option<&BTreeSet<usize>>,
+    allow_inline_ignores: bool,
+    allow_file_ignores: bool,
+    pre_ws_root: Option<&Path>,
+    no_fs: bool,
+) -> Vec<Finding> {
     if allow_file_ignores {
         for header_line in content.lines().take(8) {
             if (header_line.contains("kintsugi:") || header_line.contains("KINTSUGI:"))
@@ -2116,7 +2145,57 @@ pub fn scan_text_with_policy(
         }
     }
 
+    let mut lang_sev_mask = 0u64;
+    for (r_idx, rule) in BUILTIN_RULES.iter().enumerate() {
+        if rule.severity.ge(&min_severity) && rule.languages.contains(&lang) {
+            lang_sev_mask |= 1u64 << r_idx;
+        }
+    }
+    if lang_sev_mask == 0 {
+        return Vec::new();
+    }
+
+    let mut prefilter_mask = crate::kernels::builtin_rule_prefilter().candidate_mask_u64(content.as_bytes(), false);
+    if (lang_sev_mask & prefilter_mask & (1u64 << 32)) != 0 {
+        let file_pi_flags = crate::kernels::pi_keyword_prefilter().candidate_mask_u64(content.as_bytes(), false) as u16;
+        if !crate::kernels::pi_flags_can_trigger(file_pi_flags) {
+            prefilter_mask &= !(1u64 << 32);
+        }
+    }
+    let active_mask = lang_sev_mask & prefilter_mask;
+    if active_mask == 0 {
+        return Vec::new();
+    }
+
     let lines_vec: Vec<&str> = content.lines().collect();
+    let ks_s3_01_active = (active_mask & (1u64 << 32)) != 0;
+    let mut pi_flags_vec: Vec<u16> = if ks_s3_01_active {
+        lines_vec
+            .iter()
+            .map(|l| {
+                let t = l.trim();
+                if t.is_empty() || is_fixture_definition_line(t) {
+                    0
+                } else {
+                    crate::kernels::pi_line_flags(t)
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut ks_s3_01_hit = if ks_s3_01_active {
+        vec![false; lines_vec.len()]
+    } else {
+        Vec::new()
+    };
+
+    let mut ws_cache: Option<Option<PathBuf>> = if no_fs {
+        Some(None)
+    } else {
+        pre_ws_root.map(|p| Some(p.to_path_buf()))
+    };
+
     let mut findings = Vec::new();
     for (idx, line) in lines_vec.iter().enumerate() {
         let trimmed = line.trim();
@@ -2130,14 +2209,31 @@ pub fn scan_text_with_policy(
             }
         }
         let has_ignore = allow_inline_ignores && (line.contains("kintsugi:") || line.contains("KINTSUGI:"));
-        for rule in BUILTIN_RULES {
-            if !rule.severity.ge(&min_severity) || !rule.languages.contains(&lang) {
-                continue;
-            }
+        let is_comment = trimmed.starts_with('#') || trimmed.starts_with("//");
+
+        let mut m = active_mask;
+        while m != 0 {
+            let r_idx = m.trailing_zeros() as usize;
+            m &= m - 1;
+            let rule = &BUILTIN_RULES[r_idx];
             if has_ignore && line_ignores_rule(line, rule.id) {
                 continue;
             }
-            if check_line_against_rule_lang(rule.id, line, lang) {
+            let matched = if r_idx == 18 {
+                contains_bidi_control(line)
+            } else if r_idx == 32 {
+                let hit = crate::kernels::pi_flags_can_trigger(pi_flags_vec[idx])
+                    && contains_prompt_injection_text(trimmed);
+                if hit {
+                    ks_s3_01_hit[idx] = true;
+                }
+                hit
+            } else if is_comment && !matches!(r_idx, 8 | 25 | 29) {
+                false
+            } else {
+                check_line_against_rule_lang_with_ctx(rule.id, line, trimmed, lang, &mut ws_cache, no_fs)
+            };
+            if matched {
                 findings.push(Finding {
                     scar_id: rule.id.to_string(),
                     title: rule.title.to_string(),
@@ -2146,7 +2242,7 @@ pub fn scan_text_with_policy(
                     file_path: file_path.to_string(),
                     line: lineno,
                     column: 1,
-                    snippet: line.trim().to_string(),
+                    snippet: trimmed.to_string(),
                     fix_hint: rule.fix_hint.to_string(),
                 });
             }
@@ -2154,39 +2250,43 @@ pub fn scan_text_with_policy(
     }
 
     // Two-line sliding check for cross-line B19 natural-language prompt injection under KS-S3-01
-    if let Some(ks_pi) = BUILTIN_RULES.iter().find(|r| r.id == "KS-S3-01" && r.severity.ge(&min_severity) && r.languages.contains(&lang)) {
-        for idx in 0..lines_vec.len() {
+    if ks_s3_01_active {
+        let ks_pi = &BUILTIN_RULES[32];
+        for idx in 0..lines_vec.len().saturating_sub(1) {
             let lineno = idx + 1;
             if let Some(allowed) = allowed_lines {
                 if !allowed.contains(&lineno) {
                     continue;
                 }
             }
-            if findings.iter().any(|f| f.scar_id == "KS-S3-01" && f.line == lineno) {
+            if ks_s3_01_hit[idx] {
                 continue;
             }
-            if idx + 1 < lines_vec.len() {
-                let t0 = lines_vec[idx].trim();
-                let t1 = lines_vec[idx + 1].trim();
-                if is_fixture_definition_line(t0) || is_fixture_definition_line(t1) {
-                    continue;
-                }
-                let win = format!("{t0} {t1}");
-                if contains_prompt_injection_text(&win) && !(allow_inline_ignores && line_ignores_rule(lines_vec[idx], "KS-S3-01")) {
-                    findings.push(Finding {
-                        scar_id: ks_pi.id.to_string(),
-                        title: ks_pi.title.to_string(),
-                        severity: ks_pi.severity,
-                        category: ks_pi.category.to_string(),
-                        file_path: file_path.to_string(),
-                        line: lineno,
-                        column: 1,
-                        snippet: lines_vec[idx].trim().to_string(),
-                        fix_hint: ks_pi.fix_hint.to_string(),
-                    });
-                }
+            let comb = pi_flags_vec[idx] | pi_flags_vec[idx + 1];
+            if !crate::kernels::pi_flags_can_trigger(comb) {
+                continue;
+            }
+            let t0 = lines_vec[idx].trim();
+            let t1 = lines_vec[idx + 1].trim();
+            if is_fixture_definition_line(t0) || is_fixture_definition_line(t1) {
+                continue;
+            }
+            let win = format!("{t0} {t1}");
+            if contains_prompt_injection_text(&win) && !(allow_inline_ignores && line_ignores_rule(lines_vec[idx], "KS-S3-01")) {
+                findings.push(Finding {
+                    scar_id: ks_pi.id.to_string(),
+                    title: ks_pi.title.to_string(),
+                    severity: ks_pi.severity,
+                    category: ks_pi.category.to_string(),
+                    file_path: file_path.to_string(),
+                    line: lineno,
+                    column: 1,
+                    snippet: t0.to_string(),
+                    fix_hint: ks_pi.fix_hint.to_string(),
+                });
             }
         }
+        let _ = &mut pi_flags_vec;
     }
     findings
 }
@@ -2365,6 +2465,7 @@ pub fn scan_path_with_policy_sha(
 ) -> ScanSummary {
     let start = Instant::now();
     let trusted_files = load_trusted_policy_files_explicit_sha(target, explicit_policy, expected_sha256);
+    let scan_cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let mut files = Vec::new();
     collect_files(target, &mut files);
     let mut findings = Vec::new();
@@ -2378,9 +2479,23 @@ pub fn scan_path_with_policy_sha(
             continue;
         };
         scanned_files += 1;
-        let is_trusted = fs::canonicalize(&file).map(|c| trusted_files.contains(&c)).unwrap_or(false);
+        let is_trusted = if trusted_files.is_empty() {
+            false
+        } else {
+            fs::canonicalize(&file).map(|c| trusted_files.contains(&c)).unwrap_or(false)
+        };
         let display = file.to_string_lossy().to_string();
-        let mut f = scan_text_with_policy(&content, &display, lang, min_severity, None, is_trusted, is_trusted);
+        let mut f = scan_text_with_policy_impl(
+            &content,
+            &display,
+            lang,
+            min_severity,
+            None,
+            is_trusted,
+            is_trusted,
+            Some(&scan_cwd),
+            false,
+        );
         findings.append(&mut f);
     }
 
@@ -3942,35 +4057,1993 @@ pub fn render_swarm_plan_json(task_desc: &str) -> String {
     )
 }
 
+// ---------------------------------------------------------------------------
+// Canonical `RuleIR/1` JSON Parser, Hash Verifier, Bounded Regex & AST Evaluator
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum JsonValue {
+    Null,
+    Bool(bool),
+    Number(String),
+    Str(String),
+    Array(Vec<JsonValue>),
+    Object(BTreeMap<String, JsonValue>),
+}
+
+impl JsonValue {
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            JsonValue::Str(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn as_object(&self) -> Option<&BTreeMap<String, JsonValue>> {
+        match self {
+            JsonValue::Object(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&[JsonValue]> {
+        match self {
+            JsonValue::Array(a) => Some(a.as_slice()),
+            _ => None,
+        }
+    }
+
+    /// Canonical UTF-8 JSON matching Python `json.dumps(..., sort_keys=True, ensure_ascii=False, separators=(",", ":"))`.
+    pub fn to_canonical_json(&self) -> String {
+        let mut out = String::new();
+        self.write_canonical(&mut out);
+        out
+    }
+
+    fn write_canonical(&self, out: &mut String) {
+        match self {
+            JsonValue::Null => out.push_str("null"),
+            JsonValue::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+            JsonValue::Number(raw) => out.push_str(raw),
+            JsonValue::Str(s) => write_canonical_json_str(s, out),
+            JsonValue::Array(arr) => {
+                out.push('[');
+                for (i, item) in arr.iter().enumerate() {
+                    if i > 0 {
+                        out.push(',');
+                    }
+                    item.write_canonical(out);
+                }
+                out.push(']');
+            }
+            JsonValue::Object(map) => {
+                out.push('{');
+                for (i, (k, v)) in map.iter().enumerate() {
+                    if i > 0 {
+                        out.push(',');
+                    }
+                    write_canonical_json_str(k, out);
+                    out.push(':');
+                    v.write_canonical(out);
+                }
+                out.push('}');
+            }
+        }
+    }
+}
+
+fn write_canonical_json_str(s: &str, out: &mut String) {
+    out.push('"');
+    for ch in s.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\u{0008}' => out.push_str("\\b"),
+            '\u{000C}' => out.push_str("\\f"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+}
+
+struct JsonParser<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> JsonParser<'a> {
+    fn new(raw: &'a str) -> Self {
+        Self {
+            bytes: raw.as_bytes(),
+            pos: 0,
+        }
+    }
+
+    fn skip_ws(&mut self) {
+        while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_whitespace() {
+            self.pos += 1;
+        }
+    }
+
+    fn parse_value(&mut self, depth: usize) -> Result<JsonValue, String> {
+        if depth > 64 {
+            return Err("JSON nesting depth exceeded".to_string());
+        }
+        self.skip_ws();
+        if self.pos >= self.bytes.len() {
+            return Err("Unexpected end of JSON".to_string());
+        }
+        match self.bytes[self.pos] {
+            b'{' => self.parse_object(depth + 1),
+            b'[' => self.parse_array(depth + 1),
+            b'"' => self.parse_string().map(JsonValue::Str),
+            b't' => {
+                if self.bytes[self.pos..].starts_with(b"true") {
+                    self.pos += 4;
+                    Ok(JsonValue::Bool(true))
+                } else {
+                    Err("Invalid JSON token".to_string())
+                }
+            }
+            b'f' => {
+                if self.bytes[self.pos..].starts_with(b"false") {
+                    self.pos += 5;
+                    Ok(JsonValue::Bool(false))
+                } else {
+                    Err("Invalid JSON token".to_string())
+                }
+            }
+            b'n' => {
+                if self.bytes[self.pos..].starts_with(b"null") {
+                    self.pos += 4;
+                    Ok(JsonValue::Null)
+                } else {
+                    Err("Invalid JSON token".to_string())
+                }
+            }
+            b'-' | b'0'..=b'9' => self.parse_number(),
+            other => Err(format!("Unexpected JSON byte '{}'", other as char)),
+        }
+    }
+
+    fn parse_string(&mut self) -> Result<String, String> {
+        if self.bytes.get(self.pos) != Some(&b'"') {
+            return Err("Expected '\"'".to_string());
+        }
+        self.pos += 1;
+        let mut out = String::new();
+        while self.pos < self.bytes.len() {
+            let b = self.bytes[self.pos];
+            if b == b'"' {
+                self.pos += 1;
+                return Ok(out);
+            }
+            if b == b'\\' {
+                self.pos += 1;
+                if self.pos >= self.bytes.len() {
+                    return Err("Unterminated escape".to_string());
+                }
+                match self.bytes[self.pos] {
+                    b'"' => out.push('"'),
+                    b'\\' => out.push('\\'),
+                    b'/' => out.push('/'),
+                    b'b' => out.push('\u{0008}'),
+                    b'f' => out.push('\u{000C}'),
+                    b'n' => out.push('\n'),
+                    b'r' => out.push('\r'),
+                    b't' => out.push('\t'),
+                    b'u' => {
+                        if self.pos + 4 >= self.bytes.len() {
+                            return Err("Incomplete unicode escape".to_string());
+                        }
+                        let hex = std::str::from_utf8(&self.bytes[self.pos + 1..self.pos + 5])
+                            .map_err(|_| "Invalid UTF-8 in unicode escape".to_string())?;
+                        let code = u16::from_str_radix(hex, 16)
+                            .map_err(|_| "Invalid hex in unicode escape".to_string())?;
+                        self.pos += 4;
+                        if (0xD800..=0xDBFF).contains(&code) {
+                            if self.pos + 6 < self.bytes.len()
+                                && self.bytes[self.pos + 1] == b'\\'
+                                && self.bytes[self.pos + 2] == b'u'
+                            {
+                                let lo_hex = std::str::from_utf8(&self.bytes[self.pos + 3..self.pos + 7])
+                                    .map_err(|_| "Invalid surrogate escape".to_string())?;
+                                let lo = u16::from_str_radix(lo_hex, 16)
+                                    .map_err(|_| "Invalid surrogate hex".to_string())?;
+                                if (0xDC00..=0xDFFF).contains(&lo) {
+                                    let cp = 0x10000
+                                        + ((((code as u32) - 0xD800) << 10) | ((lo as u32) - 0xDC00));
+                                    if let Some(ch) = char::from_u32(cp) {
+                                        out.push(ch);
+                                    }
+                                    self.pos += 6;
+                                }
+                            }
+                        } else if let Some(ch) = char::from_u32(code as u32) {
+                            out.push(ch);
+                        }
+                    }
+                    other => return Err(format!("Invalid JSON escape '\\{}'", other as char)),
+                }
+                self.pos += 1;
+            } else if b < 0x20 {
+                return Err("Unescaped control char in JSON string".to_string());
+            } else {
+                let s = std::str::from_utf8(&self.bytes[self.pos..])
+                    .map_err(|_| "Invalid UTF-8 in JSON string".to_string())?;
+                let ch = s.chars().next().ok_or_else(|| "Empty tail".to_string())?;
+                out.push(ch);
+                self.pos += ch.len_utf8();
+            }
+        }
+        Err("Unterminated JSON string".to_string())
+    }
+
+    fn parse_number(&mut self) -> Result<JsonValue, String> {
+        let start = self.pos;
+        if self.bytes.get(self.pos) == Some(&b'-') {
+            self.pos += 1;
+        }
+        if self.pos >= self.bytes.len() {
+            return Err("Invalid JSON number".to_string());
+        }
+        if self.bytes[self.pos] == b'0' {
+            self.pos += 1;
+        } else if self.bytes[self.pos].is_ascii_digit() {
+            while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+                self.pos += 1;
+            }
+        } else {
+            return Err("Invalid JSON number".to_string());
+        }
+        if self.bytes.get(self.pos) == Some(&b'.') {
+            self.pos += 1;
+            if self.pos >= self.bytes.len() || !self.bytes[self.pos].is_ascii_digit() {
+                return Err("Invalid JSON fraction".to_string());
+            }
+            while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+                self.pos += 1;
+            }
+        }
+        if matches!(self.bytes.get(self.pos), Some(b'e' | b'E')) {
+            self.pos += 1;
+            if matches!(self.bytes.get(self.pos), Some(b'+' | b'-')) {
+                self.pos += 1;
+            }
+            if self.pos >= self.bytes.len() || !self.bytes[self.pos].is_ascii_digit() {
+                return Err("Invalid JSON exponent".to_string());
+            }
+            while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+                self.pos += 1;
+            }
+        }
+        let lex = std::str::from_utf8(&self.bytes[start..self.pos])
+            .map_err(|_| "Invalid UTF-8 in number".to_string())?;
+        Ok(JsonValue::Number(lex.to_string()))
+    }
+
+    fn parse_array(&mut self, depth: usize) -> Result<JsonValue, String> {
+        self.pos += 1; // '['
+        let mut items = Vec::new();
+        self.skip_ws();
+        if self.bytes.get(self.pos) == Some(&b']') {
+            self.pos += 1;
+            return Ok(JsonValue::Array(items));
+        }
+        loop {
+            items.push(self.parse_value(depth)?);
+            self.skip_ws();
+            match self.bytes.get(self.pos) {
+                Some(&b',') => self.pos += 1,
+                Some(&b']') => {
+                    self.pos += 1;
+                    return Ok(JsonValue::Array(items));
+                }
+                _ => return Err("Expected ',' or ']' in JSON array".to_string()),
+            }
+        }
+    }
+
+    fn parse_object(&mut self, depth: usize) -> Result<JsonValue, String> {
+        self.pos += 1; // '{'
+        let mut map = BTreeMap::new();
+        self.skip_ws();
+        if self.bytes.get(self.pos) == Some(&b'}') {
+            self.pos += 1;
+            return Ok(JsonValue::Object(map));
+        }
+        loop {
+            self.skip_ws();
+            let key = self.parse_string()?;
+            self.skip_ws();
+            if self.bytes.get(self.pos) != Some(&b':') {
+                return Err("Expected ':' in JSON object".to_string());
+            }
+            self.pos += 1;
+            let val = self.parse_value(depth)?;
+            map.insert(key, val);
+            self.skip_ws();
+            match self.bytes.get(self.pos) {
+                Some(&b',') => self.pos += 1,
+                Some(&b'}') => {
+                    self.pos += 1;
+                    return Ok(JsonValue::Object(map));
+                }
+                _ => return Err("Expected ',' or '}' in JSON object".to_string()),
+            }
+        }
+    }
+}
+
+pub fn parse_json_value(raw: &str) -> Result<JsonValue, String> {
+    let mut parser = JsonParser::new(raw);
+    let val = parser.parse_value(0)?;
+    parser.skip_ws();
+    if parser.pos != parser.bytes.len() {
+        return Err("Trailing characters after JSON value".to_string());
+    }
+    Ok(val)
+}
+
+/// Compute canonical `RuleIR/1` SHA-256 (`sha256:...`) matching Python `RuleIR.compute_rule_hash()`.
+pub fn compute_rule_ir_canonical_hash(obj: &BTreeMap<String, JsonValue>) -> Result<String, String> {
+    let mut langs: Vec<String> = match obj.get("language") {
+        Some(JsonValue::Array(arr)) if !arr.is_empty() => {
+            let mut v = Vec::with_capacity(arr.len());
+            for item in arr {
+                let s = item
+                    .as_str()
+                    .ok_or_else(|| "RuleIR language entries must be strings".to_string())?;
+                v.push(s.to_string());
+            }
+            v
+        }
+        Some(JsonValue::Null) | Some(JsonValue::Array(_)) | None => vec!["python".to_string()],
+        Some(_) => return Err("RuleIR language must be a JSON array".to_string()),
+    };
+    langs.sort();
+
+    let severity = match obj.get("severity") {
+        Some(JsonValue::Str(s)) => s.clone(),
+        Some(JsonValue::Null) | None => "HIGH".to_string(),
+        Some(_) => return Err("RuleIR severity must be a string".to_string()),
+    };
+
+    let predicate_kind = obj
+        .get("predicate_kind")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Missing RuleIR predicate_kind".to_string())?
+        .to_string();
+
+    let match_map = match obj.get("match") {
+        Some(JsonValue::Object(m)) => m.clone(),
+        Some(JsonValue::Null) | None => BTreeMap::new(),
+        Some(_) => return Err("RuleIR match must be a JSON object".to_string()),
+    };
+
+    let cond_map = match obj.get("conditions") {
+        Some(JsonValue::Object(m)) => m.clone(),
+        Some(JsonValue::Null) | None => BTreeMap::new(),
+        Some(_) => return Err("RuleIR conditions must be a JSON object".to_string()),
+    };
+
+    let resp_map = match obj.get("response") {
+        Some(JsonValue::Object(m)) => m.clone(),
+        Some(JsonValue::Null) | None => BTreeMap::new(),
+        Some(_) => return Err("RuleIR response must be a JSON object".to_string()),
+    };
+
+    let mut core = BTreeMap::new();
+    core.insert("conditions".to_string(), JsonValue::Object(cond_map));
+    core.insert(
+        "language".to_string(),
+        JsonValue::Array(langs.into_iter().map(JsonValue::Str).collect()),
+    );
+    core.insert("match".to_string(), JsonValue::Object(match_map));
+    core.insert("predicate_kind".to_string(), JsonValue::Str(predicate_kind));
+    core.insert("response".to_string(), JsonValue::Object(resp_map));
+    core.insert("severity".to_string(), JsonValue::Str(severity));
+
+    let payload = JsonValue::Object(core).to_canonical_json();
+    Ok(format!("sha256:{}", sha256_hex(payload.as_bytes())))
+}
+
+/// Bounded pure-Rust regex compiler/matcher matching `re.MULTILINE` semantics for `RuleIR/1` `bounded_regex`.
+#[derive(Debug, Clone)]
+enum RegexNode {
+    Seq(Vec<RegexNode>),
+    Alt(Vec<RegexNode>),
+    Atom(RegexAtom),
+    Quant {
+        inner: Box<RegexNode>,
+        min: usize,
+        max: Option<usize>,
+        greedy: bool,
+    },
+    Group(Box<RegexNode>),
+    Lookahead {
+        inner: Box<RegexNode>,
+        positive: bool,
+    },
+    StartLine,
+    EndLine,
+    WordBoundary(bool), // true = \b, false = \B
+}
+
+#[derive(Debug, Clone)]
+enum RegexAtom {
+    Lit(char),
+    AnyNonNewline,
+    Class {
+        negated: bool,
+        ranges: Vec<(char, char)>,
+        shorthands: Vec<ShorthandClass>,
+    },
+    Shorthand(ShorthandClass),
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ShorthandClass {
+    Space,
+    NonSpace,
+    Digit,
+    NonDigit,
+    Word,
+    NonWord,
+}
+
+#[inline]
+fn is_py_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+impl ShorthandClass {
+    fn matches(self, c: char) -> bool {
+        match self {
+            ShorthandClass::Space => c.is_whitespace(),
+            ShorthandClass::NonSpace => !c.is_whitespace(),
+            ShorthandClass::Digit => c.is_ascii_digit(),
+            ShorthandClass::NonDigit => !c.is_ascii_digit(),
+            ShorthandClass::Word => is_py_word_char(c),
+            ShorthandClass::NonWord => !is_py_word_char(c),
+        }
+    }
+}
+
+impl RegexAtom {
+    fn matches(&self, c: char) -> bool {
+        match self {
+            RegexAtom::Lit(ch) => c == *ch,
+            RegexAtom::AnyNonNewline => c != '\n',
+            RegexAtom::Shorthand(sc) => sc.matches(c),
+            RegexAtom::Class {
+                negated,
+                ranges,
+                shorthands,
+            } => {
+                let mut hit = ranges.iter().any(|&(lo, hi)| c >= lo && c <= hi);
+                if !hit {
+                    hit = shorthands.iter().any(|sc| sc.matches(c));
+                }
+                if *negated {
+                    !hit
+                } else {
+                    hit
+                }
+            }
+        }
+    }
+}
+
+struct RegexCompiler {
+    chars: Vec<char>,
+    pos: usize,
+}
+
+impl RegexCompiler {
+    fn compile(pattern: &str) -> Result<RegexNode, String> {
+        let mut comp = Self {
+            chars: pattern.chars().collect(),
+            pos: 0,
+        };
+        let node = comp.parse_alt()?;
+        if comp.pos != comp.chars.len() {
+            return Err(format!("Unexpected regex char at position {}", comp.pos));
+        }
+        Ok(node)
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.pos).copied()
+    }
+
+    fn next(&mut self) -> Option<char> {
+        let ch = self.chars.get(self.pos).copied()?;
+        self.pos += 1;
+        Some(ch)
+    }
+
+    fn parse_alt(&mut self) -> Result<RegexNode, String> {
+        let mut branches = vec![self.parse_seq()?];
+        while self.peek() == Some('|') {
+            self.pos += 1;
+            branches.push(self.parse_seq()?);
+        }
+        if branches.len() == 1 {
+            Ok(branches.remove(0))
+        } else {
+            Ok(RegexNode::Alt(branches))
+        }
+    }
+
+    fn parse_seq(&mut self) -> Result<RegexNode, String> {
+        let mut items = Vec::new();
+        while let Some(ch) = self.peek() {
+            if ch == ')' || ch == '|' {
+                break;
+            }
+            let atom = self.parse_piece()?;
+            let item = self.parse_quantifier(atom)?;
+            items.push(item);
+        }
+        if items.len() == 1 {
+            Ok(items.remove(0))
+        } else {
+            Ok(RegexNode::Seq(items))
+        }
+    }
+
+    fn parse_piece(&mut self) -> Result<RegexNode, String> {
+        let ch = self.next().ok_or_else(|| "Unexpected end of regex".to_string())?;
+        match ch {
+            '^' => Ok(RegexNode::StartLine),
+            '$' => Ok(RegexNode::EndLine),
+            '.' => Ok(RegexNode::Atom(RegexAtom::AnyNonNewline)),
+            '[' => self.parse_class(),
+            '(' => self.parse_group(),
+            '\\' => self.parse_escape_node(),
+            '*' | '+' | '?' => Err(format!("Nothing to repeat before '{ch}'")),
+            c => Ok(RegexNode::Atom(RegexAtom::Lit(c))),
+        }
+    }
+
+    fn parse_escape_node(&mut self) -> Result<RegexNode, String> {
+        let esc = self.next().ok_or_else(|| "Trailing backslash in regex".to_string())?;
+        match esc {
+            'b' => Ok(RegexNode::WordBoundary(true)),
+            'B' => Ok(RegexNode::WordBoundary(false)),
+            's' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::Space))),
+            'S' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::NonSpace))),
+            'd' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::Digit))),
+            'D' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::NonDigit))),
+            'w' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::Word))),
+            'W' => Ok(RegexNode::Atom(RegexAtom::Shorthand(ShorthandClass::NonWord))),
+            'n' => Ok(RegexNode::Atom(RegexAtom::Lit('\n'))),
+            'r' => Ok(RegexNode::Atom(RegexAtom::Lit('\r'))),
+            't' => Ok(RegexNode::Atom(RegexAtom::Lit('\t'))),
+            other => Ok(RegexNode::Atom(RegexAtom::Lit(other))),
+        }
+    }
+
+    fn parse_class(&mut self) -> Result<RegexNode, String> {
+        let mut negated = false;
+        if self.peek() == Some('^') {
+            negated = true;
+            self.pos += 1;
+        }
+        let mut ranges: Vec<(char, char)> = Vec::new();
+        let mut shorthands: Vec<ShorthandClass> = Vec::new();
+        let mut first = true;
+        let mut last_single: Option<char> = None;
+
+        while let Some(ch) = self.next() {
+            if ch == ']' && !first {
+                if let Some(prev) = last_single {
+                    ranges.push((prev, prev));
+                }
+                return Ok(RegexNode::Atom(RegexAtom::Class {
+                    negated,
+                    ranges,
+                    shorthands,
+                }));
+            }
+            first = false;
+            if ch == '-' && last_single.is_some() && self.peek().is_some_and(|n| n != ']') {
+                let start_ch = last_single.take().unwrap();
+                let end_ch = match self.next().unwrap() {
+                    '\\' => self.parse_class_escape_char()?,
+                    c => c,
+                };
+                if start_ch > end_ch {
+                    return Err("Bad character range in regex".to_string());
+                }
+                ranges.push((start_ch, end_ch));
+                continue;
+            }
+            if let Some(prev) = last_single.take() {
+                ranges.push((prev, prev));
+            }
+            if ch == '\\' {
+                let esc = self.next().ok_or_else(|| "Trailing backslash in character class".to_string())?;
+                match esc {
+                    's' => shorthands.push(ShorthandClass::Space),
+                    'S' => shorthands.push(ShorthandClass::NonSpace),
+                    'd' => shorthands.push(ShorthandClass::Digit),
+                    'D' => shorthands.push(ShorthandClass::NonDigit),
+                    'w' => shorthands.push(ShorthandClass::Word),
+                    'W' => shorthands.push(ShorthandClass::NonWord),
+                    'n' => last_single = Some('\n'),
+                    'r' => last_single = Some('\r'),
+                    't' => last_single = Some('\t'),
+                    other => last_single = Some(other),
+                }
+            } else {
+                last_single = Some(ch);
+            }
+        }
+        Err("Unterminated character class in regex".to_string())
+    }
+
+    fn parse_class_escape_char(&mut self) -> Result<char, String> {
+        let esc = self.next().ok_or_else(|| "Trailing backslash".to_string())?;
+        Ok(match esc {
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            other => other,
+        })
+    }
+
+    fn parse_group(&mut self) -> Result<RegexNode, String> {
+        let node = if self.chars.get(self.pos) == Some(&'?') {
+            self.pos += 1;
+            match self.next() {
+                Some(':') => {
+                    let inner = self.parse_alt()?;
+                    RegexNode::Group(Box::new(inner))
+                }
+                Some('=') => {
+                    let inner = self.parse_alt()?;
+                    RegexNode::Lookahead {
+                        inner: Box::new(inner),
+                        positive: true,
+                    }
+                }
+                Some('!') => {
+                    let inner = self.parse_alt()?;
+                    RegexNode::Lookahead {
+                        inner: Box::new(inner),
+                        positive: false,
+                    }
+                }
+                other => return Err(format!("Unsupported regex group syntax '(?{other:?}'")),
+            }
+        } else {
+            let inner = self.parse_alt()?;
+            RegexNode::Group(Box::new(inner))
+        };
+        if self.next() != Some(')') {
+            return Err("Unbalanced '(' in regex".to_string());
+        }
+        Ok(node)
+    }
+
+    fn parse_quantifier(&mut self, node: RegexNode) -> Result<RegexNode, String> {
+        let (min, max) = match self.peek() {
+            Some('*') => {
+                self.pos += 1;
+                (0, None)
+            }
+            Some('+') => {
+                self.pos += 1;
+                (1, None)
+            }
+            Some('?') => {
+                self.pos += 1;
+                (0, Some(1))
+            }
+            Some('{') => {
+                let save = self.pos;
+                self.pos += 1;
+                let mut num1 = String::new();
+                while let Some(c) = self.peek() {
+                    if c.is_ascii_digit() {
+                        num1.push(c);
+                        self.pos += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if num1.is_empty() {
+                    self.pos = save;
+                    return Ok(node);
+                }
+                let lo = num1.parse::<usize>().map_err(|_| "Bad repeat count".to_string())?;
+                match self.peek() {
+                    Some('}') => {
+                        self.pos += 1;
+                        (lo, Some(lo))
+                    }
+                    Some(',') => {
+                        self.pos += 1;
+                        if self.peek() == Some('}') {
+                            self.pos += 1;
+                            (lo, None)
+                        } else {
+                            let mut num2 = String::new();
+                            while let Some(c) = self.peek() {
+                                if c.is_ascii_digit() {
+                                    num2.push(c);
+                                    self.pos += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            if self.next() != Some('}') || num2.is_empty() {
+                                self.pos = save;
+                                return Ok(node);
+                            }
+                            let hi = num2.parse::<usize>().map_err(|_| "Bad repeat max".to_string())?;
+                            if hi < lo {
+                                return Err("min repeat > max repeat".to_string());
+                            }
+                            (lo, Some(hi))
+                        }
+                    }
+                    _ => {
+                        self.pos = save;
+                        return Ok(node);
+                    }
+                }
+            }
+            _ => return Ok(node),
+        };
+        let greedy = if self.peek() == Some('?') {
+            self.pos += 1;
+            false
+        } else {
+            true
+        };
+        Ok(RegexNode::Quant {
+            inner: Box::new(node),
+            min,
+            max,
+            greedy,
+        })
+    }
+}
+
+pub struct BoundedRegex {
+    root: RegexNode,
+}
+
+impl BoundedRegex {
+    pub fn compile(pattern: &str) -> Result<Self, String> {
+        if pattern.is_empty() || pattern.len() > 350 {
+            return Err("Invalid bounded_regex pattern length".to_string());
+        }
+        Ok(Self {
+            root: RegexCompiler::compile(pattern)?,
+        })
+    }
+
+    pub fn find_all(&self, text: &str) -> Vec<(usize, String)> {
+        use std::cell::Cell;
+        const MAX_STEPS: usize = 250_000;
+        let chars: Vec<char> = text.chars().collect();
+        let mut line_at = Vec::with_capacity(chars.len() + 1);
+        let mut ln = 1usize;
+        line_at.push(ln);
+        for &c in &chars {
+            if c == '\n' {
+                ln += 1;
+            }
+            line_at.push(ln);
+        }
+
+        let mut matches = Vec::new();
+        let mut pos = 0usize;
+        while pos <= chars.len() {
+            let steps = Cell::new(0usize);
+            let mut matched_end: Option<usize> = None;
+            Self::match_node(&self.root, &chars, pos, &steps, MAX_STEPS, &mut |end| {
+                matched_end = Some(end);
+                true
+            });
+            if let Some(end) = matched_end {
+                let snip: String = chars[pos..end].iter().take(120).collect();
+                matches.push((line_at[pos], snip));
+                pos = if end > pos { end } else { pos + 1 };
+            } else {
+                pos += 1;
+            }
+        }
+        matches
+    }
+
+    fn match_node(
+        node: &RegexNode,
+        chars: &[char],
+        pos: usize,
+        steps: &std::cell::Cell<usize>,
+        max_steps: usize,
+        cont: &mut dyn FnMut(usize) -> bool,
+    ) -> bool {
+        let cur_steps = steps.get();
+        if cur_steps >= max_steps {
+            return false;
+        }
+        steps.set(cur_steps + 1);
+        match node {
+            RegexNode::Atom(atom) => {
+                if pos < chars.len() && atom.matches(chars[pos]) {
+                    cont(pos + 1)
+                } else {
+                    false
+                }
+            }
+            RegexNode::StartLine => {
+                if pos == 0 || chars[pos - 1] == '\n' {
+                    cont(pos)
+                } else {
+                    false
+                }
+            }
+            RegexNode::EndLine => {
+                if pos == chars.len() || chars.get(pos) == Some(&'\n') {
+                    cont(pos)
+                } else {
+                    false
+                }
+            }
+            RegexNode::WordBoundary(want_boundary) => {
+                let left = pos > 0 && is_py_word_char(chars[pos - 1]);
+                let right = pos < chars.len() && is_py_word_char(chars[pos]);
+                if (left != right) == *want_boundary {
+                    cont(pos)
+                } else {
+                    false
+                }
+            }
+            RegexNode::Group(inner) => Self::match_node(inner, chars, pos, steps, max_steps, cont),
+            RegexNode::Lookahead { inner, positive } => {
+                let mut inner_hit = false;
+                Self::match_node(inner, chars, pos, steps, max_steps, &mut |_| {
+                    inner_hit = true;
+                    true
+                });
+                if inner_hit == *positive {
+                    cont(pos)
+                } else {
+                    false
+                }
+            }
+            RegexNode::Alt(branches) => {
+                for br in branches {
+                    if Self::match_node(br, chars, pos, steps, max_steps, cont) {
+                        return true;
+                    }
+                }
+                false
+            }
+            RegexNode::Seq(items) => Self::match_seq(items, 0, chars, pos, steps, max_steps, cont),
+            RegexNode::Quant {
+                inner,
+                min,
+                max,
+                greedy,
+            } => Self::match_quant(inner, *min, *max, *greedy, 0, chars, pos, steps, max_steps, cont),
+        }
+    }
+
+    fn match_seq(
+        items: &[RegexNode],
+        idx: usize,
+        chars: &[char],
+        pos: usize,
+        steps: &std::cell::Cell<usize>,
+        max_steps: usize,
+        cont: &mut dyn FnMut(usize) -> bool,
+    ) -> bool {
+        if idx == items.len() {
+            return cont(pos);
+        }
+        Self::match_node(&items[idx], chars, pos, steps, max_steps, &mut |next_pos| {
+            Self::match_seq(items, idx + 1, chars, next_pos, steps, max_steps, cont)
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn match_quant(
+        inner: &RegexNode,
+        min: usize,
+        max: Option<usize>,
+        greedy: bool,
+        count: usize,
+        chars: &[char],
+        pos: usize,
+        steps: &std::cell::Cell<usize>,
+        max_steps: usize,
+        cont: &mut dyn FnMut(usize) -> bool,
+    ) -> bool {
+        if steps.get() >= max_steps {
+            return false;
+        }
+        if count < min {
+            return Self::match_node(inner, chars, pos, steps, max_steps, &mut |next_pos| {
+                if next_pos == pos && min == 0 {
+                    return false;
+                }
+                Self::match_quant(inner, min, max, greedy, count + 1, chars, next_pos, steps, max_steps, cont)
+            });
+        }
+        if max.is_some_and(|m| count >= m) {
+            return cont(pos);
+        }
+        if greedy {
+            let matched = Self::match_node(inner, chars, pos, steps, max_steps, &mut |next_pos| {
+                if next_pos == pos {
+                    return false;
+                }
+                Self::match_quant(
+                    inner,
+                    min,
+                    max,
+                    greedy,
+                    count + 1,
+                    chars,
+                    next_pos,
+                    steps,
+                    max_steps,
+                    cont,
+                )
+            });
+            if matched {
+                return true;
+            }
+            cont(pos)
+        } else {
+            if cont(pos) {
+                return true;
+            }
+            Self::match_node(inner, chars, pos, steps, max_steps, &mut |next_pos| {
+                if next_pos == pos {
+                    return false;
+                }
+                Self::match_quant(inner, min, max, greedy, count + 1, chars, next_pos, steps, max_steps, cont)
+            })
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum PyTokenKind {
+    Ident(String),
+    Str(String),
+    Int(i64),
+    Float(f64),
+    LParen,
+    RParen,
+    LBracket,
+    RBracket,
+    LBrace,
+    RBrace,
+    Comma,
+    Dot,
+    Colon,
+    Eq,
+    EqEq,
+    NotEq,
+    Semi,
+    Newline,
+    Other(char),
+}
+
+#[derive(Debug, Clone)]
+struct PyToken {
+    kind: PyTokenKind,
+    line: usize,
+}
+
+fn tokenize_python_subset(code: &str) -> Result<Vec<PyToken>, ()> {
+    let chars: Vec<char> = code.chars().collect();
+    let mut tokens = Vec::new();
+    let mut i = 0usize;
+    let mut line = 1usize;
+    let mut bracket_depth = 0usize;
+
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == ' ' || ch == '\t' || ch == '\r' {
+            i += 1;
+            continue;
+        }
+        if ch == '\\' && i + 1 < chars.len() && chars[i + 1] == '\n' {
+            line += 1;
+            i += 2;
+            continue;
+        }
+        if ch == '\n' {
+            if bracket_depth == 0 {
+                tokens.push(PyToken {
+                    kind: PyTokenKind::Newline,
+                    line,
+                });
+            }
+            line += 1;
+            i += 1;
+            continue;
+        }
+        if ch == '#' {
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+            continue;
+        }
+
+        // Check string literal (optionally preceded by r/R/f/F/b/B/u/U 1-2 char prefix)
+        let mut str_quote_idx: Option<usize> = None;
+        let mut is_raw = false;
+        if ch == '\'' || ch == '"' {
+            str_quote_idx = Some(i);
+        } else if matches!(ch, 'r' | 'R' | 'f' | 'F' | 'b' | 'B' | 'u' | 'U') {
+            if i + 1 < chars.len() && (chars[i + 1] == '\'' || chars[i + 1] == '"') {
+                is_raw = matches!(ch, 'r' | 'R');
+                str_quote_idx = Some(i + 1);
+            } else if i + 2 < chars.len()
+                && matches!(chars[i + 1], 'r' | 'R' | 'f' | 'F' | 'b' | 'B')
+                && (chars[i + 2] == '\'' || chars[i + 2] == '"')
+            {
+                is_raw = matches!(ch, 'r' | 'R') || matches!(chars[i + 1], 'r' | 'R');
+                str_quote_idx = Some(i + 2);
+            }
+        }
+        if let Some(q_idx) = str_quote_idx {
+            let quote = chars[q_idx];
+            let triple = q_idx + 2 < chars.len() && chars[q_idx + 1] == quote && chars[q_idx + 2] == quote;
+            let start_ln = line;
+            let mut p = q_idx + if triple { 3 } else { 1 };
+            let mut s = String::new();
+            let mut closed = false;
+            while p < chars.len() {
+                let c = chars[p];
+                if c == '\n' {
+                    if !triple {
+                        return Err(());
+                    }
+                    line += 1;
+                }
+                if c == '\\' && !is_raw && p + 1 < chars.len() {
+                    let nxt = chars[p + 1];
+                    match nxt {
+                        'n' => s.push('\n'),
+                        'r' => s.push('\r'),
+                        't' => s.push('\t'),
+                        '\\' => s.push('\\'),
+                        '\'' => s.push('\''),
+                        '"' => s.push('"'),
+                        '\n' => {
+                            line += 1;
+                        }
+                        other => {
+                            s.push('\\');
+                            s.push(other);
+                        }
+                    }
+                    p += 2;
+                    continue;
+                }
+                if c == '\\' && is_raw && p + 1 < chars.len() {
+                    s.push(c);
+                    s.push(chars[p + 1]);
+                    if chars[p + 1] == '\n' {
+                        line += 1;
+                    }
+                    p += 2;
+                    continue;
+                }
+                if triple {
+                    if p + 2 < chars.len() && chars[p] == quote && chars[p + 1] == quote && chars[p + 2] == quote {
+                        p += 3;
+                        closed = true;
+                        break;
+                    }
+                } else if c == quote {
+                    p += 1;
+                    closed = true;
+                    break;
+                }
+                s.push(c);
+                p += 1;
+            }
+            if !closed {
+                return Err(());
+            }
+            tokens.push(PyToken {
+                kind: PyTokenKind::Str(s),
+                line: start_ln,
+            });
+            i = p;
+            continue;
+        }
+
+        if ch.is_ascii_alphabetic() || ch == '_' {
+            let start = i;
+            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
+                i += 1;
+            }
+            let ident: String = chars[start..i].iter().collect();
+            tokens.push(PyToken {
+                kind: PyTokenKind::Ident(ident),
+                line,
+            });
+            continue;
+        }
+
+        if ch.is_ascii_digit() {
+            let start = i;
+            let mut is_float = false;
+            while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '_') {
+                i += 1;
+            }
+            if i < chars.len() && chars[i] == '.' && chars.get(i + 1).is_some_and(|c| c.is_ascii_digit()) {
+                is_float = true;
+                i += 1;
+                while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '_') {
+                    i += 1;
+                }
+            }
+            let raw_num: String = chars[start..i].iter().filter(|&&c| c != '_').collect();
+            if is_float {
+                let v = raw_num.parse::<f64>().map_err(|_| ())?;
+                tokens.push(PyToken {
+                    kind: PyTokenKind::Float(v),
+                    line,
+                });
+            } else {
+                let v = raw_num.parse::<i64>().map_err(|_| ())?;
+                tokens.push(PyToken {
+                    kind: PyTokenKind::Int(v),
+                    line,
+                });
+            }
+            continue;
+        }
+
+        match ch {
+            '(' => {
+                bracket_depth += 1;
+                tokens.push(PyToken { kind: PyTokenKind::LParen, line });
+                i += 1;
+            }
+            ')' => {
+                if bracket_depth == 0 {
+                    return Err(());
+                }
+                bracket_depth -= 1;
+                tokens.push(PyToken { kind: PyTokenKind::RParen, line });
+                i += 1;
+            }
+            '[' => {
+                bracket_depth += 1;
+                tokens.push(PyToken { kind: PyTokenKind::LBracket, line });
+                i += 1;
+            }
+            ']' => {
+                if bracket_depth == 0 {
+                    return Err(());
+                }
+                bracket_depth -= 1;
+                tokens.push(PyToken { kind: PyTokenKind::RBracket, line });
+                i += 1;
+            }
+            '{' => {
+                bracket_depth += 1;
+                tokens.push(PyToken { kind: PyTokenKind::LBrace, line });
+                i += 1;
+            }
+            '}' => {
+                if bracket_depth == 0 {
+                    return Err(());
+                }
+                bracket_depth -= 1;
+                tokens.push(PyToken { kind: PyTokenKind::RBrace, line });
+                i += 1;
+            }
+            ',' => {
+                tokens.push(PyToken { kind: PyTokenKind::Comma, line });
+                i += 1;
+            }
+            '.' => {
+                tokens.push(PyToken { kind: PyTokenKind::Dot, line });
+                i += 1;
+            }
+            ':' => {
+                tokens.push(PyToken { kind: PyTokenKind::Colon, line });
+                i += 1;
+            }
+            ';' => {
+                tokens.push(PyToken { kind: PyTokenKind::Semi, line });
+                i += 1;
+            }
+            '=' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    tokens.push(PyToken { kind: PyTokenKind::EqEq, line });
+                    i += 2;
+                } else {
+                    tokens.push(PyToken { kind: PyTokenKind::Eq, line });
+                    i += 1;
+                }
+            }
+            '!' if i + 1 < chars.len() && chars[i + 1] == '=' => {
+                tokens.push(PyToken { kind: PyTokenKind::NotEq, line });
+                i += 2;
+            }
+            other => {
+                tokens.push(PyToken { kind: PyTokenKind::Other(other), line });
+                i += 1;
+            }
+        }
+    }
+    if bracket_depth != 0 {
+        return Err(());
+    }
+    Ok(tokens)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum PyConstVal {
+    None,
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(String),
+}
+
+impl PyConstVal {
+    fn truthy(&self) -> bool {
+        match self {
+            PyConstVal::None => false,
+            PyConstVal::Bool(b) => *b,
+            PyConstVal::Int(n) => *n != 0,
+            PyConstVal::Float(f) => *f != 0.0,
+            PyConstVal::Str(s) => !s.is_empty(),
+        }
+    }
+
+    fn py_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (PyConstVal::None, PyConstVal::None) => true,
+            (PyConstVal::Bool(a), PyConstVal::Bool(b)) => a == b,
+            (PyConstVal::Bool(a), PyConstVal::Int(b)) => (*a as i64) == *b,
+            (PyConstVal::Int(a), PyConstVal::Bool(b)) => *a == (*b as i64),
+            (PyConstVal::Int(a), PyConstVal::Int(b)) => a == b,
+            (PyConstVal::Float(a), PyConstVal::Float(b)) => a == b,
+            (PyConstVal::Int(a), PyConstVal::Float(b)) => (*a as f64) == *b,
+            (PyConstVal::Float(a), PyConstVal::Int(b)) => *a == (*b as f64),
+            (PyConstVal::Str(a), PyConstVal::Str(b)) => a == b,
+            _ => false,
+        }
+    }
+
+    fn matches_json_exact_type(&self, json: &JsonValue) -> bool {
+        match (self, json) {
+            (PyConstVal::None, JsonValue::Null) => true,
+            (PyConstVal::Bool(b), JsonValue::Bool(jb)) => b == jb,
+            (PyConstVal::Str(s), JsonValue::Str(js)) => s == js,
+            (PyConstVal::Int(n), JsonValue::Number(raw)) => raw.parse::<i64>().is_ok_and(|jn| *n == jn),
+            (PyConstVal::Float(f), JsonValue::Number(raw)) => raw.parse::<f64>().is_ok_and(|jf| *f == jf),
+            _ => false,
+        }
+    }
+
+    fn matches_json_in_list(&self, json: &JsonValue) -> bool {
+        match (self, json) {
+            (PyConstVal::None, JsonValue::Null) => true,
+            (PyConstVal::Bool(b), JsonValue::Bool(jb)) => b == jb,
+            (PyConstVal::Bool(b), JsonValue::Number(raw)) => raw.parse::<i64>().is_ok_and(|n| (*b as i64) == n),
+            (PyConstVal::Int(n), JsonValue::Bool(jb)) => *n == (*jb as i64),
+            (PyConstVal::Int(n), JsonValue::Number(raw)) => raw.parse::<i64>().is_ok_and(|jn| *n == jn),
+            (PyConstVal::Float(f), JsonValue::Number(raw)) => raw.parse::<f64>().is_ok_and(|jf| *f == jf),
+            (PyConstVal::Str(s), JsonValue::Str(js)) => s == js,
+            _ => false,
+        }
+    }
+}
+
+fn find_matching_paren(tokens: &[PyToken], lp_idx: usize) -> Option<usize> {
+    if !matches!(tokens.get(lp_idx).map(|t| &t.kind), Some(PyTokenKind::LParen)) {
+        return None;
+    }
+    let mut depth = 0usize;
+    for (idx, tok) in tokens.iter().enumerate().skip(lp_idx) {
+        match tok.kind {
+            PyTokenKind::LParen | PyTokenKind::LBracket | PyTokenKind::LBrace => depth += 1,
+            PyTokenKind::RParen | PyTokenKind::RBracket | PyTokenKind::RBrace => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(idx);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn strip_outer_parens(mut slice: &[PyToken]) -> &[PyToken] {
+    while slice.len() >= 2
+        && matches!(slice[0].kind, PyTokenKind::LParen)
+        && find_matching_paren(slice, 0) == Some(slice.len() - 1)
+    {
+        slice = &slice[1..slice.len() - 1];
+    }
+    slice
+}
+
+fn eval_py_simple_const(tokens: &[PyToken], env: &BTreeMap<String, PyConstVal>) -> Option<PyConstVal> {
+    let slice = strip_outer_parens(tokens);
+    if slice.is_empty() {
+        return None;
+    }
+
+    // Handle top-level == / != comparison
+    let mut depth = 0usize;
+    for (idx, tok) in slice.iter().enumerate() {
+        match tok.kind {
+            PyTokenKind::LParen | PyTokenKind::LBracket | PyTokenKind::LBrace => depth += 1,
+            PyTokenKind::RParen | PyTokenKind::RBracket | PyTokenKind::RBrace => depth = depth.saturating_sub(1),
+            PyTokenKind::EqEq | PyTokenKind::NotEq if depth == 0 => {
+                let lhs = eval_py_simple_const(&slice[..idx], env)?;
+                let rhs = eval_py_simple_const(&slice[idx + 1..], env)?;
+                let eq = lhs.py_eq(&rhs);
+                return Some(PyConstVal::Bool(if matches!(tok.kind, PyTokenKind::EqEq) { eq } else { !eq }));
+            }
+            _ => {}
+        }
+    }
+
+    // Handle unary `not expr`
+    if let PyTokenKind::Ident(ref kw) = slice[0].kind {
+        if kw == "not" && slice.len() > 1 {
+            let inner = eval_py_simple_const(&slice[1..], env)?;
+            return Some(PyConstVal::Bool(!inner.truthy()));
+        }
+        if kw == "bool"
+            && slice.len() >= 4
+            && matches!(slice[1].kind, PyTokenKind::LParen)
+            && find_matching_paren(slice, 1) == Some(slice.len() - 1)
+        {
+            let inner = eval_py_simple_const(&slice[2..slice.len() - 1], env)?;
+            return Some(PyConstVal::Bool(inner.truthy()));
+        }
+    }
+
+    // Handle unary negative numeric literal `-1`
+    if slice.len() == 2 && matches!(slice[0].kind, PyTokenKind::Other('-')) {
+        match slice[1].kind {
+            PyTokenKind::Int(n) => return Some(PyConstVal::Int(-n)),
+            PyTokenKind::Float(f) => return Some(PyConstVal::Float(-f)),
+            _ => {}
+        }
+    }
+
+    if slice.len() == 1 {
+        return match &slice[0].kind {
+            PyTokenKind::Ident(id) => match id.as_str() {
+                "None" => Some(PyConstVal::None),
+                "True" => Some(PyConstVal::Bool(true)),
+                "False" => Some(PyConstVal::Bool(false)),
+                other => env.get(other).cloned(),
+            },
+            PyTokenKind::Str(s) => Some(PyConstVal::Str(s.clone())),
+            PyTokenKind::Int(n) => Some(PyConstVal::Int(*n)),
+            PyTokenKind::Float(f) => Some(PyConstVal::Float(*f)),
+            _ => None,
+        };
+    }
+
+    // Dotted attribute expression `a.b.Attr` -> `attr:Attr`
+    if slice.len() >= 3 && slice.len() % 2 == 1 {
+        let mut is_attr_chain = true;
+        for (idx, tok) in slice.iter().enumerate() {
+            let ok = if idx % 2 == 0 {
+                matches!(tok.kind, PyTokenKind::Ident(_))
+            } else {
+                matches!(tok.kind, PyTokenKind::Dot)
+            };
+            if !ok {
+                is_attr_chain = false;
+                break;
+            }
+        }
+        if is_attr_chain {
+            if let PyTokenKind::Ident(ref leaf) = slice.last().unwrap().kind {
+                return Some(PyConstVal::Str(format!("attr:{leaf}")));
+            }
+        }
+    }
+
+    None
+}
+
+fn is_python_non_call_keyword(ident: &str) -> bool {
+    matches!(
+        ident,
+        "if" | "elif"
+            | "while"
+            | "for"
+            | "return"
+            | "assert"
+            | "yield"
+            | "del"
+            | "raise"
+            | "with"
+            | "except"
+            | "and"
+            | "or"
+            | "not"
+            | "in"
+            | "is"
+            | "lambda"
+            | "class"
+            | "def"
+            | "import"
+            | "from"
+            | "as"
+            | "pass"
+            | "break"
+            | "continue"
+    )
+}
+
+fn parse_py_dotted_name(tokens: &[PyToken], start: usize) -> Option<(Vec<String>, usize)> {
+    let mut parts = Vec::new();
+    let PyTokenKind::Ident(ref first) = tokens.get(start)?.kind else {
+        return None;
+    };
+    parts.push(first.clone());
+    let mut idx = start + 1;
+    while idx + 1 < tokens.len() && matches!(tokens[idx].kind, PyTokenKind::Dot) {
+        if let PyTokenKind::Ident(ref seg) = tokens[idx + 1].kind {
+            parts.push(seg.clone());
+            idx += 2;
+        } else {
+            break;
+        }
+    }
+    Some((parts, idx))
+}
+
+fn eval_python_ast_pattern(
+    match_obj: &BTreeMap<String, JsonValue>,
+    code_text: &str,
+) -> Vec<BTreeMap<String, JsonValue>> {
+    let Ok(tokens) = tokenize_python_subset(code_text) else {
+        return Vec::new();
+    };
+
+    // 1. Extract import aliases (`_extract_alias_map`)
+    let mut aliases: BTreeMap<String, String> = BTreeMap::new();
+    let mut i = 0usize;
+    while i < tokens.len() {
+        let is_stmt_start = i == 0
+            || matches!(
+                tokens[i - 1].kind,
+                PyTokenKind::Newline | PyTokenKind::Semi | PyTokenKind::Colon
+            );
+        if is_stmt_start {
+            if let PyTokenKind::Ident(ref kw) = tokens[i].kind {
+                if kw == "import" {
+                    let mut p = i + 1;
+                    while p < tokens.len()
+                        && !matches!(tokens[p].kind, PyTokenKind::Newline | PyTokenKind::Semi)
+                    {
+                        if let Some((parts, next_p)) = parse_py_dotted_name(&tokens, p) {
+                            let full_mod = parts.join(".");
+                            p = next_p;
+                            if p + 1 < tokens.len()
+                                && matches!(&tokens[p].kind, PyTokenKind::Ident(s) if s == "as")
+                            {
+                                if let PyTokenKind::Ident(ref alias) = tokens[p + 1].kind {
+                                    aliases.insert(alias.clone(), full_mod);
+                                    p += 2;
+                                }
+                            } else {
+                                aliases.insert(parts[0].clone(), full_mod);
+                            }
+                            if matches!(tokens.get(p).map(|t| &t.kind), Some(PyTokenKind::Comma)) {
+                                p += 1;
+                                continue;
+                            }
+                        }
+                        break;
+                    }
+                    i = p;
+                    continue;
+                } else if kw == "from" {
+                    let mut p = i + 1;
+                    if let Some((mod_parts, next_p)) = parse_py_dotted_name(&tokens, p) {
+                        let mod_name = mod_parts.join(".");
+                        p = next_p;
+                        if matches!(&tokens.get(p).map(|t| &t.kind), Some(PyTokenKind::Ident(s)) if s == "import") {
+                            p += 1;
+                            let end_p = if matches!(tokens.get(p).map(|t| &t.kind), Some(PyTokenKind::LParen)) {
+                                let rp = find_matching_paren(&tokens, p).unwrap_or(tokens.len());
+                                p += 1;
+                                rp
+                            } else {
+                                let mut ep = p;
+                                while ep < tokens.len()
+                                    && !matches!(tokens[ep].kind, PyTokenKind::Newline | PyTokenKind::Semi)
+                                {
+                                    ep += 1;
+                                }
+                                ep
+                            };
+                            while p < end_p {
+                                if let PyTokenKind::Ident(ref item) = tokens[p].kind {
+                                    p += 1;
+                                    if p + 1 < end_p
+                                        && matches!(&tokens[p].kind, PyTokenKind::Ident(s) if s == "as")
+                                    {
+                                        if let PyTokenKind::Ident(ref alias) = tokens[p + 1].kind {
+                                            aliases.insert(alias.clone(), format!("{mod_name}.{item}"));
+                                            p += 2;
+                                        }
+                                    } else {
+                                        aliases.insert(item.clone(), format!("{mod_name}.{item}"));
+                                    }
+                                    if p < end_p && matches!(tokens[p].kind, PyTokenKind::Comma) {
+                                        p += 1;
+                                        continue;
+                                    }
+                                } else {
+                                    p += 1;
+                                }
+                            }
+                            i = end_p;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+
+    // 2. Collect simple single-target assignments (`var = expr`) and build env
+    let mut assigns: Vec<(usize, String, Vec<PyToken>)> = Vec::new();
+    let mut idx = 0usize;
+    while idx < tokens.len() {
+        let is_stmt_start = idx == 0
+            || matches!(
+                tokens[idx - 1].kind,
+                PyTokenKind::Newline | PyTokenKind::Semi | PyTokenKind::Colon
+            );
+        if is_stmt_start && idx + 2 < tokens.len() {
+            if let (PyTokenKind::Ident(ref target), PyTokenKind::Eq) =
+                (&tokens[idx].kind, &tokens[idx + 1].kind)
+            {
+                if !is_python_non_call_keyword(target) {
+                    let mut end = idx + 2;
+                    let mut depth = 0usize;
+                    let mut has_extra_eq = false;
+                    while end < tokens.len() {
+                        match tokens[end].kind {
+                            PyTokenKind::LParen | PyTokenKind::LBracket | PyTokenKind::LBrace => depth += 1,
+                            PyTokenKind::RParen | PyTokenKind::RBracket | PyTokenKind::RBrace => {
+                                depth = depth.saturating_sub(1);
+                            }
+                            PyTokenKind::Newline | PyTokenKind::Semi if depth == 0 => break,
+                            PyTokenKind::Eq if depth == 0 => has_extra_eq = true,
+                            _ => {}
+                        }
+                        end += 1;
+                    }
+                    if !has_extra_eq {
+                        assigns.push((
+                            tokens[idx].line,
+                            target.clone(),
+                            tokens[idx + 2..end].to_vec(),
+                        ));
+                    }
+                }
+            }
+        }
+        idx += 1;
+    }
+
+    let mut env: BTreeMap<String, PyConstVal> = BTreeMap::new();
+    for _pass in 0..3 {
+        let mut changed = false;
+        for (_, var, rhs) in &assigns {
+            if let Some(val) = eval_py_simple_const(rhs, &env) {
+                if env.get(var) != Some(&val) {
+                    env.insert(var.clone(), val);
+                    changed = true;
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    let node_type = match_obj.get("node").and_then(|v| v.as_str()).unwrap_or("");
+    let mut hits = Vec::new();
+
+    if node_type == "Assign" {
+        let target_var = match_obj.get("target").and_then(|v| v.as_str()).unwrap_or("");
+        let Some(forbidden_val) = match_obj.get("forbidden_value") else {
+            return hits;
+        };
+        for (ln, var, rhs) in &assigns {
+            if var != target_var {
+                continue;
+            }
+            if let Some(val) = eval_py_simple_const(rhs, &env) {
+                if val.matches_json_exact_type(forbidden_val) {
+                    let mut h = BTreeMap::new();
+                    h.insert("line".to_string(), JsonValue::Number(ln.to_string()));
+                    h.insert("target".to_string(), JsonValue::Str(target_var.to_string()));
+                    hits.push(h);
+                }
+            }
+        }
+        return hits;
+    }
+
+    if node_type == "Call" {
+        let target_callee = match_obj.get("callee").and_then(|v| v.as_str()).unwrap_or("");
+        let mode = match_obj
+            .get("mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("forbidden_callee");
+        let kw_name = match_obj.get("kwarg").and_then(|v| v.as_str()).unwrap_or("");
+        let allowed_values = match_obj
+            .get("allowed_values")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&[]);
+
+        let mut ti = 0usize;
+        while ti < tokens.len() {
+            // Skip `def name(...)` and `class name(...)` declarations
+            if ti > 0 {
+                if let PyTokenKind::Ident(ref prev_kw) = tokens[ti - 1].kind {
+                    if prev_kw == "def" || prev_kw == "class" {
+                        ti += 1;
+                        continue;
+                    }
+                }
+            }
+            // Start of dotted callee ONLY if NOT preceded by `.` (avoid matching sub-chains!)
+            let preceded_by_dot = ti > 0 && matches!(tokens[ti - 1].kind, PyTokenKind::Dot);
+            if !preceded_by_dot {
+                if let PyTokenKind::Ident(ref head) = tokens[ti].kind {
+                    if !is_python_non_call_keyword(head) {
+                        if let Some((parts, after_name)) = parse_py_dotted_name(&tokens, ti) {
+                            if after_name < tokens.len() && matches!(tokens[after_name].kind, PyTokenKind::LParen) {
+                                if let Some(rp_idx) = find_matching_paren(&tokens, after_name) {
+                                    let resolved = if let Some(mapped) = aliases.get(&parts[0]) {
+                                        if parts.len() > 1 {
+                                            format!("{mapped}.{}", parts[1..].join("."))
+                                        } else {
+                                            mapped.clone()
+                                        }
+                                    } else {
+                                        parts.join(".")
+                                    };
+                                    if resolved == target_callee {
+                                        let call_ln = tokens[ti].line;
+                                        if mode == "forbidden_callee" {
+                                            let mut h = BTreeMap::new();
+                                            h.insert("line".to_string(), JsonValue::Number(call_ln.to_string()));
+                                            h.insert("callee".to_string(), JsonValue::Str(target_callee.to_string()));
+                                            hits.push(h);
+                                        } else if mode == "kwarg_not_in" {
+                                            let arg_slice = &tokens[after_name + 1..rp_idx];
+                                            let mut kw_val_slice: Option<&[PyToken]> = None;
+                                            let mut seg_start = 0usize;
+                                            let mut depth = 0usize;
+                                            for k in 0..=arg_slice.len() {
+                                                let at_comma = k == arg_slice.len()
+                                                    || (depth == 0 && matches!(arg_slice[k].kind, PyTokenKind::Comma));
+                                                if at_comma {
+                                                    let arg = &arg_slice[seg_start..k];
+                                                    if arg.len() >= 3 {
+                                                        if let (PyTokenKind::Ident(ref kwn), PyTokenKind::Eq) =
+                                                            (&arg[0].kind, &arg[1].kind)
+                                                        {
+                                                            if kwn == kw_name {
+                                                                kw_val_slice = Some(&arg[2..]);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    seg_start = k + 1;
+                                                } else {
+                                                    match arg_slice[k].kind {
+                                                        PyTokenKind::LParen | PyTokenKind::LBracket | PyTokenKind::LBrace => depth += 1,
+                                                        PyTokenKind::RParen | PyTokenKind::RBracket | PyTokenKind::RBrace => depth = depth.saturating_sub(1),
+                                                        _ => {}
+                                                    }
+                                                }
+                                            }
+
+                                            let is_hit = match kw_val_slice {
+                                                None => !allowed_values
+                                                    .iter()
+                                                    .any(|av| av.as_str() == Some("__MISSING__")),
+                                                Some(val_toks) => match eval_py_simple_const(val_toks, &env) {
+                                                    None => true,
+                                                    Some(folded) => !allowed_values
+                                                        .iter()
+                                                        .any(|av| folded.matches_json_in_list(av)),
+                                                },
+                                            };
+                                            if is_hit {
+                                                let mut h = BTreeMap::new();
+                                                h.insert("line".to_string(), JsonValue::Number(call_ln.to_string()));
+                                                h.insert("callee".to_string(), JsonValue::Str(target_callee.to_string()));
+                                                h.insert("kwarg".to_string(), JsonValue::Str(kw_name.to_string()));
+                                                hits.push(h);
+                                            }
+                                        }
+                                    }
+                                    // Advance by 1 so nested calls inside arguments are also inspected
+                                    ti += 1;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ti += 1;
+        }
+    }
+
+    hits
+}
+
 /// Validate a declarative `RuleIR/1` JSON payload fail-closed across Python/Rust boundaries.
+///
+/// Full `RuleIR/1` payloads verify canonical SHA-256 matching Python `RuleIR.compute_rule_hash()`.
 pub fn validate_rule_ir_json(raw_json: &str) -> Result<String, String> {
+    validate_rule_ir_json_with_mode(raw_json, false)
+}
+
+/// Strict canonical `RuleIR/1` validator requiring `match` object and exact canonical SHA-256.
+pub fn validate_rule_ir_json_strict(raw_json: &str) -> Result<String, String> {
+    validate_rule_ir_json_with_mode(raw_json, true)
+}
+
+fn validate_rule_ir_json_with_mode(raw_json: &str, strict_hash: bool) -> Result<String, String> {
     let trimmed = raw_json.trim();
     if trimmed.is_empty() || !trimmed.starts_with('{') || !trimmed.ends_with('}') {
         return Err("Malformed JSON RuleIR/1 object".to_string());
     }
-    let schema = extract_json_string_field(trimmed, "schema").unwrap_or_default();
+    let parsed = parse_json_value(trimmed)?;
+    let obj = parsed
+        .as_object()
+        .ok_or_else(|| "RuleIR/1 payload must be a JSON object".to_string())?;
+
+    let schema = obj
+        .get("schema")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
     if schema != "RuleIR/1" {
         return Err(format!("Unsupported RuleIR schema: {schema}"));
     }
-    let rule_id = extract_json_string_field(trimmed, "rule_id").unwrap_or_default();
+    let rule_id = obj
+        .get("rule_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
     if rule_id.is_empty() || rule_id.contains('/') || rule_id.contains('\\') || rule_id.contains("..") {
         return Err(format!("Invalid RuleIR rule_id: {rule_id}"));
     }
-    let predicate_kind = extract_json_string_field(trimmed, "predicate_kind").unwrap_or_default();
-    if !matches!(predicate_kind.as_str(), "ast_pattern" | "path_policy" | "bounded_regex") {
+    let predicate_kind = obj
+        .get("predicate_kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    if !matches!(predicate_kind, "ast_pattern" | "path_policy" | "bounded_regex") {
         return Err(format!("Unsupported RuleIR predicate_kind: {predicate_kind}"));
     }
-    let rule_hash = extract_json_string_field(trimmed, "rule_hash").unwrap_or_default();
+    let rule_hash = obj
+        .get("rule_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
     let hash_hex = rule_hash.strip_prefix("sha256:").unwrap_or("");
     if hash_hex.len() != 64 || !hash_hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(format!("Invalid RuleIR rule_hash: {rule_hash}"));
     }
+
+    let has_core_fields = obj.contains_key("match")
+        || obj.contains_key("language")
+        || obj.contains_key("severity")
+        || obj.contains_key("conditions")
+        || obj.contains_key("response");
+
+    if strict_hash {
+        if !obj.get("match").is_some_and(|v| v.as_object().is_some()) {
+            return Err("RuleIR/1 missing required 'match' object".to_string());
+        }
+    }
+
+    if predicate_kind == "bounded_regex" && (strict_hash || obj.contains_key("match")) {
+        let pat = obj
+            .get("match")
+            .and_then(|v| v.as_object())
+            .and_then(|m| m.get("regex"))
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        let _ = BoundedRegex::compile(pat)?;
+    }
+
+    let (canonical_hash, hash_verified) = if strict_hash || has_core_fields {
+        let expected_hash = compute_rule_ir_canonical_hash(obj)?;
+        if rule_hash != expected_hash {
+            return Err(format!("RuleIR hash mismatch: {rule_hash} != {expected_hash}"));
+        }
+        (expected_hash, true)
+    } else {
+        (rule_hash.to_string(), false)
+    };
+
     Ok(format!(
-        "{{\"ok\":true,\"schema\":\"RuleIR/1\",\"rule_id\":\"{}\",\"predicate_kind\":\"{}\",\"rule_hash\":\"{}\"}}",
-        json_escape(&rule_id),
-        json_escape(&predicate_kind),
-        json_escape(&rule_hash)
+        "{{\"ok\":true,\"schema\":\"RuleIR/1\",\"rule_id\":\"{}\",\"predicate_kind\":\"{}\",\"rule_hash\":\"{}\",\"canonical_hash\":\"{}\",\"hash_verified\":{}}}",
+        json_escape(rule_id),
+        json_escape(predicate_kind),
+        json_escape(rule_hash),
+        json_escape(&canonical_hash),
+        hash_verified
     ))
+}
+
+/// Evaluate a canonical `RuleIR/1` JSON rule deterministically over `code_text`.
+pub fn evaluate_rule_ir_json(rule_json: &str, code_text: &str, lang: &str) -> Result<String, String> {
+    evaluate_rule_ir_json_with_fs(rule_json, code_text, lang, true)
+}
+
+/// Evaluate a canonical `RuleIR/1` JSON rule without touching the filesystem (for verified FFI).
+pub fn evaluate_rule_ir_json_no_fs(rule_json: &str, code_text: &str, lang: &str) -> Result<String, String> {
+    evaluate_rule_ir_json_with_fs(rule_json, code_text, lang, false)
+}
+
+fn evaluate_rule_ir_json_with_fs(
+    rule_json: &str,
+    code_text: &str,
+    lang: &str,
+    allow_fs: bool,
+) -> Result<String, String> {
+    let _ = validate_rule_ir_json_strict(rule_json)?;
+    let parsed = parse_json_value(rule_json.trim())?;
+    let obj = parsed
+        .as_object()
+        .ok_or_else(|| "RuleIR/1 must be a JSON object".to_string())?;
+
+    let rule_id = obj.get("rule_id").and_then(|v| v.as_str()).unwrap_or_default();
+    let rule_hash = obj.get("rule_hash").and_then(|v| v.as_str()).unwrap_or_default();
+    let predicate_kind = obj.get("predicate_kind").and_then(|v| v.as_str()).unwrap_or_default();
+    let severity = obj.get("severity").and_then(|v| v.as_str()).unwrap_or("HIGH");
+    let resp_obj = obj.get("response").and_then(|v| v.as_object());
+    let deny_decision = resp_obj
+        .and_then(|r| r.get("decision"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("DENY");
+    let reason_code = resp_obj
+        .and_then(|r| r.get("reason_code"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("EVOLVED_GUARD");
+    let match_obj = obj
+        .get("match")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "Missing match object".to_string())?;
+
+    let hits: Vec<BTreeMap<String, JsonValue>> = match predicate_kind {
+        "ast_pattern" => {
+            if !lang.eq_ignore_ascii_case("python") {
+                Vec::new()
+            } else {
+                eval_python_ast_pattern(match_obj, code_text)
+            }
+        }
+        "bounded_regex" => {
+            let pat = match_obj
+                .get("regex")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            let rx = BoundedRegex::compile(pat)?;
+            rx.find_all(code_text)
+                .into_iter()
+                .map(|(line_no, snip)| {
+                    let mut h = BTreeMap::new();
+                    h.insert("line".to_string(), JsonValue::Number(line_no.to_string()));
+                    h.insert("snippet".to_string(), JsonValue::Str(snip));
+                    h
+                })
+                .collect()
+        }
+        "path_policy" => {
+            let cmd = code_text.trim();
+            let ws_str = match_obj
+                .get("workspace_root")
+                .and_then(|v| v.as_str())
+                .unwrap_or(".");
+            let ws_opt = if allow_fs {
+                Some(Path::new(ws_str))
+            } else {
+                None
+            };
+            if is_dangerous_rm_target_with_ws_opt(cmd, ws_opt, false, true) {
+                let mut h = BTreeMap::new();
+                h.insert("line".to_string(), JsonValue::Number("1".to_string()));
+                h.insert("target".to_string(), JsonValue::Str(cmd.to_string()));
+                vec![h]
+            } else {
+                Vec::new()
+            }
+        }
+        other => return Err(format!("Unsupported predicate_kind: {other}")),
+    };
+
+    let matched = !hits.is_empty();
+    let decision = if matched { deny_decision } else { "ALLOW" };
+    let hits_json = JsonValue::Array(hits.into_iter().map(JsonValue::Object).collect()).to_canonical_json();
+
+    Ok(format!(
+        "{{\"ok\":true,\"schema\":\"RuleIR/1\",\"rule_id\":\"{}\",\"rule_hash\":\"{}\",\"decision\":\"{}\",\"severity\":\"{}\",\"reason_code\":\"{}\",\"matched\":{},\"hits_count\":{},\"hits\":{}}}",
+        json_escape(rule_id),
+        json_escape(rule_hash),
+        json_escape(decision),
+        json_escape(severity),
+        json_escape(reason_code),
+        matched,
+        hits_count_from_json(&hits_json),
+        hits_json
+    ))
+}
+
+fn hits_count_from_json(hits_json: &str) -> usize {
+    if hits_json == "[]" {
+        return 0;
+    }
+    let mut count = 0usize;
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut esc = false;
+    for b in hits_json.bytes() {
+        if in_str {
+            if esc {
+                esc = false;
+            } else if b == b'\\' {
+                esc = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'{' => {
+                if depth == 1 {
+                    count += 1;
+                }
+                depth += 1;
+            }
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            b'[' => depth += 1,
+            _ => {}
+        }
+    }
+    count
 }
 
 #[cfg(test)]
@@ -4399,6 +6472,112 @@ mod tests {
         );
         assert!(validate_rule_ir_json(&unsupported_ir).is_err());
         assert!(validate_rule_ir_json("{\"schema\":\"RuleIR/1\",\"rule_id\":\"../evil\",\"predicate_kind\":\"ast_pattern\",\"rule_hash\":\"sha256:00\"}").is_err());
+    }
+
+    #[test]
+    fn builtin_rule_indices_match_prefilter_slots() {
+        assert_eq!(BUILTIN_RULES[8].id, "KS-009");
+        assert_eq!(BUILTIN_RULES[13].id, "KS-014");
+        assert_eq!(BUILTIN_RULES[18].id, "KS-019");
+        assert_eq!(BUILTIN_RULES[25].id, "KS-026");
+        assert_eq!(BUILTIN_RULES[29].id, "KS-030");
+        assert_eq!(BUILTIN_RULES[32].id, "KS-S3-01");
+    }
+
+    #[test]
+    fn rule_ir_canonical_hash_and_ast_regex_path_evaluator() {
+        let core = "{\"conditions\":{\"inside_string_literal\":false},\"language\":[\"python\"],\"match\":{\"allowed_values\":[\"attr:SafeLoader\",\"attr:CSafeLoader\"],\"callee\":\"yaml.load\",\"kwarg\":\"Loader\",\"mode\":\"kwarg_not_in\",\"node\":\"Call\"},\"predicate_kind\":\"ast_pattern\",\"response\":{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"},\"severity\":\"HIGH\"}";
+        let expected_hash = format!("sha256:{}", sha256_hex(core.as_bytes()));
+        let full_ir = format!(
+            "{{\"schema\":\"RuleIR/1\",\"rule_id\":\"KS-EVO-900001\",\"revision\":1,\"language\":[\"python\"],\"severity\":\"HIGH\",\"predicate_kind\":\"ast_pattern\",\"match\":{{\"node\":\"Call\",\"callee\":\"yaml.load\",\"mode\":\"kwarg_not_in\",\"kwarg\":\"Loader\",\"allowed_values\":[\"attr:SafeLoader\",\"attr:CSafeLoader\"]}},\"conditions\":{{\"inside_string_literal\":false}},\"response\":{{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"}},\"rule_hash\":\"{expected_hash}\"}}"
+        );
+        assert!(validate_rule_ir_json(&full_ir).is_ok());
+        assert!(validate_rule_ir_json_strict(&full_ir).is_ok());
+
+        let tampered = full_ir.replace("\"HIGH\"", "\"CRITICAL\"");
+        assert!(validate_rule_ir_json(&tampered).is_err());
+        assert!(validate_rule_ir_json_strict(&tampered).is_err());
+
+        let bad_code = "import yaml as ym\nout = ym.load(stream, Loader=ym.UnsafeLoader)\n";
+        let res_bad = evaluate_rule_ir_json(&full_ir, bad_code, "python").unwrap();
+        assert!(res_bad.contains("\"decision\":\"DENY\""), "{res_bad}");
+        assert!(res_bad.contains("\"matched\":true"), "{res_bad}");
+
+        let good_code = "import yaml\nout = yaml.load(stream, Loader=yaml.CSafeLoader)\n";
+        let res_good = evaluate_rule_ir_json(&full_ir, good_code, "python").unwrap();
+        assert!(res_good.contains("\"decision\":\"ALLOW\""), "{res_good}");
+        assert!(res_good.contains("\"matched\":false"), "{res_good}");
+
+        let regex_core = "{\"conditions\":{},\"language\":[\"python\"],\"match\":{\"regex\":\"\\\\byaml\\\\s*\\\\.\\\\s*load\\\\s*\\\\([^)]*\\\\bLoader\\\\s*=\\\\s*(?!(?:yaml\\\\s*\\\\.\\\\s*)?(?:CSafeLoader|SafeLoader)\\\\b)[^,)]+\"},\"predicate_kind\":\"bounded_regex\",\"response\":{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"},\"severity\":\"HIGH\"}";
+        let rx_hash = format!("sha256:{}", sha256_hex(regex_core.as_bytes()));
+        let rx_ir = format!(
+            "{{\"schema\":\"RuleIR/1\",\"rule_id\":\"KS-EVO-900004\",\"language\":[\"python\"],\"severity\":\"HIGH\",\"predicate_kind\":\"bounded_regex\",\"match\":{{\"regex\":\"\\\\byaml\\\\s*\\\\.\\\\s*load\\\\s*\\\\([^)]*\\\\bLoader\\\\s*=\\\\s*(?!(?:yaml\\\\s*\\\\.\\\\s*)?(?:CSafeLoader|SafeLoader)\\\\b)[^,)]+\"}},\"conditions\":{{}},\"response\":{{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"}},\"rule_hash\":\"{rx_hash}\"}}"
+        );
+        let rx_bad = evaluate_rule_ir_json(&rx_ir, "yaml.load(blob, Loader=yaml.Loader)\n", "python").unwrap();
+        assert!(rx_bad.contains("\"matched\":true"), "{rx_bad}");
+        let rx_good = evaluate_rule_ir_json(&rx_ir, "yaml.load(blob, Loader=yaml.SafeLoader)\n", "python").unwrap();
+        assert!(rx_good.contains("\"matched\":false"), "{rx_good}");
+
+        let path_core = "{\"conditions\":{},\"language\":[\"shell\"],\"match\":{\"workspace_root\":\".\"},\"predicate_kind\":\"path_policy\",\"response\":{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"},\"severity\":\"CRITICAL\"}";
+        let p_hash = format!("sha256:{}", sha256_hex(path_core.as_bytes()));
+        let p_ir = format!(
+            "{{\"schema\":\"RuleIR/1\",\"rule_id\":\"KS-EVO-900005\",\"language\":[\"shell\"],\"severity\":\"CRITICAL\",\"predicate_kind\":\"path_policy\",\"match\":{{\"workspace_root\":\".\"}},\"conditions\":{{}},\"response\":{{\"decision\":\"DENY\",\"reason_code\":\"EVOLVED_GUARD\"}},\"rule_hash\":\"{p_hash}\"}}"
+        );
+        assert!(evaluate_rule_ir_json_no_fs(&p_ir, "./other/build", "shell").unwrap().contains("\"decision\":\"DENY\""));
+        assert!(evaluate_rule_ir_json_no_fs(&p_ir, "./build", "shell").unwrap().contains("\"decision\":\"ALLOW\""));
+    }
+
+    #[test]
+    fn optimized_scan_matches_unprefiltered_reference_on_src_corpus() {
+        let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = Vec::new();
+        collect_files(&src_dir, &mut files);
+        assert!(!files.is_empty());
+        for f in &files {
+            let Some(lang) = detect_language(f) else {
+                continue;
+            };
+            let content = fs::read_to_string(f).unwrap();
+            let display = f.to_string_lossy().to_string();
+            let fast = scan_text_with_policy(&content, &display, lang, Severity::Low, None, true, false);
+            // Verify against an independent line-by-line unprefiltered reference check
+            let mut ref_ids: Vec<(usize, &str)> = Vec::new();
+            for (idx, line) in content.lines().enumerate() {
+                let t = line.trim();
+                if t.is_empty() || is_fixture_definition_line(t) {
+                    continue;
+                }
+                for rule in BUILTIN_RULES {
+                    if rule.languages.contains(&lang)
+                        && !line_ignores_rule(line, rule.id)
+                        && check_line_against_rule_lang(rule.id, line, lang)
+                    {
+                        ref_ids.push((idx + 1, rule.id));
+                    }
+                }
+            }
+            // Also check cross-line KS-S3-01 in reference
+            let lines_v: Vec<&str> = content.lines().collect();
+            if BUILTIN_RULES[32].languages.contains(&lang) {
+                for idx in 0..lines_v.len().saturating_sub(1) {
+                    let lineno = idx + 1;
+                    if ref_ids.iter().any(|&(ln, id)| ln == lineno && id == "KS-S3-01") {
+                        continue;
+                    }
+                    let t0 = lines_v[idx].trim();
+                    let t1 = lines_v[idx + 1].trim();
+                    if is_fixture_definition_line(t0) || is_fixture_definition_line(t1) {
+                        continue;
+                    }
+                    let win = format!("{t0} {t1}");
+                    if contains_prompt_injection_text(&win) && !line_ignores_rule(lines_v[idx], "KS-S3-01") {
+                        ref_ids.push((lineno, "KS-S3-01"));
+                    }
+                }
+            }
+            let fast_ids: Vec<(usize, &str)> = fast.iter().map(|x| (x.line, x.scar_id.as_str())).collect();
+            assert_eq!(fast_ids, ref_ids, "Parity mismatch on {}", display);
+        }
     }
 
 }

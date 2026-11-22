@@ -456,7 +456,8 @@ def evaluate_rule_ir(rule_ir: RuleIR, code_text: str, *, language: str = "python
 
     if kind == "path_policy":
         cmd = code_text.strip()
-        ws = Path(str(m.get("workspace_root", ".")) if isinstance(rule_ir.match, dict) else ".")
+        ws_raw = rule_ir.match.get("workspace_root", ".") if isinstance(rule_ir.match, dict) else "."
+        ws = Path(str(ws_raw))
         if _is_dangerous_rm_target(cmd, workspace_root=ws):
             hits.append({"line": 1, "target": cmd})
         return hits

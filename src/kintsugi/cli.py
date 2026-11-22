@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -71,6 +72,12 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Kintsugi Harness — Hybrid Rust/Python PreToolUse guardrail engine and KMI/1 ultra-low-token skill compiler.",
     )
     parser.add_argument("--version", action="version", version=f"kintsugi-harness {__version__}")
+    parser.add_argument(
+        "--profile",
+        choices=["LOCAL_RESEARCH", "GITHUB_PUBLIC"],
+        default=None,
+        help="Operating profile override (LOCAL_RESEARCH unconstrained local dev vs GITHUB_PUBLIC bounded defaults)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     # init
@@ -274,6 +281,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include user-supplied BYOK Paid Frontier Council seats (requires Complete Corpus Pack)",
     )
 
+    from kintsugi.cli_nextgen import register_nextgen_parsers
+
+    register_nextgen_parsers(sub, p_evo)
+
     # verify-ledger
     p_ver = sub.add_parser("verify-ledger", help="Run true-positive & zero-false-positive self-check across every scar in the ledger")
     p_ver.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
@@ -294,6 +305,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mcp = sub.add_parser("mcp", help="Start Kintsugi stdio Model Context Protocol (MCP) server")
     p_mcp.add_argument("mcp_action", nargs="?", default="serve", help="Optional action (default: serve)")
     p_mcp.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
+    p_mcp.add_argument(
+        "--profile",
+        dest="mcp_profile",
+        choices=["default", "nextgen", "coding"],
+        default="default",
+        help="MCP tool surface profile (default: 9 core tools; nextgen/coding adds read-only Capability Fabric, RepoScout & LogForge tools)",
+    )
 
     # stats
     p_stats = sub.add_parser("stats", help="Display Golden Scar ledger summary and verification health")
@@ -438,6 +456,74 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cin.add_argument("--scars", action="store_true", help="List the 12 seeded + evolved Cinema Golden Scars (CS-001..CS-012)")
     p_cin.add_argument("--output", default=None, help="Optional path to write healed manifest JSON")
     p_cin.add_argument("--wire", action="store_true", help="Output compact @OPENMONTAGE_CINEMA/1 symbolic wire receipt")
+
+    # config (KINTSUGI-NEXTGEN/1 operating profiles & security baseline)
+    p_cfg = sub.add_parser("config", help="Show or validate KintsugiConfig/1 (LOCAL_RESEARCH vs GITHUB_PUBLIC)")
+    p_cfg.add_argument("config_action", choices=["show", "validate"], help="Action to run on config")
+    p_cfg.add_argument("--workspace", default=".", help="Target repository root")
+    p_cfg.add_argument("--external-config", default=None, help="Trusted config JSON path strictly outside target workspace")
+    p_cfg.add_argument("--file", default=None, help="Config JSON file to validate")
+    p_cfg.add_argument("--format", choices=["json", "text"], default="json")
+
+    # tools (Stage 1 Capability Fabric & vertical slice runner)
+    p_tls = sub.add_parser("tools", help="Stage 1 ToolRegistry, passive discovery, verification & vertical slice execution")
+    p_tls.add_argument(
+        "tools_action",
+        choices=["discover", "list", "inspect", "verify", "vertical-slice"],
+        help="Capability Fabric operation",
+    )
+    p_tls.add_argument("tool_id_pos", nargs="?", default=None, help="Optional tool_id for inspect/verify")
+    p_tls.add_argument("--workspace", default=".", help="Trusted workspace root")
+    p_tls.add_argument("--registry", default=".kintsugi/tool_registry.json", help="Tool registry JSON path")
+    p_tls.add_argument("--experience-store", default=".kintsugi/experience_store.json", help="ExperienceStore JSON path")
+    p_tls.add_argument("--tool-id", default=None, help="Tool ID")
+    p_tls.add_argument("--capability", default=None, help="Capability to filter or resolve")
+    p_tls.add_argument("--task", default=None, help="Task description or JSON string for vertical-slice")
+    p_tls.add_argument("--path", action="append", default=None, help="Allowlisted directory for passive discovery")
+    p_tls.add_argument("--save", action="store_true", help="Persist registry updates atomically")
+    p_tls.add_argument("--verify-digest", default=None, help="Trusted verification_attestation sha256:<hex>")
+    p_tls.add_argument("--verifier-id", default="cli_operator", help="Trusted verifier identity")
+    p_tls.add_argument(
+        "--verifier-key-file",
+        default=None,
+        help="External 0o600 verifier HMAC key JSON file outside workspace (required for tools verify)",
+    )
+    p_tls.add_argument(
+        "--attestation-signature",
+        default=None,
+        help="HMAC-SHA256 verification signature ('hmac-sha256:<hex>')",
+    )
+    p_tls.add_argument(
+        "--attestation-file",
+        default=None,
+        help="Optional signed verification attestation JSON file",
+    )
+
+    # capability (Stage 1 Gap Analysis & Deterministic Resolution)
+    p_cap = sub.add_parser("capability", help="Stage 1 CapabilityGapDetector and deterministic ToolResolver")
+    p_cap.add_argument("capability_action", choices=["analyze"], help="Analyze goal against registry")
+    p_cap.add_argument("--workspace", default=".", help="Trusted workspace root")
+    p_cap.add_argument("--registry", default=".kintsugi/tool_registry.json", help="Tool registry JSON path")
+    p_cap.add_argument("--goal-file", default=None, help="Path to goal contract JSON inside workspace")
+    p_cap.add_argument("--capability", action="append", default=None, help="Required capability (repeatable)")
+    p_cap.add_argument("--goal-id", default="cli-goal-001", help="Goal identifier")
+
+    # logforge (Working Tool #1: LogForge NEON + Differential Byte Scanner)
+    p_lfg = sub.add_parser("logforge", help="LogForge streaming delimiter scanner & Rust ARM64 NEON / Scalar differential tool")
+    p_lfg.add_argument("--input", default=None, help="Input file inside workspace (reads small sample if omitted)")
+    p_lfg.add_argument("--workspace", default=".", help="Workspace root for confined input reads")
+    p_lfg.add_argument("--delim", default="\\n", help="Single-byte delimiter (default: \\n)")
+    p_lfg.add_argument("--tier", choices=["auto", "python", "rust_neon", "rust_scalar"], default="auto")
+    p_lfg.add_argument("--disable-simd", action="store_true", help="Force scalar fallback for testing/comparison")
+    p_lfg.add_argument("--normalize", action="store_true", help="Normalize structured log records")
+
+    # reposcout (Working Tool #2: RepoScout Incremental AST & Test Impact Tool)
+    p_rsc = sub.add_parser("reposcout", help="RepoScout symlink-confined AST index & changed-file test-impact slicer")
+    p_rsc.add_argument("--workspace", default=".", help="Target repository root")
+    p_rsc.add_argument("--index", default=".kintsugi/repo_scout_index.json", help="Incremental index cache path")
+    p_rsc.add_argument("--changed", nargs="*", default=None, help="Changed workspace-relative file paths for test impact")
+    p_rsc.add_argument("--symbol", default=None, help="Symbol name to search")
+    p_rsc.add_argument("--save", action="store_true", help="Persist updated index cache cleanly")
 
     return parser
 
@@ -803,6 +889,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "evolve":
+        from kintsugi.cli_nextgen import handle_evolve_v3_flags
+
+        v3_rc = handle_evolve_v3_flags(args)
+        if v3_rc is not None:
+            return v3_rc
         ledger = _load_or_seed_ledger(args.ledger, args.workspace)
         if getattr(args, "consolidate_dry_run", False):
             from kintsugi.evolution_v2 import plan_ledger_consolidation
@@ -922,7 +1013,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.command == "mcp":
-        server = KintsugiMCPServer(args.ledger)
+        server = KintsugiMCPServer(
+            args.ledger,
+            profile=getattr(args, "mcp_profile", "default"),
+        )
         server.serve_stdio()
         return 0
 
@@ -1359,6 +1453,333 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         print(json.dumps(qa_rep, indent=2, ensure_ascii=False))
         return 0 if qa_rep["ok"] else 1
+
+    if args.command == "config":
+        from kintsugi.config import (
+            canonical_config_hash,
+            resolve_kintsugi_config,
+            validate_config_dict,
+        )
+        from kintsugi.shield import assert_not_symlink
+
+        ws = Path(getattr(args, "workspace", ".")).resolve()
+        if args.config_action == "validate":
+            target_cfg = getattr(args, "file", None) or getattr(args, "external_config", None)
+            if not target_cfg:
+                print(json.dumps({"ok": False, "error": "Missing --file or --external-config"}))
+                return 2
+            cfg_path = Path(target_cfg)
+            assert_not_symlink(cfg_path)
+            raw_obj = json.loads(cfg_path.read_text(encoding="utf-8"))
+            validated = validate_config_dict(raw_obj)
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "status": "VALID",
+                        "config_schema": validated.get("config_schema"),
+                        "profile": validated.get("profile"),
+                        "config_hash": canonical_config_hash(validated),
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+            return 0
+        cfg = resolve_kintsugi_config(
+            external_config_path=getattr(args, "external_config", None),
+            cli_profile=getattr(args, "profile", None),
+            target_repo_root=ws,
+        )
+        cfg_dict = cfg.to_dict()
+        cfg_dict["config_hash"] = canonical_config_hash(cfg)
+        print(json.dumps(cfg_dict, indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command in {"tools", "capability"}:
+        from kintsugi.capability import (
+            AttestationAuthority,
+            CapabilityGapDetector,
+            SecurityContext,
+            ToolRegistry,
+            ToolResolver,
+            ToolSpec,
+            TrustStatus,
+            compute_tool_spec_security_digest,
+            sha256_digest,
+        )
+        from kintsugi.config import resolve_kintsugi_config
+        from kintsugi.runtime import ExperienceStore, SecureRunner, run_stage1_vertical_slice
+        from kintsugi.shield import assert_not_symlink, resolve_safe_child_path
+        from kintsugi.tools import LogForge, RepoScout
+
+        ws = Path(getattr(args, "workspace", ".")).resolve()
+        cfg = resolve_kintsugi_config(cli_profile=getattr(args, "profile", None), target_repo_root=ws)
+        sec_ctx = SecurityContext(
+            workspace_root=str(ws),
+            profile=cfg.profile.value,
+            allowed_permissions=["read_workspace", "scan_code", "read_logs"],
+            network_allowed=False,
+            allow_untrusted_native=False,
+        )
+        reg_arg = Path(getattr(args, "registry", ".kintsugi/tool_registry.json"))
+        reg_path = reg_arg if reg_arg.is_absolute() else (ws / reg_arg)
+        verifier_key_file = getattr(args, "verifier_key_file", None)
+        authority: Optional[AttestationAuthority] = None
+        if verifier_key_file:
+            try:
+                authority = AttestationAuthority.from_key_file(verifier_key_file, workspace_root=ws)
+            except (PermissionError, ValueError, OSError, json.JSONDecodeError) as exc:
+                print(json.dumps({"ok": False, "error": str(exc)}, indent=2, ensure_ascii=False))
+                return 1
+        registry = ToolRegistry(authority=authority)
+        if reg_path.exists():
+            assert_not_symlink(reg_path)
+            registry.load(reg_path)
+
+        if args.command == "tools":
+            action = args.tools_action
+            if action == "discover":
+                discovered = registry.discover_local(sec_ctx, allowlisted_paths=getattr(args, "path", None))
+                if getattr(args, "save", False):
+                    registry.save(reg_path)
+                print(
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "discovered_count": len(discovered),
+                            "total_registry": len(registry.list_tools()),
+                            "tools": [t.to_dict() for t in discovered],
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    )
+                )
+                return 0
+            if action == "list":
+                items = (
+                    registry.search_capability(args.capability)
+                    if getattr(args, "capability", None)
+                    else registry.list_tools()
+                )
+                print(json.dumps({"ok": True, "count": len(items), "tools": [t.to_dict() for t in items]}, indent=2, ensure_ascii=False))
+                return 0
+            tid = getattr(args, "tool_id", None) or getattr(args, "tool_id_pos", None)
+            if action == "inspect":
+                spec = registry.get(str(tid or ""))
+                if spec is None:
+                    print(json.dumps({"ok": False, "status": "NO_VERIFIED_TOOL", "tool_id": tid}))
+                    return 1
+                print(json.dumps({"ok": True, "tool": spec.to_dict()}, indent=2, ensure_ascii=False))
+                return 0
+            if action == "verify":
+                if not verifier_key_file or authority is None or not authority.has_registered_verifiers:
+                    print(
+                        json.dumps(
+                            {
+                                "ok": False,
+                                "error": (
+                                    "VERIFIER_KEY_FILE_REQUIRED: --verifier-key-file outside workspace "
+                                    "is mandatory for tools verify."
+                                ),
+                            },
+                            indent=2,
+                            ensure_ascii=False,
+                        )
+                    )
+                    return 1
+                loaded_att: Optional[Dict[str, Any]] = None
+                att_file = getattr(args, "attestation_file", None)
+                try:
+                    if att_file:
+                        att_path = Path(str(att_file))
+                        assert_not_symlink(att_path)
+                        raw_att = json.loads(att_path.read_text(encoding="utf-8"))
+                        if not isinstance(raw_att, dict):
+                            raise ValueError("INVALID_ATTESTATION_FILE: expected JSON object.")
+                        loaded_att = raw_att
+                    spec = registry.verify_tool(
+                        str(tid or ""),
+                        str(getattr(args, "verify_digest", "") or ""),
+                        str(getattr(args, "verifier_id", "cli_operator")),
+                        attestation_signature=getattr(args, "attestation_signature", None),
+                        attestation=loaded_att,
+                    )
+                    if getattr(args, "save", False):
+                        registry.save(reg_path)
+                except (PermissionError, ValueError, KeyError, OSError, json.JSONDecodeError) as exc:
+                    print(json.dumps({"ok": False, "error": str(exc)}, indent=2, ensure_ascii=False))
+                    return 1
+                print(json.dumps({"ok": True, "tool": spec.to_dict()}, indent=2, ensure_ascii=False))
+                return 0
+
+            # vertical-slice deterministic Stage 1 demo (no LLM calls)
+            cap = str(getattr(args, "capability", None) or "log.scan_delimiters")
+            exp_arg = Path(getattr(args, "experience_store", ".kintsugi/experience_store.json"))
+            exp_path = exp_arg if exp_arg.is_absolute() else (ws / exp_arg)
+            exp_store = ExperienceStore(exp_path)
+            runner = SecureRunner(allow_trusted_host_callables=True, attestation_authority=registry.authority)
+            logforge = LogForge()
+            def _run_logforge_slice(task_args: Dict[str, Any]) -> Dict[str, Any]:
+                return {
+                    "offsets": logforge.scan_delimiters(
+                        str(task_args.get("data", "")).encode("utf-8"),
+                        delim=int(task_args.get("delim", 10)),
+                        tier="python_oracle",
+                    ).offsets
+                }
+
+            callable_hash = runner.register_trusted_host_callable("local.logforge", _run_logforge_slice)
+            registry.authority.register_verifier("stage1_cli", secrets.token_bytes(32))
+            builtin_spec = ToolSpec(
+                tool_id="local.logforge",
+                version="1.0.0",
+                source="host_trusted",
+                binary_hash=callable_hash,
+                capabilities=["log.scan_delimiters"],
+                input_schema={"type": "object", "required": ["data"]},
+                output_schema={"type": "object", "required": ["offsets"]},
+                semantic_contract={"output_semantics": "exact_byte_offsets"},
+                preconditions=["non_empty_or_empty_bytes"],
+                postconditions=["sorted_offsets"],
+                side_effects=[],
+                required_permissions=["read_logs"],
+                runtime_requirements={"platform": ["darwin-arm64", "linux-x86_64"], "network": False},
+                trust_status=TrustStatus.VERIFIED,
+                latency_estimate_ms=2.0,
+                memory_estimate_mb=8.0,
+                api_token_estimate=0,
+                verification_attestation={
+                    "verifier_id": "stage1_cli",
+                    "verification_digest": sha256_digest({"tool_id": "local.logforge", "binary_hash": callable_hash}),
+                    "binary_hash": callable_hash,
+                    "tool_id": "local.logforge",
+                    "source": "builtin_verifier",
+                },
+                provenance={"origin": "builtin_kintsugi_tools", "verified_by": "stage1_cli"},
+            )
+            builtin_spec.verification_attestation = registry.authority.issue_attestation(
+                builtin_spec.tool_id, builtin_spec.binary_hash,
+                sha256_digest({"tool_id": builtin_spec.tool_id, "binary_hash": builtin_spec.binary_hash}),
+                "stage1_cli", spec_digest=compute_tool_spec_security_digest(builtin_spec),
+            )
+            registry.register(builtin_spec, trusted_attestor=True)
+
+            def _oracle_check(exec_summary: Any, _tool: Any, _args: Dict[str, Any]) -> bool:
+                payload = exec_summary.get("output") if isinstance(exec_summary, dict) else None
+                return isinstance(payload, dict) and isinstance(payload.get("offsets"), list)
+
+            raw_task = getattr(args, "task", None)
+            if raw_task:
+                try:
+                    task_obj: Any = json.loads(raw_task)
+                except json.JSONDecodeError:
+                    task_obj = {
+                        "task_id": "cli-slice-001",
+                        "intent": raw_task,
+                        "capability": cap,
+                        "args": {"data": "line1\nline2\n"},
+                    }
+            else:
+                task_obj = {
+                    "task_id": "cli-slice-001",
+                    "intent": "Scan delimiter byte offsets in log stream",
+                    "capability": cap,
+                    "args": {"data": "alpha\nbeta\ngamma\n"},
+                }
+            res = run_stage1_vertical_slice(
+                task_obj,
+                security_context=sec_ctx,
+                registry=registry,
+                runner=runner,
+                experience_store=exp_store,
+                oracle=_oracle_check,
+                config=cfg,
+            )
+            print(json.dumps(res.to_dict(), indent=2, ensure_ascii=False))
+            return 0 if res.status == "PASS" else 1
+
+        # capability analyze
+        goal_obj: Dict[str, Any]
+        if getattr(args, "goal_file", None):
+            safe_gf = resolve_safe_child_path(ws, str(args.goal_file))
+            if safe_gf is None or not safe_gf.exists():
+                print(json.dumps({"ok": False, "status": "PERMISSION_DENIED", "error": "Unsafe or missing goal file"}))
+                return 1
+            assert_not_symlink(safe_gf)
+            goal_obj = json.loads(safe_gf.read_text(encoding="utf-8"))
+        else:
+            caps = list(getattr(args, "capability", None) or ["general.execute"])
+            goal_obj = {"goal_id": args.goal_id, "required_capabilities": caps}
+        gap = CapabilityGapDetector().analyze(goal_obj, registry, sec_ctx)
+        resolution = ToolResolver().resolve(gap, registry, sec_ctx)
+        print(
+            json.dumps(
+                {
+                    "ok": resolution.executable,
+                    "capability_gap": gap.to_dict(),
+                    "resolution": resolution.to_dict(),
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0 if resolution.executable else 1
+
+    if args.command == "logforge":
+        from kintsugi.shield import assert_not_symlink, resolve_safe_child_path
+        from kintsugi.tools import LogForge
+
+        ws = Path(getattr(args, "workspace", ".")).resolve()
+        raw_delim = str(getattr(args, "delim", "\\n"))
+        delim_str = "\\n" if raw_delim == "\\n" else raw_delim
+        delim_byte = 10 if delim_str == "\\n" else ord(delim_str[0])
+        payload_bytes = b"ts=2026-11-22T01:00:00Z level=INFO msg=boot\nts=2026-11-22T01:00:01Z level=WARN msg=retry\n"
+        if getattr(args, "input", None):
+            safe_in = resolve_safe_child_path(ws, str(args.input))
+            if safe_in is None or not safe_in.exists():
+                print(json.dumps({"ok": False, "status": "PERMISSION_DENIED", "error": "Unsafe or missing input path"}))
+                return 1
+            assert_not_symlink(safe_in)
+            payload_bytes = safe_in.read_bytes()
+        forge = LogForge()
+        tier_map = {"python": "python_oracle", "rust_neon": "rust_simd"}
+        req_tier = tier_map.get(getattr(args, "tier", "auto"), getattr(args, "tier", "auto"))
+        scan_res = forge.scan_delimiters(
+            payload_bytes,
+            delim=delim_byte,
+            tier=req_tier,
+            disable_simd=bool(getattr(args, "disable_simd", False)),
+            normalize=bool(getattr(args, "normalize", False)),
+        )
+        print(json.dumps(scan_res.to_dict(), indent=2, ensure_ascii=False))
+        return 0
+
+    if args.command == "reposcout":
+        from kintsugi.tools import RepoScout
+
+        ws = Path(getattr(args, "workspace", ".")).resolve()
+        scout = RepoScout(ws, index_path=getattr(args, "index", ".kintsugi/repo_scout_index.json"))
+        index_data = scout.load_or_update()
+        if getattr(args, "save", False):
+            scout.save()
+        out: Dict[str, Any] = {
+            "ok": True,
+            "file_count": len(index_data.get("files", {})),
+            "index_digest": index_data.get("index_digest"),
+        }
+        if getattr(args, "changed", None):
+            out["impact"] = scout.map_changed_files_to_tests(args.changed)
+        if getattr(args, "symbol", None):
+            out["symbols"] = scout.find_symbol(args.symbol)
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+
+    from kintsugi.cli_nextgen import handle_nextgen_command
+
+    ng_rc = handle_nextgen_command(args)
+    if ng_rc is not None:
+        return ng_rc
 
     return 0
 

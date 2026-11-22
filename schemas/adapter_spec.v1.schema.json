@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/adapter_spec.v1.schema.json",
+  "title": "AdapterSpec/1",
+  "description": "Verified semantic/unit port adapter bridging incompatible producer and consumer PortContract/1 nodes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "adapter_id",
+    "version",
+    "source_port",
+    "target_port",
+    "mapping",
+    "unit_conversion",
+    "lossless",
+    "preconditions",
+    "verification_corpus_hash",
+    "adapter_hash",
+    "trust_status",
+    "verification_attestation"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "AdapterSpec/1"
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "source_port": {
+      "$ref": "#/$defs/port_contract"
+    },
+    "target_port": {
+      "$ref": "#/$defs/port_contract"
+    },
+    "mapping": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "unit_conversion": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "lossless": {
+      "type": "boolean"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "verification_corpus_hash": {
+      "type": "string",
+      "pattern": "^(?:|sha256:[0-9a-f]{64})$"
+    },
+    "adapter_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "trust_status": {
+      "type": "string",
+      "enum": [
+        "DISCOVERED",
+        "QUARANTINED",
+        "VERIFIED",
+        "RETIRED"
+      ]
+    },
+    "verification_attestation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "$defs": {
+    "port_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schema_ref",
+        "semantic_type",
+        "encoding",
+        "unit",
+        "cardinality",
+        "ordering",
+        "sensitivity",
+        "trust_label",
+        "streaming"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "PortContract/1"
+        },
+        "schema_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semantic_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "one",
+            "many",
+            "stream"
+          ]
+        },
+        "ordering": {
+          "type": "string",
+          "enum": [
+            "ordered",
+            "unordered"
+          ]
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "secret"
+          ]
+        },
+        "trust_label": {
+          "type": "string",
+          "enum": [
+            "trusted",
+            "untrusted",
+            "derived"
+          ]
+        },
+        "streaming": {
+          "type": "boolean"
+        },
+        "precision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nullable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

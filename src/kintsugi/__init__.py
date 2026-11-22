@@ -3,6 +3,50 @@
 __version__ = "2.4.1"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
+from kintsugi.capability import (
+    AdapterSpec,
+    CapabilityGapDetector,
+    CapabilityGraph,
+    CompositionPlan,
+    CompositionReceipt,
+    EffectContract,
+    PortContract,
+    RunEvent,
+    ToolBuild,
+    ToolRegistry,
+    ToolResolver,
+)
+from kintsugi.composition import (
+    AdapterCatalog,
+    AdapterSynthesizer,
+    CompositionMemory,
+    CompositionVerifier,
+    ToolComposer,
+)
+from kintsugi.config import KintsugiConfig, OperatingProfile, resolve_kintsugi_config
+from kintsugi.evolution import SelfEvolutionEngineV3, StrategyMemory
+from kintsugi.forge import (
+    BuildManifestStore,
+    ForgeTaskSpec,
+    NativeToolForge,
+    ToolBenchmark,
+    ToolSandbox,
+)
+from kintsugi.native_bridge import NativeBridge
+from kintsugi.runtime import (
+    AdaptiveResourceScheduler,
+    CheckpointManager,
+    ExperienceStore,
+    RunStateMachine,
+    RunStatus,
+    RunTelemetry,
+    SecureRunner,
+    TokenEconomicsTracker,
+    TraceStore,
+    run_stage1_vertical_slice,
+)
+from kintsugi.self_model import FunctionalSelfModel
+from kintsugi.tools import LogForge, ProofPack, RepoScout, ToolWire, TraceDoctor
 from kintsugi.crs_engine import (
     BitVectorSMTVerifier,
     ClangLLVMCPGEngine,
@@ -184,4 +228,47 @@ __all__ = [
     "OpenMontagePackageManager",
     "VisualStyleOptimizer",
     "build_demo_flawed_openmontage_manifest",
+    "KintsugiConfig",
+    "OperatingProfile",
+    "resolve_kintsugi_config",
+    "PortContract",
+    "EffectContract",
+    "AdapterSpec",
+    "CompositionPlan",
+    "CompositionReceipt",
+    "ToolBuild",
+    "RunEvent",
+    "ToolRegistry",
+    "CapabilityGraph",
+    "CapabilityGapDetector",
+    "ToolResolver",
+    "AdapterCatalog",
+    "AdapterSynthesizer",
+    "CompositionMemory",
+    "CompositionVerifier",
+    "ToolComposer",
+    "NativeToolForge",
+    "ForgeTaskSpec",
+    "ToolSandbox",
+    "ToolBenchmark",
+    "BuildManifestStore",
+    "SecureRunner",
+    "ExperienceStore",
+    "TraceStore",
+    "RunStatus",
+    "RunStateMachine",
+    "CheckpointManager",
+    "TokenEconomicsTracker",
+    "AdaptiveResourceScheduler",
+    "RunTelemetry",
+    "run_stage1_vertical_slice",
+    "StrategyMemory",
+    "SelfEvolutionEngineV3",
+    "FunctionalSelfModel",
+    "NativeBridge",
+    "LogForge",
+    "RepoScout",
+    "ToolWire",
+    "TraceDoctor",
+    "ProofPack",
 ]

@@ -1,0 +1,88 @@
+"""Stage 1 & Stage 4 Zero-Trust Durable Runtime, Experience Memory & Token Economics (`kintsugi.runtime`)."""
+
+from kintsugi.capability.schemas import (
+    ExecutionReceipt,
+    ExecutionStatus,
+    Experience,
+    SecurityContext,
+    SecurityProfile,
+    ToolSpec,
+    TrustStatus,
+    sha256_digest,
+)
+from kintsugi.runtime.experience_store import ExperienceStore
+from kintsugi.runtime.orchestrator import Stage1ExecutionResult, run_stage1_vertical_slice
+from kintsugi.runtime.run_state import (
+    ALLOWED_TRANSITIONS,
+    CHECKPOINT_SCHEMA_VERSION,
+    DEFAULT_RUN_CHECKPOINTS_REL_PATH,
+    TERMINAL_RUN_STATUSES,
+    CheckpointManager,
+    InvalidStateTransitionError,
+    ReconciliationRequiredError,
+    RunStateMachine,
+    RunStatus,
+    coerce_run_status,
+)
+from kintsugi.runtime.secure_runner import (
+    SecureRunner,
+    canonical_sha256,
+    compute_callable_sha256,
+    compute_file_sha256_confined,
+    probe_linux_landlock_available,
+    validate_trusted_host_callable_hygiene,
+)
+from kintsugi.runtime.token_economics import (
+    REQUIRED_STAGE4_METRICS,
+    AdaptiveResourceScheduler,
+    BudgetExceededError,
+    CancellationError,
+    CancellationToken,
+    RunTelemetry,
+    TokenEconomicsTracker,
+    WatchdogTimeoutError,
+)
+from kintsugi.runtime.trace_store import (
+    DEFAULT_RUN_TRACES_REL_PATH,
+    TraceStore,
+)
+
+__all__ = [
+    "ALLOWED_TRANSITIONS",
+    "AdaptiveResourceScheduler",
+    "BudgetExceededError",
+    "CHECKPOINT_SCHEMA_VERSION",
+    "CancellationError",
+    "CancellationToken",
+    "CheckpointManager",
+    "DEFAULT_RUN_CHECKPOINTS_REL_PATH",
+    "DEFAULT_RUN_TRACES_REL_PATH",
+    "ExecutionReceipt",
+    "ExecutionStatus",
+    "Experience",
+    "ExperienceStore",
+    "InvalidStateTransitionError",
+    "REQUIRED_STAGE4_METRICS",
+    "ReconciliationRequiredError",
+    "RunStateMachine",
+    "RunStatus",
+    "RunTelemetry",
+    "SecureRunner",
+    "SecurityContext",
+    "SecurityProfile",
+    "Stage1ExecutionResult",
+    "TERMINAL_RUN_STATUSES",
+    "TokenEconomicsTracker",
+    "ToolSpec",
+    "TraceStore",
+    "TrustStatus",
+    "WatchdogTimeoutError",
+    "canonical_sha256",
+    "coerce_run_status",
+    "compute_callable_sha256",
+    "compute_file_sha256_confined",
+    "probe_linux_landlock_available",
+    "run_stage1_vertical_slice",
+    "sha256_digest",
+    "validate_trusted_host_callable_hygiene",
+]

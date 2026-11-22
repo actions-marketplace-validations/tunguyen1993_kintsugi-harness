@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/rule_ir.v1.schema.json",
+  "title": "RuleIR/1",
+  "description": "Declarative cross-engine rule intermediate representation shared across Python Evolution v2 and Rust native validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "rule_id",
+    "revision",
+    "language",
+    "severity",
+    "predicate_kind",
+    "match",
+    "rule_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "RuleIR/1"
+    },
+    "rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^/\\\\]+$",
+      "not": {
+        "type": "string",
+        "pattern": "\\.\\."
+      }
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "language": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
+    },
+    "predicate_kind": {
+      "type": "string",
+      "enum": [
+        "ast_pattern",
+        "path_policy",
+        "bounded_regex"
+      ]
+    },
+    "match": {
+      "type": "object"
+    },
+    "conditions": {
+      "type": "object",
+      "properties": {
+        "inside_string_literal": {
+          "type": "boolean"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "DENY",
+            "WARN",
+            "REQUIRE_APPROVAL"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source_trace_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "negative_corpus_digest": {
+      "type": "string",
+      "default": ""
+    },
+    "rule_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "synthesizer": {
+          "type": "string"
+        },
+        "human_approved": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

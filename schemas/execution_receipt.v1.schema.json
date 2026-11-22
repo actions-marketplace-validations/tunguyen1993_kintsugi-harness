@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/execution_receipt.v1.schema.json",
+  "title": "ExecutionReceipt/1",
+  "description": "Content-addressed, tamper-evident execution receipt emitted for each tool or composed plan step.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt_id",
+    "run_id",
+    "step_index",
+    "tool_id",
+    "profile",
+    "config_hash",
+    "security_context_hash",
+    "status",
+    "duration_ms",
+    "started_at",
+    "finished_at",
+    "receipt_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ExecutionReceipt/1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "step_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tool_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "config_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "security_context_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "DENIED",
+        "TIMEOUT",
+        "CANCELLED"
+      ]
+    },
+    "exit_code": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "duration_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "resource_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokens_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memory_mb_peak": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cpu_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "network_calls": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "policy_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "decision"
+        ],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ALLOW",
+              "DENY",
+              "REQUIRE_APPROVAL"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      },
+      "default": []
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "receipt_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

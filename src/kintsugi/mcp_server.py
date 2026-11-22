@@ -342,14 +342,113 @@ def _tool_definitions() -> list[Dict[str, Any]]:
     ]
 
 
+def _nextgen_tool_definitions() -> list[Dict[str, Any]]:
+    return [
+        {
+            "name": "kintsugi_tools_discover",
+            "description": "Passively discover local allowlisted tools without executing untrusted binaries.",
+            "annotations": {
+                "title": "Passive Local Tool Discovery",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "allowlisted_paths": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_capability_analyze",
+            "description": "Analyze missing capabilities and deterministically resolve verified local tools (0 LLM calls).",
+            "annotations": {
+                "title": "Capability Gap & Resolver",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "required": ["required_capabilities"],
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "goal_id": {"type": "string"},
+                    "required_capabilities": {"type": "array", "items": {"type": "string"}},
+                    "registry_path": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_reposcout_impact",
+            "description": "Compute symlink-confined incremental AST symbol lookups and changed-file to affected-test mappings.",
+            "annotations": {
+                "title": "RepoScout Incremental Impact Analysis",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "changed_files": {"type": "array", "items": {"type": "string"}},
+                    "symbol": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_logforge_scan",
+            "description": "Scan delimiter byte offsets across text or bytes using LogForge deterministic Python/Rust NEON parity backend.",
+            "annotations": {
+                "title": "LogForge Delimiter Scanner",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                    "text": {"type": "string"},
+                    "delim": {"type": "integer"},
+                    "tier": {"type": "string", "enum": ["auto", "python", "rust_neon", "rust_scalar"]},
+                    "normalize": {"type": "boolean"},
+                },
+            },
+        },
+    ]
+
+
 class KintsugiMCPServer:
     """Line-delimited JSON-RPC 2.0 MCP server over stdio."""
 
-    def __init__(self, ledger_path: Path | str = ".kintsugi/scars.json") -> None:
+    def __init__(
+        self,
+        ledger_path: Path | str = ".kintsugi/scars.json",
+        *,
+        profile: str = "default",
+    ) -> None:
         self.ledger = ScarLedger(ledger_path, ensure_builtin_crs=True)
         if not self.ledger.all():
             self.ledger.bootstrap_starter_pack()
+        self.profile = str(profile or "default").lower()
         self._session_hit_telemetry: Dict[str, int] = {}
+
+    def active_tools(self) -> list[Dict[str, Any]]:
+        tools = list(_tool_definitions())
+        if self.profile in {"nextgen", "coding"}:
+            from kintsugi.mcp_nextgen import nextgen_build2_tool_definitions
+
+            tools.extend(_nextgen_tool_definitions())
+            tools.extend(nextgen_build2_tool_definitions())
+        return tools
 
     def handle_request(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         method = message.get("method")
@@ -386,7 +485,7 @@ class KintsugiMCPServer:
                 return {
                     "jsonrpc": "2.0",
                     "id": msg_id,
-                    "result": {"tools": _tool_definitions()},
+                    "result": {"tools": self.active_tools()},
                 }
 
             if method == "resources/list":
@@ -814,6 +913,67 @@ class KintsugiMCPServer:
                 "openmontage_package": pkg_meta,
                 "qa_report": qa_rep,
             }
+
+        if self.profile in {"nextgen", "coding"}:
+            if name == "kintsugi_tools_discover":
+                from kintsugi.capability import SecurityContext, ToolRegistry
+
+                ws = Path(str(args.get("workspace_root") or ".")).resolve()
+                sec_ctx = SecurityContext(workspace_root=str(ws), network_allowed=False)
+                reg = ToolRegistry()
+                discovered = reg.discover_local(sec_ctx, allowlisted_paths=args.get("allowlisted_paths"))
+                return {"ok": True, "discovered_count": len(discovered), "tools": [t.to_dict() for t in discovered]}
+
+            if name == "kintsugi_capability_analyze":
+                from kintsugi.capability import CapabilityGapDetector, SecurityContext, ToolRegistry, ToolResolver
+
+                ws = Path(str(args.get("workspace_root") or ".")).resolve()
+                sec_ctx = SecurityContext(workspace_root=str(ws), network_allowed=False)
+                reg = ToolRegistry()
+                reg_path_raw = args.get("registry_path")
+                if reg_path_raw:
+                    rp = Path(str(reg_path_raw))
+                    rp = rp if rp.is_absolute() else (ws / rp)
+                    if rp.exists():
+                        reg.load(rp)
+                goal = {
+                    "goal_id": str(args.get("goal_id") or "mcp-goal-001"),
+                    "required_capabilities": list(args.get("required_capabilities") or []),
+                }
+                gap = CapabilityGapDetector().analyze(goal, reg, sec_ctx)
+                res = ToolResolver().resolve(gap, reg, sec_ctx)
+                return {"ok": res.executable, "capability_gap": gap.to_dict(), "resolution": res.to_dict()}
+
+            if name == "kintsugi_reposcout_impact":
+                from kintsugi.tools import RepoScout
+
+                ws = Path(str(args.get("workspace_root") or ".")).resolve()
+                scout = RepoScout(ws)
+                idx = scout.build()
+                out: Dict[str, Any] = {"ok": True, "file_count": len(idx.get("files", {})), "index_digest": idx.get("index_digest")}
+                if args.get("changed_files"):
+                    out["impact"] = scout.map_changed_files_to_tests(args["changed_files"])
+                if args.get("symbol"):
+                    out["symbols"] = scout.find_symbol(str(args["symbol"]))
+                return out
+
+            if name == "kintsugi_logforge_scan":
+                from kintsugi.tools import LogForge
+
+                tier_map = {"python": "python_oracle", "rust_neon": "rust_simd"}
+                raw_tier = str(args.get("tier") or "auto")
+                res = LogForge().scan_delimiters(
+                    str(args.get("text") or "").encode("utf-8"),
+                    delim=int(args.get("delim", 10)),
+                    tier=tier_map.get(raw_tier, raw_tier),
+                    normalize=bool(args.get("normalize", False)),
+                )
+                return {"ok": True, "result": res.to_dict()}
+
+            from kintsugi.mcp_nextgen import NEXTGEN_BUILD2_TOOL_NAMES, dispatch_nextgen_build2_mcp_tool
+
+            if name in NEXTGEN_BUILD2_TOOL_NAMES:
+                return dispatch_nextgen_build2_mcp_tool(name, args)
 
         raise ValueError(f"Unknown MCP tool: {name}")
 

@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/security_context.v1.schema.json",
+  "title": "SecurityContext/1",
+  "description": "Zero-trust runtime security envelope binding profile, workspace containment, policy invariants, sandbox mode, and approval state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "context_id",
+    "profile",
+    "actor",
+    "workspace",
+    "policy",
+    "sandbox",
+    "issued_at",
+    "context_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "SecurityContext/1"
+    },
+    "context_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "role",
+        "trust_level"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "harness",
+            "subagent",
+            "tool",
+            "external"
+          ]
+        },
+        "trust_level": {
+          "type": "string",
+          "enum": [
+            "trusted_owner",
+            "trusted_harness",
+            "untrusted_input"
+          ]
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_path",
+        "trusted_workspace"
+      ],
+      "properties": {
+        "root_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trusted_workspace": {
+          "type": "boolean"
+        },
+        "enclosing_repo_root": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "allow_write_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "deny_write_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enforce_pretooluse",
+        "enforce_trusted_workspace",
+        "external_trusted_policy_only",
+        "deny_untrusted_network",
+        "deny_host_admin",
+        "protect_secrets",
+        "require_approval_for_sensitive_actions",
+        "allow_untrusted_native_on_host",
+        "require_sandbox_for_untrusted_code",
+        "prevent_rule_self_promotion"
+      ],
+      "properties": {
+        "enforce_pretooluse": {
+          "type": "boolean",
+          "const": true
+        },
+        "enforce_trusted_workspace": {
+          "type": "boolean",
+          "const": true
+        },
+        "external_trusted_policy_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "deny_untrusted_network": {
+          "type": "boolean",
+          "const": true
+        },
+        "deny_host_admin": {
+          "type": "boolean",
+          "const": true
+        },
+        "protect_secrets": {
+          "type": "boolean",
+          "const": true
+        },
+        "require_approval_for_sensitive_actions": {
+          "type": "boolean",
+          "const": true
+        },
+        "allow_untrusted_native_on_host": {
+          "type": "boolean",
+          "const": false
+        },
+        "require_sandbox_for_untrusted_code": {
+          "type": "boolean",
+          "const": true
+        },
+        "prevent_rule_self_promotion": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "mode",
+        "network_access",
+        "allow_native_exec"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "process_jail",
+            "container",
+            "wasm",
+            "read_only"
+          ]
+        },
+        "network_access": {
+          "type": "boolean"
+        },
+        "allow_native_exec": {
+          "type": "boolean"
+        }
+      }
+    },
+    "approval_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sensitive_action_approved": {
+          "type": "boolean",
+          "default": false
+        },
+        "native_exec_approved": {
+          "type": "boolean",
+          "default": false
+        },
+        "approved_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "approval_token_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "taint_labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "context_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

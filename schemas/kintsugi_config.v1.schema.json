@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/kintsugi_config.v1.schema.json",
+  "title": "KintsugiConfig/1",
+  "description": "Operating profile configuration and non-weakening security baseline for Kintsugi Harness (`LOCAL_RESEARCH` vs `GITHUB_PUBLIC`).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_schema",
+    "profile"
+  ],
+  "properties": {
+    "config_schema": {
+      "type": "string",
+      "const": "KintsugiConfig/1"
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "local_research": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artificial_token_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "hard_model_call_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "hard_agent_count_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "hard_iteration_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "hard_tool_candidate_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "hard_composition_depth_limit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "default": null
+        },
+        "allow_exploratory_research_after_milestone": {
+          "type": "boolean",
+          "default": true
+        },
+        "deterministic_first": {
+          "type": "boolean",
+          "default": true
+        },
+        "adaptive_resource_scheduling": {
+          "type": "boolean",
+          "default": true
+        },
+        "checkpoint_and_resume": {
+          "type": "boolean",
+          "default": true
+        },
+        "resource_telemetry": {
+          "type": "boolean",
+          "default": true
+        },
+        "watchdog_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "cancellation_enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "github_public": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token_budget": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20000
+        },
+        "max_parallel_agents": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "max_tool_probes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 5
+        },
+        "max_composition_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 4
+        },
+        "max_runtime_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 900
+        },
+        "max_memory_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1024
+        },
+        "network_access": {
+          "type": "boolean",
+          "default": false
+        },
+        "automatic_package_installation": {
+          "type": "boolean",
+          "default": false
+        },
+        "require_approval_for_native_execution": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enforce_pretooluse": {
+          "type": "boolean",
+          "const": true
+        },
+        "enforce_trusted_workspace": {
+          "type": "boolean",
+          "const": true
+        },
+        "external_trusted_policy_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "deny_untrusted_network": {
+          "type": "boolean",
+          "const": true
+        },
+        "deny_host_admin": {
+          "type": "boolean",
+          "const": true
+        },
+        "protect_secrets": {
+          "type": "boolean",
+          "const": true
+        },
+        "require_approval_for_sensitive_actions": {
+          "type": "boolean",
+          "const": true
+        },
+        "allow_untrusted_native_on_host": {
+          "type": "boolean",
+          "const": false
+        },
+        "require_sandbox_for_untrusted_code": {
+          "type": "boolean",
+          "const": true
+        },
+        "prevent_rule_self_promotion": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/run_event.v1.schema.json",
+  "title": "RunEvent/1",
+  "description": "Append-only hash-chained structured lifecycle, security, decision, and resource telemetry event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "step_id",
+    "state",
+    "tool_id",
+    "input_digest",
+    "output_digest",
+    "elapsed_ms",
+    "tokens_used",
+    "resource_usage",
+    "decision_reason",
+    "prev_event_hash",
+    "event_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "RunEvent/1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "step_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "tool_id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "elapsed_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "tokens_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "resource_usage": {
+      "type": "object"
+    },
+    "decision_reason": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "prev_event_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "event_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "INFO",
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gap_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "plan_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receipt_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tool_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

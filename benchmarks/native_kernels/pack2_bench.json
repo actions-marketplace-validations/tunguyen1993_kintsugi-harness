@@ -1,0 +1,155 @@
+{
+  "schema_version": "1.0",
+  "tool": "KintsugiNativePack2",
+  "measured_at_utc": "2026-11-21T19:19:02Z",
+  "host": {
+    "arch": "arm64",
+    "os": "macOS-26.4.1-arm64-arm-64bit",
+    "cpu_brand": "Apple M2 Pro",
+    "logical_cores": 12,
+    "feat_sha256": 1,
+    "neon": 1,
+    "python_version": "3.9.6",
+    "rustc_version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "rust_release_flags": "opt-level=3, lto=true, codegen-units=1, strip=true"
+  },
+  "correctness": {
+    "status": "PASS_100",
+    "cargo_tests_lib": 32,
+    "cargo_tests_neuro_symbolic": 3,
+    "pack2_python_parity_tests": 7,
+    "prefilter_36_parity_ok": true,
+    "prefilter_36_recall_pct": 100.0,
+    "kml_1797_parity_ok": true,
+    "kml_1797_recall_pct": 100.0,
+    "sha256_parity_ok": true,
+    "rule_ir_canonical_hash_and_eval_parity": true
+  },
+  "benchmarks": {
+    "scan_src": {
+      "target": "src",
+      "scanned_files": 57,
+      "corpus_bytes": 2599556,
+      "active_rules": 36,
+      "findings_count": 0,
+      "baseline_pre_pack2_reported_ms": 946.0,
+      "optimized_internal": {
+        "warmup": 5,
+        "iters": 25,
+        "min_ms": 66.874,
+        "median_ms": 68.263,
+        "mean_ms": 68.497
+      },
+      "optimized_cli_wall": {
+        "iters": 10,
+        "min_ms": 73.513,
+        "median_ms": 74.904,
+        "mean_ms": 75.3
+      },
+      "speedup_vs_baseline_internal": 13.86,
+      "speedup_vs_baseline_cli_wall": 12.63,
+      "profiling_breakdown": [
+        "Hoisted env::current_dir() out of per-line KS-014 audit_shell_command_argv into once-per-scan scan_cwd resolution, and skipped fs::canonicalize when trusted_files is empty.",
+        "Added conservative zero-allocation ks014_line_may_match guard skipping shell tokenization on non-shell lines with 100% corpus/evasion recall.",
+        "Hoisted file-level NEON pi_keyword_prefilter + single-pass pi_line_flags to avoid duplicate lowercase allocations in KS-S3-01.",
+        "Gated per-line checks with 64-bit active_mask from RulePrefilter so provably absent literal rules are skipped per file."
+      ]
+    },
+    "cdylib_ffi_vs_subprocess": {
+      "dylib_path": "target/release/libkintsugi_core.dylib",
+      "dylib_sha256": "79d8d76216605cc7062764ff82b5186ee22f0db327b6795fcf6473cb97a53b4a",
+      "abi_version": 1,
+      "sample_file": "src/kintsugi/evolution_v2.py",
+      "sample_bytes": 32494,
+      "scan_buffer": {
+        "ffi_cdylib_us": {
+          "iters": 50,
+          "min": 874.958,
+          "median": 908.292,
+          "mean": 928.851
+        },
+        "subprocess_kintsugi_rs_ms": {
+          "iters": 15,
+          "min": 5.528,
+          "median": 5.761,
+          "mean": 5.93
+        },
+        "speedup_ffi_vs_subprocess": 6.34
+      },
+      "evaluate_rule_ir": {
+        "ffi_cdylib_us": {
+          "iters": 30,
+          "min": 534.083,
+          "median": 568.938,
+          "mean": 587.154
+        },
+        "subprocess_kintsugi_rs_ms": {
+          "iters": 10,
+          "min": 5.514,
+          "median": 5.71,
+          "mean": 5.687
+        },
+        "speedup_ffi_vs_subprocess": 10.04
+      },
+      "latency_notes": "Subprocess invocations pay ~4.8-5.1 ms per call for temporary file creation, Mach-O process/dyld startup, and pipe IPC; verified cdylib FFI eliminates all spawn and filesystem overhead."
+    },
+    "sha256_1mib": {
+      "size_bytes": 1048576,
+      "warmup": 10,
+      "iters": 50,
+      "seed": 20261121,
+      "digest_hex": "5010557843200075bd654db48681a13abfafd2bd6a87ccfebccac141dbd1ad41",
+      "rust_hw_feat_sha256": {
+        "backend": "aarch64_feat_sha256",
+        "min_us": 432.416,
+        "median_us": 435.958,
+        "p95_us": 490.959,
+        "mean_us": 444.965,
+        "throughput_gbps": 2.4052
+      },
+      "rust_scalar_fallback": {
+        "backend": "rust_scalar_fallback",
+        "min_us": 4143.375,
+        "median_us": 4251.958,
+        "p95_us": 4423.125,
+        "mean_us": 4267.128,
+        "throughput_gbps": 0.2466
+      },
+      "python_hashlib": {
+        "backend": "cpython_hashlib_commoncrypto",
+        "min_us": 388.875,
+        "median_us": 404.188,
+        "throughput_gbps": 2.5943
+      },
+      "python_cdylib_ffi": {
+        "backend": "native_bridge_ctypes_feat_sha256",
+        "min_us": 549.375,
+        "median_us": 584.188,
+        "throughput_gbps": 1.7949,
+        "note": "Includes ctypes from_buffer_copy(1 MiB) marshaling overhead (~148 us) before entering Rust FEAT_SHA256."
+      },
+      "speedup_rust_hw_vs_rust_scalar": 9.753
+    },
+    "rule_prefilter": {
+      "backend": "aarch64_neon_teddy_3byte",
+      "builtin_36_rules": {
+        "corpus_bytes": 2599556,
+        "parity_ok": true,
+        "recall_pct": 100.0,
+        "neon_us": 4478.471,
+        "scalar_us": 4181.965,
+        "speedup_neon_vs_scalar": 0.934
+      },
+      "kml_1797_literals": {
+        "kml_records": 1797,
+        "corpus_bytes": 2599556,
+        "parity_ok": true,
+        "recall_pct": 100.0,
+        "neon_us": 3179.062,
+        "scalar_us": 6743.896,
+        "speedup_neon_vs_scalar": 2.121
+      },
+      "note": "With 36 rules (~36 literals), scalar short-needle scans run slightly faster (4.18 ms vs 4.48 ms) than 3-byte NEON Teddy chunking across every 16-byte lane, while at 1,797 KML literals NEON Teddy delivers a 2.12x speedup with 100% recall parity."
+    }
+  }
+}

@@ -8,11 +8,17 @@ use std::path::Path;
 use std::process;
 use std::time::Instant;
 
+use kintsugi_core::kernels::{
+    active_prefilter_backend, active_simd_backend, builtin_rule_prefilter, normalize_log_records,
+    render_bench_report_json, run_logforge_benchmark, run_sha256_benchmark, scan_delimiters,
+    scan_multibyte_delimiters,
+};
 use kintsugi_core::{
     audit_step_economics_path, compute_token_benchmark, evaluate_pre_tool_json_with_workspace,
-    inspect_kml_corpus_file, json_escape, render_creed_json, render_kmi_compact_header,
-    render_kml_builtin_corpus, render_step_audit_json, render_swarm_plan_json, s3_audit_path,
-    scan_git_staged, scan_path_with_policy_sha, scan_text, validate_rule_ir_json,
+    evaluate_rule_ir_json, inspect_kml_corpus_file, json_escape, parse_kml_corpus,
+    render_creed_json, render_kmi_compact_header, render_kml_builtin_corpus,
+    render_step_audit_json, render_swarm_plan_json, s3_audit_path, scan_git_staged, scan_path,
+    scan_path_with_policy_sha, scan_text, validate_rule_ir_json, validate_rule_ir_json_strict,
     verify_memories_readonly, verify_outbound_destination_allowed, Severity,
     ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
@@ -35,6 +41,41 @@ fn reject_unknown_flag(arg: &str) {
     }
 }
 
+fn parse_delim_byte(spec: &str) -> Result<u8, String> {
+    match spec {
+        "\\n" | "\n" | "lf" | "LF" | "newline" => Ok(b'\n'),
+        "\\0" | "\0" | "nul" | "NUL" | "null" => Ok(b'\0'),
+        "\\r" | "\r" | "cr" | "CR" => Ok(b'\r'),
+        "\\t" | "\t" | "tab" | "TAB" => Ok(b'\t'),
+        _ if spec.starts_with("0x") || spec.starts_with("0X") => {
+            u8::from_str_radix(&spec[2..], 16)
+                .map_err(|e| format!("Invalid hex delimiter '{spec}': {e}"))
+        }
+        _ if spec.as_bytes().len() == 1 => Ok(spec.as_bytes()[0]),
+        _ => spec
+            .parse::<u8>()
+            .map_err(|e| format!("Invalid delimiter '{spec}': {e}")),
+    }
+}
+
+fn decode_hex_bytes(hex: &str) -> Result<Vec<u8>, String> {
+    let clean = hex.trim();
+    if clean.len() % 2 != 0 {
+        return Err(format!("Hex pattern must have even length: '{clean}'"));
+    }
+    let mut out = Vec::with_capacity(clean.len() / 2);
+    let b = clean.as_bytes();
+    let mut idx = 0usize;
+    while idx < b.len() {
+        let pair = std::str::from_utf8(&b[idx..idx + 2]).map_err(|e| e.to_string())?;
+        let val = u8::from_str_radix(pair, 16)
+            .map_err(|e| format!("Invalid hex byte '{pair}': {e}"))?;
+        out.push(val);
+        idx += 2;
+    }
+    Ok(out)
+}
+
 fn print_help() {
     println!(
         "kintsugi-rs {VERSION} — Native Rust @KML/1 & Grade-S3 Guardrail Engine\n\
@@ -47,9 +88,14 @@ fn print_help() {
          \x20 kintsugi-rs swarm-plan [TASK_DESC]\n\
          \x20 kintsugi-rs step-audit [PATH] [--max-sessions N] [--sub-cap 12] [--task-cap 25] [--wire]\n\
          \x20 kintsugi-rs hook claude-pre-tool [--block-on HIGH] [--workspace PATH]\n\
-         \x20 kintsugi-rs rule-ir-check [PATH|-]\n\
+         \x20 kintsugi-rs rule-ir-check [PATH|-] [--strict-hash]\n\
+         \x20 kintsugi-rs rule-ir-eval --rule PATH|- [--lang LANG] [CODE_PATH|-]\n\
          \x20 kintsugi-rs kml [PATH_TO_SCARS_KML]\n\
          \x20 kintsugi-rs compress [--kml]\n\
+         \x20 kintsugi-rs scan-bytes [PATH|-] [--delim SPEC] [--pattern STR] [--pattern-hex HEX] [--disable-simd] [--normalize] [--format json|offsets]\n\
+         \x20 kintsugi-rs logforge-bench [--size-bytes N] [--warmup N] [--iters N] [--seed N] [--delim SPEC]\n\
+         \x20 kintsugi-rs sha256-bench [--size-bytes N] [--warmup N] [--iters N] [--seed N]\n\
+         \x20 kintsugi-rs scan-bench [PATH] [--warmup N] [--iters N]\n\
          \x20 kintsugi-rs bench\n\
          \x20 kintsugi-rs --version"
     );
@@ -482,9 +528,12 @@ def fetch_data(url: str) -> str:
         }
         "rule-ir-check" => {
             let mut src_arg = "-".to_string();
+            let mut strict_hash = false;
             for a in args.iter().skip(1) {
                 if a == "-" {
                     src_arg = "-".to_string();
+                } else if a == "--strict-hash" {
+                    strict_hash = true;
                 } else if !a.starts_with('-') {
                     src_arg = a.clone();
                 } else {
@@ -504,13 +553,458 @@ def fetch_data(url: str) -> str:
                     }
                 }
             };
-            match validate_rule_ir_json(&raw) {
+            let res = if strict_hash {
+                validate_rule_ir_json_strict(&raw)
+            } else {
+                validate_rule_ir_json(&raw)
+            };
+            match res {
                 Ok(out) => println!("{out}"),
                 Err(err) => {
                     eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&err));
                     process::exit(1);
                 }
             }
+        }
+        "rule-ir-eval" => {
+            let mut rule_arg: Option<String> = None;
+            let mut code_arg = "-".to_string();
+            let mut lang = "python".to_string();
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--rule" => {
+                        rule_arg = Some(require_flag_value("--rule", &mut i, &args));
+                    }
+                    "--lang" => {
+                        lang = require_flag_value("--lang", &mut i, &args);
+                    }
+                    "-" => code_arg = "-".to_string(),
+                    arg if !arg.starts_with('-') => code_arg = arg.to_string(),
+                    arg => reject_unknown_flag(arg),
+                }
+                i += 1;
+            }
+            let Some(rule_src) = rule_arg else {
+                eprintln!("Error: Missing required option '--rule'");
+                process::exit(2);
+            };
+            let rule_raw = if rule_src == "-" {
+                let mut buf = String::new();
+                let _ = io::stdin().read_to_string(&mut buf);
+                buf
+            } else {
+                match std::fs::read_to_string(&rule_src) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&e.to_string()));
+                        process::exit(1);
+                    }
+                }
+            };
+            let code_raw = if code_arg == "-" {
+                let mut buf = String::new();
+                let _ = io::stdin().read_to_string(&mut buf);
+                buf
+            } else {
+                match std::fs::read_to_string(&code_arg) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&e.to_string()));
+                        process::exit(1);
+                    }
+                }
+            };
+            match evaluate_rule_ir_json(&rule_raw, &code_raw, &lang) {
+                Ok(out) => println!("{out}"),
+                Err(err) => {
+                    eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&err));
+                    process::exit(1);
+                }
+            }
+        }
+        "scan-bytes" => {
+            let mut src_arg = "-".to_string();
+            let mut delim: u8 = b'\n';
+            let mut pattern: Option<Vec<u8>> = None;
+            let mut disable_simd = false;
+            let mut normalize = false;
+            let mut format = "json".to_string();
+            let mut after_double_dash = false;
+
+            let mut i = 1;
+            while i < args.len() {
+                if after_double_dash {
+                    src_arg = args[i].clone();
+                    i += 1;
+                    continue;
+                }
+                match args[i].as_str() {
+                    "--" => after_double_dash = true,
+                    "--delim" => {
+                        let v = require_flag_value("--delim", &mut i, &args);
+                        match parse_delim_byte(&v) {
+                            Ok(b) => delim = b,
+                            Err(err) => {
+                                eprintln!("Error: {err}");
+                                process::exit(2);
+                            }
+                        }
+                    }
+                    "--pattern" => {
+                        let v = require_flag_value("--pattern", &mut i, &args);
+                        pattern = Some(v.into_bytes());
+                    }
+                    "--pattern-hex" => {
+                        let v = require_flag_value("--pattern-hex", &mut i, &args);
+                        match decode_hex_bytes(&v) {
+                            Ok(bytes) => pattern = Some(bytes),
+                            Err(err) => {
+                                eprintln!("Error: {err}");
+                                process::exit(2);
+                            }
+                        }
+                    }
+                    "--disable-simd" => disable_simd = true,
+                    "--normalize" => normalize = true,
+                    "--format" => {
+                        format = require_flag_value("--format", &mut i, &args);
+                        if format != "json" && format != "offsets" {
+                            eprintln!("Error: Unsupported --format '{format}' (expected json or offsets)");
+                            process::exit(2);
+                        }
+                    }
+                    "-" => src_arg = "-".to_string(),
+                    arg if !arg.starts_with('-') => src_arg = arg.to_string(),
+                    arg => reject_unknown_flag(arg),
+                }
+                i += 1;
+            }
+
+            let raw_bytes = if src_arg == "-" {
+                let mut buf = Vec::new();
+                if let Err(e) = io::stdin().read_to_end(&mut buf) {
+                    eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&e.to_string()));
+                    process::exit(1);
+                }
+                buf
+            } else {
+                match std::fs::read(&src_arg) {
+                    Ok(buf) => buf,
+                    Err(e) => {
+                        eprintln!("{{\"ok\":false,\"error\":\"{}\"}}", json_escape(&e.to_string()));
+                        process::exit(1);
+                    }
+                }
+            };
+
+            let t0 = Instant::now();
+            let backend = active_simd_backend(disable_simd);
+            let offsets = if let Some(ref pat) = pattern {
+                scan_multibyte_delimiters(&raw_bytes, pat, disable_simd)
+            } else {
+                scan_delimiters(&raw_bytes, delim, disable_simd)
+            };
+            let elapsed_us = (t0.elapsed().as_nanos() as f64) / 1000.0;
+
+            if format == "offsets" {
+                for off in &offsets {
+                    println!("{off}");
+                }
+            } else {
+                let off_str: Vec<String> = offsets.iter().map(|o| o.to_string()).collect();
+                let events_json = if normalize && pattern.is_none() {
+                    let evs = normalize_log_records(&raw_bytes, delim, disable_simd);
+                    let strs: Vec<String> = evs.iter().map(|e| e.to_json()).collect();
+                    format!(",\"events\":[{}]", strs.join(","))
+                } else {
+                    String::new()
+                };
+                println!(
+                    "{{\"ok\":true,\"schema_version\":\"1.0\",\"tool\":\"LogForge\",\"backend\":\"{}\",\"disable_simd\":{},\"delim\":{},\"multibyte_pattern_len\":{},\"input_bytes\":{},\"delimiter_count\":{},\"elapsed_us\":{:.3},\"offsets\":[{}]{}}}",
+                    backend,
+                    disable_simd,
+                    delim,
+                    pattern.as_ref().map(|p| p.len()).unwrap_or(1),
+                    raw_bytes.len(),
+                    offsets.len(),
+                    elapsed_us,
+                    off_str.join(","),
+                    events_json,
+                );
+            }
+        }
+        "logforge-bench" => {
+            let mut size_bytes: usize = 1_048_576;
+            let mut warmup: usize = 10;
+            let mut iters: usize = 50;
+            let mut seed: u64 = 20_261_121;
+            let mut delim: u8 = b'\n';
+
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--size-bytes" => {
+                        let v = require_flag_value("--size-bytes", &mut i, &args);
+                        size_bytes = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --size-bytes '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--warmup" => {
+                        let v = require_flag_value("--warmup", &mut i, &args);
+                        warmup = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --warmup '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--iters" => {
+                        let v = require_flag_value("--iters", &mut i, &args);
+                        iters = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --iters '{v}'");
+                            process::exit(2);
+                        }).max(1);
+                    }
+                    "--seed" => {
+                        let v = require_flag_value("--seed", &mut i, &args);
+                        seed = v.parse::<u64>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --seed '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--delim" => {
+                        let v = require_flag_value("--delim", &mut i, &args);
+                        match parse_delim_byte(&v) {
+                            Ok(b) => delim = b,
+                            Err(err) => {
+                                eprintln!("Error: {err}");
+                                process::exit(2);
+                            }
+                        }
+                    }
+                    arg => reject_unknown_flag(arg),
+                }
+                i += 1;
+            }
+
+            let rep = run_logforge_benchmark(size_bytes, warmup, iters, seed, delim);
+            println!("{}", render_bench_report_json(&rep));
+            if !rep.parity_ok {
+                process::exit(1);
+            }
+        }
+        "sha256-bench" => {
+            let mut size_bytes: usize = 1_048_576;
+            let mut warmup: usize = 10;
+            let mut iters: usize = 50;
+            let mut seed: u64 = 20_261_121;
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--size-bytes" => {
+                        let v = require_flag_value("--size-bytes", &mut i, &args);
+                        size_bytes = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --size-bytes '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--warmup" => {
+                        let v = require_flag_value("--warmup", &mut i, &args);
+                        warmup = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --warmup '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--iters" => {
+                        let v = require_flag_value("--iters", &mut i, &args);
+                        iters = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --iters '{v}'");
+                            process::exit(2);
+                        }).max(1);
+                    }
+                    "--seed" => {
+                        let v = require_flag_value("--seed", &mut i, &args);
+                        seed = v.parse::<u64>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --seed '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    arg => reject_unknown_flag(arg),
+                }
+                i += 1;
+            }
+            let rep = run_sha256_benchmark(size_bytes, warmup, iters, seed);
+            println!(
+                "{{\"schema_version\":\"1.0\",\"tool\":\"KintsugiSHA256\",\"arch\":\"{}\",\"os\":\"{}\",\"size_bytes\":{},\"warmup\":{},\"iters\":{},\"seed\":{},\"parity_ok\":{},\"digest_hex\":\"{}\",\"speedup_hw_vs_scalar\":{:.3},\"hw\":{{\"backend\":\"{}\",\"min_us\":{:.3},\"median_us\":{:.3},\"p95_us\":{:.3},\"mean_us\":{:.3},\"throughput_gbps\":{:.4}}},\"scalar\":{{\"backend\":\"{}\",\"min_us\":{:.3},\"median_us\":{:.3},\"p95_us\":{:.3},\"mean_us\":{:.3},\"throughput_gbps\":{:.4}}}}}",
+                std::env::consts::ARCH,
+                std::env::consts::OS,
+                rep.size_bytes,
+                rep.warmup,
+                rep.iters,
+                seed,
+                rep.parity_ok,
+                rep.digest_hex,
+                rep.speedup_hw_vs_scalar,
+                rep.hw.backend,
+                rep.hw.min_us,
+                rep.hw.median_us,
+                rep.hw.p95_us,
+                rep.hw.mean_us,
+                rep.hw.throughput_gbps,
+                rep.scalar.backend,
+                rep.scalar.min_us,
+                rep.scalar.median_us,
+                rep.scalar.p95_us,
+                rep.scalar.mean_us,
+                rep.scalar.throughput_gbps,
+            );
+            if !rep.parity_ok {
+                process::exit(1);
+            }
+        }
+        "scan-bench" => {
+            let mut target = "src".to_string();
+            let mut warmup: usize = 3;
+            let mut iters: usize = 10;
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--warmup" => {
+                        let v = require_flag_value("--warmup", &mut i, &args);
+                        warmup = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --warmup '{v}'");
+                            process::exit(2);
+                        });
+                    }
+                    "--iters" => {
+                        let v = require_flag_value("--iters", &mut i, &args);
+                        iters = v.parse::<usize>().unwrap_or_else(|_| {
+                            eprintln!("Error: Invalid --iters '{v}'");
+                            process::exit(2);
+                        }).max(1);
+                    }
+                    arg if !arg.starts_with('-') => target = arg.to_string(),
+                    arg => reject_unknown_flag(arg),
+                }
+                i += 1;
+            }
+            let target_path = Path::new(&target);
+            for _ in 0..warmup {
+                let _ = scan_path(target_path, Severity::Low);
+            }
+            let mut scan_ms_samples = Vec::with_capacity(iters);
+            let mut last_sum = None;
+            for _ in 0..iters {
+                let sum = scan_path(target_path, Severity::Low);
+                scan_ms_samples.push((sum.elapsed_micros as f64) / 1000.0);
+                last_sum = Some(sum);
+            }
+            scan_ms_samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            let n = scan_ms_samples.len();
+            let scan_min_ms = scan_ms_samples[0];
+            let scan_median_ms = if n % 2 == 1 {
+                scan_ms_samples[n / 2]
+            } else {
+                0.5 * (scan_ms_samples[n / 2 - 1] + scan_ms_samples[n / 2])
+            };
+            let scan_mean_ms = scan_ms_samples.iter().sum::<f64>() / (n as f64);
+
+            // Benchmark RulePrefilter on concatenated corpus + KML 1797+ literals
+            let mut concat_buf = Vec::new();
+            let mut stack = vec![target_path.to_path_buf()];
+            while let Some(p) = stack.pop() {
+                if let Ok(md) = std::fs::symlink_metadata(&p) {
+                    if md.file_type().is_symlink() {
+                        continue;
+                    }
+                    if md.is_dir() {
+                        if let Ok(rd) = std::fs::read_dir(&p) {
+                            for e in rd.flatten() {
+                                stack.push(e.path());
+                            }
+                        }
+                    } else if md.is_file() && p.extension().and_then(|s| s.to_str()) == Some("py") {
+                        if let Ok(bytes) = std::fs::read(&p) {
+                            concat_buf.extend_from_slice(&bytes);
+                            concat_buf.push(b'\n');
+                        }
+                    }
+                }
+            }
+            let pf_36 = builtin_rule_prefilter();
+            let t_pf0 = Instant::now();
+            let mut mask_neon = 0u64;
+            for _ in 0..20 {
+                mask_neon = pf_36.candidate_mask_u64(&concat_buf, false);
+            }
+            let pf36_neon_us = (t_pf0.elapsed().as_nanos() as f64) / 1000.0 / 20.0;
+
+            let t_pf1 = Instant::now();
+            let mut mask_scalar = 0u64;
+            for _ in 0..20 {
+                mask_scalar = pf_36.candidate_mask_u64(&concat_buf, true);
+            }
+            let pf36_scalar_us = (t_pf1.elapsed().as_nanos() as f64) / 1000.0 / 20.0;
+
+            let mut kml_records_count = 0usize;
+            let mut kml_neon_us = 0.0f64;
+            let mut kml_scalar_us = 0.0f64;
+            let mut kml_oracle_parity = true;
+            if let Ok(kml_text) = std::fs::read_to_string(".kintsugi/scars.kml") {
+                let recs = parse_kml_corpus(&kml_text);
+                kml_records_count = recs.len();
+                let mut specs = Vec::new();
+                let mut always = Vec::new();
+                for (ri, r) in recs.iter().enumerate() {
+                    if r.neg.is_empty() {
+                        always.push(ri);
+                    } else {
+                        specs.push(kintsugi_core::kernels::LiteralSpec {
+                            rule_index: ri,
+                            pattern: r.neg.as_bytes().to_vec(),
+                            case_insensitive: false,
+                        });
+                    }
+                }
+                let kml_pf = kintsugi_core::kernels::RulePrefilter::new(recs.len(), &specs, &always);
+                let tk0 = Instant::now();
+                let mut k_neon = Vec::new();
+                for _ in 0..10 {
+                    k_neon = kml_pf.candidate_rule_indices(&concat_buf, false);
+                }
+                kml_neon_us = (tk0.elapsed().as_nanos() as f64) / 1000.0 / 10.0;
+                let tk1 = Instant::now();
+                let mut k_sc = Vec::new();
+                for _ in 0..10 {
+                    k_sc = kml_pf.candidate_rule_indices(&concat_buf, true);
+                }
+                kml_scalar_us = (tk1.elapsed().as_nanos() as f64) / 1000.0 / 10.0;
+                let k_ora = kml_pf.scalar_oracle_rule_indices(&concat_buf);
+                kml_oracle_parity = k_neon == k_sc && k_neon == k_ora;
+            }
+
+            let sum = last_sum.unwrap();
+            println!(
+                "{{\"schema_version\":\"1.0\",\"tool\":\"KintsugiScanBench\",\"target\":\"{}\",\"backend\":\"{}\",\"scanned_files\":{},\"corpus_bytes\":{},\"active_rules\":{},\"findings_count\":{},\"warmup\":{},\"iters\":{},\"scan_min_ms\":{:.3},\"scan_median_ms\":{:.3},\"scan_mean_ms\":{:.3},\"prefilter_36_parity_ok\":{},\"prefilter_36_neon_us\":{:.3},\"prefilter_36_scalar_us\":{:.3},\"kml_records\":{},\"kml_prefilter_parity_ok\":{},\"kml_prefilter_neon_us\":{:.3},\"kml_prefilter_scalar_us\":{:.3}}}",
+                json_escape(&target),
+                active_prefilter_backend(false),
+                sum.scanned_files,
+                concat_buf.len(),
+                sum.active_rules,
+                sum.findings.len(),
+                warmup,
+                iters,
+                scan_min_ms,
+                scan_median_ms,
+                scan_mean_ms,
+                mask_neon == mask_scalar,
+                pf36_neon_us,
+                pf36_scalar_us,
+                kml_records_count,
+                kml_oracle_parity,
+                kml_neon_us,
+                kml_scalar_us,
+            );
         }
         _ => {
             print_help();

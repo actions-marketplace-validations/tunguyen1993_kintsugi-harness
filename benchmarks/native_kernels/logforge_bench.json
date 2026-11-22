@@ -1,0 +1,259 @@
+{
+  "schema_version": "1.0",
+  "tool": "LogForge",
+  "kernel_id": "Kernel-1",
+  "measured_at_utc": "2026-11-21T18:37:33Z",
+  "host": {
+    "arch": "arm64",
+    "os": "macOS-26.4.1-arm64-arm-64bit",
+    "cpu_brand": "Apple M2 Pro",
+    "logical_cores": 12,
+    "python_version": "3.9.6",
+    "rustc_version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "clang_version": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "rust_release_flags": "opt-level=3, lto=true, codegen-units=1, strip=true",
+    "c_asm_flags": "-O3 -Wall -Wextra -Werror"
+  },
+  "correctness": {
+    "status": "PASS_100",
+    "python_vs_rust_1mib_exact_offsets_equal": true,
+    "rust_1mib_parity_ok": true,
+    "c_asm_1mib_parity_ok": true,
+    "rust_10mib_parity_ok": true,
+    "c_asm_10mib_parity_ok": true,
+    "single_byte_matches_1mib": 13132,
+    "multibyte_matches_1mib": 3231
+  },
+  "benchmarks": {
+    "payload_1mib": {
+      "size_bytes": 1048576,
+      "seed": 20261121,
+      "delim": 10,
+      "python_oracle": {
+        "tier": "tier1_python_oracle",
+        "backend": "python_pure_loop",
+        "min_us": 33294.042,
+        "median_us": 33766.02,
+        "p95_us": 35320.917,
+        "mean_us": 33938.467,
+        "throughput_gbps": 0.0311,
+        "matches": 13132,
+        "warmup": 2,
+        "iters": 10
+      },
+      "rust": {
+        "warmup": 20,
+        "iters": 100,
+        "scalar": {
+          "tier": "tier2_rust_scalar",
+          "backend": "rust_scalar",
+          "min_us": 397.5,
+          "median_us": 407.855,
+          "p95_us": 457.083,
+          "mean_us": 419.017,
+          "throughput_gbps": 2.571,
+          "matches": 13132
+        },
+        "simd": {
+          "tier": "tier3_rust_simd",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 49.541,
+          "median_us": 49.792,
+          "p95_us": 55.958,
+          "mean_us": 50.597,
+          "throughput_gbps": 21.0591,
+          "matches": 13132
+        },
+        "simd_reused_buf": {
+          "tier": "tier3_rust_simd_reused_buf",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 46.375,
+          "median_us": 47.708,
+          "p95_us": 53.333,
+          "mean_us": 48.462,
+          "throughput_gbps": 21.979,
+          "matches": 13132
+        },
+        "simd_fallback": {
+          "tier": "tier3_rust_simd_disabled",
+          "backend": "rust_scalar_fallback",
+          "min_us": 403.333,
+          "median_us": 410.209,
+          "p95_us": 479.958,
+          "mean_us": 420.456,
+          "throughput_gbps": 2.5562,
+          "matches": 13132
+        },
+        "multibyte_scalar": {
+          "tier": "multibyte_rust_scalar",
+          "backend": "rust_scalar",
+          "min_us": 465.75,
+          "median_us": 473.583,
+          "p95_us": 529.333,
+          "mean_us": 485.968,
+          "throughput_gbps": 2.2141,
+          "matches": 3231
+        },
+        "multibyte_simd": {
+          "tier": "multibyte_rust_simd",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 90.0,
+          "median_us": 95.417,
+          "p95_us": 105.125,
+          "mean_us": 96.077,
+          "throughput_gbps": 10.9894,
+          "matches": 3231
+        }
+      },
+      "c_and_asm_probe": {
+        "warmup": 20,
+        "iters": 100,
+        "c_scalar": {
+          "tier": "tier4_c_scalar",
+          "backend": "clang_o3_scalar",
+          "min_us": 212.0,
+          "median_us": 218.0,
+          "p95_us": 235.0,
+          "matches": 13132,
+          "throughput_gbps": 4.81
+        },
+        "c_neon": {
+          "tier": "tier4_c_neon",
+          "backend": "clang_o3_arm_neon_intrinsics",
+          "min_us": 41.0,
+          "median_us": 46.0,
+          "p95_us": 54.0,
+          "matches": 13132,
+          "throughput_gbps": 22.7951
+        },
+        "asm_aarch64_neon": {
+          "tier": "tier4_asm_experimental",
+          "backend": "aarch64_handwritten_neon_asm",
+          "min_us": 45.0,
+          "median_us": 47.0,
+          "p95_us": 53.0,
+          "matches": 13132,
+          "throughput_gbps": 22.3101
+        }
+      },
+      "speedups": {
+        "rust_neon_vs_python_oracle": 678.14,
+        "rust_neon_reused_vs_python_oracle": 707.76,
+        "rust_neon_vs_rust_scalar": 8.191
+      }
+    },
+    "payload_10mib": {
+      "size_bytes": 10485760,
+      "seed": 20261121,
+      "delim": 10,
+      "rust": {
+        "warmup": 5,
+        "iters": 30,
+        "scalar": {
+          "tier": "tier2_rust_scalar",
+          "backend": "rust_scalar",
+          "min_us": 3998.25,
+          "median_us": 4186.166,
+          "p95_us": 4321.416,
+          "mean_us": 4183.849,
+          "throughput_gbps": 2.5049,
+          "matches": 131564
+        },
+        "simd": {
+          "tier": "tier3_rust_simd",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 570.209,
+          "median_us": 590.833,
+          "p95_us": 696.208,
+          "mean_us": 608.518,
+          "throughput_gbps": 17.7474,
+          "matches": 131564
+        },
+        "simd_reused_buf": {
+          "tier": "tier3_rust_simd_reused_buf",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 567.333,
+          "median_us": 596.479,
+          "p95_us": 655.833,
+          "mean_us": 601.854,
+          "throughput_gbps": 17.5794,
+          "matches": 131564
+        },
+        "simd_fallback": {
+          "tier": "tier3_rust_simd_disabled",
+          "backend": "rust_scalar_fallback",
+          "min_us": 4055.375,
+          "median_us": 4247.604,
+          "p95_us": 4428.417,
+          "mean_us": 4277.512,
+          "throughput_gbps": 2.4686,
+          "matches": 131564
+        },
+        "multibyte_scalar": {
+          "tier": "multibyte_rust_scalar",
+          "backend": "rust_scalar",
+          "min_us": 4745.5,
+          "median_us": 4984.167,
+          "p95_us": 9206.167,
+          "mean_us": 5488.178,
+          "throughput_gbps": 2.1038,
+          "matches": 32736
+        },
+        "multibyte_simd": {
+          "tier": "multibyte_rust_simd",
+          "backend": "aarch64_neon_intrinsics",
+          "min_us": 980.667,
+          "median_us": 1026.708,
+          "p95_us": 1111.458,
+          "mean_us": 1034.589,
+          "throughput_gbps": 10.213,
+          "matches": 32736
+        }
+      },
+      "c_and_asm_probe": {
+        "warmup": 5,
+        "iters": 30,
+        "c_scalar": {
+          "tier": "tier4_c_scalar",
+          "backend": "clang_o3_scalar",
+          "min_us": 2247.0,
+          "median_us": 2324.0,
+          "p95_us": 2476.0,
+          "matches": 131564,
+          "throughput_gbps": 4.5119
+        },
+        "c_neon": {
+          "tier": "tier4_c_neon",
+          "backend": "clang_o3_arm_neon_intrinsics",
+          "min_us": 518.0,
+          "median_us": 537.5,
+          "p95_us": 606.0,
+          "matches": 131564,
+          "throughput_gbps": 19.5084
+        },
+        "asm_aarch64_neon": {
+          "tier": "tier4_asm_experimental",
+          "backend": "aarch64_handwritten_neon_asm",
+          "min_us": 512.0,
+          "median_us": 531.0,
+          "p95_us": 596.0,
+          "matches": 131564,
+          "throughput_gbps": 19.7472
+        }
+      },
+      "speedups": {
+        "rust_neon_vs_rust_scalar": 7.085
+      }
+    }
+  },
+  "evolution_decision": {
+    "production_kernel": "rust_aarch64_neon_intrinsics",
+    "asm_clean_win_threshold_pct": 10.0,
+    "asm_gain_vs_rust_neon_1mib_pct": 1.48,
+    "asm_gain_vs_rust_neon_10mib_pct": 10.98,
+    "asm_gain_vs_c_neon_10mib_pct": 1.21,
+    "asm_cleanly_beats_intrinsics": false,
+    "asm_experimental_status": "EXPERIMENTAL_COMPARISON_ONLY",
+    "rationale": "On Apple M2 Pro, experimental AArch64 .S assembly (47.0 us @ 1 MiB, 531.0 us @ 10 MiB) performed within 1.48% (1 MiB) and 10.98% (10 MiB) of Rust std::arch::aarch64 NEON intrinsics (47.7 us @ 1 MiB, 596.5 us @ 10 MiB) and within 1.21% of clang -O3 C NEON intrinsics (537.5 us @ 10 MiB). Because .S does not beat compiler-scheduled NEON intrinsics cleanly (>=10% threshold), production stays on pure Rust NEON intrinsics with disable_simd scalar fallback."
+  }
+}

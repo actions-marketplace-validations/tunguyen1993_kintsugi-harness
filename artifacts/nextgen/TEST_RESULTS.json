@@ -1,0 +1,257 @@
+{
+  "schema": "NextGenTestResults/1",
+  "stage": "Build #2 Round-14 Zero-Constructor Preflight, Contract Lifecycle Pinning & Linux Landlock Test Parity (KH-B2-R13-SEC-001 Closed & Verified on Python 3.9.6 & 3.11.15 macOS ARM64; Linux Python 3.13.5 Re-Audit Pending)",
+  "branch": "feature/capability-composition-forge",
+  "base_commit": "fcb821f",
+  "chatgpt_round3_patch_zip_sha256": "b0cb9ef28eaa723a55f7bce6288bb6b0ed20ba7819caacdc48c975d9f72b76d6",
+  "timestamp_utc": "2026-11-22T11:25:00+00:00",
+  "host": {
+    "os": "Darwin 25.4.0 arm64",
+    "cpu": "Apple M2 Pro (12 cores)",
+    "rustc": "1.99.1",
+    "clang": "21.0.0",
+    "python": "3.9.6"
+  },
+  "statuses": {
+    "Python": "PASS",
+    "Rust": "PASS",
+    "Z3": "PASS",
+    "Sandbox": "PASS",
+    "MCP": "PASS",
+    "CLI": "PASS",
+    "Blind Tests": "PASS_IN_REPO_REGRESSION_ONLY",
+    "Performance": "PASS"
+  },
+  "blind_tests_detail": {
+    "in_repo_holdout_regression": "PASS (5/5 in tests/private_holdout/test_blind_evolution_transfer.py, 2.150s, wall 2.358s, 0 parity mismatches)",
+    "external_sealed_blind_corpus": "API_AND_CLI_VERIFIED_AWAITING_OWNER_SEALED_FILE (SelfEvolutionEngineV3.run_sealed_blind_eval + CLI --sealed-blind-corpus/--sealed-sha256 verified with outside O_NOFOLLOW + SHA-256 checks)"
+  },
+  "round1_audit_remediation": {
+    "KH-B2-SEC-003": "CLOSED — SecureRunner enforces mandatory ToolSandbox for forge_native/forged/sandbox_required=True even under allow_untrusted_native=False & require_os_sandbox=False; Seatbelt exit 42 + SANDBOX_UNAVAILABLE propagation verified in ToolComposer E2E",
+    "KH-B2-SEC-001": "CLOSED — Superseded & hardened further in KH-B2-R2-SEC-001 and KH-B2-R3-SEC-002",
+    "KH-B2-RUNTIME-002": "CLOSED — CheckpointManager two-phase persisted in_flight_steps WAL before runner_fn + RECONCILIATION_REQUIRED on restart, verified under real os.kill(SIGKILL -9)",
+    "KH-B2-FFI-004": "CLOSED — NativeBridge refuses co-located .sha256 pins, reads external pin manifest (~/.config/kintsugi/native_pins.json), stages O_NOFOLLOW-verified 0o500 copies before CDLL and fallback CLI",
+    "High_5_callable_timeout": "CLOSED & HARDENED IN R3 — _execute_callable_forked + terminate_execution_tree kills descendant & token-tagged detached trees via SIGKILL",
+    "Medium_1_streaming_pipes": "CLOSED — run_subprocess_streaming_bounded uses selectors.DefaultSelector to cap stdout/stderr RAM during 10 MiB floods + large bidirectional stdin",
+    "Medium_2_multi_template_forge": "CLOSED — FORGE_TEMPLATE_REGISTRY adds full C99 log.filter.jsonl_level.v1 & data.csv_sum.v1 templates alongside kvpipe.v1",
+    "Medium_3_sealed_blind_eval": "CLOSED — SelfEvolutionEngineV3.run_sealed_blind_eval + CLI --sealed-blind-corpus/--sealed-sha256 enforce external O_NOFOLLOW + SHA-256 verification",
+    "Low_1_zip_entry_breakdown": "CLOSED — Clean git archive ZIP records exact files + dirs = total_entries and SHA-256"
+  },
+  "round2_audit_remediation": {
+    "KH-B2-R2-SEC-001": "CLOSED — AttestationAuthority KintsugiToolAttestation/2 signs canonical compute_tool_spec_security_digest(spec); register(trusted_attestor=True), load(), and ToolComposer._reverify_plan_for_execution() reject or quarantine any unsigned or metadata-tampered ToolSpec",
+    "KH-B2-R2-SEC-002": "CLOSED — Default SecureRunner() refuses regular register_callable() with SANDBOX_UNAVAILABLE; privileged host callables require register_trusted_host_callable() + allow_trusted_host_callables=True + approved host source + non-sandbox-mandatory",
+    "Detached_Session_Escape": "CLOSED & FIXED ON MACOS — terminate_execution_tree() tags _KINTSUGI_EXEC_TOKEN; fixed _darwin_snapshot() ps -Aeww -> ps -A -E -ww so orphaned PPID=1 detached grandchildren are killed on macOS ARM64 (`test_round3_remediation.py` 8/8 PASS, 0 skips)",
+    "KH-B2-R2-RUNTIME-003": "CLOSED — ExecutionStatus.RECONCILIATION_REQUIRED in schemas.py + composition_receipt.v1.schema.json; ToolComposer.execute_plan() writes fsync'd NODE_IN_FLIGHT before node execution and supports operator_confirmed ToolComposer.reconcile_checkpoint_node(), verified with real SIGKILL (-9)"
+  },
+  "round3_audit_remediation": {
+    "KH-B2-R3-SEC-001": "CLOSED — AttestationAuthority KintsugiAdapterAttestation/1 signs/verifies AdapterSpec + optional callable_hash; _validate_adapter_candidate, CompositionVerifier, and AdapterSynthesizer refuse unsigned VERIFIED promotion (staying SYNTHESIZED_CANDIDATE/DISCOVERED without authority); ToolComposer removes direct host adapters_callables execution and isolates registered trusted-host adapters via SecureRunner.{register_trusted_host_adapter, execute_trusted_host_adapter}",
+    "KH-B2-R3-SEC-002": "CLOSED — SecureRunner._verify_trust_and_identity enforces cryptographic AttestationAuthority HMAC + full compute_tool_spec_security_digest(tool_spec) at execution entry and PRE_EXEC/POST_EXEC TOCTOU snapshots; register_trusted_host_callable binds immutable (fn, callable_hash, required_permissions, bound_spec_digest) contracts; cli.py, cli_nextgen.py, and orchestrator.py wire attestation_authority",
+    "KH-B2-R3-API-003": "CLOSED — ToolComposer._resolve_checkpoint_file confines relative and absolute paths lexically & via resolved component assert_not_symlink checks strictly inside SecurityContext.workspace_root or explicit owner-configured ToolComposer(allowed_checkpoint_roots=...)"
+  },
+  "round4_audit_remediation": {
+    "KH-B2-R4-RUNTIME-001": "CLOSED — ToolComposer._execute_checkpointed_adapter journals fsynced ADAPTER_IN_FLIGHT before every goal_input, edge, and goal_output adapter call, caches ADAPTER_APPLIED outputs for ADAPTER_SKIPPED_CHECKPOINT crash-resume without replay, enforces adapter_hash integrity, and triggers RECONCILIATION_REQUIRED with explicit operator ADAPTER_RECONCILED_COMMITTED/NOT_EXECUTED recovery",
+    "KH-B2-R4-SEC-001": "CLOSED — compute_callable_sha256 cryptographically binds bytecode, nested code objects, defaults, closure cells, and referenced globals; bind_trusted_host_callable_spec locks immutable spec digest; _execute_callable_forked enforces macOS Seatbelt sandbox_init / Linux Landlock + irremovable sys.addaudithook confining mutating FS ops, chdir, sensitive reads, ctypes.dlopen/dlsym, network egress, and non-permitted exec inside child workspace",
+    "KH-B2-R4-SEC-002": "CLOSED — AdapterCatalog._reverify_catalog_adapter and AdapterSynthesizer Tier-1 lookup require an active AttestationAuthority with registered verifiers and valid HMAC-SHA256 adapter signature across register, load, get, list_verified, lookup, and propose",
+    "KH-B2-R4-API-003": "CLOSED — ToolComposer._open_confined_dir_fd & _open_confined_checkpoint_fd open checkpoints exclusively via dir_fd + O_NOFOLLOW + st_nlink > 1 hardlink rejection + UID ownership check + lstat race verification + os.fchmod(0o600) + fsync(parent_fd), removing the st_size==0 load bypass"
+  },
+  "round5_audit_remediation": {
+    "KH-B2-R5-SEC-001": "CLOSED — SecureRunner._execute_callable_forked calls _sanitize_child_fds(write_fd) in pid==0 before env/sandbox setup, relocating write_fd>2, rebinding FD 0/1/2 to /dev/null, enumerating /proc/self/fd or /dev/fd closing >=3 != write_fd, and sweeping via os.closerange(); verified external FD OSError/EBADF and external stdout/stderr 0-byte leak",
+    "KH-B2-R5-SEC-002": "CLOSED — Added validate_trusted_host_callable_hygiene (exported in kintsugi.runtime) enforced fail-closed in _verify_trust_and_identity and execute_trusted_host_adapter rejecting globals/locals/vars/getattr/setattr/delattr/eval/exec/compile/__import__/importlib/_getframe/currentframe/sys.modules/dunders and pre-cached ctypes FFI handles; upgraded _canonicalize_callable_state & compute_callable_sha256 to hash user modules, class attrs, co_consts string matches, and non-callable global data bindings",
+    "KH-B2-R5-SEC-003": "CLOSED — Added _apply_linux_seccomp_network_deny_in_child (AUDIT_ARCH + network/io_uring + conditional execve/execveat EPERM BPF), _apply_linux_netns_isolation_in_child fallback, Landlock ABI v4 net deny with v1 fallback, and fail-closed PermissionError/PERMISSION_DENIED on Darwin/Linux/unsupported OS sandbox failure; verified native cached socket/connect block and mocked Linux fail-closed denials",
+    "Linux_Full_Discover_Compatibility": "CLOSED — Added ASAN_OPTIONS/LSAN_OPTIONS detect_leaks=0 in NativeSanitizerCoverageCRS.run_discover_patch_verify_campaign and SkipTest when cargo/Rust artifacts are absent in test_logforge_native_parity, test_native_pack2_parity, and test_blind_evolution_transfer"
+  },
+  "round6_audit_remediation": {
+    "KH-B2-R6-SEC-001": "CLOSED — Fail-closed canonicalization depth (64) & budget (16384) caps raising ValueError -> PermissionError and returning CALLABLE_HYGIENE_DEPTH_OR_BUDGET_EXCEEDED; cross-version _is_stdlib_module_name(), _canonicalize_stdlib_func(), _canonicalize_stdlib_module() (hashing referenced bound_attrs and foreign_patches incl. functions, classes, partials, bound methods, non-stdlib callables, mmap, memoryview, FFI while safely abstracting os.environ/sys.modules/sys.argv), _collect_code_import_names() (IMPORT_NAME __import__ + imported modules; banning inline mmap/importlib while preserving child ctypes isolation checks), _lookup_fn_builtin(), bound _STDLIB_BUILTIN_TYPES __self__ hashing/scanning, and user_module builtin hashing",
+    "KH-B2-R6-SEC-002": "CLOSED — validate_trusted_host_callable_hygiene and _canonicalize_callable_state reject mmap.mmap, memoryview(mmap), and bound mm.write with CALLABLE_SHARED_MMAP_FORBIDDEN; Linux child _sanitize_child_fds invokes _revoke_inherited_shared_mmaps() calling libc.mprotect(..., PROT_NONE) on external rw-s and r--s MAP_SHARED /proc/self/maps regions",
+    "KH-B2-R6-RUNTIME-003": "CLOSED — Replaced while write_fd <= 2 os.dup/close infinite loop with atomic fcntl(write_fd, F_DUPFD_CLOEXEC, 3) relocation + safe /dev/null dup2 for FDs 0/1/2",
+    "Landlock_ENOSYS_Diagnostics": "CLOSED — Exported probe_linux_landlock_available() and enriched SANDBOX_LINUX_LANDLOCK_FAILED:errno=<n> fail-closed diagnostics while independently exercising seccomp BPF child denial in test_round6_remediation.py"
+  },
+  "round7_audit_remediation": {
+    "KH-B2-R7-SEC-001": "CLOSED — Zero-hook preflight via raw C-level introspection (_safe_type_dict, _safe_type_mro, _has_base_in_mro, _is_allowed_metaclass, _validate_class_preflight_safety, _safe_instance_dict, _safe_instance_slots, _safe_builtin_subclass_payload, _STDLIB_ROOT_PREFIXES + _is_stdlib_file_path + _EXTRA_STDLIB_TOP_MODULES); replaced all isinstance(val, ...) calls on unvalidated runtime objects in preflight/canonicalization with _has_base_in_mro(type(val), ...); converted has_trusted_host_adapter() ValueError safely to False without executing user __getattribute__/__getattr__/descriptors/metaclasses",
+    "KH-B2-R7-SEC-002": "CLOSED — Full MRO class inspection binding non-_SKIP_TYPE_METADATA_ATTRS attributes across base classes including special/dunder methods, property (fget/fset/fdel), staticmethod/classmethod, internal kintsugi.* methods (allow_internal_kintsugi=True), Enum _name_/_value_ + type_def, builtin subclasses, and overridden stdlib __repr__; added cycle-sound per-call Merkle dag_memo + cycle_deps + keepalive avoiding repeated shared-subgraph budget exhaustion across ToolWire/Enum ForgeState while refusing memoization when open cycles escape (escaped = local_cycles - {oid})",
+    "KH-B2-R7-SEC-003": "CLOSED — Removed ws_resolved workspace exemption from _revoke_inherited_shared_mmaps() inside _sanitize_child_fds() so all inherited non-system MAP_SHARED VMAs (including workspace hardlinks to external files) are revoked via mprotect(PROT_NONE), limiting read-only system exemption strictly to non-writable, non-deleted, st_uid == 0 system paths (/etc/ld.so.cache, /usr/lib/, /lib/, /lib64/, /usr/share/)"
+  },
+  "round8_audit_remediation": {
+    "KH-B2-R8-SEC-001": "CLOSED — Eliminated object.__getattribute__(obj, '_name_'/'_value_') on Enum members; added _safe_enum_name_value() reading Enum storage exclusively from C __dict__/__slots__ while binding extra non-reserved attrs and builtin subclass payloads; extended _validate_class_preflight_safety() to block non-MemberDescriptorType attrs on _RESERVED_ENUM_STORAGE_ATTRS and spoofable _is_stdlib_module_name() descriptor skips while supporting exact cached_property/DynamicClassAttribute/enum.property/ClassMethodDescriptorType; enforced _safe_namespace_str_keys(), _safe_fn_qualname(), ModuleType.__name__ str-only checks, hook-free _FFI_FORBIDDEN_TYPES, and _SAFE_STDLIB_REPR_TYPES/'stdlib_opaque' (verified zero outside canary across Enum properties, EvilStr, EvilRepr, and HMAC-signed ToolSpec on Python 3.9.6 & 3.11.15)",
+    "KH-B2-R8-COMPAT-002": "CLOSED — Captured import-time _TRUSTED_STDLIB_CLASS_HELPERS (dataclasses._replace/replace/_dataclass_getstate/_dataclass_setstate and enum class helpers) and _is_authentic_stdlib_class_helper() allowing authentic stdlib-generated class helpers such as Python 3.13 LogScanResult.__replace__ cleanly through hygiene while scanning defaults/kwdefaults/closures and binding bytecode in compute_callable_sha256() via _canonicalize_stdlib_func(..., allow_stdlib_helper=True), and rejecting spoofed __module__='dataclasses' or forged dataclasses.__dict__ functions using getattr"
+  },
+  "round9_audit_remediation": {
+    "KH-B2-R9-SEC-001": "CLOSED — Replaced sys.modules.get(name) or sys.modules.get(top) and (binding.get('fn') or ...) truthiness checks with _safe_sys_module_exact()/_safe_sys_module_get() and explicit is None identity checks eliminating ModuleType.__bool__ & callable __bool__ execution on host; added _safe_str_dict_view() validating type(k) is str linearly before any membership/lookup across _safe_enum_name_value(), _lookup_fn_builtin(), _canonicalize_stdlib_module(), class MRO base_view, cached_property/DynamicClassAttribute descriptors, ModuleType.__dict__, FunctionType globals & custom __builtins__; added _canonicalize_dict_pairs() removing dict(sub_items) re-hashing; added _safe_mappingproxy_dict() (gc.get_referents + {dict, _ctypes.StgDict}) blocking custom MappingProxyType(EvilMap()) with CALLABLE_CUSTOM_MAPPING_PROXY_FORBIDDEN and 0 side effects across Python 3.9.6 & 3.11.15"
+  },
+  "round10_audit_remediation": {
+    "KH-B2-R10-SEC-001": "CLOSED — Replaced type.__getattribute__ in _safe_type_dict, _safe_type_mro, _is_allowed_metaclass, _safe_type_module, and _safe_type_qualname with import-time C type descriptors (_TYPE_DICT_DESCR, _TYPE_MRO_DESCR, _TYPE_MODULE_DESCR, _TYPE_QUALNAME_DESCR, _TYPE_NAME_DESCR); introduced pointer-identity _is_type_in() and rewrote _has_base_in_mro() and _is_authentic_stdlib_class_helper() plus all type membership checks (in/not in) across _safe_mappingproxy_dict, _is_allowed_metaclass, _validate_class_preflight_safety, _safe_instance_slots, _scan_value, _canonicalize_stdlib_module, and _canonicalize_callable_state to prevent metaclass.__eq__/__ne__/__hash__ invocation before/during preflight; replaced dis.get_instructions (co_consts.__repr__) and isinstance() in _collect_code_names/_collect_code_string_consts/_collect_code_import_names with raw bytecode scan and exact-str checks on code identifiers (`test_round11_remediation.py` 4/4 PASS on Python 3.9.6 & 3.11.15, 0 side effects)"
+  },
+  "round11_audit_remediation": {
+    "KH-B2-R11-COMPAT-001": "CLOSED — Replaced runtime dis._unpack_opargs lookup in _collect_code_import_names() (which yielded 4-tuples on Python 3.13.5 and allowed dis monkeypatching) with import-time immutable bytecode tables (_DEOP_MAP, _INLINE_CACHE_ENTRIES via _build_inline_cache_table() handling Python 3.11-3.12 sequence and 3.13+ dict formats) and pure-Python _iter_bytecode_opargs() (24/24 SecureRunner methods parity-checked against dis._unpack_opargs with 0 mismatches on Python 3.9.6 & 3.11.15)",
+    "KH-B2-R11-SEC-002": "CLOSED — Added C-descriptor class tamper verification (assert_dataclass_type_unmodified, safe_type_has_descriptor), linear non-hashing safe_exact_str_dict_view(), built-in-only sanitize_exact_json_value(), exact extractors (extract_exact_tool_spec_dict, extract_exact_security_context_dict, extract_exact_port_contract_dict, extract_exact_adapter_spec_dict), hardened compute_tool_spec_security_digest()/has_valid_verification_attestation()/is_valid_sha256()/normalize_sha256()/validate_safe_text()/AttestationAuthority, and entry normalization barrier (_NormalizedToolSpec, _normalize_security_context_for_runner) at the top of SecureRunner.run(), execute_trusted_host_adapter(), and TOCTOU re-verification blocking HMAC-signed EvilToolSpec(ToolSpec) subclasses, tampered class descriptors, and EvilArgs with 0 host side effects (`test_round12_remediation.py` 5/5 PASS on Python 3.9.6 & 3.11.15)"
+  },
+  "round12_audit_remediation": {
+    "KH-B2-R12-SEC-001": "CLOSED — Enforced primitive-only trust boundary by removing Path/PurePath acceptance from sanitize_exact_json_value(), restricting SecureRunner.run() argv elements strictly to exact str (type(item) is str), and removing allow_exact_path=True from SecureRunner.run() args and execute_trusted_host_adapter() payload so mutated PosixPath._raw_paths/_parts/_str __fspath__() hooks never execute before sandbox; added expected_mro identity pinning to assert_dataclass_type_unmodified() and probe_linux_landlock_available() test parity in test_round12_remediation.py (`test_round13_remediation.py` 4/4 PASS on Python 3.9.6 & 3.11.15, 0 side effects)"
+  },
+  "round13_audit_remediation": {
+    "KH-B2-R13-SEC-001": "CLOSED — Eliminated SecurityContext(...) constructors in _normalize_security_context_for_runner() and execute_trusted_host_adapter(), deleted class _NormalizedToolSpec, replaced security_context.validate_path() in _collect_and_confine_paths with standalone _validate_workspace_path_str(), guarded _build_receipt() via assert_execution_receipt_type_unmodified(), and converted all SecureRunner internal preflight/execution paths to plain built-in dicts (zero custom contract constructors or methods invoked in host preflight); added callable-closure snapshot_class_lifecycle() pinning and _FORBIDDEN_CONTRACT_HOOKS checks in assert_dataclass_type_unmodified() across SecurityContext, ToolSpec, _CanonicalContractMixin, PortContract, AdapterSpec, and ExecutionReceipt (`test_round14_remediation.py` 4/4 PASS on Python 3.9.6 & 3.11.15, 0 side effects)",
+    "Linux_Landlock_Adapter_Test_Parity": "CLOSED — Updated tests/security/test_round12_remediation.py:580 to accept (RuntimeError, PermissionError) with SANDBOX_LINUX_LANDLOCK_FAILED under Linux ENOSYS=38 where child Landlock setup raises PermissionError fail-closed"
+  },
+  "suites": {
+    "python_unittest_all": {
+      "command": "PYTHONPATH=src /usr/bin/python3 -m unittest <29 tracked Build #2 test files>",
+      "python_version": "3.9.6",
+      "passed": 253,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_sec": 157.289,
+      "wall_sec": 157.561,
+      "breakdown": {
+        "legacy_tests": 60,
+        "build1_tests": 55,
+        "build2_stages2_to_6_demos_r3_to_r14_tests": 138
+      }
+    },
+    "python_311_cross_version_targeted": {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.11 -m unittest tests/security/test_round3..14_remediation.py tests/composition/test_tool_wire_and_adapter.py",
+      "python_version": "3.11.15",
+      "passed": 61,
+      "failed": 0,
+      "skipped": 0,
+      "duration_sec": 25.084
+    },
+    "round10_remediation_poc_suite": {
+      "file": "tests/security/test_round10_remediation.py",
+      "python_39_passed": 4,
+      "python_39_duration_sec": 1.511,
+      "python_311_passed": 4,
+      "python_311_duration_sec": 0.935,
+      "failed": 0,
+      "skipped": 0
+    },
+    "round11_remediation_poc_suite": {
+      "file": "tests/security/test_round11_remediation.py",
+      "python_39_passed": 4,
+      "python_39_duration_sec": 0.789,
+      "python_311_passed": 4,
+      "python_311_duration_sec": 0.455,
+      "failed": 0,
+      "skipped": 0
+    },
+    "round12_remediation_poc_suite": {
+      "file": "tests/security/test_round12_remediation.py",
+      "python_39_passed": 5,
+      "python_39_duration_sec": 1.167,
+      "python_311_passed": 5,
+      "python_311_duration_sec": 0.823,
+      "failed": 0,
+      "skipped": 0
+    },
+    "round13_remediation_poc_suite": {
+      "file": "tests/security/test_round13_remediation.py",
+      "python_39_passed": 4,
+      "python_39_duration_sec": 0.755,
+      "python_311_passed": 4,
+      "python_311_duration_sec": 0.486,
+      "failed": 0,
+      "skipped": 0
+    },
+    "round14_remediation_poc_suite": {
+      "file": "tests/security/test_round14_remediation.py",
+      "python_39_passed": 4,
+      "python_39_duration_sec": 1.587,
+      "python_311_passed": 4,
+      "python_311_duration_sec": 0.976,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cargo_test_all_targets": {
+      "passed": 35,
+      "failed": 0,
+      "kintsugi_core": 32,
+      "rust_neuro_symbolic_core": 3,
+      "wall_sec": 5.93
+    },
+    "rust_scan_src_low": {
+      "files": 66,
+      "scars": 36,
+      "violations": 0,
+      "elapsed_ms": 87.252,
+      "wall_ms": 93.345
+    },
+    "rust_scan_external_policy": {
+      "files": 66,
+      "scars": 36,
+      "policy_sha256": "87242c667d1c48190e8e8a16489038f62fb118156d39bf6518a009b7eda4c40c",
+      "violations": 0,
+      "elapsed_ms": 103.024,
+      "wall_ms": 108.572
+    },
+    "python_scan_src_low": {
+      "files": 66,
+      "scars": 1797,
+      "violations": 0,
+      "elapsed_ms": 22384.5,
+      "wall_ms": 23421.395
+    },
+    "s3_audit_stage1_to_6_and_modified": {
+      "src/kintsugi/capability": {"seams": 32, "s3_locked": 32, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/composition": {"seams": 55, "s3_locked": 55, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/forge": {"seams": 36, "s3_locked": 36, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/runtime": {"seams": 76, "s3_locked": 76, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/tools": {"seams": 25, "s3_locked": 25, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/evolution": {"seams": 9, "s3_locked": 9, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/config.py": {"seams": 2, "s3_locked": 2, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/self_model.py": {"seams": 5, "s3_locked": 5, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/native_bridge.py": {"seams": 21, "s3_locked": 21, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/evolution_v2.py": {"seams": 9, "s3_locked": 9, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/process_tree.py": {"seams": 1, "s3_locked": 1, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/cli.py": {"seams": 5, "s3_locked": 5, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/cli_nextgen.py": {"seams": 3, "s3_locked": 3, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/mcp_server.py": {"seams": 1, "s3_locked": 1, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "src/kintsugi/mcp_nextgen.py": {"seams": 0, "s3_locked": 0, "unguarded_s0": 0, "verdict": "PASS_S3_LOCKED"},
+      "total": {"seams": 280, "s3_locked": 280, "unguarded_s0": 0}
+    },
+    "verify_ledger": {
+      "scars": 1797,
+      "pass_lines": 1797,
+      "fail_lines": 0,
+      "status": "PASS",
+      "wall_sec": 1.73
+    },
+    "cli_eval": {
+      "cases": "6/6",
+      "pass_pct": 100.0,
+      "false_pos_pct": 0.0,
+      "reproducibility_sha256": "dbd8f3b55430",
+      "wall_sec": 0.232
+    },
+    "parent_host_regression": {
+      "suite": "host_harness_regression_suite",
+      "passed": 13,
+      "failed": 0,
+      "duration_sec": 1.892,
+      "wall_sec": 1.984
+    },
+    "external_code_gate_r14_modified_src_and_tests": {
+      "files_checked": 5,
+      "files": [
+        "src/kintsugi/capability/schemas.py",
+        "src/kintsugi/capability/contracts_v2.py",
+        "src/kintsugi/runtime/secure_runner.py",
+        "tests/security/test_round12_remediation.py",
+        "tests/security/test_round14_remediation.py"
+      ],
+      "status": "PASS_100_NO_KNOWN_CODE_MISTAKES",
+      "rust_findings": 0,
+      "elapsed_ms": {
+        "schemas.py": 40.013,
+        "contracts_v2.py": 47.457,
+        "secure_runner.py": 143.852,
+        "test_round12_remediation.py": 17.116,
+        "test_round14_remediation.py": 14.961
+      }
+    }
+  },
+  "release_binary_sha256": {
+    "target/release/kintsugi-rs": "6b952d9770f73ba88e5416c30d05226b6740e46dee816ef4670223968c67502b",
+    "target/release/rust-neuro-symbolic-core": "4f5fd0d2bcfe37e36545aac27c88591575fc9ec998735856dc8fd5b4545a5142",
+    "target/release/libkintsugi_core.dylib": "79d8d76216605cc7062764ff82b5186ee22f0db327b6795fcf6473cb97a53b4a"
+  }
+}

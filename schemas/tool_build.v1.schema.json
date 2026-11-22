@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/tool_build.v1.schema.json",
+  "title": "ToolBuild/1",
+  "description": "Strict monotonic forge build, differential/fuzz/boundary verification, compiler provenance, and rollback attestation record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "build_id",
+    "tool_id",
+    "tool_version",
+    "state",
+    "source_hash",
+    "oracle_hash",
+    "unit_test_digest",
+    "differential_digest",
+    "fuzz_digest",
+    "boundary_digest",
+    "compiler",
+    "compiler_version",
+    "flags",
+    "artifact_hash",
+    "sandbox_receipt",
+    "benchmark_vs_baseline",
+    "rollback_metadata"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ToolBuild/1"
+    },
+    "build_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "tool_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "PROPOSED",
+        "SPECIFIED",
+        "REFERENCE_VERIFIED",
+        "GENERATED",
+        "COMPILED",
+        "SANDBOX_TESTED",
+        "DIFFERENTIAL_VERIFIED",
+        "BENCHMARKED",
+        "SHADOW",
+        "VERIFIED",
+        "REJECTED",
+        "ROLLED_BACK"
+      ]
+    },
+    "source_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "oracle_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "unit_test_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "differential_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "fuzz_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "boundary_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "compiler": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "compiler_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sandbox_receipt": {
+      "type": "object"
+    },
+    "benchmark_vs_baseline": {
+      "type": "object"
+    },
+    "rollback_metadata": {
+      "type": "object"
+    },
+    "gap_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "python",
+        "rust",
+        "c",
+        "javascript",
+        "typescript",
+        "shell"
+      ]
+    },
+    "built_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "build_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

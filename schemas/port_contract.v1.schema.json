@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/port_contract.v1.schema.json",
+  "title": "PortContract/1",
+  "description": "Typed semantic, structural, unit, ordering, sensitivity, trust, and streaming port contract for tool composition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_ref",
+    "semantic_type",
+    "encoding",
+    "unit",
+    "cardinality",
+    "ordering",
+    "sensitivity",
+    "trust_label",
+    "streaming"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "PortContract/1"
+    },
+    "schema_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "semantic_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "encoding": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "cardinality": {
+      "type": "string",
+      "enum": [
+        "one",
+        "many",
+        "stream"
+      ]
+    },
+    "ordering": {
+      "type": "string",
+      "enum": [
+        "ordered",
+        "unordered"
+      ]
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal",
+        "secret"
+      ]
+    },
+    "trust_label": {
+      "type": "string",
+      "enum": [
+        "trusted",
+        "untrusted",
+        "derived"
+      ]
+    },
+    "streaming": {
+      "type": "boolean"
+    },
+    "precision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "nullable": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

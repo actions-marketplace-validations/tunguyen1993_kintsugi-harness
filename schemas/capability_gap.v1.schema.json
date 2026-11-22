@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/capability_gap.v1.schema.json",
+  "title": "CapabilityGap/1",
+  "description": "Structured representation of an unmet capability encountered during planning or execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gap_id",
+    "task_id",
+    "profile",
+    "gap_kind",
+    "summary",
+    "required_capabilities",
+    "resolution_strategy",
+    "detected_at"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "CapabilityGap/1"
+    },
+    "gap_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "gap_kind": {
+      "type": "string",
+      "enum": [
+        "missing_tool",
+        "incompatible_io",
+        "missing_permission",
+        "latency_or_scale",
+        "unsupported_format",
+        "verification_oracle_missing"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "required_capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "desired_input_schema": {
+      "type": "object"
+    },
+    "desired_output_schema": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network_allowed": {
+          "type": "boolean"
+        },
+        "sandbox_required": {
+          "type": "boolean"
+        },
+        "deterministic_preferred": {
+          "type": "boolean"
+        },
+        "max_latency_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "attempted_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "resolution_strategy": {
+      "type": "string",
+      "enum": [
+        "discover",
+        "compose",
+        "synthesize",
+        "escalate_owner",
+        "deny"
+      ]
+    },
+    "blocking_security_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

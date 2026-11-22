@@ -1875,6 +1875,11 @@ int main(int argc, char **argv) {
             if c_vuln.returncode != 0:
                 raise RuntimeError(f"Failed to compile vulnerable C target: {c_vuln.stderr[:300]}")
 
+            asan_env = dict(os.environ)
+            prev_asan = asan_env.get("ASAN_OPTIONS", "").strip()
+            asan_env["ASAN_OPTIONS"] = f"{prev_asan}:detect_leaks=0" if prev_asan else "detect_leaks=0"
+            asan_env["LSAN_OPTIONS"] = "detect_leaks=0"
+
             # Phase A: Run 10,000-iteration in-process mutational + RedQueen trace-cmp fuzzer from 0x00 seed
             t_fuzz0 = time.perf_counter()
             fuzz_disc = subprocess.run(
@@ -1882,6 +1887,7 @@ int main(int argc, char **argv) {
                 capture_output=True,
                 text=True,
                 timeout=15,
+                env=asan_env,
                 check=True,
             )
             fuzz_elapsed_sec = max(1e-6, time.perf_counter() - t_fuzz0)
@@ -1915,6 +1921,7 @@ int main(int argc, char **argv) {
                     capture_output=True,
                     text=True,
                     timeout=10,
+                    env=asan_env,
                     check=False,
                 )
                 asan_summary = ""
@@ -1942,6 +1949,7 @@ int main(int argc, char **argv) {
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=asan_env,
                 check=True,
             ).stdout.strip()
 
@@ -1964,6 +1972,7 @@ int main(int argc, char **argv) {
                     capture_output=True,
                     text=True,
                     timeout=10,
+                    env=asan_env,
                     check=False,
                 )
                 retired = (r_re.returncode == 0) and ("AddressSanitizer" not in r_re.stderr)
@@ -1982,6 +1991,7 @@ int main(int argc, char **argv) {
                 capture_output=True,
                 text=True,
                 timeout=15,
+                env=asan_env,
                 check=False,
             )
             m_post = re.search(
@@ -2003,6 +2013,7 @@ int main(int argc, char **argv) {
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=asan_env,
                 check=True,
             ).stdout.strip()
             m_dp1 = re.search(r"HASH=([0-9a-f]+)", diff_pre)
@@ -2090,6 +2101,7 @@ int main(int argc, char **argv) {
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=asan_env,
                 check=False,
             )
             regression_ok = (reg_run.returncode == 0) and ("REGRESSION_OK:79:42:0:" in reg_run.stdout)

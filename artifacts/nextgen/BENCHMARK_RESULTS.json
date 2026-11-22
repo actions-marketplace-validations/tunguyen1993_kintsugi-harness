@@ -1,0 +1,48 @@
+{
+  "schema": "NextGenBenchmarks/2",
+  "timestamp_utc": "2026-11-22T11:25:00+00:00",
+  "host": {
+    "arch": "aarch64",
+    "os": "macOS-25.4.0-arm64",
+    "cpu": "Apple M2 Pro (12 cores)"
+  },
+  "pack1_logforge_1mib": {
+    "study_path": "benchmarks/native_kernels/logforge_bench.json",
+    "python_oracle_median_us": 33766.02,
+    "rust_scalar_median_us": 416.167,
+    "rust_neon_median_us": 52.208,
+    "rust_neon_reused_buf_median_us": 50.104,
+    "rust_neon_throughput_gbps": 20.928,
+    "speedup_neon_vs_rust_scalar": 7.971,
+    "speedup_neon_vs_python_oracle": 646.76
+  },
+  "pack2_native_kernels_and_cdylib_ffi": {
+    "study_path": "benchmarks/native_kernels/pack2_bench.json",
+    "pre_pack2_cli_scan_57_files_ms": 946.0,
+    "pack2_internal_scan_57_files_median_ms": 68.263,
+    "pack2_cli_wall_57_files_median_ms": 74.904,
+    "pack2_post_integration_cli_scan_65_files_wall_ms": 80.995,
+    "python_cli_scan_65_files_wall_ms": 21060.9,
+    "speedup_pack2_internal_vs_pre_pack2": 13.86,
+    "speedup_pack2_rust_cli_vs_python_cli_65_files": 259.21,
+    "cdylib_scan_buffer_ffi_median_us": 908.292,
+    "cdylib_scan_buffer_vs_subprocess_speedup": 6.34,
+    "cdylib_evaluate_rule_ir_ffi_median_us": 568.938,
+    "cdylib_evaluate_rule_ir_vs_subprocess_speedup": 10.04,
+    "feat_sha256_1mib_rust_hw_median_us": 435.958,
+    "feat_sha256_1mib_rust_scalar_median_us": 4251.958,
+    "feat_sha256_vs_rust_scalar_speedup": 9.753,
+    "kml_1797_prefilter_neon_us": 3179.062,
+    "kml_1797_prefilter_scalar_us": 6743.896,
+    "kml_1797_neon_vs_scalar_speedup": 2.121
+  },
+  "rust_bench_micro_and_token_economics": {
+    "pre_pack2_rust_scan_latency_us": 79.38,
+    "post_pack2_rust_scan_latency_us": 3.27,
+    "micro_scan_speedup": 24.28,
+    "verbose_markdown_tokens_per_turn": 6840,
+    "kmi1_wire_tokens_per_turn": 424,
+    "per_turn_token_reduction_pct": 93.8,
+    "kml_1797_parse_shield_us": 2589
+  }
+}

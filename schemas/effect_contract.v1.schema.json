@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/effect_contract.v1.schema.json",
+  "title": "EffectContract/1",
+  "description": "Typed side-effect, scope, idempotency, reversibility, and resource requirement contract for tools and composed DAGs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "read_scopes",
+    "write_scopes",
+    "network_scopes",
+    "exec_permissions",
+    "irreversible",
+    "idempotent",
+    "resource_requirements"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "EffectContract/1"
+    },
+    "read_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "write_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "network_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "exec_permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "irreversible": {
+      "type": "boolean",
+      "default": false
+    },
+    "idempotent": {
+      "type": "boolean",
+      "default": true
+    },
+    "resource_requirements": {
+      "type": "object",
+      "default": {}
+    }
+  }
+}

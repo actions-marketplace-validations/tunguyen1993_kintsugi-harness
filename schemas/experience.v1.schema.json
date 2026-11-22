@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/experience.v1.schema.json",
+  "title": "Experience/1",
+  "description": "Redacted episodic capability experience record for ranking and failure analysis; cannot self-promote into active rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "experience_id",
+    "task_id",
+    "profile",
+    "outcome",
+    "tools_used",
+    "receipt_ids",
+    "secrets_redacted",
+    "promotion_status",
+    "created_at",
+    "experience_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "Experience/1"
+    },
+    "experience_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{3,128}$"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "gap_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "LOCAL_RESEARCH",
+        "GITHUB_PUBLIC"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "PARTIAL",
+        "FAILURE",
+        "BLOCKED"
+      ]
+    },
+    "tools_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "receipt_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "lessons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "failure_modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total_duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tokens_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "success_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "secrets_redacted": {
+      "type": "boolean",
+      "const": true
+    },
+    "trust_classification": {
+      "type": "string",
+      "enum": [
+        "observed_local",
+        "verified_ci",
+        "untrusted_external"
+      ],
+      "default": "observed_local"
+    },
+    "promotion_status": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "pending_review",
+        "verified_promoted",
+        "rejected"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "experience_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

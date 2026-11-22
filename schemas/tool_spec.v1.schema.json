@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/tool_spec.v1.schema.json",
+  "title": "ToolSpec/1",
+  "description": "Typed declarative capability specification for atomic, adapted, synthesized, or composed tools.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tool_id",
+    "name",
+    "version",
+    "kind",
+    "trust_tier",
+    "capabilities",
+    "input_schema",
+    "output_schema"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ToolSpec/1"
+    },
+    "tool_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:-]{1,127}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "builtin",
+        "mcp",
+        "cli",
+        "synthesized",
+        "composed",
+        "adapter"
+      ]
+    },
+    "trust_tier": {
+      "type": "string",
+      "enum": [
+        "trusted_core",
+        "verified_local",
+        "sandboxed_generated",
+        "untrusted_external"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "input_schema": {
+      "type": "object"
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "postconditions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    },
+    "side_effects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "none",
+          "read_only",
+          "workspace_write",
+          "network_egress",
+          "process_exec",
+          "system_admin"
+        ]
+      },
+      "default": [
+        "none"
+      ]
+    },
+    "requires_approval": {
+      "type": "boolean",
+      "default": false
+    },
+    "sandbox_required": {
+      "type": "boolean",
+      "default": true
+    },
+    "network_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "resource_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_memory_mb": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deterministic": {
+          "type": "boolean"
+        }
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime",
+        "target"
+      ],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "python",
+            "rust",
+            "node",
+            "shell",
+            "mcp_stdio",
+            "composite"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "author": {
+          "type": "string"
+        },
+        "spec_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "input_port": {
+      "$ref": "#/$defs/port_contract"
+    },
+    "output_port": {
+      "$ref": "#/$defs/port_contract"
+    },
+    "effect_contract": {
+      "$ref": "#/$defs/effect_contract"
+    }
+  },
+  "$defs": {
+    "port_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schema_ref",
+        "semantic_type",
+        "encoding",
+        "unit",
+        "cardinality",
+        "ordering",
+        "sensitivity",
+        "trust_label",
+        "streaming"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "PortContract/1"
+        },
+        "schema_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semantic_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "one",
+            "many",
+            "stream"
+          ]
+        },
+        "ordering": {
+          "type": "string",
+          "enum": [
+            "ordered",
+            "unordered"
+          ]
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "secret"
+          ]
+        },
+        "trust_label": {
+          "type": "string",
+          "enum": [
+            "trusted",
+            "untrusted",
+            "derived"
+          ]
+        },
+        "streaming": {
+          "type": "boolean"
+        },
+        "precision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nullable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "effect_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "read_scopes",
+        "write_scopes",
+        "network_scopes",
+        "exec_permissions",
+        "irreversible",
+        "idempotent",
+        "resource_requirements"
+      ],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "EffectContract/1"
+        },
+        "read_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "write_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "network_scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "exec_permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "irreversible": {
+          "type": "boolean"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "resource_requirements": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

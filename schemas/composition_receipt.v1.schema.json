@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kintsugi-harness.dev/schemas/composition_receipt.v1.schema.json",
+  "title": "CompositionReceipt/1",
+  "description": "Cryptographically bound execution and oracle verification receipt for a composed DAG plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "plan_hash",
+    "policy_hash",
+    "sandbox_environment_hash",
+    "node_receipts",
+    "input_digest",
+    "output_digest",
+    "oracle_result",
+    "verification_status",
+    "trace_digest",
+    "status"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "CompositionReceipt/1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sandbox_environment_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "node_receipts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "unresolved_nodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "oracle_result": {
+      "type": "object"
+    },
+    "verification_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_VERIFIED",
+        "INSUFFICIENT_EVIDENCE",
+        "NO_VERIFIED_TOOL",
+        "PERMISSION_DENIED",
+        "WAITING_APPROVAL",
+        "SANDBOX_UNAVAILABLE",
+        "RECONCILIATION_REQUIRED",
+        "ROLLED_BACK"
+      ]
+    }
+  }
+}
