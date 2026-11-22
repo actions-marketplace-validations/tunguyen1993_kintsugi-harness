@@ -529,9 +529,7 @@ class TestRound14Remediation(unittest.TestCase):
             argv=[sys.executable, str(script)],
             oracle=lambda d: d.get("output") == {"r14": "ok"},
         )
-        if sys.platform == "darwin" or (
-            sys.platform.startswith("linux") and probe_linux_landlock_available()[0]
-        ):
+        if sys.platform == "darwin":
             self.assertEqual(rec_sub.status, ExecutionStatus.PASS)
         else:
             self.assertEqual(rec_sub.status, ExecutionStatus.SANDBOX_UNAVAILABLE)

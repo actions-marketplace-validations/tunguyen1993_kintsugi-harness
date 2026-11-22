@@ -317,7 +317,7 @@ class TestRound13Remediation(unittest.TestCase):
         spec = _sign_tool_spec(authority, spec)
         spec.trust_status = TrustStatus.VERIFIED
 
-        # Exact str inside workspace passes on Darwin or Landlock-enabled Linux (fails closed ENOSYS otherwise).
+        # Exact str inside workspace passes on Darwin (`ToolSandbox` has Seatbelt only, not Landlock).
         rec_ok = runner.run(
             spec,
             {"input_path": str(self.safe_file)},
@@ -325,9 +325,7 @@ class TestRound13Remediation(unittest.TestCase):
             argv=[sys.executable, str(script), str(self.safe_file)],
             oracle=lambda r: r.get("output") == {"content": "ok"},
         )
-        if sys.platform == "darwin" or (
-            sys.platform.startswith("linux") and probe_linux_landlock_available()[0]
-        ):
+        if sys.platform == "darwin":
             self.assertEqual(rec_ok.status, ExecutionStatus.PASS)
         else:
             self.assertEqual(rec_ok.status, ExecutionStatus.SANDBOX_UNAVAILABLE)
