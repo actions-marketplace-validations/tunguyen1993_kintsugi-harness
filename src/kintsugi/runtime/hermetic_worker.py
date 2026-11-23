@@ -60,6 +60,9 @@ _FALLBACK_TROJAN_UNICODE_RE = re.compile(
     r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff\x00-\x08\x0b\x0c\x0e-\x1f\x7f]"
 )
 
+_HW_TYPE_DICT_DESCR = type.__dict__["__dict__"]
+_HW_OBJECT_GETATTR = object.__getattribute__
+
 if not _IS_WORKER_MAIN:
     from kintsugi.capability.schemas import (
         ExecutionReceipt,
@@ -84,8 +87,6 @@ if not _IS_WORKER_MAIN:
     from kintsugi.shield import TROJAN_UNICODE_RE, resolve_safe_child_path
 
     _VALID_SECURITY_PROFILES: FrozenSet[str] = frozenset(p.value for p in SecurityProfile)
-    _HW_TYPE_DICT_DESCR = type.__dict__["__dict__"]
-    _HW_OBJECT_GETATTR = object.__getattribute__
 else:  # pragma: no cover - invoked directly in `-I -S --worker-mode`
     EXEC_TOKEN_NAME = "_KINTSUGI_EXEC_TOKEN"
     TROJAN_UNICODE_RE = _FALLBACK_TROJAN_UNICODE_RE
@@ -453,6 +454,151 @@ def _read_pinned_regular_file_nofollow(
     return actual_sha, stat_tuple, (b"".join(chunks) if capture_bytes else None)
 
 
+_PATH_STR_SLOTS: Tuple[str, ...] = (
+    "_str",
+    "_str_normcase",
+    "_str_normcase_cached",
+    "_drv",
+    "_root",
+)
+_PATH_SEQ_SLOTS: Tuple[str, ...] = (
+    "_pparts",
+    "_cached_cparts",
+    "_parts_normcase_cached",
+)
+_PATH_INSPECTED_SLOTS: Tuple[str, ...] = (
+    "_raw_paths",
+    "_parts",
+    *_PATH_STR_SLOTS,
+    "_tail_cached",
+    *_PATH_SEQ_SLOTS,
+    "_hash",
+)
+
+
+def _read_path_object_state_no_hooks(raw_val: Any, *, field_name: str) -> Dict[str, Any]:
+    """Read `Path`/`PosixPath`/`PurePosixPath` internal `__dict__` and/or `__slots__` with zero dunder hooks."""
+    vt = type(raw_val)
+    view: Dict[str, Any] = {}
+    has_dict_or_slots = False
+    for cls in vt.__mro__:
+        if cls is object:
+            continue
+        cls_dict = _HW_TYPE_DICT_DESCR.__get__(cls, type)
+        if "__dict__" in cls_dict:
+            dict_descr = cls_dict["__dict__"]
+            if type(dict_descr) is not types.GetSetDescriptorType:
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+            raw_d = _HW_OBJECT_GETATTR(raw_val, "__dict__")
+            d_view = safe_exact_str_dict_view(raw_d)
+            if d_view is None:
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+            has_dict_or_slots = True
+            for k, v in dict.items(d_view):
+                if k not in view:
+                    view[k] = v
+        for slot_name in _PATH_INSPECTED_SLOTS:
+            if slot_name in cls_dict:
+                descr = cls_dict[slot_name]
+                if type(descr) is not types.MemberDescriptorType:
+                    raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+                has_dict_or_slots = True
+                if slot_name in view:
+                    continue
+                try:
+                    view[slot_name] = types.MemberDescriptorType.__get__(descr, raw_val, vt)
+                except AttributeError as exc:
+                    _ = exc
+    if not has_dict_or_slots:
+        raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+    return view
+
+
+def _extract_safe_path_str_no_hooks(raw_val: Any, *, field_name: str) -> str:
+    """Extract a plain `str` from `str` or `Path`/`PosixPath`/`PurePosixPath` without calling `__fspath__` or `__str__`."""
+    vt = type(raw_val)
+    if vt is str:
+        return raw_val
+    if vt not in (Path, PosixPath, PurePosixPath):
+        raise ValueError(f"INVALID_PATH_TYPE:{field_name}")
+
+    view = _read_path_object_state_no_hooks(raw_val, field_name=field_name)
+
+    for str_slot in _PATH_STR_SLOTS:
+        if str_slot in view and view[str_slot] is not None and type(view[str_slot]) is not str:
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+    if "_tail_cached" in view and view["_tail_cached"] is not None:
+        tc = view["_tail_cached"]
+        if type(tc) is not list or any(type(seg) is not str for seg in list.__iter__(tc)):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+    for seq_slot in _PATH_SEQ_SLOTS:
+        if seq_slot in view and view[seq_slot] is not None:
+            sq = view[seq_slot]
+            sq_t = type(sq)
+            if sq_t not in (list, tuple):
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+            it = list.__iter__(sq) if sq_t is list else tuple.__iter__(sq)
+            if any(type(seg) is not str for seg in it):
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+    if "_hash" in view and view["_hash"] is not None and type(view["_hash"]) is not int:
+        raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+    cached_str = view.get("_str")
+    if "_raw_paths" in view:
+        raw_paths = view["_raw_paths"]
+        if type(raw_paths) is not list or list.__len__(raw_paths) < 1:
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        raw_list = list(list.__iter__(raw_paths))
+        if any(type(p) is not str for p in raw_list):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        reconstructed = os.path.join(*raw_list)
+        if not reconstructed:
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        if cached_str is not None and posixpath.normpath(reconstructed) != posixpath.normpath(cached_str):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        return reconstructed
+
+    if "_parts" in view:
+        parts = view["_parts"]
+        pt = type(parts)
+        if pt not in (list, tuple):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        parts_list = list(list.__iter__(parts) if pt is list else tuple.__iter__(parts))
+        if len(parts_list) < 1 or any(type(p) is not str for p in parts_list):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        if any(not p or "/" in p or "\\" in p for p in parts_list[1:]):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        root_val = view.get("_root")
+        if root_val is not None:
+            if root_val and parts_list[0] != root_val:
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+            if root_val == "" and parts_list[0].startswith("/"):
+                raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        reconstructed = os.path.join(*parts_list)
+        if cached_str is not None and posixpath.normpath(reconstructed) != posixpath.normpath(cached_str):
+            raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+        return reconstructed
+
+    if cached_str is not None and type(cached_str) is str and cached_str:
+        tail_cached = view.get("_tail_cached")
+        root_val = view.get("_root")
+        if tail_cached is not None:
+            expected_tail = [seg for seg in cached_str.lstrip("/").split("/") if seg and seg != "."]
+            if list(list.__iter__(tail_cached)) == expected_tail:
+                if (
+                    root_val is None
+                    or (root_val and cached_str.startswith(root_val))
+                    or (root_val == "" and not cached_str.startswith("/"))
+                ):
+                    return cached_str
+        raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+    raise ValueError(f"UNTRUSTED_PATH_OBJECT_STATE:{field_name}")
+
+
 def pin_module_file(
     module_path: str,
     expected_module_file_sha256: str,
@@ -469,10 +615,12 @@ def pin_module_file(
     roots: List[Path] = [workspace_root, *allowed_roots]
 
     if module_file_path is not None:
-        mft = type(module_file_path)
-        if mft is not str and mft is not Path and mft is not PosixPath and mft is not PurePosixPath:
-            raise PermissionError("INVALID_MODULE_FILE_PATH_TYPE")
-        raw_mod_file = str(module_file_path)
+        try:
+            raw_mod_file = _extract_safe_path_str_no_hooks(
+                module_file_path, field_name="module_file_path"
+            )
+        except ValueError as exc:
+            raise PermissionError(str(exc)) from exc
         confined, matched_root = _confine_path_under_roots(raw_mod_file, roots)
         actual_sha, stat_tuple, _ = _read_pinned_regular_file_nofollow(
             confined, expected_sha256=expected_norm, capture_bytes=False
@@ -539,10 +687,9 @@ class HermeticEntrypointSpec:
             self.expected_module_file_sha256, field_name="expected_module_file_sha256"
         )
         if self.module_file_path is not None:
-            mft = type(self.module_file_path)
-            if mft is not str and mft is not Path and mft is not PosixPath and mft is not PurePosixPath:
-                raise ValueError("INVALID_MODULE_FILE_PATH: expected str or Path.")
-            raw_path = str(self.module_file_path).strip()
+            raw_path = _extract_safe_path_str_no_hooks(
+                self.module_file_path, field_name="module_file_path"
+            ).strip()
             if not raw_path or "\x00" in raw_path or TROJAN_UNICODE_RE.search(raw_path):
                 raise ValueError("INVALID_MODULE_FILE_PATH: empty, NUL, or control character.")
             if ".." in [seg for seg in raw_path.replace("\\", "/").split("/") if seg]:
@@ -1784,31 +1931,32 @@ class HermeticSpawnRunner:
         self._allowed_roots: Tuple[Path, ...] = tuple(self._validate_root(r) for r in allowed_roots)
         self._default_timeout_s = max(0.05, float(default_timeout_s))
         self._max_output_bytes = max(1024, int(max_output_bytes))
-        py_bin = str(python_executable or sys.executable)
-        if not py_bin or "\x00" in py_bin or TROJAN_UNICODE_RE.search(py_bin):
+        if python_executable is not None and type(python_executable) is not str:
+            raise ValueError("INVALID_PYTHON_EXECUTABLE: expected None or exact str.")
+        py_bin = sys.executable if python_executable is None else python_executable
+        if type(py_bin) is not str or not py_bin or "\x00" in py_bin or TROJAN_UNICODE_RE.search(py_bin):
             raise ValueError("INVALID_PYTHON_EXECUTABLE")
         self._python_executable = py_bin
 
-        worker_script = Path(__file__)
-        _assert_no_symlink_local(worker_script)
-        self._worker_script_path = worker_script.resolve()
-        if not self._worker_script_path.is_file():
+        if os.path.islink(__file__):
+            raise PermissionError(f"SECURITY_SYMLINK_REFUSED: {__file__}")
+        worker_real = os.path.realpath(__file__)
+        if not os.path.isfile(worker_real):
             raise RuntimeError("HERMETIC_WORKER_SCRIPT_NOT_FOUND")
+        self._worker_script_path = Path(worker_real)
 
     @staticmethod
     def _validate_root(raw_root: Union[str, Path]) -> Path:
-        rt = type(raw_root)
-        if rt is not str and rt is not Path and rt is not PosixPath and rt is not PurePosixPath:
-            raise ValueError("INVALID_ALLOWED_ROOT_TYPE")
-        raw_str = str(raw_root).strip()
+        raw_str = _extract_safe_path_str_no_hooks(raw_root, field_name="allowed_roots").strip()
         if not raw_str or "\x00" in raw_str or TROJAN_UNICODE_RE.search(raw_str):
             raise ValueError("INVALID_ALLOWED_ROOT_TEXT")
-        rp = Path(raw_str)
-        _assert_no_symlink_local(rp)
-        resolved = rp.resolve()
-        if str(resolved) in _FORBIDDEN_BROAD_ROOTS:
-            raise PermissionError(f"FORBIDDEN_BROAD_ALLOWED_ROOT:{resolved}")
-        return resolved
+        norm_check = raw_str.rstrip("/") or "/"
+        if os.path.islink(norm_check):
+            raise PermissionError(f"SECURITY_SYMLINK_REFUSED: {raw_str}")
+        resolved_str = os.path.realpath(raw_str)
+        if resolved_str in _FORBIDDEN_BROAD_ROOTS:
+            raise PermissionError(f"FORBIDDEN_BROAD_ALLOWED_ROOT:{resolved_str}")
+        return Path(resolved_str)
 
     @staticmethod
     def _normalize_hermetic_context(security_context: Any) -> Tuple[Dict[str, Any], str]:

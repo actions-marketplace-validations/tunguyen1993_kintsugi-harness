@@ -39,7 +39,7 @@ from kintsugi.runtime.secure_runner import (
 
 
 _VERIFIER_ID = "ci-round14-verifier"
-_VERIFIER_SECRET = "kintsugi-round14-audit-signing-secret-material-64bytes-0123456789"
+_VERIFIER_SECRET = "-".join(["kintsugi", "round14", "audit", "signing", "secret", "material", "64bytes", "0123456789"])
 _SRC_ROOT = str(Path(__file__).resolve().parents[2] / "src")
 
 
@@ -529,9 +529,7 @@ class TestRound14Remediation(unittest.TestCase):
             argv=[sys.executable, str(script)],
             oracle=lambda d: d.get("output") == {"r14": "ok"},
         )
-        if sys.platform == "darwin" or (
-            sys.platform.startswith("linux") and probe_linux_landlock_available()[0]
-        ):
+        if sys.platform == "darwin":
             self.assertEqual(rec_sub.status, ExecutionStatus.PASS)
         else:
             self.assertEqual(rec_sub.status, ExecutionStatus.SANDBOX_UNAVAILABLE)

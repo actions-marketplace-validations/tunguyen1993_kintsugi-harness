@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from kintsugi.capability import (
     AdapterSpec,
+    AttestationAuthority,
     CompositionPlan,
     CompositionReceipt,
     PortContract,
@@ -244,6 +245,11 @@ def register_nextgen_parsers(sub: Any, p_evo: argparse.ArgumentParser) -> None:
     p_syn.add_argument("--tools-file", default=None, help="Optional ToolSpec JSON list file inside workspace")
     p_syn.add_argument("--context-file", default=None, help="Optional SecurityContext JSON file inside workspace")
     p_syn.add_argument("--registry", default=".kintsugi/tool_registry.json", help="Workspace registry path")
+    p_syn.add_argument(
+        "--authority-key-file",
+        default=None,
+        help="Owner-controlled external 0o600 verifier key JSON file strictly outside workspace",
+    )
 
     # Build #3: smt-verify (Neuro-Symbolic SMT Plan Verifier)
     p_smt = sub.add_parser("smt-verify", help="Build #3 Agent D: Formal SMT verification of composition plans")
@@ -253,6 +259,11 @@ def register_nextgen_parsers(sub: Any, p_evo: argparse.ArgumentParser) -> None:
     p_smt.add_argument("--adapters-file", default=None, help="Optional AdapterSpec JSON list file inside workspace")
     p_smt.add_argument("--context-file", default=None, help="Optional SecurityContext JSON file inside workspace")
     p_smt.add_argument("--registry", default=".kintsugi/tool_registry.json", help="Workspace registry path")
+    p_smt.add_argument(
+        "--authority-key-file",
+        default=None,
+        help="Owner-controlled external 0o600 verifier key JSON file strictly outside workspace",
+    )
 
     # Build #3: asm-forge (ARM64/NEON & C Native Kernel Forge)
     p_asm = sub.add_parser("asm-forge", help="Build #3 Agent C: ASM/NEON Native Forge status, build & benchmark")
@@ -622,6 +633,22 @@ def _handle_proofpack(args: argparse.Namespace) -> int:
     return 2
 
 
+def _load_external_authority(ws: Path, raw_key_file: Optional[str]) -> Optional[AttestationAuthority]:
+    """Load an owner-controlled external `0o600` `AttestationAuthority` strictly outside `ws`."""
+    if raw_key_file is None:
+        return None
+    return AttestationAuthority.from_key_file(raw_key_file, workspace_root=ws)
+
+
+def _strict_exact_int(value: Any, *, field_name: str) -> int:
+    """Require an exact built-in `int` (rejects `bool`, `str`, `float`, `None`)."""
+    if type(value) is not int:
+        raise ValueError(
+            f"INVALID_STRICT_INT: '{field_name}' must be an exact int, got {type(value).__name__}."
+        )
+    return value
+
+
 def run_build3_synthesize_helper(
     ws: Path,
     goal_payload: Mapping[str, Any],
@@ -629,18 +656,22 @@ def run_build3_synthesize_helper(
     tools_data: Optional[Sequence[Any]] = None,
     registry_path: Optional[str] = None,
     context_data: Optional[Mapping[str, Any]] = None,
+    authority: Optional[AttestationAuthority] = None,
 ) -> Dict[str, Any]:
     """Shared Build #3 TypedCapabilityGraph synthesis helper used cleanly by CLI & MCP."""
     from kintsugi.capability.schemas import SecurityContext, ToolSpec
     from kintsugi.synthesis.capability_graph import SynthesisGoal, TypedCapabilityGraph
 
+    if authority is not None and not isinstance(authority, AttestationAuthority):
+        raise ValueError("INVALID_ATTESTATION_AUTHORITY: expected AttestationAuthority instance.")
+
     sec_ctx = SecurityContext.from_dict(dict(context_data)) if context_data else make_security_context(ws, None)
     if tools_data is not None:
         tools = [item if isinstance(item, ToolSpec) else ToolSpec.from_dict(dict(item)) for item in tools_data]
-        graph = TypedCapabilityGraph(tools)
+        graph = TypedCapabilityGraph(tools, authority=authority)
     else:
         reg = load_workspace_registry(ws, registry_path or ".kintsugi/tool_registry.json")
-        graph = TypedCapabilityGraph.from_registry(reg)
+        graph = TypedCapabilityGraph.from_registry(reg, authority=authority)
     goal = SynthesisGoal.coerce(dict(goal_payload))
     safe_path = graph.find_shortest_safe_path(
         goal.source_req,
@@ -669,11 +700,15 @@ def run_build3_smt_verify_helper(
     registry_path: Optional[str] = None,
     adapters_data: Optional[Sequence[Any]] = None,
     context_data: Optional[Mapping[str, Any]] = None,
+    authority: Optional[AttestationAuthority] = None,
 ) -> Dict[str, Any]:
     """Shared Build #3 SMT formal plan verifier helper used cleanly by CLI & MCP."""
     from kintsugi.capability.contracts_v2 import AdapterSpec
     from kintsugi.capability.schemas import SecurityContext, ToolSpec
     from kintsugi.composition.smt_plan_verifier import is_z3_available, verify_plan_formal
+
+    if authority is not None and not isinstance(authority, AttestationAuthority):
+        raise ValueError("INVALID_ATTESTATION_AUTHORITY: expected AttestationAuthority instance.")
 
     sec_ctx = SecurityContext.from_dict(dict(context_data)) if context_data else make_security_context(ws, None)
     if tools_data is not None:
@@ -687,7 +722,14 @@ def run_build3_smt_verify_helper(
         item if isinstance(item, AdapterSpec) else AdapterSpec.from_dict(dict(item))
         for item in (adapters_data or ())
     ]
-    bundle = verify_plan_formal(dict(plan_data), sec_ctx, registry=reg_arg, adapters=adapters)
+    eff_auth = authority if authority is not None else (reg_arg.authority if isinstance(reg_arg, ToolRegistry) else None)
+    bundle = verify_plan_formal(
+        dict(plan_data),
+        sec_ctx,
+        registry=reg_arg,
+        adapters=adapters,
+        authority=eff_auth,
+    )
     out = bundle.to_dict()
     out["ok"] = bool(bundle.all_proven)
     out["z3_available"] = is_z3_available()
@@ -737,15 +779,20 @@ def run_build3_evolution_v4_helper(
     """Shared Build #3 Evolution v4 causal ablation helper used cleanly by CLI & MCP."""
     from kintsugi.evolution.evolution_v4 import EvolutionEngineV4, ExecutionMode
 
+    revision = _strict_exact_int(payload.get("revision", 1), field_name="revision")
+    extra_baseline_regressions = _strict_exact_int(
+        payload.get("extra_baseline_regressions", 0),
+        field_name="extra_baseline_regressions",
+    )
     exec_mode = ExecutionMode(str(mode).strip().upper())
     eng = EvolutionEngineV4(mode=exec_mode, workspace_root=ws)
     ablation = eng.evaluate_ablation_trials(
         strategy_id=str(payload.get("strategy_id") or "cli-b3-strategy"),
-        revision=int(payload.get("revision", 1)),
+        revision=revision,
         train_families=list(payload.get("train_families") or ()),
         heldout_families=list(payload.get("heldout_families") or ()),
         trials=list(payload.get("trials") or ()),
-        extra_baseline_regressions=int(payload.get("extra_baseline_regressions", 0)),
+        extra_baseline_regressions=extra_baseline_regressions,
     )
     out = ablation.to_dict()
     out["ok"] = bool(ablation.passed)
@@ -754,6 +801,11 @@ def run_build3_evolution_v4_helper(
 
 def _handle_build3_synthesize(args: argparse.Namespace) -> int:
     ws = Path(args.workspace).resolve()
+    try:
+        authority = _load_external_authority(ws, getattr(args, "authority_key_file", None))
+    except (PermissionError, ValueError, OSError, json.JSONDecodeError) as exc:
+        _print_json({"ok": False, "error": str(exc)})
+        return 1
     goal_payload = load_workspace_json(ws, args.goal_file)
     tools_data = load_workspace_json(ws, args.tools_file) if args.tools_file else None
     ctx_data = load_workspace_json(ws, args.context_file) if args.context_file else None
@@ -763,6 +815,7 @@ def _handle_build3_synthesize(args: argparse.Namespace) -> int:
         tools_data=tools_data if isinstance(tools_data, list) else None,
         registry_path=args.registry,
         context_data=dict(ctx_data) if isinstance(ctx_data, Mapping) else None,
+        authority=authority,
     )
     _print_json(out)
     return 0 if out.get("ok") or out.get("blueprints") else 1
@@ -770,6 +823,11 @@ def _handle_build3_synthesize(args: argparse.Namespace) -> int:
 
 def _handle_build3_smt_verify(args: argparse.Namespace) -> int:
     ws = Path(args.workspace).resolve()
+    try:
+        authority = _load_external_authority(ws, getattr(args, "authority_key_file", None))
+    except (PermissionError, ValueError, OSError, json.JSONDecodeError) as exc:
+        _print_json({"ok": False, "error": str(exc)})
+        return 1
     plan_data = load_workspace_json(ws, args.plan_file)
     tools_data = load_workspace_json(ws, args.tools_file) if args.tools_file else None
     adapters_data = load_workspace_json(ws, args.adapters_file) if args.adapters_file else None
@@ -781,6 +839,7 @@ def _handle_build3_smt_verify(args: argparse.Namespace) -> int:
         registry_path=args.registry,
         adapters_data=adapters_data if isinstance(adapters_data, list) else None,
         context_data=dict(ctx_data) if isinstance(ctx_data, Mapping) else None,
+        authority=authority,
     )
     _print_json(out)
     return 0 if out.get("ok") else 1

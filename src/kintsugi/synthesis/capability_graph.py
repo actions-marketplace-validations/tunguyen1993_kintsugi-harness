@@ -26,6 +26,7 @@ from kintsugi.capability.schemas import (
     TrustStatus,
     assert_no_raw_secrets,
     canonical_json_dumps,
+    compute_tool_spec_security_digest,
     has_valid_verification_attestation,
     is_valid_sha256,
     normalize_sha256,
@@ -35,7 +36,7 @@ from kintsugi.capability.schemas import (
     validate_safe_text,
     validate_tool_id,
 )
-from kintsugi.capability.tool_registry import ToolRegistry
+from kintsugi.capability.tool_registry import AttestationAuthority, ToolRegistry
 from kintsugi.shield import TROJAN_UNICODE_RE
 from kintsugi.tools.tool_wire import DeclassificationGrant
 
@@ -1641,7 +1642,15 @@ class _SyntheticEdge:
 class TypedCapabilityGraph:
     """Demand-driven typed capability graph for safe multi-hop routing and synthesis gap discovery."""
 
-    def __init__(self, tools: Optional[Sequence[ToolSpec]] = None) -> None:
+    def __init__(
+        self,
+        tools: Optional[Sequence[ToolSpec]] = None,
+        *,
+        authority: Optional[AttestationAuthority] = None,
+    ) -> None:
+        if authority is not None and not isinstance(authority, AttestationAuthority):
+            raise ValueError("INVALID_ATTESTATION_AUTHORITY")
+        self._authority: Optional[AttestationAuthority] = authority
         self._verified: Dict[str, _IndexedTool] = {}
         self._excluded: Dict[str, ExclusionRecord] = {}
         self._all_specs: Dict[str, ToolSpec] = {}
@@ -1649,10 +1658,16 @@ class TypedCapabilityGraph:
             self.add_tool(spec)
 
     @classmethod
-    def from_registry(cls, registry: ToolRegistry) -> "TypedCapabilityGraph":
+    def from_registry(
+        cls,
+        registry: ToolRegistry,
+        *,
+        authority: Optional[AttestationAuthority] = None,
+    ) -> "TypedCapabilityGraph":
         if not isinstance(registry, ToolRegistry):
             raise ValueError("INVALID_REGISTRY: expected ToolRegistry instance.")
-        return cls(registry.list_tools(trust_statuses=None))
+        eff_auth = authority if authority is not None else getattr(registry, "authority", None)
+        return cls(registry.list_tools(trust_statuses=None), authority=eff_auth)
 
     def add_tool(self, spec: ToolSpec) -> bool:
         """Index a `ToolSpec`; admit ONLY `VERIFIED` attested tools to executable routes."""
@@ -1671,6 +1686,21 @@ class TypedCapabilityGraph:
             spec.verification_attestation, spec.binary_hash, spec.tool_id
         ):
             exclusion_reasons.append("INVALID_VERIFICATION_ATTESTATION")
+        elif self._authority is None or not self._authority.has_registered_verifiers:
+            exclusion_reasons.append("MISSING_ATTESTATION_AUTHORITY")
+        else:
+            try:
+                expected_spec_digest = compute_tool_spec_security_digest(spec)
+                hmac_ok = self._authority.verify_attestation(
+                    spec.verification_attestation or {},
+                    expected_tool_id=spec.tool_id,
+                    expected_binary_hash=spec.binary_hash,
+                    expected_spec_digest=expected_spec_digest,
+                )
+            except (TypeError, ValueError):
+                hmac_ok = False
+            if not hmac_ok:
+                exclusion_reasons.append("INVALID_ATTESTATION_HMAC")
 
         if exclusion_reasons:
             self._verified.pop(spec.tool_id, None)

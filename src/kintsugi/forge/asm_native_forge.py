@@ -16,6 +16,7 @@ import os
 import platform
 import random
 import re
+import secrets
 import shutil
 import stat
 import subprocess
@@ -23,6 +24,7 @@ import sys
 import tempfile
 import threading
 import time
+import weakref
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -122,12 +124,32 @@ _FORBIDDEN_ASM_PATTERNS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
         ),
     ),
     ("FORBIDDEN_PREPROCESSOR_TOKEN_PASTE", re.compile(r"##")),
+    (
+        "FORBIDDEN_CONSTRUCTOR_OR_ATTRIBUTE",
+        re.compile(
+            r"\b(?:__attribute__|__declspec|__constructor__|__destructor__|constructor|destructor|atexit|on_exit)\b"
+        ),
+    ),
+    (
+        "FORBIDDEN_INIT_SECTION_OR_PRAGMA",
+        re.compile(
+            r"(?:\.init_array|\.preinit_array|\.fini_array|\.ctors|\.dtors|"
+            r"__mod_init_func|__mod_term_func|\b__pragma\b|#\s*pragma\b)"
+        ),
+    ),
+    (
+        "FORBIDDEN_NON_ALLOWLIST_MACRO_DEFINE",
+        re.compile(r"#\s*define\s+(?!KINTSUGI_[A-Z0-9_]+\b)[A-Za-z_][A-Za-z0-9_]*"),
+    ),
 )
 
 _DISALLOWED_NON_ASM_PATTERNS: Tuple[Tuple[str, re.Pattern[str]], ...] = (
     ("FORBIDDEN_INLINE_ASM_DISABLED", re.compile(r"\b(?:__asm__|__asm|asm)\b")),
     ("FORBIDDEN_SIMD_HEADERS_DISABLED", re.compile(r"#\s*include\s*<\s*(?:arm_neon|arm_acle)\.h\s*>")),
 )
+
+_ASM_CONTINUATION_RE = re.compile(r"\\\r?\n")
+_ASM_TRIGRAPH_OR_DIGRAPH_RE = re.compile(r"(?:\?\?[=/'()!<>-]|<:|:%|%>|%:)")
 
 
 def detect_host_arch(machine: Optional[str] = None) -> str:
@@ -182,6 +204,10 @@ def scan_asm_source_safety(
         reasons.append("TROJAN_OR_NUL_IN_SOURCE")
     if not scan_artifact_egress(source_code, context="asm_forge_source")["ok"]:
         reasons.append("EGRESS_SECRET_OR_DLP_IN_SOURCE")
+    if _ASM_CONTINUATION_RE.search(source_code):
+        reasons.append("FORBIDDEN_LINE_CONTINUATION_SMUGGLING")
+    if _ASM_TRIGRAPH_OR_DIGRAPH_RE.search(source_code):
+        reasons.append("FORBIDDEN_TRIGRAPH_OR_DIGRAPH")
 
     for rule_name, pat in _FORBIDDEN_ASM_PATTERNS:
         if pat.search(source_code):
@@ -489,6 +515,29 @@ int32_t kintsugi_crc32c_fnv64_v1(
     return 0;
 }
 """
+)
+
+PINNED_ASM_TEMPLATE_SHA256: Dict[str, str] = {
+    "asm.delim_scan.v1": sha256_digest(_DELIM_SCAN_ASM_C_SOURCE.encode("utf-8")),
+    "asm.crc32c_fnv64.v1": sha256_digest(_CRC32C_FNV64_ASM_C_SOURCE.encode("utf-8")),
+}
+
+_ISOLATED_ABI_PROBE_SCRIPT = (
+    "import ctypes, hmac, sys\n"
+    "lib = ctypes.CDLL(sys.argv[1], mode=getattr(ctypes, 'RTLD_LOCAL', ctypes.DEFAULT_MODE))\n"
+    "exp_kid, exp_abi, exp_magic = sys.argv[2], sys.argv[3], int(sys.argv[4])\n"
+    "specs = (('kintsugi_asm_abi_version', ctypes.c_char_p), ('kintsugi_asm_abi_magic', ctypes.c_uint32), "
+    "('kintsugi_asm_kernel_id', ctypes.c_char_p), ('kintsugi_asm_backend_name', ctypes.c_char_p))\n"
+    "vals = {}\n"
+    "for sym, rt in specs:\n"
+    "    fn = getattr(lib, sym)\n"
+    "    fn.argtypes = []\n"
+    "    fn.restype = rt\n"
+    "    vals[sym] = int(fn()) if rt is ctypes.c_uint32 else (fn() or b'').decode('ascii', errors='replace')\n"
+    "if not hmac.compare_digest(vals['kintsugi_asm_abi_version'], exp_abi): raise SystemExit(2)\n"
+    "if vals['kintsugi_asm_abi_magic'] != exp_magic: raise SystemExit(3)\n"
+    "if not hmac.compare_digest(vals['kintsugi_asm_kernel_id'], exp_kid): raise SystemExit(4)\n"
+    "if not vals['kintsugi_asm_backend_name']: raise SystemExit(5)\n"
 )
 
 
@@ -1114,6 +1163,16 @@ class AsmNativeForge:
             assert_not_symlink(d)
             d.mkdir(parents=True, exist_ok=True)
             os.chmod(d, 0o700)
+        self._runtime_load_root: Path = Path(tempfile.mkdtemp(prefix="kintsugi_asm_load_")).resolve()
+        os.chmod(self._runtime_load_root, 0o700)
+        self._runtime_load_finalizer = weakref.finalize(
+            self, shutil.rmtree, str(self._runtime_load_root), True
+        )
+
+    def close(self) -> None:
+        """Clean up the host-only private dynamic library staging directory."""
+        if getattr(self, "_runtime_load_finalizer", None) is not None:
+            self._runtime_load_finalizer()
 
     def _safe_kernel_slug(self, kernel_id: str) -> str:
         cleaned = validate_safe_text(kernel_id, field_name="kernel_id")
@@ -1128,11 +1187,16 @@ class AsmNativeForge:
         *,
         force_scalar: Optional[bool] = None,
     ) -> Tuple[Path, AsmBuildManifest, Path]:
-        """Validate safety + ABI, compile deterministically via `clang -O3`, and emit manifest."""
+        """Validate safety, pinned template SHA-256 + ABI, compile via isolated subprocess, and emit manifest."""
         abi_ver = validate_asm_abi_version(spec.abi_version)
         safe_ok, safe_reasons = scan_asm_source_safety(spec.source_code, allow_asm=True, abi_version=abi_ver)
         if not safe_ok:
             raise ValueError(f"STATIC_SAFETY_REJECTED:{','.join(safe_reasons)}")
+
+        source_sha256 = sha256_digest(spec.source_code.encode("utf-8"))
+        pinned_sha = PINNED_ASM_TEMPLATE_SHA256.get(spec.kernel_id)
+        if pinned_sha is None or not hmac.compare_digest(source_sha256, pinned_sha):
+            raise ValueError("STATIC_SAFETY_REJECTED:UNAPPROVED_ASM_TEMPLATE_SOURCE")
 
         eff_scalar = self.force_scalar if force_scalar is None else bool(force_scalar)
         arch = detect_host_arch()
@@ -1143,7 +1207,6 @@ class AsmNativeForge:
         flags = _build_deterministic_clang_flags(
             arch=arch, force_scalar=eff_scalar, kernel_id=spec.kernel_id, dylib_name=dylib_name
         )
-        source_sha256 = sha256_digest(spec.source_code.encode("utf-8"))
 
         stage_dir = Path(tempfile.mkdtemp(prefix=f"asm_stage_{slug}_", dir=str(self.staging_root))).resolve()
         try:
@@ -1175,6 +1238,27 @@ class AsmNativeForge:
 
             staged_bytes = _read_regular_bytes_nofollow(stage_bin)
             staged_sha256 = sha256_digest(staged_bytes)
+
+            probe = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-c",
+                    _ISOLATED_ABI_PROBE_SCRIPT,
+                    str(stage_bin),
+                    spec.kernel_id,
+                    abi_ver,
+                    str(KINTSUGI_ASM_ABI_MAGIC),
+                ],
+                shell=False,
+                cwd=str(stage_dir),
+                env=clean_env,
+                capture_output=True,
+                text=True,
+                timeout=10.0,
+            )
+            if probe.returncode != 0:
+                raise RuntimeError(f"ASM_ISOLATED_ABI_PROBE_FAILED:rc={probe.returncode}:{(probe.stderr or '').strip()[:200]}")
 
             target_dir = self.forged_root / slug / backend / source_sha256[7:23]
             assert_not_symlink(self.forged_root)
@@ -1216,6 +1300,30 @@ class AsmNativeForge:
         finally:
             shutil.rmtree(stage_dir, ignore_errors=True)
 
+    def _stage_verified_binary_for_dlopen(self, raw_bytes: bytes, *, expected_sha256: str, kernel_id: str, suffix: str) -> Path:
+        """Stage immutable verified binary bytes into host-only `0o700` dir outside workspace before `dlopen`."""
+        assert_not_symlink(self._runtime_load_root)
+        self._runtime_load_root.mkdir(parents=True, exist_ok=True)
+        os.chmod(self._runtime_load_root, 0o700)
+        slug = self._safe_kernel_slug(kernel_id)
+        ext = suffix if suffix in {".dylib", ".so"} else (".dylib" if sys.platform == "darwin" else ".so")
+        staged_path = self._runtime_load_root / f"{slug}.{secrets.token_hex(16)}{ext}"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(str(staged_path), flags, 0o500)
+        try:
+            view = memoryview(raw_bytes)
+            written = 0
+            while written < len(raw_bytes):
+                written += os.write(fd, view[written:])
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.chmod(staged_path, 0o500)
+        staged_sha = sha256_digest(_read_regular_bytes_nofollow(staged_path))
+        if not hmac.compare_digest(staged_sha, expected_sha256):
+            raise PermissionError(f"ASM_STAGED_BINARY_SHA256_MISMATCH: expected={expected_sha256}, actual={staged_sha}")
+        return staged_path
+
     def load_verified_kernel(
         self,
         binary_path: Union[str, Path],
@@ -1224,15 +1332,24 @@ class AsmNativeForge:
         expected_kernel_id: str,
         expected_abi_version: str = KINTSUGI_ASM_ABI_VERSION,
     ) -> LoadedAsmKernel:
-        """Verify `O_NOFOLLOW` + SHA-256 + workspace confinement before `ctypes.CDLL` load and ABI check."""
+        """Verify template pin + `O_NOFOLLOW` + SHA-256, stage to host-only private file, then `ctypes.CDLL` load."""
         validate_asm_abi_version(expected_abi_version)
+        if expected_kernel_id not in PINNED_ASM_TEMPLATE_SHA256:
+            raise ValueError(f"UNAPPROVED_ASM_KERNEL_ID: {expected_kernel_id!r}")
         bin_p = Path(binary_path)
         _assert_confined_no_symlinks(bin_p, self.workspace_root)
-        actual_sha256 = sha256_digest(_read_regular_bytes_nofollow(bin_p))
+        raw_bytes = _read_regular_bytes_nofollow(bin_p)
+        actual_sha256 = sha256_digest(raw_bytes)
         if not hmac.compare_digest(actual_sha256, expected_sha256):
             raise PermissionError(f"ASM_BINARY_SHA256_MISMATCH: expected={expected_sha256}, actual={actual_sha256}")
 
-        lib = ctypes.CDLL(str(bin_p), mode=getattr(ctypes, "RTLD_LOCAL", ctypes.DEFAULT_MODE))
+        staged_bin = self._stage_verified_binary_for_dlopen(
+            raw_bytes,
+            expected_sha256=expected_sha256,
+            kernel_id=expected_kernel_id,
+            suffix=bin_p.suffix,
+        )
+        lib = ctypes.CDLL(str(staged_bin), mode=getattr(ctypes, "RTLD_LOCAL", ctypes.DEFAULT_MODE))
         abi_syms = (
             ("kintsugi_asm_abi_version", ctypes.c_char_p),
             ("kintsugi_asm_abi_magic", ctypes.c_uint32),
@@ -1459,6 +1576,7 @@ __all__ = [
     "KINTSUGI_ASM_ABI_VERSION",
     "MAX_ASM_BUFFER_BYTES",
     "MAX_ASM_DYLIB_BYTES",
+    "PINNED_ASM_TEMPLATE_SHA256",
     "SUPPORTED_ASM_ABI_VERSIONS",
     "AsmBenchmarkReport",
     "AsmBuildManifest",

@@ -7,7 +7,7 @@ Preserves the 9 legacy default tools under `profile="default"`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from kintsugi.capability import CompositionPlan, SecurityContext, ToolRegistry
 from kintsugi.cli_nextgen import (
@@ -222,7 +222,12 @@ def nextgen_build3_tool_definitions() -> List[Dict[str, Any]]:
     ]
 
 
-def dispatch_nextgen_build3_mcp_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+def dispatch_nextgen_build3_mcp_tool(
+    name: str,
+    args: Dict[str, Any],
+    *,
+    authority: Optional[Any] = None,
+) -> Dict[str, Any]:
     """Handle read-only Build #3 Cognitive Forge MCP tool calls."""
     ws = Path(str(args.get("workspace_root") or ".")).resolve()
     if name == "kintsugi_build3_synthesize_plan":
@@ -232,6 +237,7 @@ def dispatch_nextgen_build3_mcp_tool(name: str, args: Dict[str, Any]) -> Dict[st
             tools_data=args.get("tools"),
             registry_path=args.get("registry_path"),
             context_data=args.get("security_context"),
+            authority=authority,
         )
     if name == "kintsugi_build3_smt_verify_plan":
         return run_build3_smt_verify_helper(
@@ -241,6 +247,7 @@ def dispatch_nextgen_build3_mcp_tool(name: str, args: Dict[str, Any]) -> Dict[st
             registry_path=args.get("registry_path"),
             adapters_data=args.get("adapters"),
             context_data=args.get("security_context"),
+            authority=authority,
         )
     if name == "kintsugi_build3_asm_arch_status":
         return run_build3_asm_forge_helper(ws, action="info")

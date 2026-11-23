@@ -8,7 +8,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TextIO
+from typing import Any, Dict, List, Optional, TextIO, Union
 
 from kintsugi import __version__
 from kintsugi.compactor import ConversationCompactor
@@ -434,12 +434,46 @@ class KintsugiMCPServer:
         ledger_path: Path | str = ".kintsugi/scars.json",
         *,
         profile: str = "default",
+        attestation_authority: Optional[Any] = None,
+        authority_key_file: Optional[Union[str, Path]] = None,
+        workspace_root: Optional[Union[str, Path]] = None,
     ) -> None:
         self.ledger = ScarLedger(ledger_path, ensure_builtin_crs=True)
         if not self.ledger.all():
             self.ledger.bootstrap_starter_pack()
         self.profile = str(profile or "default").lower()
         self._session_hit_telemetry: Dict[str, int] = {}
+        self._attestation_authority: Optional[Any] = None
+        self._authority_key_file: Optional[Path] = None
+
+        if attestation_authority is not None and authority_key_file is not None:
+            raise ValueError(
+                "CONFLICTING_ATTESTATION_AUTHORITY: pass either attestation_authority or authority_key_file, not both."
+            )
+        if attestation_authority is not None:
+            from kintsugi.capability.tool_registry import AttestationAuthority
+
+            if not isinstance(attestation_authority, AttestationAuthority):
+                raise ValueError(
+                    "INVALID_ATTESTATION_AUTHORITY: expected AttestationAuthority instance."
+                )
+            self._attestation_authority = attestation_authority
+        elif authority_key_file is not None:
+            from kintsugi.capability.tool_registry import AttestationAuthority
+
+            ws_root: Optional[Path] = None
+            if workspace_root is not None:
+                if isinstance(workspace_root, Path):
+                    ws_root = workspace_root.resolve()
+                elif isinstance(workspace_root, str) and workspace_root.strip():
+                    ws_root = Path(workspace_root).resolve()
+                else:
+                    raise ValueError("INVALID_WORKSPACE_ROOT: expected non-empty str or Path.")
+            self._attestation_authority = AttestationAuthority.from_key_file(
+                authority_key_file,
+                workspace_root=ws_root,
+            )
+            self._authority_key_file = Path(authority_key_file).resolve()
 
     def active_tools(self) -> list[Dict[str, Any]]:
         tools = list(_tool_definitions())
@@ -985,7 +1019,17 @@ class KintsugiMCPServer:
             if name in NEXTGEN_BUILD2_TOOL_NAMES:
                 return dispatch_nextgen_build2_mcp_tool(name, args)
             if self.profile in {"build3", "cognitive"} and name in NEXTGEN_BUILD3_TOOL_NAMES:
-                return dispatch_nextgen_build3_mcp_tool(name, args)
+                if self._authority_key_file is not None and args.get("workspace_root") is not None:
+                    ws_req = Path(str(args.get("workspace_root") or ".")).resolve()
+                    if self._authority_key_file.is_relative_to(ws_req):
+                        raise PermissionError(
+                            f"ATTESTATION_KEY_FILE_INSIDE_WORKSPACE: '{self._authority_key_file}' must be outside workspace '{ws_req}'."
+                        )
+                return dispatch_nextgen_build3_mcp_tool(
+                    name,
+                    args,
+                    authority=self._attestation_authority,
+                )
 
         raise ValueError(f"Unknown MCP tool: {name}")
 

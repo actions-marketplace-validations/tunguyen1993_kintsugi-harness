@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    from fixture_attestation import sign_fixture_tool
+    from fixture_attestation import make_fixture_authority, sign_fixture_spec, sign_fixture_tool
 except ImportError:
-    from tests.fixture_attestation import sign_fixture_tool
+    from tests.fixture_attestation import make_fixture_authority, sign_fixture_spec, sign_fixture_tool
 
 from kintsugi.capability.contracts_v2 import PortContract
 from kintsugi.capability.schemas import (
@@ -23,7 +23,7 @@ from kintsugi.capability.schemas import (
     TrustStatus,
     sha256_digest,
 )
-from kintsugi.capability.tool_registry import ToolRegistry
+from kintsugi.capability.tool_registry import AttestationAuthority, ToolRegistry
 from kintsugi.synthesis import (
     GapKind,
     ParetoCandidate,
@@ -350,7 +350,10 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
             permissions=["fs.read"],
         )
 
-        graph = TypedCapabilityGraph([ingest, agg_ms, bridge_head, agg_stream])
+        auth = make_fixture_authority()
+        for spec in (ingest, agg_ms, bridge_head, agg_stream):
+            sign_fixture_spec(auth, spec)
+        graph = TypedCapabilityGraph([ingest, agg_ms, bridge_head, agg_stream], authority=auth)
 
         # Goal 1: Multi-hop unit mismatch (log.ingest outputs us -> missing us->ms -> metrics.agg_ms)
         g_unit = SynthesisGoal(
@@ -475,8 +478,12 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
         src = {"format": "jsonl", "semantic_type": "user_events", "unit": "ms", "sensitivity": "secret"}
         dst = {"format": "json", "semantic_type": "report", "unit": "ms", "sensitivity": "public"}
 
+        auth = make_fixture_authority()
+        for spec in (sneaky_launderer, verified_redactor, overpriv_sink, non_idemp_sink, safe_sink):
+            sign_fixture_spec(auth, spec)
+
         # 1. Without explicit declassifier in graph, sneaky_launderer is rejected
-        graph_no_decl = TypedCapabilityGraph([sneaky_launderer, safe_sink])
+        graph_no_decl = TypedCapabilityGraph([sneaky_launderer, safe_sink], authority=auth)
         res_blocked = graph_no_decl.find_shortest_safe_path(src, dst, self.sec_ctx)
         self.assertFalse(res_blocked.found)
         self.assertIn("sneaky.launderer", res_blocked.rejected_tools)
@@ -485,7 +492,10 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
         )
 
         # 2. With verified_redactor + grant, requires matching DeclassificationGrant and respects over-privilege + idempotency
-        graph_full = TypedCapabilityGraph([sneaky_launderer, verified_redactor, overpriv_sink, non_idemp_sink, safe_sink])
+        graph_full = TypedCapabilityGraph(
+            [sneaky_launderer, verified_redactor, overpriv_sink, non_idemp_sink, safe_sink],
+            authority=auth,
+        )
 
         # Missing grant -> blocked
         res_no_grant = graph_full.find_shortest_safe_path(src, dst, self.sec_ctx, require_idempotent=True)
@@ -526,7 +536,7 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
         self.assertIn("sink.append_non_idempotent", res_ok.rejected_tools)
 
         # Also verify gap detection flags PERMISSION_BLOCKED_EDGE when ONLY overpriv_sink exists downstream
-        graph_perm_gap = TypedCapabilityGraph([verified_redactor, overpriv_sink])
+        graph_perm_gap = TypedCapabilityGraph([verified_redactor, overpriv_sink], authority=auth)
         perm_gaps = graph_perm_gap.detect_capability_gaps(
             {
                 "goal_id": "g-perm-block",
@@ -717,7 +727,13 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
             side_effects=["non_idempotent"],
         )
 
-        graph = TypedCapabilityGraph([mid_parse, end_agg, secret_enricher, poly_passthrough, non_idemp_report])
+        auth = make_fixture_authority()
+        for spec in (mid_parse, end_agg, secret_enricher, poly_passthrough, non_idemp_report):
+            sign_fixture_spec(auth, spec)
+        graph = TypedCapabilityGraph(
+            [mid_parse, end_agg, secret_enricher, poly_passthrough, non_idemp_report],
+            authority=auth,
+        )
 
         # 1. Double-gap multi-hop goal: missing format bridge (bytes->jsonl) AND unit converter (us->ms)
         double_gap = graph.detect_capability_gaps(
@@ -772,6 +788,78 @@ class TestTypedCapabilityGraphSynthesis(unittest.TestCase):
             ParetoCandidate("bad.nan", Decimal("NaN"), 9000, 1, 10)
         with self.assertRaises(ValueError):
             TypedPort(format="json\u202e")
+
+    def test_fail_closed_hmac_attestation_authority_enforcement(self) -> None:
+        """Self-attested or forged ToolSpecs without verified HMAC authority MUST be excluded."""
+        self_attested = _make_tool(
+            "self.attested_tool",
+            input_port={"format": "bytes", "semantic_type": "raw", "sensitivity": "public"},
+            output_port={"format": "json", "semantic_type": "out", "sensitivity": "public"},
+            include_attestation=True,
+        )
+        # 1. Passing self-attested ToolSpecs WITHOUT authority -> MISSING_ATTESTATION_AUTHORITY
+        graph_no_auth = TypedCapabilityGraph([self_attested])
+        self.assertEqual(graph_no_auth.verified_tool_ids, [])
+        self.assertEqual(
+            graph_no_auth.get_excluded_tools()["self.attested_tool"].reasons,
+            ("MISSING_ATTESTATION_AUTHORITY",),
+        )
+
+        # 2. Authority with zero registered verifiers also excludes signed ToolSpecs -> MISSING_ATTESTATION_AUTHORITY
+        auth = make_fixture_authority()
+        signed_tool = sign_fixture_spec(
+            auth,
+            _make_tool(
+                "signed.tool",
+                input_port={"format": "bytes", "semantic_type": "raw", "sensitivity": "public"},
+                output_port={"format": "json", "semantic_type": "out", "sensitivity": "public"},
+            ),
+        )
+        graph_empty_auth = TypedCapabilityGraph([signed_tool], authority=AttestationAuthority())
+        self.assertEqual(graph_empty_auth.verified_tool_ids, [])
+        self.assertEqual(
+            graph_empty_auth.get_excluded_tools()["signed.tool"].reasons,
+            ("MISSING_ATTESTATION_AUTHORITY",),
+        )
+
+        # 3. Forged non-HMAC self-attested tool WITH valid authority -> INVALID_ATTESTATION_HMAC
+        graph_with_auth = TypedCapabilityGraph([self_attested, signed_tool], authority=auth)
+        self.assertEqual(graph_with_auth.verified_tool_ids, ["signed.tool"])
+        self.assertEqual(
+            graph_with_auth.get_excluded_tools()["self.attested_tool"].reasons,
+            ("INVALID_ATTESTATION_HMAC",),
+        )
+
+        # 4. Mutating ToolSpec permissions after signing invalidates spec_digest -> INVALID_ATTESTATION_HMAC
+        tampered_tool = _make_tool(
+            "tampered.tool",
+            input_port={"format": "bytes", "semantic_type": "raw", "sensitivity": "public"},
+            output_port={"format": "json", "semantic_type": "out", "sensitivity": "public"},
+            permissions=["fs.read"],
+        )
+        sign_fixture_spec(auth, tampered_tool)
+        tampered_tool.required_permissions.append("shell.exec")
+        graph_tampered = TypedCapabilityGraph([tampered_tool], authority=auth)
+        self.assertEqual(graph_tampered.verified_tool_ids, [])
+        self.assertEqual(
+            graph_tampered.get_excluded_tools()["tampered.tool"].reasons,
+            ("INVALID_ATTESTATION_HMAC",),
+        )
+
+        # 5. Invalid authority type fails fast
+        with self.assertRaises(ValueError):
+            TypedCapabilityGraph([signed_tool], authority="not-an-authority")  # type: ignore[arg-type]
+
+        # 6. from_registry respects explicit authority override
+        reg = ToolRegistry(self.ws / ".kintsugi" / "sec_registry.json")
+        sign_fixture_tool(reg, signed_tool)
+        other_auth = AttestationAuthority({"other": b"other-key-with-at-least-32-bytes-long!"})
+        graph_wrong_auth = TypedCapabilityGraph.from_registry(reg, authority=other_auth)
+        self.assertEqual(graph_wrong_auth.verified_tool_ids, [])
+        self.assertEqual(
+            graph_wrong_auth.get_excluded_tools()["signed.tool"].reasons,
+            ("INVALID_ATTESTATION_HMAC",),
+        )
 
 
 if __name__ == "__main__":

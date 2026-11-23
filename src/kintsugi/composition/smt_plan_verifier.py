@@ -43,6 +43,7 @@ from kintsugi.capability.schemas import (
     TrustStatus,
     assert_no_raw_secrets,
     canonical_json_dumps,
+    compute_tool_spec_security_digest,
     has_valid_verification_attestation,
     is_valid_sha256,
     normalize_sha256,
@@ -922,7 +923,31 @@ def _extract_node_port_sensitivity(node: Mapping[str, Any], tool: Optional[ToolS
     return None
 
 
+def compute_declassifier_node_spec_digest(node: Mapping[str, Any]) -> str:
+    """Compute canonical SHA-256 digest binding a standalone declassifier node contract."""
+    if not isinstance(node, Mapping):
+        raise ValueError("INVALID_DECLASSIFIER_NODE: expected mapping.")
+    return sha256_digest(
+        {
+            "schema": "DeclassifierNodeSpec/1",
+            "node_id": str(node.get("node_id") or "").strip(),
+            "tool_id": str(node.get("tool_id") or "").strip(),
+            "binary_hash": str(node.get("binary_hash") or "").strip().lower(),
+            "target_sensitivity": str(
+                node.get("target_sensitivity")
+                or node.get("declassify_to")
+                or node.get("output_sensitivity")
+                or "public"
+            )
+            .strip()
+            .lower(),
+        }
+    )
+
+
 def _is_verified_adapter(adapter: AdapterSpec, plan_dict: Mapping[str, Any], authority: Optional[AttestationAuthority]) -> bool:
+    if not isinstance(authority, AttestationAuthority) or not authority.has_registered_verifiers:
+        return False
     if adapter.trust_status != TrustStatus.VERIFIED or not is_valid_sha256(adapter.verification_corpus_hash):
         return False
     att = adapter.verification_attestation
@@ -935,14 +960,14 @@ def _is_verified_adapter(adapter: AdapterSpec, plan_dict: Mapping[str, Any], aut
     if adapter.adapter_id in adapter_hashes:
         if not hmac.compare_digest(str(adapter_hashes[adapter.adapter_id]).strip().lower(), adapter.adapter_hash.lower()):
             return False
-    if authority is not None and authority.has_registered_verifiers:
-        return authority.verify_adapter_attestation(
+    return bool(
+        authority.verify_adapter_attestation(
             att,
             expected_adapter_id=adapter.adapter_id,
             expected_adapter_hash=adapter.adapter_hash,
             expected_corpus_hash=adapter.verification_corpus_hash,
         )
-    return True
+    )
 
 
 def _adapter_declassifier_target(adapter: Optional[AdapterSpec], plan_dict: Mapping[str, Any], authority: Optional[AttestationAuthority]) -> Optional[int]:
@@ -961,9 +986,11 @@ def _node_declassifier_target(
     plan_dict: Mapping[str, Any],
     authority: Optional[AttestationAuthority],
 ) -> Optional[int]:
+    if not isinstance(authority, AttestationAuthority) or not authority.has_registered_verifiers:
+        return None
     nid = str(node.get("node_id") or "").strip()
     tid = str(node.get("tool_id") or "").strip()
-    if node.get("kind") == "adapter":
+    if str(node.get("kind") or "").strip().lower() == "adapter":
         return _adapter_declassifier_target(adapter_map.get(str(node.get("adapter_id") or tid).strip()), plan_dict, authority)
 
     decl_flag = bool(
@@ -977,22 +1004,84 @@ def _node_declassifier_target(
     if str(node.get("trust_status") or "").strip().upper() in {TrustStatus.DISCOVERED.value, TrustStatus.QUARANTINED.value, TrustStatus.RETIRED.value}:
         return None
 
-    attested_ok = False
-    att = node.get("declassifier_attestation") or node.get("verification_attestation")
+    raw_decl_att = node.get("declassifier_attestation")
+    raw_ver_att = node.get("verification_attestation")
+    att = raw_decl_att if raw_decl_att is not None else raw_ver_att
     tool_hashes = plan_dict.get("tool_artifact_hashes") if isinstance(plan_dict.get("tool_artifact_hashes"), Mapping) else {}
-    if isinstance(att, Mapping) and att:
-        exp_hash = str(node.get("binary_hash") or tool_hashes.get(tid) or att.get("binary_hash") or "").strip().lower()
-        exp_subj = str(att.get("tool_id") or tid or nid).strip()
-        if is_valid_sha256(exp_hash) and has_valid_verification_attestation(dict(att), exp_hash, exp_subj):
-            attested_ok = True
-    if not attested_ok and tool is not None and tool.trust_status == TrustStatus.VERIFIED:
-        if has_valid_verification_attestation(tool.verification_attestation, tool.binary_hash, tool.tool_id):
-            if authority is None or not authority.has_registered_verifiers or authority.verify_attestation(
-                tool.verification_attestation or {}, expected_tool_id=tool.tool_id, expected_binary_hash=tool.binary_hash
+
+    if tool is not None:
+        if tool.trust_status != TrustStatus.VERIFIED:
+            return None
+        raw_node_bin = node.get("binary_hash")
+        if raw_node_bin is not None and str(raw_node_bin).strip():
+            node_bin = str(raw_node_bin).strip().lower()
+            if not is_valid_sha256(node_bin) or not hmac.compare_digest(node_bin, tool.binary_hash.lower()):
+                return None
+        raw_plan_bin = tool_hashes.get(tid)
+        if raw_plan_bin is not None and str(raw_plan_bin).strip():
+            plan_bin = str(raw_plan_bin).strip().lower()
+            if not is_valid_sha256(plan_bin) or not hmac.compare_digest(plan_bin, tool.binary_hash.lower()):
+                return None
+        try:
+            exp_spec_digest = compute_tool_spec_security_digest(tool)
+        except (TypeError, ValueError):
+            return None
+        if not authority.verify_attestation(
+            tool.verification_attestation or {},
+            expected_tool_id=tool.tool_id,
+            expected_binary_hash=tool.binary_hash,
+            expected_spec_digest=exp_spec_digest,
+        ):
+            return None
+        for present_att in (raw_decl_att, raw_ver_att):
+            if present_att is None:
+                continue
+            if not isinstance(present_att, Mapping) or not present_att:
+                return None
+            node_att_dict = dict(present_att)
+            node_spec_digest = compute_declassifier_node_spec_digest(node)
+            if not (
+                authority.verify_attestation(
+                    node_att_dict,
+                    expected_tool_id=tool.tool_id,
+                    expected_binary_hash=tool.binary_hash,
+                    expected_spec_digest=exp_spec_digest,
+                )
+                or authority.verify_attestation(
+                    node_att_dict,
+                    expected_tool_id=tool.tool_id,
+                    expected_binary_hash=tool.binary_hash,
+                    expected_spec_digest=node_spec_digest,
+                )
             ):
-                attested_ok = True
-    if not attested_ok:
-        return None
+                return None
+    else:
+        if not isinstance(att, Mapping) or not att:
+            return None
+        raw_node_bin = str(node.get("binary_hash") or "").strip().lower()
+        raw_plan_bin = str(tool_hashes.get(tid) or "").strip().lower()
+        if raw_node_bin and raw_plan_bin and not hmac.compare_digest(raw_node_bin, raw_plan_bin):
+            return None
+        exp_hash = raw_node_bin or raw_plan_bin
+        if not is_valid_sha256(exp_hash):
+            return None
+        exp_subj = str(tid or nid).strip()
+        exp_spec_digest = compute_declassifier_node_spec_digest(node)
+        for present_att in (raw_decl_att, raw_ver_att):
+            if present_att is None:
+                continue
+            if not isinstance(present_att, Mapping) or not present_att:
+                return None
+            att_bin = present_att.get("binary_hash")
+            if type(att_bin) is not str or not hmac.compare_digest(att_bin.strip().lower(), exp_hash):
+                return None
+            if not authority.verify_attestation(
+                dict(present_att),
+                expected_tool_id=exp_subj,
+                expected_binary_hash=exp_hash,
+                expected_spec_digest=exp_spec_digest,
+            ):
+                return None
 
     raw_target = node.get("target_sensitivity") or node.get("declassify_to") or node.get("output_sensitivity")
     if raw_target is not None:
@@ -1204,9 +1293,10 @@ def prove_no_secret_escalation(
     if ctx.error_cert is not None:
         return ctx.error_cert
 
-    eff_authority = authority if authority is not None else (registry.authority if isinstance(registry, ToolRegistry) else None)
+    if authority is None and isinstance(registry, ToolRegistry) and registry.authority is not None:
+        authority = registry.authority
     try:
-        model_info = _collect_sensitivity_model(ctx, security_context, eff_authority)
+        model_info = _collect_sensitivity_model(ctx, security_context, authority)
     except ValueError as exc:
         return ctx.make_cert(STATUS_ERROR, {"error": str(exc)})
 
@@ -1935,6 +2025,8 @@ def verify_plan_formal(
     total_start_ns = time.perf_counter_ns()
     backend_name, _, _ = _resolve_backend(backend)
     _, plan_id, plan_hash, _ = _extract_plan_envelope(plan)
+    if authority is None and isinstance(registry, ToolRegistry) and registry.authority is not None:
+        authority = registry.authority
 
     certs = {
         "acyclic_and_total_order": prove_acyclic_and_total_order(plan, backend=backend_name),
@@ -1967,6 +2059,7 @@ __all__ = [
     "STATUS_PROVEN",
     "FormalVerificationBundle",
     "SMTProofCertificate",
+    "compute_declassifier_node_spec_digest",
     "is_z3_available",
     "prove_acyclic_and_total_order",
     "prove_effect_idempotency",

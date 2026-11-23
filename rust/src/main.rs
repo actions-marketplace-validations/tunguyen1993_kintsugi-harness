@@ -14,12 +14,13 @@ use kintsugi_core::kernels::{
     scan_multibyte_delimiters,
 };
 use kintsugi_core::{
-    audit_step_economics_path, compute_token_benchmark, evaluate_pre_tool_json_with_workspace,
-    evaluate_rule_ir_json, inspect_kml_corpus_file, json_escape, parse_kml_corpus,
-    render_creed_json, render_kmi_compact_header, render_kml_builtin_corpus,
-    render_step_audit_json, render_swarm_plan_json, s3_audit_path, scan_git_staged, scan_path,
-    scan_path_with_policy_sha, scan_text, validate_rule_ir_json, validate_rule_ir_json_strict,
-    verify_memories_readonly, verify_outbound_destination_allowed, Severity,
+    audit_step_economics_path, compute_token_benchmark, estimate_tokens,
+    evaluate_pre_tool_json_with_workspace, evaluate_rule_ir_json, inspect_kml_corpus_file,
+    json_escape, parse_kml_corpus, render_creed_json, render_kmi_compact_header,
+    render_kml_builtin_corpus, render_step_audit_json, render_swarm_plan_json, s3_audit_path,
+    scan_git_staged_with_shadow, scan_path, scan_path_with_policy_sha_and_shadow, scan_text,
+    validate_rule_ir_json, validate_rule_ir_json_strict, verify_memories_readonly,
+    verify_outbound_destination_allowed, Finding, S3AuditSummary, ScanSummary, Severity,
     ALLOWED_PUBLIC_EVOLUTION_REPO, BUILTIN_RULES,
 };
 
@@ -81,8 +82,8 @@ fn print_help() {
         "kintsugi-rs {VERSION} — Native Rust @KML/1 & Grade-S3 Guardrail Engine\n\
          \n\
          USAGE:\n\
-         \x20 kintsugi-rs scan [PATH] [--staged] [--format text|json] [--min-severity LEVEL] [--fail-on LEVEL] [--policy-file PATH] [--policy-sha256 HEX] [-- <PATH>]\n\
-         \x20 kintsugi-rs s3-audit [PATH] [--format text|json] [-- <PATH>]\n\
+         \x20 kintsugi-rs scan [PATH...] [--staged] [--shadow-arm-c] [--gate-compact] [--format text|json] [--min-severity LEVEL] [--fail-on LEVEL] [--policy-file PATH] [--policy-sha256 HEX] [-- <PATH...>]\n\
+         \x20 kintsugi-rs s3-audit [PATH...] [--format text|json] [-- <PATH...>]\n\
          \x20 kintsugi-rs memories-verify [WORKSPACE_ROOT] [--format text|json]\n\
          \x20 kintsugi-rs creed\n\
          \x20 kintsugi-rs swarm-plan [TASK_DESC]\n\
@@ -101,6 +102,64 @@ fn print_help() {
     );
 }
 
+fn render_gate_compact(findings: &[Finding], max_tokens: usize) -> String {
+    if findings.is_empty() || max_tokens == 0 {
+        return String::new();
+    }
+    let mut kept: Vec<String> = Vec::new();
+    for (idx, f) in findings.iter().enumerate() {
+        let mut entry = format!("[{}@{}] {}", f.scar_id, f.line, f.fix_hint);
+        let remaining = findings.len().saturating_sub(idx + 1);
+        let suffix = if remaining > 0 {
+            format!("\n... (+{remaining} more)")
+        } else {
+            String::new()
+        };
+        let mut candidate = if kept.is_empty() {
+            entry.clone()
+        } else {
+            format!("{}\n{}", kept.join("\n"), entry)
+        };
+        if !suffix.is_empty() {
+            candidate.push_str(&suffix);
+        }
+        if estimate_tokens(&candidate) <= max_tokens {
+            kept.push(entry);
+            continue;
+        }
+        if kept.is_empty() {
+            // Trim single finding line until it fits strictly within `max_tokens`
+            while estimate_tokens(&entry) > max_tokens && entry.chars().count() > 8 {
+                let mut chars: Vec<char> = entry.chars().collect();
+                let new_len = chars.len().saturating_sub(8);
+                chars.truncate(new_len);
+                entry = format!("{}...", chars.into_iter().collect::<String>());
+            }
+            kept.push(entry);
+        } else {
+            let omitted = findings.len().saturating_sub(kept.len());
+            if omitted > 0 {
+                let tail = format!("... (+{omitted} more)");
+                let with_tail = format!("{}\n{tail}", kept.join("\n"));
+                if estimate_tokens(&with_tail) <= max_tokens {
+                    kept.push(tail);
+                }
+            }
+            break;
+        }
+    }
+    let mut out = kept.join("\n");
+    if kept.len() < findings.len() && !out.contains("more)") {
+        let omitted = findings.len().saturating_sub(kept.len());
+        let tail = format!("... (+{omitted} more)");
+        let with_tail = format!("{out}\n{tail}");
+        if estimate_tokens(&with_tail) <= max_tokens {
+            out = with_tail;
+        }
+    }
+    out
+}
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
@@ -114,8 +173,10 @@ fn main() {
 
     match args[0].as_str() {
         "scan" => {
-            let mut target = ".".to_string();
+            let mut targets: Vec<String> = Vec::new();
             let mut staged = false;
+            let mut shadow_arm_c = false;
+            let mut gate_compact = false;
             let mut format = "text".to_string();
             let mut min_sev = Severity::Low;
             let mut fail_on = Some(Severity::High);
@@ -126,7 +187,7 @@ fn main() {
             let mut i = 1;
             while i < args.len() {
                 if after_double_dash {
-                    target = args[i].clone();
+                    targets.push(args[i].clone());
                     i += 1;
                     continue;
                 }
@@ -135,6 +196,8 @@ fn main() {
                         after_double_dash = true;
                     }
                     "--staged" => staged = true,
+                    "--shadow-arm-c" => shadow_arm_c = true,
+                    "--gate-compact" => gate_compact = true,
                     "--format" => {
                         format = require_flag_value("--format", &mut i, &args);
                     }
@@ -157,23 +220,56 @@ fn main() {
                         }
                     }
                     arg if !arg.starts_with('-') => {
-                        target = arg.to_string();
+                        targets.push(arg.to_string());
                     }
                     arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
+            if targets.is_empty() {
+                targets.push(".".to_string());
+            }
 
             let summary = if staged {
-                scan_git_staged(Path::new(&target), min_sev)
-            } else {
-                scan_path_with_policy_sha(
-                    Path::new(&target),
+                scan_git_staged_with_shadow(Path::new(&targets[0]), min_sev, shadow_arm_c)
+            } else if targets.len() == 1 {
+                scan_path_with_policy_sha_and_shadow(
+                    Path::new(&targets[0]),
                     min_sev,
                     policy_file.as_deref().map(Path::new),
                     policy_sha256.as_deref(),
+                    shadow_arm_c,
                 )
+            } else {
+                let mut total = ScanSummary {
+                    scanned_files: 0,
+                    active_rules: BUILTIN_RULES.len() + if shadow_arm_c { 5 } else { 0 },
+                    elapsed_micros: 0,
+                    findings: Vec::new(),
+                };
+                for t in &targets {
+                    let mut sub = scan_path_with_policy_sha_and_shadow(
+                        Path::new(t),
+                        min_sev,
+                        policy_file.as_deref().map(Path::new),
+                        policy_sha256.as_deref(),
+                        shadow_arm_c,
+                    );
+                    total.scanned_files += sub.scanned_files;
+                    total.active_rules = sub.active_rules;
+                    total.elapsed_micros += sub.elapsed_micros;
+                    total.findings.append(&mut sub.findings);
+                }
+                total
             };
+
+            if gate_compact {
+                if summary.findings.is_empty() {
+                    return;
+                }
+                println!("{}", render_gate_compact(&summary.findings, 150));
+                process::exit(1);
+            }
 
             let ms = (summary.elapsed_micros as f64) / 1000.0;
             if format == "json" {
@@ -181,11 +277,13 @@ fn main() {
                     .findings
                     .iter()
                     .map(|f| {
+                        let is_shadow = f.scar_id.starts_with("KC-C");
                         format!(
-                            "{{\"scar_id\":\"{}\",\"severity\":\"{}\",\"category\":\"{}\",\"file_path\":\"{}\",\"line\":{},\"column\":{},\"title\":\"{}\",\"snippet\":\"{}\",\"good_code_hint\":\"{}\"}}",
+                            "{{\"scar_id\":\"{}\",\"severity\":\"{}\",\"category\":\"{}\",\"shadow\":{},\"file_path\":\"{}\",\"line\":{},\"column\":{},\"title\":\"{}\",\"snippet\":\"{}\",\"good_code_hint\":\"{}\"}}",
                             json_escape(&f.scar_id),
                             f.severity.as_str(),
                             json_escape(&f.category),
+                            is_shadow,
                             json_escape(&f.file_path),
                             f.line,
                             f.column,
@@ -196,8 +294,9 @@ fn main() {
                     })
                     .collect();
                 println!(
-                    "{{\"schema_version\":\"2.4.0\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"scanned_files\":{},\"active_scars\":{},\"elapsed_ms\":{:.3},\"findings\":[{}]}}",
+                    "{{\"schema_version\":\"2.4.0\",\"engine\":\"kintsugi-rs\",\"engine_version\":\"{}\",\"shadow_arm_c\":{},\"scanned_files\":{},\"active_scars\":{},\"elapsed_ms\":{:.3},\"findings\":[{}]}}",
                     VERSION,
+                    shadow_arm_c,
                     summary.scanned_files,
                     summary.active_rules,
                     ms,
@@ -233,13 +332,13 @@ fn main() {
             }
         }
         "s3-audit" => {
-            let mut target = ".".to_string();
+            let mut targets: Vec<String> = Vec::new();
             let mut format = "json".to_string();
             let mut after_double_dash = false;
             let mut i = 1;
             while i < args.len() {
                 if after_double_dash {
-                    target = args[i].clone();
+                    targets.push(args[i].clone());
                     i += 1;
                     continue;
                 }
@@ -249,13 +348,46 @@ fn main() {
                         format = require_flag_value("--format", &mut i, &args);
                     }
                     arg if !arg.starts_with('-') => {
-                        target = arg.to_string();
+                        targets.push(arg.to_string());
                     }
                     arg => reject_unknown_flag(arg),
                 }
                 i += 1;
             }
-            let rep = s3_audit_path(Path::new(&target));
+            if targets.is_empty() {
+                targets.push(".".to_string());
+            }
+            let rep = if targets.len() == 1 {
+                s3_audit_path(Path::new(&targets[0]))
+            } else {
+                let mut merged = S3AuditSummary {
+                    target: targets.join(","),
+                    files_scanned: 0,
+                    total_functions: 0,
+                    total_classes: 0,
+                    total_seams: 0,
+                    s3_locked_seams: 0,
+                    unguarded_s0_seams: 0,
+                    elapsed_ms: 0.0,
+                    verdict: "PASS_S3_LOCKED",
+                    files: Vec::new(),
+                };
+                for t in &targets {
+                    let mut sub = s3_audit_path(Path::new(t));
+                    merged.files_scanned += sub.files_scanned;
+                    merged.total_functions += sub.total_functions;
+                    merged.total_classes += sub.total_classes;
+                    merged.total_seams += sub.total_seams;
+                    merged.s3_locked_seams += sub.s3_locked_seams;
+                    merged.unguarded_s0_seams += sub.unguarded_s0_seams;
+                    merged.elapsed_ms += sub.elapsed_ms;
+                    merged.files.append(&mut sub.files);
+                }
+                if merged.unguarded_s0_seams > 0 {
+                    merged.verdict = "FAIL_S0_EXPOSED";
+                }
+                merged
+            };
             if format == "text" {
                 println!(
                     "Kintsugi-RS v{VERSION} Grade-S3 Seam Audit: files={} functions={} classes={} seams={}/{} S0_unguarded={} elapsed={:.3}ms verdict={}",

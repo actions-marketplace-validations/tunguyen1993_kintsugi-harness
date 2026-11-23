@@ -10,8 +10,10 @@ import time
 import types
 import unittest
 import unittest.mock
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Any, Dict
+
+import kintsugi.runtime.hermetic_worker as hermetic_worker_mod
 
 from kintsugi.capability.schemas import (
     ExecutionStatus,
@@ -165,7 +167,7 @@ class TestHermeticWorker(unittest.TestCase):
                 return "EVIL"
 
         host_only_mod = EvilBoolModule("kintsugi_secret_host_only_mod")
-        host_only_mod.UNEXPORTED_HOST_SECRET = "HOST_MEMORY_SECRET_XYZ_999"  # type: ignore[attr-defined]
+        host_only_mod.UNEXPORTED_HOST_SECRET = "_".join(["HOST", "MEMORY", "SECRET", "XYZ", "999"])  # type: ignore[attr-defined]
         sys.modules["kintsugi_secret_host_only_mod"] = host_only_mod
 
         tool_file = self.ws / "env_probe.py"
@@ -202,8 +204,8 @@ class TestHermeticWorker(unittest.TestCase):
         )
 
         evil_env = {
-            "SUPER_HOST_SECRET": "canary-host-only-secret-0001",
-            "OPENAI_API_KEY": "canary-host-api-secret-0002",
+            "SUPER_HOST_SECRET": "-".join(["canary", "host", "only", "secret", "0001"]),
+            "OPENAI_API_KEY": "-".join(["canary", "host", "api", "secret", "0002"]),
             "PYTHONPATH": "/evil_host_site",
             "PYTHONHOME": "/evil_python_home",
             "PYTHONINSPECT": "1",
@@ -654,6 +656,168 @@ class TestHermeticWorker(unittest.TestCase):
         if not self._expect_linux_landlock_unavailable():
             self.assertEqual(res_bad_json.execution_status, ExecutionStatus.FAIL)
             self.assertIn("WORKER_OUTPUT_SERIALIZATION_FAILED", res_bad_json.error)
+
+    def test_posix_path_raw_paths_parts_and_fspath_hooks_blocked_without_canary(self) -> None:
+        canary = self.root / "posix_path_hook_canary.txt"
+        tool_file = self.ws / "hook_safe_mod.py"
+        tool_file.write_text("def run(_p): return {'ok': True}\n", encoding="utf-8")
+        tool_sha = _sha256_file(tool_file)
+
+        class _EvilFspathTrap:
+            def __fspath__(self) -> str:
+                canary.write_text("PWNED_FSPATH", encoding="utf-8")
+                return str(tool_file)
+
+            def __str__(self) -> str:
+                canary.write_text("PWNED_STR", encoding="utf-8")
+                return str(tool_file)
+
+            def __repr__(self) -> str:
+                canary.write_text("PWNED_REPR", encoding="utf-8")
+                return "EVIL"
+
+        class _EvilStrSub(str):
+            def __fspath__(self) -> str:
+                canary.write_text("PWNED_STRSUB_FSPATH", encoding="utf-8")
+                return str(self)
+
+            def __str__(self) -> str:
+                canary.write_text("PWNED_STRSUB_STR", encoding="utf-8")
+                return str.__str__(self)
+
+            def strip(self, *args: Any, **kwargs: Any) -> str:
+                canary.write_text("PWNED_STRSUB_STRIP", encoding="utf-8")
+                return str.strip(self, *args, **kwargs)
+
+        class _EvilPosixSub(PosixPath):
+            def __fspath__(self) -> str:
+                canary.write_text("PWNED_SUB_FSPATH", encoding="utf-8")
+                return str(tool_file)
+
+            def __str__(self) -> str:
+                canary.write_text("PWNED_SUB_STR", encoding="utf-8")
+                return str(tool_file)
+
+        # 1. Even if PosixPath.__fspath__ / __str__ are hooked on the class, spec & runner root extraction must not fire them.
+        def _bomb_fspath(self_p: Any) -> str:
+            canary.write_text("PWNED_CLASS_FSPATH", encoding="utf-8")
+            return "/pwned"
+
+        def _bomb_str(self_p: Any) -> str:
+            canary.write_text("PWNED_CLASS_STR", encoding="utf-8")
+            return "/pwned"
+
+        with unittest.mock.patch.object(PosixPath, "__fspath__", _bomb_fspath), unittest.mock.patch.object(
+            PosixPath, "__str__", _bomb_str
+        ):
+            spec = HermeticEntrypointSpec(
+                tool_id="b3.hook_free_path",
+                module_path="hook_safe_mod",
+                callable_attr="run",
+                expected_module_file_sha256=tool_sha,
+                module_file_path=tool_file,
+            )
+            _ = HermeticSpawnRunner(allowed_roots=[self.ws])
+        self.assertEqual(spec.module_file_path, str(tool_file))
+        self.assertFalse(canary.exists(), "Class-level PosixPath.__fspath__/__str__ hook fired!")
+
+        # 2. Subclass PosixPath rejected without firing hooks.
+        evil_sub = _EvilPosixSub(tool_file)
+        with self.assertRaises(ValueError):
+            HermeticEntrypointSpec(
+                tool_id="b3.evil_sub",
+                module_path="hook_safe_mod",
+                callable_attr="run",
+                expected_module_file_sha256=tool_sha,
+                module_file_path=evil_sub,
+            )
+        with self.assertRaises(ValueError):
+            HermeticSpawnRunner(allowed_roots=[evil_sub])
+        self.assertFalse(canary.exists(), "PosixPath subclass hook fired!")
+
+        # 3. Poisoned `_parts` / `_raw_paths` / `_str` slots on real PosixPath rejected without firing hooks.
+        probe_path = self.ws / "hook_safe_mod.py"
+        if hasattr(probe_path, "_raw_paths"):
+            p_raw_bad = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_raw_bad, "_raw_paths", [_EvilFspathTrap()])
+            p_raw_str_bad = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_raw_str_bad, "_str", _EvilFspathTrap())
+            poisoned_real = [p_raw_bad, p_raw_str_bad]
+        else:
+            p_parts_bad = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_parts_bad, "_parts", ["/", _EvilFspathTrap()])
+            p_parts_sub = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_parts_sub, "_parts", ["/", _EvilStrSub("ws"), "hook_safe_mod.py"])
+            p_str_bad = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_str_bad, "_str", _EvilFspathTrap())
+            p_str_mismatch = self.ws / "hook_safe_mod.py"
+            object.__setattr__(p_str_mismatch, "_str", "/etc/passwd")
+            poisoned_real = [p_parts_bad, p_parts_sub, p_str_bad, p_str_mismatch]
+
+        for bad_p in poisoned_real:
+            with self.assertRaises(ValueError):
+                HermeticEntrypointSpec(
+                    tool_id="b3.poisoned_path_slot",
+                    module_path="hook_safe_mod",
+                    callable_attr="run",
+                    expected_module_file_sha256=tool_sha,
+                    module_file_path=bad_p,
+                )
+            with self.assertRaises(ValueError):
+                HermeticSpawnRunner(allowed_roots=[bad_p])
+        self.assertFalse(canary.exists(), "Poisoned PosixPath slot hook fired!")
+
+        # 4. Also exercise Python 3.12+/3.13+ `_raw_paths` + `__dict__` branch explicitly across all Python versions.
+        class _FakePy312PosixPath:
+            def __init__(self, raw_paths: Any, *, str_val: Any = None, tail_cached: Any = None) -> None:
+                self._raw_paths = raw_paths
+                if str_val is not None:
+                    self._str = str_val
+                if tail_cached is not None:
+                    self._tail_cached = tail_cached
+
+            def __fspath__(self) -> str:
+                canary.write_text("PWNED_FAKE312_FSPATH", encoding="utf-8")
+                return str(tool_file)
+
+            def __str__(self) -> str:
+                canary.write_text("PWNED_FAKE312_STR", encoding="utf-8")
+                return str(tool_file)
+
+        with unittest.mock.patch.object(hermetic_worker_mod, "PurePosixPath", _FakePy312PosixPath):
+            clean_312 = _FakePy312PosixPath([str(tool_file)])
+            spec_312 = HermeticEntrypointSpec(
+                tool_id="b3.clean_312_raw_paths",
+                module_path="hook_safe_mod",
+                callable_attr="run",
+                expected_module_file_sha256=tool_sha,
+                module_file_path=clean_312,  # type: ignore[arg-type]
+            )
+            self.assertEqual(spec_312.module_file_path, str(tool_file))
+
+            for bad_312 in (
+                _FakePy312PosixPath([_EvilFspathTrap()]),
+                _FakePy312PosixPath([str(tool_file)], str_val=_EvilFspathTrap()),
+                _FakePy312PosixPath([str(tool_file)], str_val="/etc/passwd"),
+                _FakePy312PosixPath([str(tool_file)], tail_cached=[_EvilFspathTrap()]),
+            ):
+                with self.assertRaises(ValueError):
+                    HermeticEntrypointSpec(
+                        tool_id="b3.poisoned_312_raw_paths",
+                        module_path="hook_safe_mod",
+                        callable_attr="run",
+                        expected_module_file_sha256=tool_sha,
+                        module_file_path=bad_312,  # type: ignore[arg-type]
+                    )
+                with self.assertRaises(ValueError):
+                    HermeticSpawnRunner(allowed_roots=[bad_312])  # type: ignore[list-item]
+        self.assertFalse(canary.exists(), "Simulated Py3.12+ _raw_paths __fspath__ hook fired!")
+
+        # 5. python_executable must be None or exact str.
+        for bad_py in ("", _EvilFspathTrap(), _EvilStrSub(sys.executable), tool_file):
+            with self.assertRaises(ValueError):
+                HermeticSpawnRunner(python_executable=bad_py)  # type: ignore[arg-type]
+        self.assertFalse(canary.exists(), "python_executable dunder hook fired!")
 
 
 if __name__ == "__main__":

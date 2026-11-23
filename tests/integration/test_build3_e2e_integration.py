@@ -4,6 +4,8 @@ from __future__ import annotations
 
 try:
     from fixture_attestation import (
+        TEST_VERIFIER_ID,
+        TEST_VERIFIER_KEY,
         make_fixture_authority,
         sign_fixture_adapter,
         sign_fixture_spec,
@@ -11,6 +13,8 @@ try:
     )
 except ImportError:
     from tests.fixture_attestation import (
+        TEST_VERIFIER_ID,
+        TEST_VERIFIER_KEY,
         make_fixture_authority,
         sign_fixture_adapter,
         sign_fixture_spec,
@@ -358,7 +362,7 @@ class TestBuild3E2EIntegration(unittest.TestCase):
         graph_tools, smt_tools, adapters, plan, reg = self._make_verified_ports_and_plan()
 
         # 1. Agent B: Typed Capability Graph Synthesis
-        graph = TypedCapabilityGraph(graph_tools)
+        graph = TypedCapabilityGraph(graph_tools, authority=reg.authority)
         path_res = graph.find_shortest_safe_path(
             {"format": "bytes", "semantic_type": "raw_bytes", "unit": "none", "sensitivity": "public"},
             {"format": "json", "semantic_type": "summary", "unit": "none", "sensitivity": "public"},
@@ -373,6 +377,7 @@ class TestBuild3E2EIntegration(unittest.TestCase):
             self.ctx,
             registry={t.tool_id: t for t in smt_tools},
             adapters=adapters,
+            authority=reg.authority,
         )
         self.assertTrue(bundle.all_proven, msg=json.dumps(bundle.to_dict()))
         self.assertTrue(verify_bundle_digest(bundle))
@@ -466,7 +471,14 @@ class TestBuild3E2EIntegration(unittest.TestCase):
             if tool["name"] in expected_b3:
                 self.assertIs(tool["annotations"]["readOnlyHint"], True)
 
-        graph_tools, smt_tools, adapters, plan, _ = self._make_verified_ports_and_plan()
+        graph_tools, smt_tools, adapters, plan, reg = self._make_verified_ports_and_plan()
+        ext_key_file = self.root / "external_authority_keys.json"
+        ext_key_file.write_text(
+            json.dumps({"verifiers": {TEST_VERIFIER_ID: TEST_VERIFIER_KEY.decode("utf-8")}}),
+            encoding="utf-8",
+        )
+        os.chmod(ext_key_file, 0o600)
+
         tools_json = [t.to_dict() for t in graph_tools]
         smt_tools_json = [t.to_dict() for t in smt_tools]
         adapters_json = [a.to_dict() for a in adapters]
@@ -493,38 +505,81 @@ class TestBuild3E2EIntegration(unittest.TestCase):
             ],
         }
 
-        # Dispatch all 4 Build #3 MCP tools
-        mcp_cases = [
-            ("kintsugi_build3_asm_arch_status", {"workspace_root": str(self.ws)}),
-            (
-                "kintsugi_build3_synthesize_plan",
-                {
-                    "workspace_root": str(self.ws),
-                    "goal": goal_json,
-                    "tools": tools_json,
-                    "security_context": self.ctx.to_dict(),
-                },
-            ),
-            (
-                "kintsugi_build3_smt_verify_plan",
-                {
-                    "workspace_root": str(self.ws),
-                    "plan": plan.to_dict(),
-                    "tools": smt_tools_json,
-                    "adapters": adapters_json,
-                    "security_context": self.ctx.to_dict(),
-                },
-            ),
-            ("kintsugi_build3_evolution_v4_ablate", {"workspace_root": str(self.ws), **trials_payload}),
-        ]
-        for idx, (tname, targs) in enumerate(mcp_cases, 10):
+        syn_args = {
+            "workspace_root": str(self.ws),
+            "goal": goal_json,
+            "tools": tools_json,
+            "security_context": self.ctx.to_dict(),
+        }
+        smt_args = {
+            "workspace_root": str(self.ws),
+            "plan": plan.to_dict(),
+            "tools": smt_tools_json,
+            "adapters": adapters_json,
+            "security_context": self.ctx.to_dict(),
+        }
+
+        # Untrusted default MCP server (no authority) must FAIL-CLOSE on inline tools & declassifiers
+        for idx, (tname, targs) in enumerate(
+            [
+                ("kintsugi_build3_asm_arch_status", {"workspace_root": str(self.ws)}),
+                ("kintsugi_build3_evolution_v4_ablate", {"workspace_root": str(self.ws), **trials_payload}),
+            ],
+            10,
+        ):
             resp = s_b3.handle_request(
                 {"jsonrpc": "2.0", "id": idx, "method": "tools/call", "params": {"name": tname, "arguments": targs}}
             )
             body = json.loads(resp["result"]["content"][0]["text"])
             self.assertTrue(body.get("ok"), msg=f"{tname} -> {body}")
 
-        # Exercise Build #3 CLI subcommands directly
+        resp_syn_noauth = s_b3.handle_request(
+            {"jsonrpc": "2.0", "id": 12, "method": "tools/call", "params": {"name": "kintsugi_build3_synthesize_plan", "arguments": syn_args}}
+        )
+        body_syn_noauth = json.loads(resp_syn_noauth["result"]["content"][0]["text"])
+        self.assertFalse(body_syn_noauth.get("ok"), msg=str(body_syn_noauth))
+        self.assertIn("b3.log_extract", body_syn_noauth.get("excluded_tools", {}))
+
+        resp_smt_noauth = s_b3.handle_request(
+            {"jsonrpc": "2.0", "id": 13, "method": "tools/call", "params": {"name": "kintsugi_build3_smt_verify_plan", "arguments": smt_args}}
+        )
+        body_smt_noauth = json.loads(resp_smt_noauth["result"]["content"][0]["text"])
+        self.assertFalse(body_smt_noauth.get("ok"), msg=str(body_smt_noauth))
+        self.assertFalse(body_smt_noauth.get("all_proven"), msg=str(body_smt_noauth))
+
+        # Authorized MCP server (attestation_authority & external 0o600 authority_key_file) succeeds
+        s_b3_auth = KintsugiMCPServer(ledger_path, profile="build3", attestation_authority=reg.authority)
+        for idx, (tname, targs) in enumerate(
+            [
+                ("kintsugi_build3_asm_arch_status", {"workspace_root": str(self.ws)}),
+                ("kintsugi_build3_synthesize_plan", syn_args),
+                ("kintsugi_build3_smt_verify_plan", smt_args),
+                ("kintsugi_build3_evolution_v4_ablate", {"workspace_root": str(self.ws), **trials_payload}),
+            ],
+            20,
+        ):
+            resp = s_b3_auth.handle_request(
+                {"jsonrpc": "2.0", "id": idx, "method": "tools/call", "params": {"name": tname, "arguments": targs}}
+            )
+            body = json.loads(resp["result"]["content"][0]["text"])
+            self.assertTrue(body.get("ok"), msg=f"{tname} -> {body}")
+            if tname == "kintsugi_build3_smt_verify_plan":
+                self.assertTrue(body.get("all_proven"), msg=str(body))
+
+        s_b3_keyfile = KintsugiMCPServer(
+            ledger_path,
+            profile="build3",
+            authority_key_file=ext_key_file,
+            workspace_root=self.ws,
+        )
+        resp_kf = s_b3_keyfile.handle_request(
+            {"jsonrpc": "2.0", "id": 29, "method": "tools/call", "params": {"name": "kintsugi_build3_smt_verify_plan", "arguments": smt_args}}
+        )
+        body_kf = json.loads(resp_kf["result"]["content"][0]["text"])
+        self.assertTrue(body_kf.get("ok"), msg=str(body_kf))
+        self.assertTrue(body_kf.get("all_proven"), msg=str(body_kf))
+
+        # Exercise Build #3 CLI subcommands directly (fail-closed without --authority-key-file, pass with it)
         (self.ws / "b3_goal.json").write_text(json.dumps(goal_json), encoding="utf-8")
         (self.ws / "b3_tools.json").write_text(json.dumps(tools_json), encoding="utf-8")
         (self.ws / "b3_smt_tools.json").write_text(json.dumps(smt_tools_json), encoding="utf-8")
@@ -537,7 +592,7 @@ class TestBuild3E2EIntegration(unittest.TestCase):
         self.assertEqual(rc_asm, 0)
         self.assertTrue(out_asm["ok"])
 
-        rc_syn, out_syn = _run_cli_json(
+        _, out_syn_noauth = _run_cli_json(
             [
                 "synthesize",
                 "--workspace",
@@ -550,8 +605,45 @@ class TestBuild3E2EIntegration(unittest.TestCase):
                 "b3_ctx.json",
             ]
         )
-        self.assertEqual(rc_syn, 0)
+        self.assertFalse(out_syn_noauth["ok"])
+        self.assertIn("b3.log_extract", out_syn_noauth["excluded_tools"])
+
+        rc_syn, out_syn = _run_cli_json(
+            [
+                "synthesize",
+                "--workspace",
+                str(self.ws),
+                "--goal-file",
+                "b3_goal.json",
+                "--tools-file",
+                "b3_tools.json",
+                "--context-file",
+                "b3_ctx.json",
+                "--authority-key-file",
+                str(ext_key_file),
+            ]
+        )
+        self.assertEqual(rc_syn, 0, msg=str(out_syn))
         self.assertTrue(out_syn["ok"])
+
+        rc_smt_noauth, out_smt_noauth = _run_cli_json(
+            [
+                "smt-verify",
+                "--workspace",
+                str(self.ws),
+                "--plan-file",
+                "b3_plan.json",
+                "--tools-file",
+                "b3_smt_tools.json",
+                "--adapters-file",
+                "b3_adapters.json",
+                "--context-file",
+                "b3_ctx.json",
+            ]
+        )
+        self.assertNotEqual(rc_smt_noauth, 0)
+        self.assertFalse(out_smt_noauth["ok"])
+        self.assertFalse(out_smt_noauth["all_proven"])
 
         rc_smt, out_smt = _run_cli_json(
             [
@@ -566,6 +658,8 @@ class TestBuild3E2EIntegration(unittest.TestCase):
                 "b3_adapters.json",
                 "--context-file",
                 "b3_ctx.json",
+                "--authority-key-file",
+                str(ext_key_file),
             ]
         )
         self.assertEqual(rc_smt, 0, msg=str(out_smt))

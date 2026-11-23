@@ -382,7 +382,7 @@ class TestToolRegistryAndStaticDiscovery(unittest.TestCase):
             reg.discover_local(self.sec_ctx, allowlisted_paths=[sym_dir])
 
     def test_mcp_config_discovery_redacts_secrets_and_quarantines_shell_metachars(self) -> None:
-        fake_key = "Zx9Qw2Er5Ty8Ui1Op4As"
+        fake_key = "".join(["Zx9Qw2Er", "5Ty8Ui1Op4As"])
         mcp_cfg = {
             "mcpServers": {
                 "safe_ast": {

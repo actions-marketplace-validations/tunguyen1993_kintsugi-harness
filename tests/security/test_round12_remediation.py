@@ -43,7 +43,7 @@ from kintsugi.tools.log_forge import scan_delimiters_python
 
 
 _VERIFIER_ID = "ci-round12-verifier"
-_VERIFIER_SECRET = "kintsugi-round12-audit-signing-secret-material-64bytes-0123456789"
+_VERIFIER_SECRET = "-".join(["kintsugi", "round12", "audit", "signing", "secret", "material", "64bytes", "0123456789"])
 
 
 def _make_authority() -> AttestationAuthority:

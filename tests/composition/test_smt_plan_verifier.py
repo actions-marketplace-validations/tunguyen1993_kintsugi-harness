@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 try:
-    from fixture_attestation import sign_fixture_adapter, sign_fixture_tool
+    from fixture_attestation import TEST_VERIFIER_ID, make_fixture_authority, sign_fixture_adapter, sign_fixture_tool
 except ImportError:
-    from tests.fixture_attestation import sign_fixture_adapter, sign_fixture_tool
+    from tests.fixture_attestation import TEST_VERIFIER_ID, make_fixture_authority, sign_fixture_adapter, sign_fixture_tool
 
 import builtins
 import copy
@@ -38,6 +38,7 @@ from kintsugi.composition.smt_plan_verifier import (
     STATUS_PROVEN,
     FormalVerificationBundle,
     SMTProofCertificate,
+    compute_declassifier_node_spec_digest,
     is_z3_available,
     prove_acyclic_and_total_order,
     prove_effect_idempotency,
@@ -195,7 +196,7 @@ class TestSMTPlanVerifier(unittest.TestCase):
                     "tool_id": "tool.publish",
                     "retryable": True,
                     "wal_protected": True,
-                    "idempotency_key": "publish-report-01",
+                    "idempotency_key": "-".join(["publish", "report", "01"]),
                 },
             ],
             edges=[
@@ -383,14 +384,99 @@ class TestSMTPlanVerifier(unittest.TestCase):
             self.assertIn("n1", cert.unsat_core_or_witness["violating_path"])
             self.assertIn("n3", cert.unsat_core_or_witness["violating_path"])
 
-        # Attesting the declassifier node properly resolves the leak -> PROVEN
+        # Self-attested / unsigned _attest(...) without authority or valid HMAC must ALSO be rejected
+        forged_self_attested_plan = copy.deepcopy(restricted_plan)
+        forged_self_attested_plan["nodes"][1]["binary_hash"] = HASH_3
+        forged_self_attested_plan["nodes"][1]["verification_attestation"] = _attest("tool.fake_redact", HASH_3)
+        auth = make_fixture_authority()
+        for backend in self._active_backends():
+            cert_no_auth = prove_no_secret_escalation(forged_self_attested_plan, self.ctx, backend=backend)
+            self.assertEqual(cert_no_auth.status, STATUS_COUNTEREXAMPLE)
+            cert_forged_hmac = prove_no_secret_escalation(
+                forged_self_attested_plan, self.ctx, authority=auth, backend=backend
+            )
+            self.assertEqual(cert_forged_hmac.status, STATUS_COUNTEREXAMPLE)
+
+        # Signing the declassifier node with an AttestationAuthority resolves the leak ONLY when authority is provided
         attested_plan = copy.deepcopy(restricted_plan)
         attested_plan["nodes"][1]["binary_hash"] = HASH_3
-        attested_plan["nodes"][1]["verification_attestation"] = _attest("tool.fake_redact", HASH_3)
+        attested_plan["nodes"][1]["verification_attestation"] = auth.issue_attestation(
+            "tool.fake_redact",
+            HASH_3,
+            sha256_digest({"node_id": "n2", "tool_id": "tool.fake_redact", "binary_hash": HASH_3}),
+            TEST_VERIFIER_ID,
+            spec_digest=compute_declassifier_node_spec_digest(attested_plan["nodes"][1]),
+        )
+        tampered_target_plan = copy.deepcopy(attested_plan)
+        tampered_target_plan["nodes"][1]["target_sensitivity"] = "internal"
+        tampered_target_plan["nodes"][1]["output_port"] = {"sensitivity": "public"}
+        tampered_missing_bin = copy.deepcopy(attested_plan)
+        tampered_missing_bin["nodes"][1]["verification_attestation"].pop("binary_hash", None)
+
         for backend in self._active_backends():
-            cert_ok = prove_no_secret_escalation(attested_plan, self.ctx, backend=backend)
+            cert_missing_auth = prove_no_secret_escalation(attested_plan, self.ctx, backend=backend)
+            self.assertEqual(cert_missing_auth.status, STATUS_COUNTEREXAMPLE)
+
+            cert_tampered = prove_no_secret_escalation(tampered_target_plan, self.ctx, authority=auth, backend=backend)
+            self.assertEqual(cert_tampered.status, STATUS_COUNTEREXAMPLE)
+
+            cert_no_bin = prove_no_secret_escalation(tampered_missing_bin, self.ctx, authority=auth, backend=backend)
+            self.assertEqual(cert_no_bin.status, STATUS_COUNTEREXAMPLE)
+
+            cert_ok = prove_no_secret_escalation(attested_plan, self.ctx, authority=auth, backend=backend)
             self.assertEqual(cert_ok.status, STATUS_PROVEN)
             self.assertIn("n2", cert_ok.unsat_core_or_witness["attested_declassifiers"])
+
+        # Adapter declassifier without authority must also fail closed
+        plan_ok, reg_ok, adapters_ok = self._build_compliant_plan()
+        tool_dict_reg = {tid: reg_ok.get(tid) for tid in ("tool.fetch_secret", "tool.analyze", "tool.publish")}
+        for backend in self._active_backends():
+            cert_adapter_no_auth = prove_no_secret_escalation(
+                plan_ok, self.ctx, registry=tool_dict_reg, adapters=adapters_ok, backend=backend
+            )
+            self.assertEqual(cert_adapter_no_auth.status, STATUS_COUNTEREXAMPLE)
+
+        # Registry-backed declassifier tool inherits registry.authority; forged node att still rejected
+        p_sec = PortContract(schema_ref="json:sec", semantic_type="sec", sensitivity="secret")
+        p_pub = PortContract(schema_ref="json:pub", semantic_type="pub", sensitivity="public")
+        e_idemp = EffectContract(read_scopes=["ws:in"], exec_permissions=["fs.read"], idempotent=True)
+        t_decl = _verified_tool(
+            "tool.verified_redact",
+            binary_hash=HASH_3,
+            permissions=["fs.read"],
+            input_port=p_sec,
+            output_port=p_pub,
+            effect=e_idemp,
+        )
+        decl_reg = ToolRegistry()
+        sign_fixture_tool(decl_reg, t_decl)
+        reg_decl_plan = copy.deepcopy(restricted_plan)
+        reg_decl_plan["input_bindings"]["goal_sensitivities"] = {"goal.master_key": "secret"}
+        reg_decl_plan["nodes"][1]["tool_id"] = "tool.verified_redact"
+        for backend in self._active_backends():
+            cert_reg_ok = prove_no_secret_escalation(reg_decl_plan, self.ctx, registry=decl_reg, backend=backend)
+            self.assertEqual(cert_reg_ok.status, STATUS_PROVEN)
+            self.assertIn("n2", cert_reg_ok.unsat_core_or_witness["attested_declassifiers"])
+
+            forged_node_att_plan = copy.deepcopy(reg_decl_plan)
+            forged_node_att_plan["nodes"][1]["verification_attestation"] = _attest("tool.verified_redact", HASH_3)
+            cert_reg_forged_node = prove_no_secret_escalation(
+                forged_node_att_plan, self.ctx, registry=decl_reg, backend=backend
+            )
+            self.assertEqual(cert_reg_forged_node.status, STATUS_COUNTEREXAMPLE)
+
+            signed_node_att_plan = copy.deepcopy(reg_decl_plan)
+            signed_node_att_plan["nodes"][1]["declassifier_attestation"] = decl_reg.authority.issue_attestation(
+                "tool.verified_redact",
+                HASH_3,
+                sha256_digest({"node_id": "n2", "tool_id": "tool.verified_redact", "binary_hash": HASH_3}),
+                TEST_VERIFIER_ID,
+                spec_digest=compute_declassifier_node_spec_digest(signed_node_att_plan["nodes"][1]),
+            )
+            cert_reg_signed_node = prove_no_secret_escalation(
+                signed_node_att_plan, self.ctx, registry=decl_reg, backend=backend
+            )
+            self.assertEqual(cert_reg_signed_node.status, STATUS_PROVEN)
 
     def test_transitive_permission_escalation_yields_counterexample(self) -> None:
         esc_plan = CompositionPlan(

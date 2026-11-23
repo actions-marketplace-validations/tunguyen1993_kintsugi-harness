@@ -576,6 +576,142 @@ class TestEvolutionV4(unittest.TestCase):
         self.assertEqual(ranked[0].synthesis_strategy, "strat_live_research")
         self.assertEqual(ranked[0].cross_task_transfer_successes, 1)
 
+    # ------------------------------------------------------------------
+    # 8. Strict Bool/Int Input Guards & AST/Shingle Leakage Detection
+    # ------------------------------------------------------------------
+    def test_strict_bool_and_int_reject_coerced_strings_and_subclasses(self) -> None:
+        class _IntSub(int):
+            pass
+
+        class _StrSub(str):
+            pass
+
+        bad_mappings: List[Dict[str, Any]] = [
+            {"family_id": "held_1", "task_id": "t1", "with_passed": "false", "without_passed": False},
+            {"family_id": "held_1", "task_id": "t2", "with_passed": True, "without_passed": "false"},
+            {"family_id": "held_1", "task_id": "t3", "with_passed": 1, "without_passed": False},
+            {"family_id": "held_1", "task_id": "t4", "with_passed": True, "without_passed": False, "baseline_regression": "false"},
+            {"family_id": "held_1", "task_id": "t5", "with_passed": True},
+            {"family_id": "held_1", "task_id": "t6", "without_passed": False},
+            {"family_id": 123, "task_id": "t7", "with_passed": True, "without_passed": False},
+            {"family_id": _StrSub("held_1"), "task_id": "t8", "with_passed": True, "without_passed": False},
+            {"family_id": "held_1", "task_id": _StrSub("t9"), "with_passed": True, "without_passed": False},
+            {"family_id": "held_1", "task_id": "t10", "with_passed": True, "without_passed": False, "with_fp": True},
+            {"family_id": "held_1", "task_id": "t11", "with_passed": True, "without_passed": False, "tokens_used": _IntSub(10)},
+        ]
+        for bad in bad_mappings:
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                MatchedTaskTrial.from_mapping(bad)
+
+        engine = EvolutionEngineV4(mode=ExecutionMode.LOCAL_RESEARCH, workspace_root=self.ws)
+        task_list = [{"family_id": self.heldout_families[0], "task_id": "strict-0"}]
+        bad_fn_pairs = [
+            (lambda _t: {"passed": "false"}, lambda _t: {"passed": False}),
+            (lambda _t: {"passed": True}, lambda _t: {"passed": 0}),
+            (lambda _t: {"passed": True, "false_positives": True}, lambda _t: {"passed": False}),
+            (lambda _t: {"passed": True, "false_positives": _IntSub(0)}, lambda _t: {"passed": False}),
+            (lambda _t: {"passed": True, "baseline_regression": "false"}, lambda _t: {"passed": False}),
+        ]
+        for with_fn, without_fn in bad_fn_pairs:
+            with self.assertRaises(ValueError):
+                engine.evaluate_causal_ablation(
+                    strategy_id="strat_strict_ablation",
+                    train_families=self.train_families,
+                    heldout_families=self.heldout_families,
+                    heldout_tasks=task_list,
+                    with_strategy_fn=with_fn,
+                    without_strategy_fn=without_fn,
+                )
+
+    def test_leakage_guard_catches_whitespace_ast_alpha_and_shingle_near_duplicates(self) -> None:
+        # 1. Whitespace-normalized duplicate (non-Python text or formatting change)
+        with self.assertRaises(CorpusLeakageError):
+            verify_disjoint_families(
+                [{"family_id": "tr_ws", "code": "FROM   python:3.11-slim\nRUN   pip install --no-cache-dir   requests"}],
+                [{"family_id": "he_ws", "code": "FROM python:3.11-slim RUN pip install --no-cache-dir requests"}],
+            )
+
+        # 2. Structural AST duplicate (docstring + comments + spacing altered)
+        with self.assertRaises(CorpusLeakageError):
+            verify_disjoint_families(
+                [
+                    {
+                        "family_id": "tr_ast",
+                        "code": (
+                            "def parse_cfg(raw):\n"
+                            "    \"\"\"Load untrusted YAML payload.\"\"\"\n"
+                            "    # risky loader\n"
+                            "    return yaml.load(raw, Loader=yaml.Loader)\n"
+                        ),
+                    }
+                ],
+                [
+                    {
+                        "family_id": "he_ast",
+                        "code": "def parse_cfg(raw):\n  return yaml.load( raw,  Loader = yaml.Loader )",
+                    }
+                ],
+            )
+
+        # 3. Alpha-normalized AST duplicate (local variable / param renaming on non-trivial AST)
+        with self.assertRaises(CorpusLeakageError):
+            verify_disjoint_families(
+                [
+                    {
+                        "family_id": "tr_alpha",
+                        "code": (
+                            "def fetch_items(raw_urls):\n"
+                            "    cleaned_rows = [u.strip() for u in raw_urls if u]\n"
+                            "    loaded = [json.loads(item) for item in cleaned_rows]\n"
+                            "    return loaded\n"
+                        ),
+                    }
+                ],
+                [
+                    {
+                        "family_id": "he_alpha",
+                        "code": (
+                            "def fetch_items(input_list):\n"
+                            "    filtered = [x.strip() for x in input_list if x]\n"
+                            "    parsed = [json.loads(entry) for entry in filtered]\n"
+                            "    return parsed\n"
+                        ),
+                    }
+                ],
+            )
+
+        # 4. Token 3-gram shingle near-duplicate (Jaccard >= 0.90)
+        base_tokens = " ".join(f"tok{i}" for i in range(25))
+        tweaked_tokens = " ".join([*(f"tok{i}" for i in range(24)), "tok_diff"])
+        with self.assertRaises(CorpusLeakageError):
+            verify_disjoint_families(
+                [{"family_id": "tr_shingle", "code": base_tokens}],
+                [{"family_id": "he_shingle", "code": tweaked_tokens}],
+            )
+
+        # 5. Negative controls: trivial snippets (`x = 1` vs `y = 2`, `x = 1` vs `y = 1`)
+        # and distinct API calls with matching variable structure must NOT false-positive.
+        verify_disjoint_families(
+            [
+                {"family_id": "tr_clean_1", "task_id": "tr-1", "code": "x = 1"},
+                {"family_id": "tr_clean_2", "task_id": "tr-2", "code": "x = 1"},
+                {
+                    "family_id": "tr_clean_3",
+                    "task_id": "tr-3",
+                    "code": "def load_a(raw):\n    obj = yaml.load(raw, Loader=yaml.Loader)\n    return obj",
+                },
+            ],
+            [
+                {"family_id": "he_clean_1", "task_id": "he-1", "code": "y = 2"},
+                {"family_id": "he_clean_2", "task_id": "he-2", "code": "y = 1"},
+                {
+                    "family_id": "he_clean_3",
+                    "task_id": "he-3",
+                    "code": "def load_b(inp):\n    res = yaml.safe_load(inp)\n    return res",
+                },
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,12 +20,15 @@ Implements Build #3's verified causal self-evolution architecture alongside `evo
 
 from __future__ import annotations
 
+import ast
 import copy
+import hashlib
 import json
 import math
 import os
 import re
 import stat
+import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -195,8 +198,14 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _strict_bool(value: Any, *, field_name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"INVALID_STRICT_BOOL ({field_name}): expected exact bool, got {type(value).__name__}")
+    return value
+
+
 def _strict_nonneg_int(value: Any, *, field_name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+    if type(value) is not int:
         raise ValueError(f"INVALID_INT ({field_name}): expected strict int, got {type(value).__name__}")
     if value < 0:
         raise ValueError(f"NEGATIVE_INT ({field_name}): must be >= 0, got {value}")
@@ -283,7 +292,7 @@ def _string_targets_immutable_guardrail(text: str, *, strict_target_value: bool)
         if m_id:
             return f"PROTECTED_BASELINE_GUARDRAIL: target '{norm}' references immutable rule '{m_id.group(0).upper()}'."
     else:
-        has_guardrail_ref = bool(_GUARDRAIL_ID_RE.search(norm) or _GUARDRAIL_TARGET_RE.search(low))
+        has_guardrail_ref = (_GUARDRAIL_ID_RE.search(norm) is not None) or (_GUARDRAIL_TARGET_RE.search(low) is not None)
         if has_guardrail_ref and _WEAKEN_VERB_RE.search(norm):
             return f"GUARDRAIL_WEAKENING_FORBIDDEN: directive '{norm[:120]}' attempts to weaken immutable security."
     return None
@@ -349,6 +358,235 @@ def assert_strategy_respects_guardrails(
         )
 
 
+_ALPHA_NODE_THRESHOLD = 10
+_SHINGLE_TOKEN_MIN = 8
+_SHINGLE_N = 3
+_WORD_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+_WHITESPACE_COLLAPSE_RE = re.compile(r"\s+")
+
+
+def _strip_ast_docstrings(tree: ast.AST) -> None:
+    """Strip module, function, and class docstrings in-place from a parsed AST."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if (
+                node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            ):
+                node.body = node.body[1:]
+
+
+class _AlphaNormalizer:
+    """Alpha-rename bound variable/arg/target Name ids to v0, v1, ... keeping calls/attrs/imports/constants intact."""
+
+    @staticmethod
+    def _bind(scope: Dict[str, str], local_names: Set[str], ident: str, *, force_new: bool = False) -> str:
+        if not force_new and ident in local_names:
+            return scope[ident]
+        canon = f"v{len(scope)}"
+        scope[ident] = canon
+        local_names.add(ident)
+        return canon
+
+    def _bind_target(self, target: ast.AST, scope: Dict[str, str], local_names: Set[str]) -> None:
+        if isinstance(target, ast.Name):
+            target.id = self._bind(scope, local_names, target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for elt in target.elts:
+                self._bind_target(elt, scope, local_names)
+        elif isinstance(target, ast.Starred):
+            self._bind_target(target.value, scope, local_names)
+        elif isinstance(target, ast.Attribute):
+            self.visit(target.value, scope, local_names)
+        elif isinstance(target, ast.Subscript):
+            self.visit(target.value, scope, local_names)
+            self.visit(target.slice, scope, local_names)
+
+    def _bind_arguments(
+        self,
+        args_node: ast.arguments,
+        outer_scope: Dict[str, str],
+        outer_locals: Set[str],
+        inner_scope: Dict[str, str],
+        inner_locals: Set[str],
+    ) -> None:
+        for default in args_node.defaults:
+            if default is not None:
+                self.visit(default, outer_scope, outer_locals)
+        for default in args_node.kw_defaults:
+            if default is not None:
+                self.visit(default, outer_scope, outer_locals)
+        for arg in (*args_node.posonlyargs, *args_node.args, *args_node.kwonlyargs):
+            arg.arg = self._bind(inner_scope, inner_locals, arg.arg, force_new=True)
+            if arg.annotation is not None:
+                self.visit(arg.annotation, outer_scope, outer_locals)
+        if args_node.vararg is not None:
+            args_node.vararg.arg = self._bind(inner_scope, inner_locals, args_node.vararg.arg, force_new=True)
+            if args_node.vararg.annotation is not None:
+                self.visit(args_node.vararg.annotation, outer_scope, outer_locals)
+        if args_node.kwarg is not None:
+            args_node.kwarg.arg = self._bind(inner_scope, inner_locals, args_node.kwarg.arg, force_new=True)
+            if args_node.kwarg.annotation is not None:
+                self.visit(args_node.kwarg.annotation, outer_scope, outer_locals)
+
+    def _visit_stmt_list(self, stmts: Sequence[ast.AST], scope: Dict[str, str], local_names: Set[str]) -> None:
+        for stmt in stmts:
+            self.visit(stmt, scope, local_names)
+
+    def visit(self, node: ast.AST, scope: Dict[str, str], local_names: Set[str]) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            self._visit_stmt_list(node.decorator_list, scope, local_names)
+            if node.returns is not None:
+                self.visit(node.returns, scope, local_names)
+            inner_scope = dict(scope)
+            inner_locals: Set[str] = set()
+            self._bind_arguments(node.args, scope, local_names, inner_scope, inner_locals)
+            self._visit_stmt_list(node.body, inner_scope, inner_locals)
+            return
+        if isinstance(node, ast.Lambda):
+            inner_scope = dict(scope)
+            inner_locals = set()
+            self._bind_arguments(node.args, scope, local_names, inner_scope, inner_locals)
+            self.visit(node.body, inner_scope, inner_locals)
+            return
+        if isinstance(node, ast.ClassDef):
+            self._visit_stmt_list(node.bases, scope, local_names)
+            self._visit_stmt_list(node.keywords, scope, local_names)
+            self._visit_stmt_list(node.decorator_list, scope, local_names)
+            self._visit_stmt_list(node.body, dict(scope), set())
+            return
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            comp_scope = dict(scope)
+            comp_locals: Set[str] = set()
+            for idx, comp in enumerate(node.generators):
+                if idx == 0:
+                    self.visit(comp.iter, scope, local_names)
+                else:
+                    self.visit(comp.iter, comp_scope, comp_locals)
+                self._bind_target(comp.target, comp_scope, comp_locals)
+                self._visit_stmt_list(comp.ifs, comp_scope, comp_locals)
+            if isinstance(node, ast.DictComp):
+                self.visit(node.key, comp_scope, comp_locals)
+                self.visit(node.value, comp_scope, comp_locals)
+            else:
+                self.visit(node.elt, comp_scope, comp_locals)
+            return
+        if isinstance(node, ast.Assign):
+            self.visit(node.value, scope, local_names)
+            for tgt in node.targets:
+                self._bind_target(tgt, scope, local_names)
+            return
+        if isinstance(node, ast.AnnAssign):
+            if node.value is not None:
+                self.visit(node.value, scope, local_names)
+            self.visit(node.annotation, scope, local_names)
+            self._bind_target(node.target, scope, local_names)
+            return
+        if isinstance(node, ast.AugAssign):
+            self.visit(node.value, scope, local_names)
+            if isinstance(node.target, ast.Name):
+                if node.target.id in scope:
+                    node.target.id = scope[node.target.id]
+            else:
+                self.visit(node.target, scope, local_names)
+            return
+        if isinstance(node, ast.NamedExpr):
+            self.visit(node.value, scope, local_names)
+            self._bind_target(node.target, scope, local_names)
+            return
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            self.visit(node.iter, scope, local_names)
+            self._bind_target(node.target, scope, local_names)
+            self._visit_stmt_list(node.body, scope, local_names)
+            self._visit_stmt_list(node.orelse, scope, local_names)
+            return
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                self.visit(item.context_expr, scope, local_names)
+                if item.optional_vars is not None:
+                    self._bind_target(item.optional_vars, scope, local_names)
+            self._visit_stmt_list(node.body, scope, local_names)
+            return
+        if isinstance(node, ast.ExceptHandler):
+            if node.type is not None:
+                self.visit(node.type, scope, local_names)
+            if node.name is not None:
+                node.name = self._bind(scope, local_names, node.name)
+            self._visit_stmt_list(node.body, scope, local_names)
+            return
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            return
+        if isinstance(node, ast.Name):
+            if isinstance(node.ctx, (ast.Load, ast.Del)) and node.id in scope:
+                node.id = scope[node.id]
+            elif isinstance(node.ctx, ast.Store):
+                node.id = self._bind(scope, local_names, node.id)
+            return
+        match_as_cls = getattr(ast, "MatchAs", None)
+        if match_as_cls is not None and isinstance(node, match_as_cls):
+            if node.pattern is not None:
+                self.visit(node.pattern, scope, local_names)
+            if node.name is not None:
+                node.name = self._bind(scope, local_names, node.name)
+            return
+        for child in ast.iter_child_nodes(node):
+            self.visit(child, scope, local_names)
+
+
+@dataclass(frozen=True)
+class _SnippetFingerprints:
+    ws_sha256: str
+    ast_sha256: Optional[str]
+    alpha_sha256: Optional[str]
+    shingles: Optional[FrozenSet[Tuple[str, str, str]]]
+
+
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _parse_snippet_ast(snippet: str) -> Optional[ast.Module]:
+    dedented = textwrap.dedent(snippet).strip()
+    if not dedented:
+        return None
+    try:
+        return ast.parse(dedented)
+    except SyntaxError:
+        return None
+
+
+def _build_snippet_fingerprints(snippet: str) -> _SnippetFingerprints:
+    ws_norm = _WHITESPACE_COLLAPSE_RE.sub(" ", snippet.strip())
+    ws_sha = _sha256_text(ws_norm)
+
+    ast_sha: Optional[str] = None
+    alpha_sha: Optional[str] = None
+    tree = _parse_snippet_ast(snippet)
+    if tree is not None:
+        _strip_ast_docstrings(tree)
+        ast_sha = _sha256_text(ast.dump(tree, include_attributes=False))
+        node_count = sum(1 for _ in ast.walk(tree))
+        if node_count >= _ALPHA_NODE_THRESHOLD or len(tree.body) >= 2:
+            _AlphaNormalizer().visit(tree, {}, set())
+            alpha_sha = _sha256_text(ast.dump(tree, include_attributes=False))
+
+    tokens = _WORD_TOKEN_RE.findall(snippet)
+    shingles: Optional[FrozenSet[Tuple[str, str, str]]] = None
+    if len(tokens) >= _SHINGLE_TOKEN_MIN:
+        shingles = frozenset(
+            (tokens[i], tokens[i + 1], tokens[i + 2]) for i in range(len(tokens) - _SHINGLE_N + 1)
+        )
+
+    return _SnippetFingerprints(
+        ws_sha256=ws_sha,
+        ast_sha256=ast_sha,
+        alpha_sha256=alpha_sha,
+        shingles=shingles,
+    )
+
+
 def _extract_family_records(
     families: Sequence[Any],
     *,
@@ -386,7 +624,7 @@ def _extract_family_records(
                 sval = fam_map.get(snip_key)
                 if isinstance(sval, str) and sval.strip():
                     snippets.add(sval.strip())
-            for list_key in ("positives", "negatives", "tasks"):
+            for list_key in ("positives", "negatives", "tasks", "snippets"):
                 sub = fam_map.get(list_key)
                 if isinstance(sub, (list, tuple)):
                     for item in sub:
@@ -440,6 +678,49 @@ def verify_disjoint_families(
             f"CORPUS_LEAKAGE: train_families and heldout_families share {len(snip_overlap)} identical snippet(s)."
         )
 
+    if train_snips and held_snips:
+        train_fps = [_build_snippet_fingerprints(s) for s in train_snips]
+        held_fps = [_build_snippet_fingerprints(s) for s in held_snips]
+
+        train_ws = {fp.ws_sha256 for fp in train_fps}
+        held_ws = {fp.ws_sha256 for fp in held_fps}
+        if train_ws & held_ws:
+            raise CorpusLeakageError(
+                "CORPUS_LEAKAGE: train_families and heldout_families share whitespace-normalized duplicate snippet(s)."
+            )
+
+        train_ast = {fp.ast_sha256 for fp in train_fps if fp.ast_sha256 is not None}
+        held_ast = {fp.ast_sha256 for fp in held_fps if fp.ast_sha256 is not None}
+        if train_ast & held_ast:
+            raise CorpusLeakageError(
+                "CORPUS_LEAKAGE: train_families and heldout_families share AST-structural duplicate snippet(s)."
+            )
+
+        train_alpha = {fp.alpha_sha256 for fp in train_fps if fp.alpha_sha256 is not None}
+        held_alpha = {fp.alpha_sha256 for fp in held_fps if fp.alpha_sha256 is not None}
+        if train_alpha & held_alpha:
+            raise CorpusLeakageError(
+                "CORPUS_LEAKAGE: train_families and heldout_families share alpha-normalized AST duplicate snippet(s)."
+            )
+
+        train_shingles = [fp.shingles for fp in train_fps if fp.shingles is not None]
+        held_shingles = [fp.shingles for fp in held_fps if fp.shingles is not None]
+        for tr_sh in train_shingles:
+            tr_len = len(tr_sh)
+            for he_sh in held_shingles:
+                he_len = len(he_sh)
+                min_len = tr_len if tr_len < he_len else he_len
+                max_len = he_len if tr_len < he_len else tr_len
+                if max_len == 0 or min_len * 10 < max_len * 9:
+                    continue
+                inter = len(tr_sh & he_sh)
+                union = tr_len + he_len - inter
+                if union > 0 and inter * 10 >= union * 9:
+                    raise CorpusLeakageError(
+                        "CORPUS_LEAKAGE: train_families and heldout_families share near-duplicate snippet(s) "
+                        f"(token 3-gram Jaccard >= 0.90: {inter}/{union})."
+                    )
+
     return train_ids, held_ids
 
 
@@ -474,10 +755,9 @@ class MatchedTaskTrial:
         clean_tid = validate_safe_text(self.task_id, field_name="task_id")
         object.__setattr__(self, "family_id", clean_fam)
         object.__setattr__(self, "task_id", clean_tid)
-        if not isinstance(self.with_passed, bool) or not isinstance(self.without_passed, bool):
-            raise ValueError("INVALID_TRIAL_OUTCOME: with_passed and without_passed must be strict booleans.")
-        if not isinstance(self.baseline_regression, bool):
-            raise ValueError("INVALID_BASELINE_REGRESSION_FLAG: expected strict bool.")
+        _strict_bool(self.with_passed, field_name="with_passed")
+        _strict_bool(self.without_passed, field_name="without_passed")
+        _strict_bool(self.baseline_regression, field_name="baseline_regression")
         object.__setattr__(self, "with_fp", _strict_nonneg_int(self.with_fp, field_name="with_fp"))
         object.__setattr__(self, "without_fp", _strict_nonneg_int(self.without_fp, field_name="without_fp"))
         object.__setattr__(self, "tokens_used", _strict_nonneg_int(self.tokens_used, field_name="tokens_used"))
@@ -493,15 +773,21 @@ class MatchedTaskTrial:
             return data
         if not isinstance(data, Mapping):
             raise ValueError("INVALID_MATCHED_TRIAL: expected mapping.")
+        if "with_passed" not in data or "without_passed" not in data:
+            raise ValueError("MISSING_REQUIRED_TRIAL_FIELD: with_passed and without_passed are required.")
+        raw_family_id = data.get("family_id")
+        raw_task_id = data.get("task_id")
+        if type(raw_family_id) is not str or type(raw_task_id) is not str:
+            raise ValueError("INVALID_TRIAL_ID_TYPE: family_id and task_id must be exact str.")
         return cls(
-            family_id=str(data.get("family_id") or ""),
-            task_id=str(data.get("task_id") or ""),
-            with_passed=bool(data["with_passed"]),
-            without_passed=bool(data["without_passed"]),
-            with_fp=int(data.get("with_fp", 0)),
-            without_fp=int(data.get("without_fp", 0)),
-            baseline_regression=bool(data.get("baseline_regression", False)),
-            tokens_used=int(data.get("tokens_used", 0)),
+            family_id=raw_family_id,
+            task_id=raw_task_id,
+            with_passed=_strict_bool(data["with_passed"], field_name="with_passed"),
+            without_passed=_strict_bool(data["without_passed"], field_name="without_passed"),
+            with_fp=_strict_nonneg_int(data.get("with_fp", 0), field_name="with_fp"),
+            without_fp=_strict_nonneg_int(data.get("without_fp", 0), field_name="without_fp"),
+            baseline_regression=_strict_bool(data.get("baseline_regression", False), field_name="baseline_regression"),
+            tokens_used=_strict_nonneg_int(data.get("tokens_used", 0), field_name="tokens_used"),
             latency_ms=data.get("latency_ms", _ZERO_DEC),
         )
 
@@ -561,7 +847,7 @@ class CausalAblationResult:
 
     @property
     def eligible_for_promotion(self) -> bool:
-        return bool(self.passed and self.disjoint_verified and self.heldout_verified)
+        return self.passed is True and self.disjoint_verified is True and self.heldout_verified is True
 
     def ranking_key(self) -> Tuple[int, float, float, float, int, int, int, str]:
         """Deterministic sort key prioritizing verified eligibility & exact Wilson lower bounds over tiny-N noise."""
@@ -1800,11 +2086,14 @@ class EvolutionEngineV4:
                 MatchedTaskTrial(
                     family_id=fam_id,
                     task_id=task_id,
-                    with_passed=bool(strat_out.get("passed", False)),
-                    without_passed=bool(base_out.get("passed", False)),
-                    with_fp=int(strat_out.get("false_positives", 0)),
-                    without_fp=int(base_out.get("false_positives", 0)),
-                    baseline_regression=bool(strat_out.get("baseline_regression", False)),
+                    with_passed=_strict_bool(strat_out.get("passed", False), field_name="with_passed"),
+                    without_passed=_strict_bool(base_out.get("passed", False), field_name="without_passed"),
+                    with_fp=_strict_nonneg_int(strat_out.get("false_positives", 0), field_name="with_fp"),
+                    without_fp=_strict_nonneg_int(base_out.get("false_positives", 0), field_name="without_fp"),
+                    baseline_regression=_strict_bool(
+                        strat_out.get("baseline_regression", False),
+                        field_name="baseline_regression",
+                    ),
                     tokens_used=tokens_used,
                     latency_ms=lat_ms,
                 )

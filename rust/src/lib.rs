@@ -455,6 +455,59 @@ pub const BUILTIN_RULES: &[NativeRule] = &[
     },
 ];
 
+pub const ARM_C_SHADOW_RULES: &[NativeRule] = &[
+    NativeRule {
+        id: "KC-C01",
+        title: "@OP/1[ID:KC-C01|SEV:HIGH|CAT:security|LANG:py|OP:git!option_injection->'--'_or_startswith('-')_guard]",
+        severity: Severity::High,
+        category: "security",
+        kmi_token: "KC-C01(git!option_injection->'--'_guard)",
+        languages: &["python"],
+        fix_hint: "@POS_AST{Use '--' before dynamic git args AND reject leading '-', NUL, and shell metachars}",
+        premium_only: false,
+    },
+    NativeRule {
+        id: "KC-C02",
+        title: "@OP/1[ID:KC-C02|SEV:HIGH|CAT:security|LANG:py|OP:sql!interp_fstring_pct_format->param_query]",
+        severity: Severity::High,
+        category: "security",
+        kmi_token: "KC-C02(sql!interp->param_query)",
+        languages: &["python"],
+        fix_hint: "@POS_AST{Use parameterized SQL placeholders (?, %s) instead of f-string/%/.format interpolation}",
+        premium_only: false,
+    },
+    NativeRule {
+        id: "KC-C03",
+        title: "@OP/1[ID:KC-C03|SEV:HIGH|CAT:security|LANG:py|OP:hmac!eq_cmp->hmac.compare_digest]",
+        severity: Severity::High,
+        category: "security",
+        kmi_token: "KC-C03(hmac!eq->hmac.compare_digest)",
+        languages: &["python"],
+        fix_hint: "@POS_AST{Use hmac.compare_digest(a, b) instead of == or != for HMAC digests}",
+        premium_only: false,
+    },
+    NativeRule {
+        id: "KC-C04",
+        title: "@OP/1[ID:KC-C04|SEV:MEDIUM|CAT:security|LANG:py|OP:sensitive_open!no_O_NOFOLLOW->open_nofollow]",
+        severity: Severity::Medium,
+        category: "security",
+        kmi_token: "KC-C04(sensitive_open!O_NOFOLLOW)",
+        languages: &["python"],
+        fix_hint: "@POS_AST{Open sensitive key/manifest/secret/policy/registry files via os.O_NOFOLLOW}",
+        premium_only: false,
+    },
+    NativeRule {
+        id: "KC-C05",
+        title: "@OP/1[ID:KC-C05|SEV:HIGH|CAT:integrity|LANG:py|OP:ablation!bool_coerce->type_is_bool]",
+        severity: Severity::High,
+        category: "integrity",
+        kmi_token: "KC-C05(ablation!bool_coerce->strict_bool)",
+        languages: &["python"],
+        fix_hint: "@POS_AST{Validate ablation bool fields with type(val) is bool instead of bool(data[...])}",
+        premium_only: false,
+    },
+];
+
 pub fn detect_language(path: &Path) -> Option<&'static str> {
     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
         if name.eq_ignore_ascii_case("Dockerfile") || name.starts_with("Dockerfile.") {
@@ -2463,6 +2516,35 @@ pub fn scan_path_with_policy_sha(
     explicit_policy: Option<&Path>,
     expected_sha256: Option<&str>,
 ) -> ScanSummary {
+    scan_path_impl(target, min_severity, explicit_policy, expected_sha256, false)
+}
+
+pub fn scan_path_with_shadow(
+    target: &Path,
+    min_severity: Severity,
+    explicit_policy: Option<&Path>,
+    include_arm_c_shadow: bool,
+) -> ScanSummary {
+    scan_path_impl(target, min_severity, explicit_policy, None, include_arm_c_shadow)
+}
+
+pub fn scan_path_with_policy_sha_and_shadow(
+    target: &Path,
+    min_severity: Severity,
+    explicit_policy: Option<&Path>,
+    expected_sha256: Option<&str>,
+    include_arm_c_shadow: bool,
+) -> ScanSummary {
+    scan_path_impl(target, min_severity, explicit_policy, expected_sha256, include_arm_c_shadow)
+}
+
+fn scan_path_impl(
+    target: &Path,
+    min_severity: Severity,
+    explicit_policy: Option<&Path>,
+    expected_sha256: Option<&str>,
+    include_arm_c_shadow: bool,
+) -> ScanSummary {
     let start = Instant::now();
     let trusted_files = load_trusted_policy_files_explicit_sha(target, explicit_policy, expected_sha256);
     let scan_cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -2497,11 +2579,23 @@ pub fn scan_path_with_policy_sha(
             false,
         );
         findings.append(&mut f);
+        if include_arm_c_shadow && lang == "python" {
+            let mut sf = scan_arm_c_shadow_text_with_options(
+                &content,
+                &display,
+                lang,
+                min_severity,
+                None,
+                is_trusted,
+                is_trusted,
+            );
+            findings.append(&mut sf);
+        }
     }
 
     ScanSummary {
         scanned_files,
-        active_rules: BUILTIN_RULES.len(),
+        active_rules: BUILTIN_RULES.len() + if include_arm_c_shadow { ARM_C_SHADOW_RULES.len() } else { 0 },
         elapsed_micros: start.elapsed().as_micros(),
         findings,
     }
@@ -2644,7 +2738,24 @@ pub fn parse_git_diff_lines(diff_text: &str, repo_root: &Path) -> BTreeMap<PathB
 }
 
 pub fn scan_git_staged(repo_root: &Path, min_severity: Severity) -> ScanSummary {
+    scan_git_staged_impl(repo_root, min_severity, false)
+}
+
+pub fn scan_git_staged_with_shadow(
+    repo_root: &Path,
+    min_severity: Severity,
+    include_arm_c_shadow: bool,
+) -> ScanSummary {
+    scan_git_staged_impl(repo_root, min_severity, include_arm_c_shadow)
+}
+
+fn scan_git_staged_impl(
+    repo_root: &Path,
+    min_severity: Severity,
+    include_arm_c_shadow: bool,
+) -> ScanSummary {
     let start = Instant::now();
+    let active_rules = BUILTIN_RULES.len() + if include_arm_c_shadow { ARM_C_SHADOW_RULES.len() } else { 0 };
     let output = Command::new("git")
         .arg("-C")
         .arg(repo_root)
@@ -2654,7 +2765,7 @@ pub fn scan_git_staged(repo_root: &Path, min_severity: Severity) -> ScanSummary 
     let Ok(proc_out) = output else {
         return ScanSummary {
             scanned_files: 0,
-            active_rules: BUILTIN_RULES.len(),
+            active_rules,
             elapsed_micros: start.elapsed().as_micros(),
             findings: Vec::new(),
         };
@@ -2702,14 +2813,1439 @@ pub fn scan_git_staged(repo_root: &Path, min_severity: Severity) -> ScanSummary 
         let display = file.to_string_lossy().to_string();
         let mut f = scan_text_with_policy(&content, &display, lang, min_severity, Some(&lines), is_trusted, is_trusted);
         findings.append(&mut f);
+        if include_arm_c_shadow && lang == "python" {
+            let mut sf = scan_arm_c_shadow_text_with_options(
+                &content,
+                &display,
+                lang,
+                min_severity,
+                Some(&lines),
+                is_trusted,
+                is_trusted,
+            );
+            findings.append(&mut sf);
+        }
     }
 
     ScanSummary {
         scanned_files,
-        active_rules: BUILTIN_RULES.len(),
+        active_rules,
         elapsed_micros: start.elapsed().as_micros(),
         findings,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Arm C Shadow Rules (`KC-C01`..`KC-C05`) — Multi-line & Function-Scope Audit
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+struct PyLineInfo {
+    lineno: usize,
+    raw: String,
+    trimmed: String,
+    masked: String,
+    is_non_exec: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PyStringSpan {
+    start_line_idx: usize,
+    end_line_idx: usize,
+    end_byte_after: usize,
+    is_fstring: bool,
+    inner: String,
+}
+
+#[derive(Debug, Clone)]
+struct PyParsedFile {
+    lines: Vec<PyLineInfo>,
+    scope_lines: BTreeMap<usize, Vec<usize>>,
+    string_spans: Vec<PyStringSpan>,
+}
+
+fn is_ident_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
+fn is_fixture_block_start(trimmed: &str) -> bool {
+    is_fixture_definition_line(trimmed)
+        || trimmed.starts_with("\"breach_code\"")
+        || trimmed.starts_with("\"safe_lookalike\"")
+        || trimmed.starts_with("\"unseen_polymorphic_variant\"")
+        || trimmed.starts_with("'breach_code'")
+        || trimmed.starts_with("'safe_lookalike'")
+        || trimmed.starts_with("'unseen_polymorphic_variant'")
+        || trimmed.starts_with("bad_code =")
+        || trimmed.starts_with("good_code =")
+}
+
+fn update_fixture_paren_depth(masked: &str, depth: &mut usize) {
+    for &b in masked.as_bytes() {
+        match b {
+            b'(' | b'[' | b'{' => *depth += 1,
+            b')' | b']' | b'}' => *depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+}
+
+fn is_fstring_quote_prefix(bytes: &[u8], q_pos: usize) -> bool {
+    let mut start = q_pos;
+    let mut steps = 0usize;
+    while start > 0 && steps < 2 {
+        let ch = bytes[start - 1];
+        if matches!(ch, b'f' | b'F' | b'r' | b'R' | b'b' | b'B' | b'u' | b'U') {
+            start -= 1;
+            steps += 1;
+        } else {
+            break;
+        }
+    }
+    if start == q_pos {
+        return false;
+    }
+    if start > 0 && is_ident_byte(bytes[start - 1]) {
+        return false;
+    }
+    bytes[start..q_pos].iter().any(|&c| c == b'f' || c == b'F')
+}
+
+fn parse_python_file(content: &str) -> PyParsedFile {
+    let raw_lines: Vec<&str> = content.lines().collect();
+    let mut parsed_lines = Vec::with_capacity(raw_lines.len());
+    let mut scope_lines: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut string_spans: Vec<PyStringSpan> = Vec::new();
+
+    // Active triple-quoted literal: (quote_byte, is_fstring, start_line_idx, accumulated_inner)
+    let mut triple_state: Option<(u8, bool, usize, String)> = None;
+    let mut fixture_paren_depth = 0usize;
+    let mut scope_stack: Vec<(usize, usize)> = Vec::new();
+    let mut next_func_id = 1usize;
+    let mut paren_balance: isize = 0;
+
+    for (line_idx, raw_line) in raw_lines.iter().enumerate() {
+        let raw = raw_line.trim_end_matches('\r').to_string();
+        let trimmed = raw.trim().to_string();
+        let bytes = raw.as_bytes();
+        let mut masked_bytes = bytes.to_vec();
+        let mut started_in_non_f_triple = matches!(triple_state, Some((_, false, _, _)));
+        let mut i = 0usize;
+
+        while i < bytes.len() {
+            if let Some((q, is_f, s_line, ref mut buf)) = triple_state {
+                if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                    masked_bytes[i] = b' ';
+                    masked_bytes[i + 1] = b' ';
+                    buf.push(bytes[i] as char);
+                    buf.push(bytes[i + 1] as char);
+                    i += 2;
+                    continue;
+                }
+                if i + 2 < bytes.len() && bytes[i] == q && bytes[i + 1] == q && bytes[i + 2] == q {
+                    let inner = std::mem::take(buf);
+                    string_spans.push(PyStringSpan {
+                        start_line_idx: s_line,
+                        end_line_idx: line_idx,
+                        end_byte_after: i + 3,
+                        is_fstring: is_f,
+                        inner,
+                    });
+                    triple_state = None;
+                    i += 3;
+                    continue;
+                }
+                masked_bytes[i] = b' ';
+                buf.push(raw[i..].chars().next().unwrap_or(' '));
+                let ch_len = raw[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+                for k in 1..ch_len {
+                    if i + k < masked_bytes.len() {
+                        masked_bytes[i + k] = b' ';
+                    }
+                }
+                i += ch_len;
+                continue;
+            }
+
+            if bytes[i] == b'#' {
+                for b in &mut masked_bytes[i..] {
+                    *b = b' ';
+                }
+                break;
+            }
+
+            if bytes[i] == b'"' || bytes[i] == b'\'' {
+                let q = bytes[i];
+                let is_f = is_fstring_quote_prefix(bytes, i);
+                if i + 2 < bytes.len() && bytes[i + 1] == q && bytes[i + 2] == q {
+                    triple_state = Some((q, is_f, line_idx, String::new()));
+                    started_in_non_f_triple = false;
+                    i += 3;
+                    continue;
+                }
+                // Single-line string literal
+                i += 1;
+                let inner_start = i;
+                while i < bytes.len() {
+                    if bytes[i] == b'\\' && i + 1 < bytes.len() {
+                        masked_bytes[i] = b' ';
+                        masked_bytes[i + 1] = b' ';
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == q {
+                        break;
+                    }
+                    masked_bytes[i] = b' ';
+                    i += 1;
+                }
+                let inner_end = i.min(bytes.len());
+                if i < bytes.len() && bytes[i] == q {
+                    string_spans.push(PyStringSpan {
+                        start_line_idx: line_idx,
+                        end_line_idx: line_idx,
+                        end_byte_after: i + 1,
+                        is_fstring: is_f,
+                        inner: raw[inner_start..inner_end].to_string(),
+                    });
+                    i += 1;
+                }
+                continue;
+            }
+            i += 1;
+        }
+
+        if let Some((_, _, _, ref mut buf)) = triple_state {
+            buf.push('\n');
+        }
+
+        let masked = String::from_utf8(masked_bytes).unwrap_or_else(|_| " ".repeat(raw.len()));
+        let masked_trimmed = masked.trim();
+
+        let in_fixture = if fixture_paren_depth > 0 {
+            update_fixture_paren_depth(&masked, &mut fixture_paren_depth);
+            true
+        } else if is_fixture_block_start(&trimmed) {
+            update_fixture_paren_depth(&masked, &mut fixture_paren_depth);
+            true
+        } else {
+            false
+        };
+
+        let is_non_exec = started_in_non_f_triple || masked_trimmed.is_empty() || in_fixture;
+
+        let indent: usize = raw
+            .chars()
+            .take_while(|c| *c == ' ' || *c == '\t')
+            .map(|c| if c == '\t' { 4 } else { 1 })
+            .sum();
+
+        if !is_non_exec && paren_balance <= 0 {
+            while scope_stack.last().is_some_and(|&(di, _)| indent <= di) {
+                scope_stack.pop();
+            }
+            if masked_trimmed.starts_with("def ") || masked_trimmed.starts_with("async def ") {
+                let fid = next_func_id;
+                next_func_id += 1;
+                scope_stack.push((indent, fid));
+            }
+        }
+
+        let func_id = scope_stack.last().map(|&(_, id)| id).unwrap_or(0);
+        if !is_non_exec {
+            for &b in masked.as_bytes() {
+                match b {
+                    b'(' | b'[' | b'{' => paren_balance += 1,
+                    b')' | b']' | b'}' => paren_balance = (paren_balance - 1).max(0),
+                    _ => {}
+                }
+            }
+        }
+        scope_lines.entry(func_id).or_default().push(line_idx);
+        parsed_lines.push(PyLineInfo {
+            lineno: line_idx + 1,
+            raw,
+            trimmed,
+            masked,
+            is_non_exec,
+        });
+    }
+
+    PyParsedFile {
+        lines: parsed_lines,
+        scope_lines,
+        string_spans,
+    }
+}
+
+fn find_standalone_ident_call(masked: &str, needle: &str, start_from: usize) -> Option<usize> {
+    let bytes = masked.as_bytes();
+    let mut pos = start_from;
+    while let Some(rel) = masked[pos..].find(needle) {
+        let abs = pos + rel;
+        let left_ok = abs == 0 || (!is_ident_byte(bytes[abs - 1]) && bytes[abs - 1] != b'.');
+        if left_ok {
+            return Some(abs);
+        }
+        pos = abs + 1;
+    }
+    None
+}
+
+fn find_dotted_call(masked: &str, needle: &str, start_from: usize) -> Option<usize> {
+    let bytes = masked.as_bytes();
+    let mut pos = start_from;
+    while let Some(rel) = masked[pos..].find(needle) {
+        let abs = pos + rel;
+        let left_ok = abs == 0 || !is_ident_byte(bytes[abs - 1]);
+        if left_ok {
+            return Some(abs);
+        }
+        pos = abs + 1;
+    }
+    None
+}
+
+/// Extract balanced `(...)` content starting at `open_paren_byte` in `lines[start_line_idx].masked`.
+/// Returns `(raw_inside, masked_inside)` with guaranteed equal byte lengths.
+fn collect_balanced_parens(
+    lines: &[PyLineInfo],
+    start_line_idx: usize,
+    open_paren_byte: usize,
+) -> Option<(String, String)> {
+    let max_end = (start_line_idx + 28).min(lines.len());
+    let mut raw_buf = String::new();
+    let mut mask_buf = String::new();
+    let mut depth = 0usize;
+
+    for (offset, line) in lines[start_line_idx..max_end].iter().enumerate() {
+        let begin = if offset == 0 { open_paren_byte } else { 0 };
+        if offset > 0 {
+            raw_buf.push('\n');
+            mask_buf.push('\n');
+        }
+        let mbytes = line.masked.as_bytes();
+        let mut idx = begin;
+        while idx < mbytes.len() {
+            let b = mbytes[idx];
+            match b {
+                b'(' | b'[' | b'{' => {
+                    depth += 1;
+                    if depth == 1 && offset == 0 && idx == open_paren_byte {
+                        idx += 1;
+                        continue;
+                    }
+                }
+                b')' | b']' | b'}' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        raw_buf.push_str(&line.raw[(if offset == 0 { begin + 1 } else { 0 })..idx]);
+                        mask_buf.push_str(&line.masked[(if offset == 0 { begin + 1 } else { 0 })..idx]);
+                        return Some((raw_buf, mask_buf));
+                    }
+                }
+                _ => {}
+            }
+            idx += 1;
+        }
+        let slice_start = if offset == 0 { begin + 1 } else { 0 };
+        if slice_start <= line.raw.len() {
+            raw_buf.push_str(&line.raw[slice_start..]);
+            mask_buf.push_str(&line.masked[slice_start..]);
+        }
+    }
+    None
+}
+
+/// Split top-level comma-separated items where `masked.len() == raw.len()`.
+fn split_top_level_args(raw: &str, masked: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let bytes = masked.as_bytes();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    for (idx, &b) in bytes.iter().enumerate() {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.saturating_sub(1),
+            b',' if depth == 0 => {
+                let r_slice = raw[start..idx].trim();
+                let m_slice = masked[start..idx].trim();
+                if !r_slice.is_empty() {
+                    out.push((r_slice.to_string(), m_slice.to_string()));
+                }
+                start = idx + 1;
+            }
+            _ => {}
+        }
+    }
+    if start < raw.len() {
+        let r_slice = raw[start..].trim();
+        let m_slice = masked[start..].trim();
+        if !r_slice.is_empty() {
+            out.push((r_slice.to_string(), m_slice.to_string()));
+        }
+    }
+    out
+}
+
+fn unquote_simple_py_str(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    let body = if let Some(rest) = t.strip_prefix('r').or_else(|| t.strip_prefix('R')) {
+        rest
+    } else {
+        t
+    };
+    if body.len() >= 2
+        && ((body.starts_with('"') && body.ends_with('"')) || (body.starts_with('\'') && body.ends_with('\'')))
+    {
+        return Some(body[1..body.len() - 1].to_string());
+    }
+    None
+}
+
+fn is_safe_fstring_git_arg(raw: &str) -> Option<bool> {
+    let t = raw.trim();
+    let rest = t
+        .strip_prefix("f")
+        .or_else(|| t.strip_prefix("F"))
+        .or_else(|| t.strip_prefix("rf"))
+        .or_else(|| t.strip_prefix("fr"))?;
+    let quote = rest.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    if !rest.ends_with(quote) || rest.len() < 2 {
+        return None;
+    }
+    let inner = &rest[1..rest.len() - 1];
+    // Safe if literal prefix before `{` does not start with `-`, OR is a known bounded flag prefix.
+    if let Some(brace_pos) = inner.find('{') {
+        let prefix = &inner[..brace_pos];
+        Some(
+            !prefix.is_empty()
+                && (!prefix.starts_with('-')
+                    || matches!(
+                        prefix,
+                        "-n" | "--max-count=" | "--depth=" | "--format=" | "--pretty=" | "--skip="
+                    )),
+        )
+    } else {
+        Some(!inner.starts_with('-'))
+    }
+}
+
+fn is_single_ident(s: &str) -> Option<&str> {
+    let t = s.trim();
+    if !t.is_empty()
+        && !t.as_bytes()[0].is_ascii_digit()
+        && t.bytes().all(is_ident_byte)
+    {
+        Some(t)
+    } else {
+        None
+    }
+}
+
+fn unwrap_git_var_expr(raw: &str) -> &str {
+    let mut t = raw.trim();
+    if let Some(rest) = t.strip_prefix('*') {
+        t = rest.trim();
+    }
+    if let Some(inner) = t.strip_prefix("str(").and_then(|s| s.strip_suffix(')')) {
+        t = inner.trim();
+    }
+    t
+}
+
+fn is_safe_path_join_rhs(rhs_raw: &str, rhs_masked: &str) -> bool {
+    if rhs_raw.contains(".relative_to(") {
+        return true;
+    }
+    let rt = rhs_raw.trim();
+    if let Some(lit) = unquote_simple_py_str(rt) {
+        return !lit.starts_with('-');
+    }
+    // e.g. `gdir / "kintsugi_pr.patch"` or `self.ext_root / "upstream_repo"`
+    if let Some(slash_pos) = rhs_masked.rfind('/') {
+        let tail = rt[slash_pos + 1..].trim();
+        if let Some(lit) = unquote_simple_py_str(tail) {
+            return !lit.starts_with('-');
+        }
+    }
+    false
+}
+
+fn is_git_flag_with_value(flag: &str) -> bool {
+    matches!(
+        flag,
+        "-C" | "-c"
+            | "-m"
+            | "-n"
+            | "-F"
+            | "-b"
+            | "-B"
+            | "-o"
+            | "-U"
+            | "--git-dir"
+            | "--work-tree"
+            | "--depth"
+            | "--format"
+            | "--pretty"
+            | "--message"
+            | "--file"
+            | "--branch"
+            | "--git-path"
+            | "--exec-path"
+    )
+}
+
+fn is_git_argv_vulnerable(
+    items: &[(String, String)],
+    has_dash_guard: bool,
+    safe_vars: &BTreeSet<String>,
+) -> bool {
+    if has_dash_guard || items.len() <= 1 {
+        return false;
+    }
+    let mut seen_double_dash = false;
+    let mut skip_next = false;
+
+    for (item_raw, item_masked) in &items[1..] {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if let Some(lit) = unquote_simple_py_str(item_raw) {
+            if lit == "--" {
+                seen_double_dash = true;
+            } else if is_git_flag_with_value(&lit) {
+                skip_next = true;
+            }
+            continue;
+        }
+        if let Some(is_safe_fstr) = is_safe_fstring_git_arg(item_raw) {
+            if !is_safe_fstr && !seen_double_dash {
+                return true;
+            }
+            continue;
+        }
+        let unwrapped = unwrap_git_var_expr(item_raw);
+        if is_safe_path_join_rhs(unwrapped, item_masked) {
+            continue;
+        }
+        if let Some(ident) = is_single_ident(unwrapped) {
+            if safe_vars.contains(ident) {
+                continue;
+            }
+        }
+        if !seen_double_dash {
+            return true;
+        }
+    }
+    false
+}
+
+fn extract_bracket_list_items(
+    raw_expr: &str,
+    masked_expr: &str,
+) -> Option<Vec<(String, String)>> {
+    let rt = raw_expr.trim();
+    let mt = masked_expr.trim();
+    if !(mt.starts_with('[') && mt.ends_with(']')) {
+        return None;
+    }
+    let r_inner = &rt[1..rt.len() - 1];
+    let m_inner = &mt[1..mt.len() - 1];
+    Some(split_top_level_args(r_inner, m_inner))
+}
+
+fn eval_kc_c01_git_injection(parsed: &PyParsedFile) -> Vec<(usize, String)> {
+    let mut hits = Vec::new();
+    // Module-level safe string constants (e.g., OPENMONTAGE_REPO_URL = "https://...")
+    let mut module_safe_vars: BTreeSet<String> = BTreeSet::new();
+    if let Some(top_indices) = parsed.scope_lines.get(&0) {
+        for &idx in top_indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+            if let Some(eq_pos) = line.masked.find('=') {
+                let lhs = line.masked[..eq_pos].trim();
+                let rhs_r = line.raw[eq_pos + 1..].trim();
+                let rhs_m = line.masked[eq_pos + 1..].trim();
+                if let Some(ident) = is_single_ident(lhs) {
+                    if is_safe_path_join_rhs(rhs_r, rhs_m) {
+                        module_safe_vars.insert(ident.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    for indices in parsed.scope_lines.values() {
+        let has_dash_guard = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec
+                && (l.raw.contains("startswith(\"-\")")
+                    || l.raw.contains("startswith('-')")
+                    || l.raw.contains("startswith((\"-\"")
+                    || l.raw.contains("startswith(('-'")
+                    || l.raw.contains("lstrip(\"-\")")
+                    || l.raw.contains("lstrip('-')"))
+        });
+
+        let mut safe_vars = module_safe_vars.clone();
+        let mut cmd_vars: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+
+            // Track `<var> = ...` (safe local paths & `git` argv lists)
+            if let Some(eq_pos) = line.masked.find('=') {
+                let is_cmp = line.masked.as_bytes().get(eq_pos + 1) == Some(&b'=')
+                    || (eq_pos > 0 && matches!(line.masked.as_bytes()[eq_pos - 1], b'!' | b'<' | b'>' | b'='));
+                if !is_cmp {
+                    let is_plus_eq = eq_pos > 0 && line.masked.as_bytes()[eq_pos - 1] == b'+';
+                    let lhs_end = if is_plus_eq { eq_pos - 1 } else { eq_pos };
+                    let lhs = line.masked[..lhs_end].trim();
+                    if let Some(var_name) = is_single_ident(lhs) {
+                        let rhs_r = line.raw[eq_pos + 1..].trim();
+                        let rhs_m = line.masked[eq_pos + 1..].trim();
+                        if is_plus_eq {
+                            if let Some(items) = extract_bracket_list_items(rhs_r, rhs_m) {
+                                if let Some(vec) = cmd_vars.get_mut(var_name) {
+                                    vec.extend(items);
+                                }
+                            }
+                        } else {
+                            if is_safe_path_join_rhs(rhs_r, rhs_m) {
+                                safe_vars.insert(var_name.to_string());
+                            }
+                            if let Some(br_pos) = line.masked[eq_pos + 1..].find('[') {
+                                let abs_br = eq_pos + 1 + br_pos;
+                                if let Some((inner_r, inner_m)) = collect_balanced_parens(&parsed.lines, idx, abs_br) {
+                                    let items = split_top_level_args(&inner_r, &inner_m);
+                                    if items
+                                        .first()
+                                        .and_then(|(r, _)| unquote_simple_py_str(r))
+                                        .is_some_and(|s| s == "git")
+                                    {
+                                        cmd_vars.insert(var_name.to_string(), items);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Track `<cmd>.append(...)` and `<cmd>.extend([...])`
+            for method in [".append(", ".extend("] {
+                if let Some(m_pos) = line.masked.find(method) {
+                    let recv = line.masked[..m_pos].trim();
+                    if let Some(var_name) = is_single_ident(recv) {
+                        if cmd_vars.contains_key(var_name) {
+                            let paren_pos = m_pos + method.len() - 1;
+                            if let Some((arg_r, arg_m)) = collect_balanced_parens(&parsed.lines, idx, paren_pos) {
+                                if method == ".append(" {
+                                    if let Some(vec) = cmd_vars.get_mut(var_name) {
+                                        vec.push((arg_r.trim().to_string(), arg_m.trim().to_string()));
+                                    }
+                                } else if let Some(items) = extract_bracket_list_items(&arg_r, &arg_m) {
+                                    if let Some(vec) = cmd_vars.get_mut(var_name) {
+                                        vec.extend(items);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Evaluate `subprocess.(run|Popen|check_output|check_call)(...)`
+            for callee in [
+                "subprocess.run(",
+                "subprocess.Popen(",
+                "subprocess.check_output(",
+                "subprocess.check_call(",
+            ] {
+                let mut search_from = 0usize;
+                while let Some(c_pos) = find_dotted_call(&line.masked, callee, search_from) {
+                    let paren_pos = c_pos + callee.len() - 1;
+                    if let Some((call_r, call_m)) = collect_balanced_parens(&parsed.lines, idx, paren_pos) {
+                        let args = split_top_level_args(&call_r, &call_m);
+                        if let Some((arg0_r, arg0_m)) = args.first() {
+                            if let Some(inline_items) = extract_bracket_list_items(arg0_r, arg0_m) {
+                                if inline_items
+                                    .first()
+                                    .and_then(|(r, _)| unquote_simple_py_str(r))
+                                    .is_some_and(|s| s == "git")
+                                    && is_git_argv_vulnerable(&inline_items, has_dash_guard, &safe_vars)
+                                {
+                                    hits.push((line.lineno, line.trimmed.clone()));
+                                }
+                            } else if let Some(var_name) = is_single_ident(arg0_m) {
+                                if let Some(cmd_items) = cmd_vars.get(var_name) {
+                                    if is_git_argv_vulnerable(cmd_items, has_dash_guard, &safe_vars) {
+                                        hits.push((line.lineno, line.trimmed.clone()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    search_from = c_pos + callee.len();
+                }
+            }
+        }
+    }
+    hits
+}
+
+fn contains_sql_verb_clause(s: &str) -> bool {
+    let upper = s.to_ascii_uppercase();
+    (upper.contains("SELECT ") && upper.contains(" FROM "))
+        || upper.contains("INSERT INTO ")
+        || (upper.contains("UPDATE ") && upper.contains(" SET "))
+        || upper.contains("DELETE FROM ")
+}
+
+fn has_fstring_interpolation(inner: &str) -> bool {
+    let bytes = inner.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            if i + 1 < bytes.len() && bytes[i + 1] == b'{' {
+                i += 2;
+                continue;
+            }
+            if inner[i + 1..].contains('}') {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+fn tail_after_string_is_pct_or_format(
+    lines: &[PyLineInfo],
+    end_line_idx: usize,
+    end_byte_after: usize,
+) -> bool {
+    let max_end = (end_line_idx + 3).min(lines.len());
+    let mut tail = String::new();
+    for (off, line) in lines[end_line_idx..max_end].iter().enumerate() {
+        let start = if off == 0 { end_byte_after } else { 0 };
+        if start <= line.masked.len() {
+            tail.push_str(&line.masked[start..]);
+        }
+        tail.push('\n');
+    }
+    let trimmed = tail.trim_start();
+    (trimmed.starts_with('%') && !trimmed.starts_with("%=")) || trimmed.starts_with(".format(")
+}
+
+fn gap_between_spans_is_whitespace(
+    lines: &[PyLineInfo],
+    prev: &PyStringSpan,
+    next: &PyStringSpan,
+) -> bool {
+    if next.start_line_idx < prev.end_line_idx || next.start_line_idx > prev.end_line_idx + 1 {
+        return false;
+    }
+    if prev.end_line_idx == next.start_line_idx {
+        let line_m = &lines[prev.end_line_idx].masked;
+        let tail = &line_m[prev.end_byte_after.min(line_m.len())..];
+        let trimmed = tail.trim_start();
+        return trimmed.starts_with('"') || trimmed.starts_with('\'');
+    }
+    let tail_prev = lines[prev.end_line_idx]
+        .masked
+        .get(prev.end_byte_after..)
+        .unwrap_or("")
+        .trim();
+    tail_prev.is_empty()
+}
+
+fn eval_kc_c02_sql_interp(parsed: &PyParsedFile) -> Vec<(usize, String)> {
+    let mut hits = Vec::new();
+    let mut hit_lines = BTreeSet::new();
+
+    // Group implicitly concatenated non-fstring literals so split multi-line SQL `%`/`.format` is caught
+    let mut idx_span = 0usize;
+    while idx_span < parsed.string_spans.len() {
+        let span = &parsed.string_spans[idx_span];
+        if parsed.lines[span.start_line_idx].is_non_exec {
+            idx_span += 1;
+            continue;
+        }
+        if span.is_fstring {
+            if contains_sql_verb_clause(&span.inner)
+                && has_fstring_interpolation(&span.inner)
+                && hit_lines.insert(span.start_line_idx + 1)
+            {
+                let ln = &parsed.lines[span.start_line_idx];
+                hits.push((ln.lineno, ln.trimmed.clone()));
+            }
+            idx_span += 1;
+            continue;
+        }
+        let mut combined_inner = span.inner.clone();
+        let mut end_idx = idx_span;
+        while end_idx + 1 < parsed.string_spans.len()
+            && !parsed.string_spans[end_idx + 1].is_fstring
+            && !parsed.lines[parsed.string_spans[end_idx + 1].start_line_idx].is_non_exec
+            && gap_between_spans_is_whitespace(
+                &parsed.lines,
+                &parsed.string_spans[end_idx],
+                &parsed.string_spans[end_idx + 1],
+            )
+        {
+            end_idx += 1;
+            combined_inner.push_str(&parsed.string_spans[end_idx].inner);
+        }
+        let last = &parsed.string_spans[end_idx];
+        if contains_sql_verb_clause(&combined_inner)
+            && tail_after_string_is_pct_or_format(&parsed.lines, last.end_line_idx, last.end_byte_after)
+            && hit_lines.insert(span.start_line_idx + 1)
+        {
+            let ln = &parsed.lines[span.start_line_idx];
+            hits.push((ln.lineno, ln.trimmed.clone()));
+        }
+        idx_span = end_idx + 1;
+    }
+
+    // Also catch `sql = "SELECT ... FROM ..."\ncursor.execute(sql % x)` or `sql.format(x)`
+    for indices in parsed.scope_lines.values() {
+        let mut sql_vars: BTreeSet<String> = BTreeSet::new();
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+            if let Some(eq_pos) = line.masked.find('=') {
+                let lhs = line.masked[..eq_pos].trim();
+                let rhs_r = line.raw[eq_pos + 1..].trim();
+                if let Some(var_name) = is_single_ident(lhs) {
+                    if contains_sql_verb_clause(rhs_r)
+                        && (rhs_r.contains('"') || rhs_r.contains('\''))
+                        && !rhs_r.starts_with("f\"")
+                        && !rhs_r.starts_with("f'")
+                    {
+                        sql_vars.insert(var_name.to_string());
+                    }
+                }
+            }
+            for var_name in &sql_vars {
+                let fmt_pat = format!("{var_name}.format(");
+                let pct_pat1 = format!("{var_name} % ");
+                let pct_pat2 = format!("{var_name}%");
+                let has_fmt = find_standalone_ident_call(&line.masked, &fmt_pat, 0).is_some();
+                let has_pct = line.masked.contains(&pct_pat1)
+                    || (line.masked.contains(&pct_pat2) && !line.masked.contains("%="));
+                if (has_fmt || has_pct) && hit_lines.insert(line.lineno) {
+                    hits.push((line.lineno, line.trimmed.clone()));
+                }
+            }
+        }
+    }
+    hits
+}
+
+fn extract_identifiers(code: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let bytes = code.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if (bytes[i].is_ascii_alphabetic() || bytes[i] == b'_')
+            && (i == 0 || !is_ident_byte(bytes[i - 1]))
+        {
+            let start = i;
+            while i < bytes.len() && is_ident_byte(bytes[i]) {
+                i += 1;
+            }
+            out.push(code[start..i].to_string());
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+fn is_trivial_cmp_operand(raw_op: &str, masked_op: &str) -> bool {
+    let mt = masked_op.trim();
+    let rt = raw_op.trim();
+    if mt.is_empty()
+        || matches!(mt, "None" | "True" | "False" | "\"\"" | "''")
+        || mt.chars().all(|c| c.is_ascii_digit())
+        || mt.starts_with("len(")
+        || mt.starts_with("type(")
+        || mt.starts_with("isinstance(")
+        || rt == "\"\""
+        || rt == "''"
+    {
+        return true;
+    }
+    // Comparing against a constant uppercase enum/sentinel (`GENESIS_EVENT_HASH`, `"PASS"`)
+    if let Some(ident) = is_single_ident(mt) {
+        if ident.len() >= 3 && ident.chars().all(|c| c.is_ascii_uppercase() || c == '_' || c.is_ascii_digit()) {
+            return true;
+        }
+    }
+    false
+}
+
+fn slice_cmp_sides(line_masked: &str, op_pos: usize) -> (&str, &str) {
+    let left_all = &line_masked[..op_pos];
+    let mut l_start = 0usize;
+    let lb = left_all.as_bytes();
+    let mut depth = 0usize;
+    let mut i = lb.len();
+    while i > 0 {
+        i -= 1;
+        match lb[i] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' => {
+                if depth == 0 {
+                    l_start = i + 1;
+                    break;
+                }
+                depth -= 1;
+            }
+            b',' | b':' | b';' if depth == 0 => {
+                l_start = i + 1;
+                break;
+            }
+            _ => {}
+        }
+    }
+    let mut lhs = left_all[l_start..].trim();
+    for kw in ["if ", "elif ", "return ", "while ", "assert ", "and ", "or ", "not "] {
+        if let Some(pos) = lhs.rfind(kw) {
+            if pos == 0 || !is_ident_byte(lhs.as_bytes()[pos - 1]) {
+                lhs = lhs[pos + kw.len()..].trim();
+            }
+        }
+    }
+
+    let right_all = &line_masked[op_pos + 2..];
+    let rb = right_all.as_bytes();
+    let mut r_end = rb.len();
+    depth = 0;
+    for (idx, &b) in rb.iter().enumerate() {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
+                if depth == 0 {
+                    r_end = idx;
+                    break;
+                }
+                depth -= 1;
+            }
+            b',' | b':' | b';' if depth == 0 => {
+                r_end = idx;
+                break;
+            }
+            _ => {}
+        }
+    }
+    let mut rhs = right_all[..r_end].trim();
+    for kw in [" and ", " or "] {
+        if let Some(pos) = rhs.find(kw) {
+            rhs = rhs[..pos].trim();
+        }
+    }
+    (lhs, rhs)
+}
+
+fn is_hmac_or_sig_ident(ident: &str) -> bool {
+    let low = ident.to_ascii_lowercase();
+    if low.contains("sha256")
+        || low.contains("manifest_sha")
+        || low.contains("patch_sha")
+        || low.contains("payload_sha")
+        || low.contains("snapshot_sha")
+        || low.contains("signing_domain")
+    {
+        return false;
+    }
+    low.contains("hmac")
+        || low == "sig"
+        || low == "mac"
+        || low.ends_with("_sig")
+        || low.starts_with("sig_")
+        || low.contains("signature")
+        || low.ends_with("_mac")
+        || low.starts_with("mac_")
+        || low.contains("digest")
+        || low.ends_with("_tag")
+}
+
+fn eval_kc_c03_hmac_eq(parsed: &PyParsedFile) -> Vec<(usize, String)> {
+    let mut hits = Vec::new();
+    let file_has_hmac = parsed.lines.iter().any(|l| {
+        !l.is_non_exec && (l.masked.contains("import hmac") || l.masked.contains("hmac."))
+    });
+    if !file_has_hmac {
+        return hits;
+    }
+
+    for indices in parsed.scope_lines.values() {
+        let scope_has_hmac_call = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec && (l.masked.contains("hmac.new(") || l.masked.contains("hmac.digest("))
+        });
+        let scope_uses_compare_digest = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec && l.masked.contains("compare_digest")
+        });
+
+        let mut hmac_vars: BTreeSet<String> = BTreeSet::new();
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+            if let Some(eq_pos) = line.masked.find('=') {
+                let is_cmp = line.masked.as_bytes().get(eq_pos + 1) == Some(&b'=')
+                    || (eq_pos > 0 && matches!(line.masked.as_bytes()[eq_pos - 1], b'!' | b'<' | b'>' | b'='));
+                if !is_cmp {
+                    let lhs = line.masked[..eq_pos].trim();
+                    let rhs = line.masked[eq_pos + 1..].trim();
+                    if let Some(var_name) = is_single_ident(lhs) {
+                        if rhs.contains("hmac.new(") || rhs.contains("hmac.digest(") {
+                            hmac_vars.insert(var_name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec || line.masked.contains("compare_digest") {
+                continue;
+            }
+            let mb = line.masked.as_bytes();
+            let mut pos = 0usize;
+            while pos + 1 < mb.len() {
+                let is_eq_op = (mb[pos] == b'=' && mb[pos + 1] == b'=')
+                    || (mb[pos] == b'!' && mb[pos + 1] == b'=');
+                if is_eq_op {
+                    let prev_ok = pos == 0 || !matches!(mb[pos - 1], b'<' | b'>' | b'=' | b'!');
+                    let next_ok = pos + 2 >= mb.len() || mb[pos + 2] != b'=';
+                    if prev_ok && next_ok {
+                        let (mut lhs_m, mut rhs_m) = slice_cmp_sides(&line.masked, pos);
+                        let (mut lhs_r, mut rhs_r) = slice_cmp_sides(&line.raw, pos);
+                        let (win_r, win_m): (String, String);
+                        if (lhs_m.is_empty() || rhs_m.is_empty()) && parsed.lines.len() > 1 {
+                            let prev_idx = idx.saturating_sub(1);
+                            let next_idx = (idx + 1).min(parsed.lines.len() - 1);
+                            let mut cur_off = 0usize;
+                            let mut wr = String::new();
+                            let mut wm = String::new();
+                            for w_idx in prev_idx..=next_idx {
+                                if w_idx > prev_idx {
+                                    wr.push(' ');
+                                    wm.push(' ');
+                                }
+                                if w_idx == idx {
+                                    cur_off = wm.len();
+                                }
+                                wr.push_str(&parsed.lines[w_idx].raw);
+                                wm.push_str(&parsed.lines[w_idx].masked);
+                            }
+                            win_r = wr;
+                            win_m = wm;
+                            let (wl_m, wr_m) = slice_cmp_sides(&win_m, cur_off + pos);
+                            let (wl_r, wr_r) = slice_cmp_sides(&win_r, cur_off + pos);
+                            lhs_m = wl_m;
+                            rhs_m = wr_m;
+                            lhs_r = wl_r;
+                            rhs_r = wr_r;
+                        }
+                        if !is_trivial_cmp_operand(lhs_r, lhs_m) && !is_trivial_cmp_operand(rhs_r, rhs_m) {
+                            let direct_hmac = lhs_m.contains("hmac.new(")
+                                || rhs_m.contains("hmac.new(")
+                                || lhs_m.contains("hmac.digest(")
+                                || rhs_m.contains("hmac.digest(");
+                            let mut idents = extract_identifiers(lhs_m);
+                            idents.extend(extract_identifiers(rhs_m));
+                            let tainted_var = idents.iter().any(|id| hmac_vars.contains(id));
+                            let hmac_named = !scope_uses_compare_digest
+                                && idents.iter().any(|id| id.to_ascii_lowercase().contains("hmac"));
+                            let scope_sig_cmp = scope_has_hmac_call
+                                && !scope_uses_compare_digest
+                                && idents.iter().any(|id| is_hmac_or_sig_ident(id));
+                            if direct_hmac || tainted_var || hmac_named || scope_sig_cmp {
+                                hits.push((line.lineno, line.trimmed.clone()));
+                                break;
+                            }
+                        }
+                    }
+                    pos += 2;
+                    continue;
+                }
+                pos += 1;
+            }
+        }
+    }
+    hits
+}
+
+fn has_sensitive_file_token(expr: &str) -> bool {
+    let lower = expr.to_ascii_lowercase();
+    for tok in lower.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if tok.is_empty() {
+            continue;
+        }
+        let matched = tok == "key"
+            || tok == "keys"
+            || tok.ends_with("key")
+            || tok.starts_with("keyfile")
+            || tok.starts_with("keystore")
+            || tok == "manifest"
+            || tok == "manifests"
+            || tok.starts_with("manifest")
+            || tok == "secret"
+            || tok == "secrets"
+            || tok.starts_with("secret")
+            || tok == "cred"
+            || tok == "creds"
+            || tok.starts_with("credential")
+            || tok.starts_with("credfile")
+            || tok == "token"
+            || tok == "tokens"
+            || tok.starts_with("token")
+            || tok == "attestation"
+            || tok.starts_with("attestation")
+            || tok == "policy"
+            || tok == "policies"
+            || tok.starts_with("policy")
+            || tok == "registry"
+            || tok.starts_with("registry");
+        if matched {
+            return true;
+        }
+    }
+    false
+}
+
+fn extract_method_receiver(lines: &[PyLineInfo], line_idx: usize, dot_pos: usize) -> String {
+    let start_idx = line_idx.saturating_sub(3);
+    let mut joined_raw = String::new();
+    let mut joined_mask = String::new();
+    for idx in start_idx..=line_idx {
+        if idx > start_idx {
+            joined_raw.push('\n');
+            joined_mask.push('\n');
+        }
+        if idx == line_idx {
+            joined_raw.push_str(&lines[idx].raw[..dot_pos]);
+            joined_mask.push_str(&lines[idx].masked[..dot_pos]);
+        } else {
+            joined_raw.push_str(&lines[idx].raw);
+            joined_mask.push_str(&lines[idx].masked);
+        }
+    }
+    let mb = joined_mask.as_bytes();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut i = mb.len();
+    while i > 0 {
+        i -= 1;
+        match mb[i] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' => {
+                if depth == 0 {
+                    start = i + 1;
+                    break;
+                }
+                depth -= 1;
+            }
+            b'=' | b',' | b':' | b';' | b'\n' if depth == 0 => {
+                start = i + 1;
+                break;
+            }
+            _ => {}
+        }
+    }
+    joined_raw[start..].trim().to_string()
+}
+
+fn eval_kc_c04_sensitive_open(parsed: &PyParsedFile) -> Vec<(usize, String)> {
+    let mut hits = Vec::new();
+
+    for indices in parsed.scope_lines.values() {
+        let scope_has_nofollow = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec
+                && (l.raw.contains("O_NOFOLLOW")
+                    || l.masked.contains("open_regular_nofollow")
+                    || l.masked.contains("_read_and_hash_regular_nofollow")
+                    || l.masked.contains("_read_regular_nofollow"))
+        });
+        let scope_is_non_security_catalog = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec
+                && (l.masked.contains("packs_dir.glob(")
+                    || l.masked.contains("build_demo_flawed_openmontage_manifest")
+                    || l.masked.contains("OpenMontagePackageManager")
+                    || l.masked.contains("active_registry_path"))
+        });
+        if scope_has_nofollow || scope_is_non_security_catalog {
+            continue;
+        }
+
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+            let mut matched = false;
+
+            // 1. `os.open(<path>, ...)`
+            let mut pos = 0usize;
+            while let Some(c_pos) = find_dotted_call(&line.masked, "os.open(", pos) {
+                let paren_pos = c_pos + "os.open(".len() - 1;
+                if let Some((call_r, call_m)) = collect_balanced_parens(&parsed.lines, idx, paren_pos) {
+                    if !call_r.contains("O_NOFOLLOW") {
+                        let args = split_top_level_args(&call_r, &call_m);
+                        if let Some((arg0_r, _)) = args.first() {
+                            if has_sensitive_file_token(arg0_r) {
+                                matched = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                pos = c_pos + "os.open(".len();
+            }
+
+            // 2. Builtin `open(<path>, ...)`
+            if !matched {
+                pos = 0;
+                while let Some(c_pos) = find_standalone_ident_call(&line.masked, "open(", pos) {
+                    let paren_pos = c_pos + "open(".len() - 1;
+                    if let Some((call_r, call_m)) = collect_balanced_parens(&parsed.lines, idx, paren_pos) {
+                        if !call_r.contains("O_NOFOLLOW") {
+                            let args = split_top_level_args(&call_r, &call_m);
+                            if let Some((arg0_r, _)) = args.first() {
+                                if has_sensitive_file_token(arg0_r) {
+                                    matched = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    pos = c_pos + "open(".len();
+                }
+            }
+
+            // 3. `<path>.read_text(...)` or `<path>.read_bytes(...)`
+            if !matched {
+                for method in [".read_text(", ".read_bytes("] {
+                    pos = 0;
+                    while let Some(rel) = line.masked[pos..].find(method) {
+                        let dot_pos = pos + rel;
+                        let recv = extract_method_receiver(&parsed.lines, idx, dot_pos);
+                        if has_sensitive_file_token(&recv) {
+                            matched = true;
+                            break;
+                        }
+                        pos = dot_pos + method.len();
+                    }
+                    if matched {
+                        break;
+                    }
+                }
+            }
+
+            if matched {
+                hits.push((line.lineno, line.trimmed.clone()));
+            }
+        }
+    }
+    hits
+}
+
+fn match_ablation_bool_field(raw_inner: &str) -> Option<(&str, &str)> {
+    let t = raw_inner.trim();
+    for field in ["with_passed", "without_passed", "baseline_regression", "passed"] {
+        let dq_sub = format!("[\"{field}\"]");
+        let sq_sub = format!("['{field}']");
+        if let Some(pos) = t.find(&dq_sub).or_else(|| t.find(&sq_sub)) {
+            let var_part = t[..pos].trim();
+            if is_single_ident(var_part).is_some() {
+                return Some((var_part, field));
+            }
+        }
+        let dq_get = format!(".get(\"{field}\"");
+        let sq_get = format!(".get('{field}'");
+        if let Some(pos) = t.find(&dq_get).or_else(|| t.find(&sq_get)) {
+            let var_part = t[..pos].trim();
+            if is_single_ident(var_part).is_some() {
+                return Some((var_part, field));
+            }
+        }
+    }
+    None
+}
+
+fn eval_kc_c05_ablation_bool(parsed: &PyParsedFile) -> Vec<(usize, String)> {
+    let mut hits = Vec::new();
+    for indices in parsed.scope_lines.values() {
+        let is_oracle_ctx = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec && (l.raw.contains("ORACLE_PASS") || l.raw.contains("ORACLE_FAILED"))
+        });
+        let is_ablation_ctx = indices.iter().any(|&idx| {
+            let l = &parsed.lines[idx];
+            !l.is_non_exec
+                && (l.raw.contains("with_passed")
+                    || l.raw.contains("without_passed")
+                    || l.raw.contains("baseline_regression")
+                    || l.raw.contains("MatchedTaskTrial")
+                    || l.raw.contains("ablation")
+                    || l.raw.contains("benchmark"))
+        });
+
+        for &idx in indices {
+            let line = &parsed.lines[idx];
+            if line.is_non_exec {
+                continue;
+            }
+            let mut pos = 0usize;
+            while let Some(c_pos) = find_standalone_ident_call(&line.masked, "bool(", pos) {
+                let paren_pos = c_pos + "bool(".len() - 1;
+                if let Some((inner_r, _)) = collect_balanced_parens(&parsed.lines, idx, paren_pos) {
+                    if let Some((var_name, field)) = match_ablation_bool_field(&inner_r) {
+                        let is_flagged = if field == "passed" {
+                            !is_oracle_ctx
+                                && (is_ablation_ctx
+                                    || matches!(
+                                        var_name,
+                                        "data" | "trial" | "row" | "record" | "entry" | "metrics" | "benchmark" | "ablation" | "strat_out" | "base_out"
+                                    ))
+                        } else {
+                            true
+                        };
+                        if is_flagged {
+                            hits.push((line.lineno, line.trimmed.clone()));
+                            break;
+                        }
+                    }
+                }
+                pos = c_pos + "bool(".len();
+            }
+        }
+    }
+    hits
+}
+
+fn evaluate_arm_c_rule_parsed(
+    rule: &NativeRule,
+    parsed: &PyParsedFile,
+    file_path: &str,
+    allowed_lines: Option<&BTreeSet<usize>>,
+    allow_inline_ignores: bool,
+) -> Vec<Finding> {
+    let raw_hits = match rule.id {
+        "KC-C01" => eval_kc_c01_git_injection(parsed),
+        "KC-C02" => eval_kc_c02_sql_interp(parsed),
+        "KC-C03" => eval_kc_c03_hmac_eq(parsed),
+        "KC-C04" => eval_kc_c04_sensitive_open(parsed),
+        "KC-C05" => eval_kc_c05_ablation_bool(parsed),
+        _ => Vec::new(),
+    };
+    let mut out = Vec::new();
+    for (lineno, snippet) in raw_hits {
+        if let Some(allowed) = allowed_lines {
+            if !allowed.contains(&lineno) {
+                continue;
+            }
+        }
+        if allow_inline_ignores {
+            if let Some(line_info) = parsed.lines.get(lineno.saturating_sub(1)) {
+                if line_ignores_rule(&line_info.raw, rule.id) {
+                    continue;
+                }
+            }
+        }
+        out.push(Finding {
+            scar_id: rule.id.to_string(),
+            title: rule.title.to_string(),
+            severity: rule.severity,
+            category: rule.category.to_string(),
+            file_path: file_path.to_string(),
+            line: lineno,
+            column: 1,
+            snippet,
+            fix_hint: rule.fix_hint.to_string(),
+        });
+    }
+    out
+}
+
+pub fn evaluate_arm_c_shadow_rule(
+    rule_id: &str,
+    content: &str,
+    file_path: &str,
+    lang: &str,
+) -> Vec<Finding> {
+    if lang != "python" {
+        return Vec::new();
+    }
+    let Some(rule) = ARM_C_SHADOW_RULES.iter().find(|r| r.id == rule_id) else {
+        return Vec::new();
+    };
+    let parsed = parse_python_file(content);
+    evaluate_arm_c_rule_parsed(rule, &parsed, file_path, None, true)
+}
+
+pub fn scan_arm_c_shadow_text(content: &str, file_path: &str, lang: &str) -> Vec<Finding> {
+    scan_arm_c_shadow_text_with_options(content, file_path, lang, Severity::Low, None, true, false)
+}
+
+pub fn scan_arm_c_shadow_text_with_options(
+    content: &str,
+    file_path: &str,
+    lang: &str,
+    min_severity: Severity,
+    allowed_lines: Option<&BTreeSet<usize>>,
+    allow_inline_ignores: bool,
+    allow_file_ignores: bool,
+) -> Vec<Finding> {
+    if lang != "python" {
+        return Vec::new();
+    }
+    if allow_file_ignores {
+        for header_line in content.lines().take(8) {
+            if (header_line.contains("kintsugi:") || header_line.contains("KINTSUGI:"))
+                && header_line.to_ascii_lowercase().contains("kintsugi: ignore-file")
+            {
+                return Vec::new();
+            }
+        }
+    }
+    let parsed = parse_python_file(content);
+    let mut findings = Vec::new();
+    for rule in ARM_C_SHADOW_RULES {
+        if !rule.severity.ge(&min_severity) || !rule.languages.contains(&lang) {
+            continue;
+        }
+        findings.extend(evaluate_arm_c_rule_parsed(
+            rule,
+            &parsed,
+            file_path,
+            allowed_lines,
+            allow_inline_ignores,
+        ));
+    }
+    findings
 }
 
 // ---------------------------------------------------------------------------
@@ -6580,4 +8116,193 @@ mod tests {
         }
     }
 
+}
+
+#[cfg(test)]
+mod arm_c_shadow_tests {
+    use super::*;
+
+    #[test]
+    fn arm_c_shadow_rules_catch_10_vulnerable_and_0_safe_snippets() {
+        let vulnerable_cases: &[(&str, &str)] = &[
+            // KC-C01 (2 vulnerable)
+            (
+                "KC-C01",
+                "import subprocess\ndef show_diff(ref):\n    return subprocess.check_output(['git', 'diff', ref])\n",
+            ),
+            (
+                "KC-C01",
+                "import subprocess\ndef run_log(branch):\n    cmd = ['git', 'log']\n    cmd.append(branch)\n    subprocess.run(\n        cmd,\n        check=True,\n    )\n",
+            ),
+            // KC-C02 (2 vulnerable)
+            (
+                "KC-C02",
+                "def find_user(cur, email):\n    cur.execute(f\"SELECT id FROM users WHERE email = '{email}'\")\n",
+            ),
+            (
+                "KC-C02",
+                "def del_tok(cur, tok):\n    q = \"DELETE FROM sessions WHERE token = '%s'\" % tok\n    cur.execute(q)\n",
+            ),
+            // KC-C03 (2 vulnerable)
+            (
+                "KC-C03",
+                "import hmac, hashlib\ndef verify_sig(secret, body, header_sig):\n    sig = hmac.new(secret, body, hashlib.sha256).hexdigest()\n    return sig == header_sig\n",
+            ),
+            (
+                "KC-C03",
+                "import hmac\ndef check_tag(key, msg, mac):\n    return hmac.digest(key, msg, 'sha256') != mac\n",
+            ),
+            // KC-C04 (2 vulnerable)
+            (
+                "KC-C04",
+                "def read_key(secret_key_path):\n    with open(secret_key_path, 'r') as f:\n        return f.read()\n",
+            ),
+            (
+                "KC-C04",
+                "from pathlib import Path\ndef load_manifest(manifest_path):\n    return Path(manifest_path).read_text(encoding='utf-8')\n",
+            ),
+            // KC-C05 (2 vulnerable)
+            (
+                "KC-C05",
+                "def parse_trial(data):\n    return {'with_passed': bool(data['with_passed']), 'without_passed': bool(data.get('without_passed', False))}\n",
+            ),
+            (
+                "KC-C05",
+                "def parse_row(data):\n    return bool(data.get('baseline_regression', False))\n",
+            ),
+        ];
+
+        assert_eq!(vulnerable_cases.len(), 10);
+        for (idx, (expected_id, code)) in vulnerable_cases.iter().enumerate() {
+            let findings = scan_arm_c_shadow_text(code, "vuln_case.py", "python");
+            assert!(
+                findings.iter().any(|f| f.scar_id == *expected_id),
+                "Case #{idx} failed to catch {expected_id}: got {:?}\ncode:\n{code}",
+                findings
+            );
+            let direct = evaluate_arm_c_shadow_rule(expected_id, code, "vuln_case.py", "python");
+            assert!(
+                !direct.is_empty(),
+                "Direct evaluate_arm_c_shadow_rule missed {expected_id} on case #{idx}"
+            );
+        }
+
+        let safe_cases: &[(&str, &str)] = &[
+            // KC-C01 (2 safe)
+            (
+                "KC-C01",
+                "import subprocess\ndef safe_diff(path_spec):\n    return subprocess.run(['git', 'diff', '--', path_spec], check=True)\n",
+            ),
+            (
+                "KC-C01",
+                "import subprocess\ndef safe_show(ref):\n    if ref.startswith('-'):\n        raise ValueError('bad ref')\n    return subprocess.check_output(['git', 'show', ref])\n",
+            ),
+            // KC-C02 (2 safe)
+            (
+                "KC-C02",
+                "def safe_q(cur, email):\n    cur.execute('SELECT id FROM users WHERE email = ?', (email,))\n",
+            ),
+            (
+                "KC-C02",
+                "def safe_in(cur, vals):\n    ph = ', '.join('?' for _ in vals)\n    sql = 'SELECT id FROM users WHERE id IN (' + ph + ')'\n    cur.execute(sql, vals)\n",
+            ),
+            // KC-C03 (2 safe)
+            (
+                "KC-C03",
+                "import hmac, hashlib\ndef verify_ok(secret, body, header_sig):\n    sig = hmac.new(secret, body, hashlib.sha256).hexdigest()\n    return hmac.compare_digest(sig, header_sig)\n",
+            ),
+            (
+                "KC-C03",
+                "import hmac\ndef check_len(key, msg, sig):\n    mac = hmac.new(key, msg, 'sha256').hexdigest()\n    return len(mac) == 64 and hmac.compare_digest(mac, sig)\n",
+            ),
+            // KC-C04 (2 safe)
+            (
+                "KC-C04",
+                "import os\ndef safe_open_key(key_path):\n    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0)\n    fd = os.open(key_path, flags)\n    return fd\n",
+            ),
+            (
+                "KC-C04",
+                "def safe_open_normal(readme_path):\n    with open(readme_path, 'r', encoding='utf-8') as f:\n        return f.read()\n",
+            ),
+            // KC-C05 (2 safe)
+            (
+                "KC-C05",
+                "def strict_trial(data):\n    if type(data['with_passed']) is not bool:\n        raise ValueError('bad')\n    return data['with_passed']\n",
+            ),
+            (
+                "KC-C05",
+                "def oracle_adapter(outcome):\n    if isinstance(outcome, dict) and 'passed' in outcome:\n        passed = bool(outcome['passed'])\n        return passed, 'ORACLE_PASS' if passed else 'ORACLE_FAILED'\n    return False, 'ORACLE_INVALID_RETURN'\n",
+            ),
+        ];
+
+        assert_eq!(safe_cases.len(), 10);
+        for (idx, (rule_id, code)) in safe_cases.iter().enumerate() {
+            let findings = scan_arm_c_shadow_text(code, "safe_case.py", "python");
+            assert!(
+                findings.is_empty(),
+                "False positive on safe case #{idx} ({rule_id}): got {:?}\ncode:\n{code}",
+                findings
+            );
+        }
+    }
+
+    #[test]
+    fn arm_c_builtin_rules_remain_36_and_shadow_path_scan_toggles() {
+        assert_eq!(BUILTIN_RULES.len(), 36);
+        assert_eq!(ARM_C_SHADOW_RULES.len(), 5);
+
+        let uniq = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let ws = std::env::temp_dir().join(format!("kintsugi_arm_c_shadow_{uniq}"));
+        fs::create_dir_all(&ws).unwrap();
+        let target_py = ws.join("sample.py");
+        fs::write(
+            &target_py,
+            "def f(cur, u):\n    cur.execute(\"UPDATE users SET role = '{}' WHERE id = ?\".format(u))\n",
+        )
+        .unwrap();
+
+        let without_shadow = scan_path_with_shadow(&ws, Severity::Low, None, false);
+        assert_eq!(without_shadow.active_rules, 36);
+        assert!(without_shadow.findings.is_empty());
+
+        let with_shadow = scan_path_with_shadow(&ws, Severity::Low, None, true);
+        assert_eq!(with_shadow.active_rules, 41);
+        assert!(with_shadow.findings.iter().any(|f| f.scar_id == "KC-C02"));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn arm_c_kc_c01_allows_safe_flag_fstring_with_double_dash() {
+        let safe_code = "import subprocess\n\
+def list_commits(repo_dir, path_spec, limit=5):\n\
+    return subprocess.run(\n\
+        ['git', '-C', str(repo_dir), 'log', f'-n{limit}', '--format=%H%x1f%s', '--', path_spec],\n\
+        check=True,\n\
+        capture_output=True,\n\
+        text=True,\n\
+    )\n";
+        let safe_findings = scan_arm_c_shadow_text(safe_code, "safe_git.py", "python");
+        assert!(
+            safe_findings.is_empty(),
+            "Expected 0 findings on safe git log with f'-n{{limit}}' + '--', got: {:?}",
+            safe_findings
+        );
+
+        let vuln_code = "import subprocess\n\
+def list_commits_vuln(repo_dir, path_spec, limit=5):\n\
+    return subprocess.run(\n\
+        ['git', '-C', str(repo_dir), 'log', f'-n{limit}', path_spec],\n\
+        check=True,\n\
+    )\n";
+        let vuln_findings = scan_arm_c_shadow_text(vuln_code, "vuln_git.py", "python");
+        assert!(
+            vuln_findings.iter().any(|f| f.scar_id == "KC-C01"),
+            "Expected KC-C01 on dynamic path_spec without '--', got: {:?}",
+            vuln_findings
+        );
+    }
 }

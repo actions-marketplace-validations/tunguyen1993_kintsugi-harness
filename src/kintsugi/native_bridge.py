@@ -26,6 +26,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import weakref
 from pathlib import Path
@@ -37,6 +38,15 @@ EXPECTED_ABI_VERSION = 1
 DEFAULT_EXTERNAL_PIN_MANIFEST = Path.home() / ".config" / "kintsugi" / "native_pins.json"
 PIN_MANIFEST_SCHEMA = "KintsugiNativePins/1"
 _MAX_MANIFEST_BYTES = 1_048_576
+
+
+def _cdylib_filename() -> str:
+    """Return platform-native Cargo cdylib filename (`.dylib` on macOS, `.so` on Linux, `.dll` on Windows)."""
+    if sys.platform == "darwin":
+        return "libkintsugi_core.dylib"
+    if sys.platform == "win32":
+        return "kintsugi_core.dll"
+    return "libkintsugi_core.so"
 
 KINTSUGI_FFI_OK = 0
 KINTSUGI_FFI_ERR_NULL_PTR = -1
@@ -271,7 +281,7 @@ def write_external_native_pins(
     """Atomically store native binary SHA-256 pins (`0o600`) in an external manifest outside `repo_root`."""
     root_p = Path(repo_root).resolve()
     bin_paths: List[Optional[Path]] = [
-        root_p / "target" / "release" / "libkintsugi_core.dylib",
+        root_p / "target" / "release" / _cdylib_filename(),
         root_p / "target" / "release" / "kintsugi-rs",
         Path(dylib_path) if dylib_path is not None else None,
         Path(rust_bin_path) if rust_bin_path is not None else None,
@@ -326,7 +336,8 @@ def build_verified_cdylib(
 
     target_dir = root / "target"
     release_dir = target_dir / "release"
-    dylib_path = release_dir / "libkintsugi_core.dylib"
+    dylib_name = _cdylib_filename()
+    dylib_path = release_dir / dylib_name
     rust_bin_path = release_dir / "kintsugi-rs"
     # Validate external pin path BEFORE building so co-located paths fail closed immediately
     resolved_manifest = _resolve_manifest_path(
@@ -370,14 +381,14 @@ def build_verified_cdylib(
         rust_bin_path=rust_bin_path,
         pin_manifest_path=resolved_manifest,
     )
-    stale_colocated = release_dir / "libkintsugi_core.dylib.sha256"
+    stale_colocated = release_dir / f"{dylib_name}.sha256"
     if not stale_colocated.is_symlink() and stale_colocated.is_file():
         stale_colocated.unlink()
     return dylib_path, dylib_digest
 
 
 class NativeBridge:
-    """Verified FFI bridge to `target/release/libkintsugi_core.dylib` with pinned `kintsugi-rs` fallback."""
+    """Verified FFI bridge to `target/release/libkintsugi_core.{dylib,so,dll}` with pinned `kintsugi-rs` fallback."""
 
     def __init__(
         self,
@@ -394,7 +405,7 @@ class NativeBridge:
         self.repo_root = (
             Path(repo_root).resolve() if repo_root is not None else Path(__file__).resolve().parents[2]
         )
-        self.expected_dylib_path = self.repo_root / "target" / "release" / "libkintsugi_core.dylib"
+        self.expected_dylib_path = self.repo_root / "target" / "release" / _cdylib_filename()
         self.allow_fallback = allow_fallback
         self._explicit_pin_manifest_path = pin_manifest_path
         self._raw_rust_bin_candidate = self._resolve_rust_bin(rust_bin)
@@ -545,7 +556,7 @@ class NativeBridge:
                     raise PermissionError(f"SECURITY_SYMLINK_REFUSED: {req_p}")
                 if req_p.resolve() != self.expected_dylib_path.resolve():
                     raise PermissionError(
-                        f"SECURITY_UNTRUSTED_DYLIB_PATH: Refusing path outside target/release/libkintsugi_core.dylib: {req_p}"
+                        f"SECURITY_UNTRUSTED_DYLIB_PATH: Refusing path outside target/release/{self.expected_dylib_path.name}: {req_p}"
                     )
 
             target_dir = self.repo_root / "target"
