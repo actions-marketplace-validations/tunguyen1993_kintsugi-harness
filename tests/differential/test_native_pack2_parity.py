@@ -143,13 +143,14 @@ class TestNativeKernelPack2Parity(unittest.TestCase):
                     b_bad_sha.close()
 
             # 3. Symlinked dylib inside synthetic repo must fail BEFORE ctypes.CDLL
+            dylib_name = self.dylib_path.name
             fake_repo = tp / "fake_repo"
             rel_dir = fake_repo / "target" / "release"
             rel_dir.mkdir(parents=True)
-            sym_dylib = rel_dir / "libkintsugi_core.dylib"
+            sym_dylib = rel_dir / dylib_name
             sym_dylib.symlink_to(self.dylib_path)
-            (rel_dir / "libkintsugi_core.dylib.sha256").write_text(
-                f"{self.dylib_sha256}  libkintsugi_core.dylib\n", encoding="utf-8"
+            (rel_dir / f"{dylib_name}.sha256").write_text(
+                f"{self.dylib_sha256}  {dylib_name}\n", encoding="utf-8"
             )
             with mock.patch("kintsugi.native_bridge.ctypes.CDLL") as cdll_spy:
                 b_sym = NativeBridge(repo_root=fake_repo, pin_manifest_path=absent_manifest, allow_fallback=True)
@@ -164,7 +165,7 @@ class TestNativeKernelPack2Parity(unittest.TestCase):
             unpinned_repo = tp / "unpinned_repo"
             u_rel = unpinned_repo / "target" / "release"
             u_rel.mkdir(parents=True)
-            (u_rel / "libkintsugi_core.dylib").write_bytes(self.dylib_path.read_bytes())
+            (u_rel / dylib_name).write_bytes(self.dylib_path.read_bytes())
             with mock.patch("kintsugi.native_bridge.ctypes.CDLL") as cdll_spy:
                 b_unpinned = NativeBridge(
                     repo_root=unpinned_repo,
@@ -204,11 +205,12 @@ class TestNativeKernelPack2Parity(unittest.TestCase):
 
             orig_bytes = self.dylib_path.read_bytes()
             orig_sha = hashlib.sha256(orig_bytes).hexdigest()
-            syn_dylib = rel_dir / "libkintsugi_core.dylib"
+            dylib_name = self.dylib_path.name
+            syn_dylib = rel_dir / dylib_name
             syn_dylib.write_bytes(orig_bytes)
-            # Attacker plants a valid-matching co-located .dylib.sha256 next to the binary
-            (rel_dir / "libkintsugi_core.dylib.sha256").write_text(
-                f"{orig_sha}  libkintsugi_core.dylib\n", encoding="utf-8"
+            # Attacker plants a valid-matching co-located .sha256 next to the binary
+            (rel_dir / f"{dylib_name}.sha256").write_text(
+                f"{orig_sha}  {dylib_name}\n", encoding="utf-8"
             )
             absent_manifest = tp / "external_empty_pins.json"
 
@@ -273,7 +275,7 @@ class TestNativeKernelPack2Parity(unittest.TestCase):
             toctou_repo = tp / "toctou_repo"
             t_rel = toctou_repo / "target" / "release"
             t_rel.mkdir(parents=True)
-            toctou_dylib = t_rel / "libkintsugi_core.dylib"
+            toctou_dylib = t_rel / dylib_name
             toctou_dylib.write_bytes(orig_bytes)
             ext_manifest = tp / "external_valid_pins.json"
             write_external_native_pins(

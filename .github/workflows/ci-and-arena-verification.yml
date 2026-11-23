@@ -34,7 +34,8 @@ jobs:
       - name: Run Rust test suite (all targets) & build release binaries
         run: |
           cargo test --all-targets
-          cargo build --release --bins
+          cargo build --release --lib --bins
+          PYTHONPATH=src python3 -c "from kintsugi.native_bridge import build_verified_cdylib; print(build_verified_cdylib())"
           test -x target/release/kintsugi-rs
           test -x target/release/rust-neuro-symbolic-core
 
