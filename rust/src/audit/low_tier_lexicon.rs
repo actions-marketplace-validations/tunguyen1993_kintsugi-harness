@@ -866,8 +866,8 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
             &["checkout", "payment", "placeorder", "submitorder", "onsubmit", "handlesubmit", "handlecheckout", "handlepayment", "issubmitting", "submitting"],
             &["fetch", "axios", "post", "async", "await", "idempotency", "disabled", "order", "pay", "button", "form"],
         ],
-        bad_pattern: "Checkout/payment submit handlers lacking an in-flight `isSubmitting` guard and `Idempotency-Key` header, causing duplicate orders/charges on rapid double-clicks",
-        good_pattern: "Guard with a synchronous in-flight ref/flag (`if (submittingRef.current) return; submittingRef.current = true`), disable the submit button while pending, send a per-attempt `Idempotency-Key` header, and reset in `finally`",
+        bad_pattern: "Checkout/payment submit handlers lacking an in-flight `isSubmitting` guard or generating a random/timestamp `Idempotency-Key` per attempt (breaking retry deduplication and causing duplicate charges)",
+        good_pattern: "Guard with a synchronous in-flight flag/ref (`if (submittingRef.current) return null; submittingRef.current = true`), derive or cache ONE deterministic `Idempotency-Key` per `orderId` (reused identically across retries for the same order, never `Math.random()`/`Date.now()` per call), and reset the flag in `finally`",
         precondition: "Implementing checkout, payment, transfer, or order-creation submit handlers in FE apps",
     },
     PitfallEntry {
@@ -879,8 +879,8 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
             &["cart", "subtotal", "discount", "vat", "currency", "formatprice", "formatcurrency", "numberformat", "intl", "coupon"],
             &["price", "total", "tax", "amount", "cents", "vnd", "usd", "tofixed", "number", "reduce", "qty", "quantity", "intl", "numberformat"],
         ],
-        bad_pattern: "Computing cart subtotal/discount/tax with JS floating-point `Number` (`0.1 + 0.2 !== 0.3`) or hand-formatting money with `.toFixed(2)` string concatenation",
-        good_pattern: "Compute all cart totals, discounts, and taxes in exact integer minor units (cents or integer VND), and format display strings via `new Intl.NumberFormat(locale, { style: 'currency', currency })`",
+        bad_pattern: "Computing cart subtotal/discount/tax with JS floating-point `Number` (`0.1 + 0.2 !== 0.3`, `115 * 0.9 = 103.49999999999999`) or subtracting a separately rounded discount instead of half-up rounding the net minor-unit total",
+        good_pattern: "Parse price strings directly into exact integer minor units (cents/VND), compute discounted net totals with exact integer `ROUND_HALF_UP` (`Math.floor((subtotalCents * (100 - discountPercent) + 50) / 100)` or `BigInt` half-up), and format display strings via `new Intl.NumberFormat(locale, { style: 'currency', currency })`",
         precondition: "Calculating or formatting cart totals, discounts, taxes, or prices in frontend JS/TS/Vue",
     },
     PitfallEntry {
