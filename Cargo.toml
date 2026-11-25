@@ -2,6 +2,7 @@
 name = "kintsugi-harness"
 version = "2.4.1"
 edition = "2021"
+rust-version = "1.75"
 description = "Sub-millisecond Rust native PreToolUse guardrail scanner, @CT2 Grade-S3 Seam Auditor, Zero-Loss Memory Verifier, and @KML/1 ultra-low-token compressor for coding agents."
 license = "Apache-2.0"
 authors = ["Tu Nguyen <tunguyen1993@users.noreply.github.com>"]
@@ -9,6 +10,15 @@ repository = "https://github.com/tunguyen1993/kintsugi-harness"
 homepage = "https://github.com/tunguyen1993/kintsugi-harness"
 keywords = ["ai-agents", "claude-code", "mcp", "static-analysis", "guardrails"]
 categories = ["command-line-utilities", "development-tools"]
+include = ["Cargo.toml", "rust/**", ".kintsugi/scars.kml", "LICENSE*", "README.md"]
+
+[features]
+default = ["audit", "rule-ir", "logforge", "sarif"]
+audit = []
+rule-ir = []
+logforge = []
+sarif = []
+lab-tools = ["audit"]
 
 [lib]
 name = "kintsugi_core"
@@ -22,9 +32,38 @@ path = "rust/src/main.rs"
 [[bin]]
 name = "rust-neuro-symbolic-core"
 path = "rust/src/neuro_symbolic_core.rs"
+required-features = ["lab-tools"]
+
+[[test]]
+name = "core_integration"
+path = "rust/tests/core_integration.rs"
+required-features = ["audit", "rule-ir", "logforge", "sarif"]
+
+[[test]]
+name = "p0_p2_overhaul_tests"
+path = "rust/tests/p0_p2_overhaul_tests.rs"
+required-features = ["audit", "rule-ir", "logforge", "sarif"]
+
+[[test]]
+name = "property_fuzz_and_adversarial"
+path = "rust/tests/property_fuzz_and_adversarial.rs"
+required-features = ["audit", "rule-ir", "logforge", "sarif"]
+
+[[test]]
+name = "c_abi_and_mutation_suite"
+path = "rust/tests/c_abi_and_mutation_suite.rs"
+required-features = ["audit", "rule-ir", "logforge", "sarif"]
+
+[[test]]
+name = "minimal_build"
+path = "rust/tests/minimal_build.rs"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
 
 [profile.release]
 opt-level = 3
-lto = true
+lto = "thin"
 codegen-units = 1
 strip = true
+panic = "unwind"

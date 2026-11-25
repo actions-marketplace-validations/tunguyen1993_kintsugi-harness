@@ -34,7 +34,7 @@ jobs:
       - name: Run Rust test suite (all targets) & build release binaries
         run: |
           cargo test --all-targets
-          cargo build --release --lib --bins
+          cargo build --release --lib --bins --all-features
           PYTHONPATH=src python3 -c "from kintsugi.native_bridge import build_verified_cdylib; print(build_verified_cdylib())"
           test -x target/release/kintsugi-rs
           test -x target/release/rust-neuro-symbolic-core
@@ -53,3 +53,77 @@ jobs:
       - name: Generate Deterministic SLSA Subject SHA-256 Provenance Digest
         run: |
           sha256sum pyproject.toml Cargo.toml benchmarks/verified_10_arena_pareto_certificate.json benchmarks/swebench_submission/all_preds.jsonl benchmarks/gaia_submission/gaia_validation_submission.jsonl
+
+  rust-msrv-arch-and-32-feature-powerset:
+    name: MSRV 1.75.0 + 32-Feature Powerset (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+    env:
+      RUSTFLAGS: "-D warnings"
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Ensure rustup is present & verify host architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup toolchain install stable --profile minimal
+          host="$(rustc +stable -vV | sed -n 's/^host: //p')"
+          echo "host=${host} expected=${{ matrix.target }}"
+          test "${host}" = "${{ matrix.target }}"
+
+      - name: Hard-locked MSRV 1.75.0 lane (no-default + all-features)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.75.0 --profile minimal
+          rustc +1.75.0 --version | grep -q '^rustc 1\.75\.0 '
+          cargo +1.75.0 test --no-default-features --all-targets
+          cargo +1.75.0 test --all-features --all-targets
+
+      - name: Exhaustive 2^5 = 32 feature powerset (audit, rule-ir, logforge, sarif, lab-tools)
+        shell: bash
+        run: |
+          set -euo pipefail
+          feats=(audit rule-ir logforge sarif lab-tools)
+          ran=0
+          for mask in $(seq 0 31); do
+            list=""
+            for i in 0 1 2 3 4; do
+              if (( (mask >> i) & 1 )); then
+                list="${list:+${list},}${feats[$i]}"
+              fi
+            done
+            echo "::group::mask=${mask} features=[${list}]"
+            if [ -n "${list}" ]; then
+              cargo +stable test --no-default-features --features "${list}" --all-targets
+            else
+              cargo +stable test --no-default-features --all-targets
+            fi
+            echo "::endgroup::"
+            ran=$((ran + 1))
+          done
+          echo "powerset combinations verified: ${ran}"
+          test "${ran}" -eq 32

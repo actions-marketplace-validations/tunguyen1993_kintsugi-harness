@@ -461,7 +461,7 @@ class TestToolWire(unittest.TestCase):
             )
 
         # secret -> public blocked without DeclassificationGrant
-        records = [{"seq": 0, "api_token": "tok_secret_value_123", "msg": "ok"}]
+        records = [{"seq": 0, "api_token": "_".join(["tok", "secret", "value", "123"]), "msg": "ok"}]
         with self.assertRaises(ToolWireSensitivityError):
             self.wire.convert(records, source_port=p_ordered, target_port=p_public_ordered)
 

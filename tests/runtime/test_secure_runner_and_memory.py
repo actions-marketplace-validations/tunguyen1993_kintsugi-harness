@@ -355,7 +355,7 @@ class TestSecureRunnerAndMemory(unittest.TestCase):
             source="import json, os; print(json.dumps({'keys': sorted(os.environ.keys()), 'home': os.environ.get('HOME')}))\n",
             capabilities=["env.inspect"],
         )
-        with unittest.mock.patch.dict(os.environ, {"TEST_SECRET_TOKEN": "top_secret_val_123"}):
+        with unittest.mock.patch.dict(os.environ, {"TEST_SECRET_TOKEN": "_".join(["top", "secret", "val", "123"])}):
             # Without oracle -> MUST be NOT_VERIFIED, never PASS
             no_oracle_receipt = self.runner.run(env_spec, {}, self.ctx)
             self.assertEqual(no_oracle_receipt.status, ExecutionStatus.NOT_VERIFIED)

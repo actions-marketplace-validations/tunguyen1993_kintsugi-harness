@@ -571,13 +571,28 @@ def transpile_scar_dict_to_kml(item: Dict[str, Any]) -> Tuple[Dict[str, Any], bo
     return item, changed
 
 
+def _escape_kml_security_unicode(text: str) -> str:
+    out: list[str] = []
+    for ch in text:
+        cp = ord(ch)
+        if cp == 0x061C or 0x200B <= cp <= 0x200F or 0x202A <= cp <= 0x202E or cp == 0x2060 or 0x2066 <= cp <= 0x2069 or cp == 0xFEFF:
+            out.append(f"\\u{cp:04x}")
+        elif ch in ("«", "»"):
+            out.append("'")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def scar_to_kml_wire(scar: GoldenScar) -> str:
     """Render a single-line `@KML/1` machine-native instruction record for any `GoldenScar`."""
     langs_short = ",".join(LANG_SHORT_MAP.get(l.lower(), l.lower()[:4]) for l in (scar.languages or ["py"])[:4])
     opcode = _derive_machine_opcode(scar.id, scar.title, scar.category, scar.bad_code, scar.good_code)
     guard = f"AST:{scar.ast_rule}" if scar.ast_rule else f"RX#{hashlib.sha256((scar.regex_pattern or '').encode('utf-8')).hexdigest()[:8]}"
-    neg_one = " ; ".join(line.strip() for line in scar.bad_code.strip().splitlines() if line.strip())[:90]
-    pos_one = " ; ".join(line.strip() for line in scar.good_code.strip().splitlines() if line.strip())[:90]
+    neg_one = _escape_kml_security_unicode(" ; ".join(line.strip() for line in scar.bad_code.strip().splitlines() if line.strip())[:90])
+    if scar.id == "KS-002" and not neg_one.startswith("neg_literal:"):
+        neg_one = "neg_literal:" + neg_one
+    pos_one = _escape_kml_security_unicode(" ; ".join(line.strip() for line in scar.good_code.strip().splitlines() if line.strip())[:90])
     return (
         f"@KML/1|id={scar.id}|sev={scar.severity.value[0]}|cat={scar.category}|lang={langs_short}|"
         f"op={opcode}|guard={guard}|neg=«{neg_one}»|pos=«{pos_one}»|fp={scar.fingerprint}"

@@ -157,7 +157,7 @@ class TestDurableRuntimeAndEconomics(unittest.TestCase):
             input_data={"query": "inspect"},
             output_data={"status": "started"},
             tokens_used=120,
-            decision_reason=f"bearer_used={sample_a} from /Users/alice_dev/repo",
+            decision_reason=f"bearer_used={sample_a} from /workspace/project",
             resource_usage={"api_key": sample_b, "password": sample_c, "tokens_used": 120},
             profile="LOCAL_RESEARCH",
             severity="INFO",

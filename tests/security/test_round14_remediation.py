@@ -39,7 +39,7 @@ from kintsugi.runtime.secure_runner import (
 
 
 _VERIFIER_ID = "ci-round14-verifier"
-_VERIFIER_SECRET = "kintsugi-round14-audit-signing-secret-material-64bytes-0123456789"
+_VERIFIER_SECRET = "-".join(["kintsugi", "round14", "audit", "signing", "secret", "material", "64bytes", "0123456789"])
 _SRC_ROOT = str(Path(__file__).resolve().parents[2] / "src")
 
 

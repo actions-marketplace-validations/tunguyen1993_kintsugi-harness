@@ -7,7 +7,7 @@ Preserves the 9 legacy default tools under `profile="default"`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from kintsugi.capability import CompositionPlan, SecurityContext, ToolRegistry
 from kintsugi.cli_nextgen import (
@@ -15,6 +15,10 @@ from kintsugi.cli_nextgen import (
     load_workspace_json,
     load_workspace_registry,
     make_security_context,
+    run_build3_asm_forge_helper,
+    run_build3_evolution_v4_helper,
+    run_build3_smt_verify_helper,
+    run_build3_synthesize_helper,
 )
 from kintsugi.composition import (
     CompositionVerifier,
@@ -132,6 +136,128 @@ def nextgen_build2_tool_definitions() -> List[Dict[str, Any]]:
             },
         },
     ]
+
+
+NEXTGEN_BUILD3_TOOL_NAMES = frozenset(
+    {
+        "kintsugi_build3_synthesize_plan",
+        "kintsugi_build3_smt_verify_plan",
+        "kintsugi_build3_asm_arch_status",
+        "kintsugi_build3_evolution_v4_ablate",
+    }
+)
+
+
+def nextgen_build3_tool_definitions() -> List[Dict[str, Any]]:
+    """Return read-only Build #3 Cognitive Forge MCP tools (`profile in {'build3', 'cognitive'}`)."""
+    readonly_annotations = {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    }
+    return [
+        {
+            "name": "kintsugi_build3_synthesize_plan",
+            "description": "Build #3 Agent B: Synthesize a typed capability path & gap blueprint from goal + tools.",
+            "annotations": dict(readonly_annotations),
+            "inputSchema": {
+                "type": "object",
+                "required": ["workspace_root", "goal"],
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "goal": {"type": "object"},
+                    "tools": {"type": "array", "items": {"type": "object"}},
+                    "security_context": {"type": "object"},
+                    "registry_path": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_build3_smt_verify_plan",
+            "description": "Build #3 Agent D: Formally verify a composition plan across safety, taint, permissions & idempotency.",
+            "annotations": dict(readonly_annotations),
+            "inputSchema": {
+                "type": "object",
+                "required": ["workspace_root", "plan"],
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "plan": {"type": "object"},
+                    "tools": {"type": "array", "items": {"type": "object"}},
+                    "adapters": {"type": "array", "items": {"type": "object"}},
+                    "security_context": {"type": "object"},
+                    "registry_path": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_build3_asm_arch_status",
+            "description": "Build #3 Agent C: Report host architecture, ASM/NEON backend availability & supported kernel templates.",
+            "annotations": dict(readonly_annotations),
+            "inputSchema": {
+                "type": "object",
+                "required": ["workspace_root"],
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_build3_evolution_v4_ablate",
+            "description": "Build #3 Agent E: Evaluate matched causal ablation trials with family disjointness & Wilson lower-bound gates.",
+            "annotations": dict(readonly_annotations),
+            "inputSchema": {
+                "type": "object",
+                "required": ["workspace_root", "trials"],
+                "properties": {
+                    "workspace_root": {"type": "string"},
+                    "strategy_id": {"type": "string"},
+                    "revision": {"type": "integer"},
+                    "train_families": {"type": "array", "items": {"type": "string"}},
+                    "heldout_families": {"type": "array", "items": {"type": "string"}},
+                    "trials": {"type": "array", "items": {"type": "object"}},
+                    "mode": {"type": "string", "enum": ["local_research", "github_public"]},
+                },
+            },
+        },
+    ]
+
+
+def dispatch_nextgen_build3_mcp_tool(
+    name: str,
+    args: Dict[str, Any],
+    *,
+    authority: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Handle read-only Build #3 Cognitive Forge MCP tool calls."""
+    ws = Path(str(args.get("workspace_root") or ".")).resolve()
+    if name == "kintsugi_build3_synthesize_plan":
+        return run_build3_synthesize_helper(
+            ws,
+            dict(args.get("goal") or {}),
+            tools_data=args.get("tools"),
+            registry_path=args.get("registry_path"),
+            context_data=args.get("security_context"),
+            authority=authority,
+        )
+    if name == "kintsugi_build3_smt_verify_plan":
+        return run_build3_smt_verify_helper(
+            ws,
+            dict(args.get("plan") or {}),
+            tools_data=args.get("tools"),
+            registry_path=args.get("registry_path"),
+            adapters_data=args.get("adapters"),
+            context_data=args.get("security_context"),
+            authority=authority,
+        )
+    if name == "kintsugi_build3_asm_arch_status":
+        return run_build3_asm_forge_helper(ws, action="info")
+    if name == "kintsugi_build3_evolution_v4_ablate":
+        return run_build3_evolution_v4_helper(
+            ws,
+            args,
+            mode=str(args.get("mode") or "local_research"),
+        )
+    raise KeyError(name)
 
 
 def dispatch_nextgen_build2_mcp_tool(name: str, args: Dict[str, Any]) -> Dict[str, Any]:

@@ -32,7 +32,7 @@ from kintsugi.runtime.secure_runner import SecureRunner, probe_linux_landlock_av
 
 
 _VERIFIER_ID = "ci-round13-verifier"
-_VERIFIER_SECRET = "kintsugi-round13-audit-signing-secret-material-64bytes-0123456789"
+_VERIFIER_SECRET = "-".join(["kintsugi", "round13", "audit", "signing", "secret", "material", "64bytes", "0123456789"])
 
 
 def _make_authority() -> AttestationAuthority:

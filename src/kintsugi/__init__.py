@@ -22,10 +22,12 @@ from kintsugi.composition import (
     CompositionMemory,
     CompositionVerifier,
     ToolComposer,
+    verify_plan_formal,
 )
 from kintsugi.config import KintsugiConfig, OperatingProfile, resolve_kintsugi_config
-from kintsugi.evolution import SelfEvolutionEngineV3, StrategyMemory
+from kintsugi.evolution import EvolutionEngineV4, SelfEvolutionEngineV3, StrategyMemory
 from kintsugi.forge import (
+    AsmNativeForge,
     BuildManifestStore,
     ForgeTaskSpec,
     NativeToolForge,
@@ -37,6 +39,9 @@ from kintsugi.runtime import (
     AdaptiveResourceScheduler,
     CheckpointManager,
     ExperienceStore,
+    HermeticEntrypointSpec,
+    HermeticExecutionResult,
+    HermeticSpawnRunner,
     RunStateMachine,
     RunStatus,
     RunTelemetry,
@@ -46,6 +51,7 @@ from kintsugi.runtime import (
     run_stage1_vertical_slice,
 )
 from kintsugi.self_model import FunctionalSelfModel
+from kintsugi.synthesis.capability_graph import SynthesisGoal, TypedCapabilityGraph
 from kintsugi.tools import LogForge, ProofPack, RepoScout, ToolWire, TraceDoctor
 from kintsugi.crs_engine import (
     BitVectorSMTVerifier,
@@ -247,12 +253,19 @@ __all__ = [
     "CompositionMemory",
     "CompositionVerifier",
     "ToolComposer",
+    "verify_plan_formal",
+    "AsmNativeForge",
     "NativeToolForge",
     "ForgeTaskSpec",
     "ToolSandbox",
     "ToolBenchmark",
     "BuildManifestStore",
     "SecureRunner",
+    "HermeticEntrypointSpec",
+    "HermeticExecutionResult",
+    "HermeticSpawnRunner",
+    "TypedCapabilityGraph",
+    "SynthesisGoal",
     "ExperienceStore",
     "TraceStore",
     "RunStatus",
@@ -264,6 +277,7 @@ __all__ = [
     "run_stage1_vertical_slice",
     "StrategyMemory",
     "SelfEvolutionEngineV3",
+    "EvolutionEngineV4",
     "FunctionalSelfModel",
     "NativeBridge",
     "LogForge",
