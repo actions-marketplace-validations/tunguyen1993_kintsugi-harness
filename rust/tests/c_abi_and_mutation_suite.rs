@@ -246,12 +246,19 @@ fn broken_pipe_clean_exit_across_all_four_output_formats() {
     let body = "import yaml\n".to_string() + &"yaml.load(raw, Loader=yaml.Loader)\n".repeat(400);
     fs::write(tmp.path().join("pipe_vuln.py"), body).unwrap();
 
+    use std::io::Write;
     for subcmd in ["scan", "gate"] {
         for fmt in ["compact", "json", "jsonl", "sarif"] {
             let mut closed_reader = Command::new(bin)
                 .arg("--version").stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
-            let write_end = closed_reader.stdin.take().unwrap();
-            let _ = closed_reader.wait();
+            let mut write_end = closed_reader.stdin.take().unwrap();
+            let _ = closed_reader.wait().expect("closed_reader wait");
+            for _ in 0..50 {
+                match write_end.write(&[0u8]) {
+                    Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => break,
+                    _ => std::thread::sleep(std::time::Duration::from_millis(5)),
+                }
+            }
 
             let res = Command::new(bin)
                 .args([subcmd, "--format", fmt]).arg(tmp.path())
