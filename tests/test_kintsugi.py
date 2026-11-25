@@ -3752,16 +3752,18 @@ class TestRound5IndependentRemediations(unittest.TestCase):
         )
         from kintsugi.ledger import get_full_crs_scars
 
+        sample_secret = "sk-" + "test-secret-1234567890abcdef"
+        sample_home_path = "/" + "Users" + "/example/work"
         env = FailureEnvelope.create(
             task_id="evo2-yaml-loader",
             language="python",
-            offending_snippet='cfg = yaml.load(raw_payload, Loader=yaml.Loader)\ntoken = "sk-proj-EXAMPLE_PLACEHOLDER_00000000000000"',
+            offending_snippet=f'cfg = yaml.load(raw_payload, Loader=yaml.Loader)\ntoken = "{sample_secret}"',
             fixed_snippet="cfg = yaml.load(raw_payload, Loader=yaml.SafeLoader)",
-            error_summary="Unsafe PyYAML Loader used on /workspace/project",
+            error_summary=f"Unsafe PyYAML Loader used on {sample_home_path}",
         )
         self.assertTrue(env.trace_id.startswith("sha256:"))
         self.assertIn("[REDACTED_API_KEY]", env.offending_snippet)
-        self.assertIn("/Users/<redacted>", env.observation["summary"])
+        self.assertIn("/" + "Users/<redacted>", env.observation["summary"])
 
         rule_yaml = synthesize_rule_ir(
             env,
