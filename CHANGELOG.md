@@ -2,15 +2,36 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [3.0.1] - 2026-11-25
+
+### Security & Soundness Hardening
+- **Fail-Closed `s3-audit` Missing/Unreadable/`..`/Empty Targets & Multi-Call Exact Suppression (`rust/src/audit/s3.rs`, `rust/src/cli/audit_cmds.rs`, `rust/src/audit/prover_extensions.rs`):**
+  - Eliminated false `PASS_S3_PROVEN` on missing, unreadable, symlink, `..` parent-dir, or 0-file directory targets: now emits `assurance_tier = "NO_INPUT"`, `verdict = "FAIL_NO_INPUT"`, `strict_verdict = "NO_INPUT"`, `missing_targets`, and exit code `2` (merged cleanly across multi-target invocations).
+  - Replaced single-match per-line scanning and range-containment suppression with per-column `(line, col, kind)` seam tracking, multi-sink `extract_write_sinks`, and exact call-identity legacy suppression so sibling and nested unguarded reads (e.g. `open(safe, "w", encoding=open(other).read())`, `fs.writeFileSync(safe, fs.readFileSync(other))`) are never suppressed.
+- **7-Domain Obligation Prover Hardening (`rust/src/audit/{obligation_prover,prover_extensions}.rs`):**
+  - `SOL_SAFE_ERC20`: Requires exact unaliased `SafeERC20.sol` import, contract-scoped (or `global`) `using SafeERC20 for <ERC20Type>`, fail-closed verified receiver typing (local/state declaration or explicit `IERC20(...)` cast), rejection of `this`/`super`/local `function safeTransfer`, and general typed variable/parameter shadowing detection.
+  - TypeScript/JS `CMD_EXEC`: Replaced heuristic options checks with a depth-0 options-object parser handling 2-arg/3-arg/4-arg overloads, spreads, shorthand `{ shell }`, getters/setters/methods/quoted generators (`*"shell"()`), quoted/computed keys, `__proto__`, and inline comments without cross-arg or nested-object downgrades.
+- **Freeze-Aware `ContextEnvelope/3`, Strict `--max-tokens`, Disjoint Lexicon & Cross-Runtime `DeliveryTelemetry/1` Parity (`rust/src/audit/{capsules,low_tier_lexicon,context_envelope,delivery_telemetry}.rs`, `rust/src/cli/audit_cmds.rs`, `src/kintsugi/evolution/delivery_telemetry.py`):**
+  - Wired `try_load_frozen_ids` / `--telemetry-store` into `context`, `task-pack`, and `hook claude-post-read --workspace` (excluding frozen IDs before ranking & budgeting), enforced strict `estimated_tokens <= max_tokens` with UTF-8-safe clipping and honest `capsule_ids`/`lexicon_ids` across both `context` and `task-pack`, and eliminated overlapping triggers in `LT-009` and benign false-fires in `LT-016`/`LT-074`.
+  - Protected arbitrary non-telemetry JSON files (`UNRECOGNIZED_TELEMETRY_STORE`), deduplicated multi-file patch outcomes per `(client, session_id, patch_digest, item_id)` via `applied_outcomes` (with legacy `v3.0.0` backfill and `|` banned in IDs), synchronized strict Rust↔Python envelope/efficacy field validation, `u32` saturating counters, late `included_in_input` persistence, and fail-closed non-Unix lock timeout.
+- **MCP `kintsugi_read_with_context` POSIX `dir_fd` Traversal, Bounded Read & CRLF Snapshot Parity (`src/kintsugi/mcp_server.py`):**
+  - Replaced `.resolve()` + unbounded `read_bytes()` with kernel-enforced step-by-step POSIX `dir_fd` (`O_DIRECTORY | O_NOFOLLOW`) traversal, `fstat` `S_ISREG` verification, `10 MiB` bounded reads, strict `max_tokens > 0` validation, CRLF-verbatim SHA-256 `source_digest` parity (1 retry + fail-closed `SNAPSHOT_DIGEST_MISMATCH`), and default `telemetry_store` pointing to `<ledger_dir>/delivery_telemetry.json`.
+
+### Added & Fixed
+- **CLI `--profile v3` Enablement (`src/kintsugi/cli.py`, `tests/test_v3_breakthrough_suite.py`):**
+  - Added `"v3"` to `kintsugi mcp --profile` choices so `python3 -m kintsugi mcp --profile v3` serves all `26` MCP tools end-to-end over stdio (while preserving `default=9`, `nextgen=19`, `build3=23`) with a live stdio JSON-RPC subprocess test and CRLF/TOCTOU regression tests.
+- **Sanitized Low-Tier Lexicon Benchmark Artifact & Honest Claim Scoping (`benchmarks/low_tier_lexicon_ab_results_v3.json`, `README.md`, `CHANGELOG.md`):**
+  - Published the DLP-sanitized 4-round (`56 × 3 = 168` synthetic/held-out blind zero-hint runs: `49.4% → 95.8%`, `+46.4 pp`) + Round 5 Go/Docker/CI (`0/7 → 6/7`, `+85.7 pp`) benchmark artifact with explicit non-leaderboard caveats, scoped `"0 false PROVEN"` to the negative corpus and `"0 tokens"` to the benign fixture corpus, and synchronized `3.0.1` version metadata across Rust, Python, Cortex manifest, and tests.
+
 ## [3.0.0] - 2026-11-25
 
 ### Added
 - **7-Domain Typed Obligation Prover (`rust/src/audit/{obligation_prover,prover_extensions}.rs`, `s3.rs`):**
-  - Expanded honest 4-way static verification (`PROVEN | VIOLATED | UNKNOWN | UNSUPPORTED`, `0` false `PROVEN`) beyond `CMD_EXEC` and `SQL_EXEC` to five new high-impact security domains: `TSX_XSS` (React `.tsx`/`.jsx`), `PATH_CONFINE` (Python/TS/JS/Rust), `CRYPTO_MAC_BIDI` (Python/TS/JS), `SOL_REENTRANCY_CEI` (Solidity `.sol`), and `SOL_SAFE_ERC20` (Solidity `.sol`).
+  - Expanded honest 4-way static verification (`PROVEN | VIOLATED | UNKNOWN | UNSUPPORTED`, `0` false `PROVEN` on negative corpus) beyond `CMD_EXEC` and `SQL_EXEC` to five new high-impact security domains: `TSX_XSS` (React `.tsx`/`.jsx`), `PATH_CONFINE` (Python/TS/JS/Rust), `CRYPTO_MAC_BIDI` (Python/TS/JS), `SOL_REENTRANCY_CEI` (Solidity `.sol`), and `SOL_SAFE_ERC20` (Solidity `.sol`).
   - Hardened TypeScript `CMD_EXEC` against shell trampolines (`spawnSync('/bin/sh', ['-c', ...])`) and opaque options variables, and narrowed `s3.rs` legacy seam dedup so intermediate unguarded reads/comparisons are never suppressed.
 - **80-Entry Low-Tier Model Failure Lexicon (`LT-001..LT-080`, `rust/src/audit/low_tier_lexicon.rs`, `rules/matcher.rs`):**
   - Added symbol-scoped, zero-bloat JIT failure lexicon (`kintsugi-rs lexicon`) spanning Python, OWASP Security, TypeScript/NestJS/MySQL (`LT-035..LT-042`), Solidity 0.8.24/DeFi (`LT-043..LT-050`), Online Bounty/Audit Scars (`LT-051..LT-062`), React/Next.js/Vue FE V2 (`LT-063..LT-070`), and Go/Rust/Docker/GitHub Actions Supply-Chain (`LT-071..LT-080`).
-  - Added polyglot extension detection (`.sol`, `.vue`, `.yml`/`.yaml`, `Dockerfile.*`) and verified `0` matches / `0` tokens on benign unrelated code across Python, TS, Rust, and Go.
+  - Added polyglot extension detection (`.sol`, `.vue`, `.yml`/`.yaml`, `Dockerfile.*`) and verified `0` matches / `0` tokens on benign fixture corpus across Python, TS, Rust, and Go.
 - **Universal Truth Gate, 9 Signature-Guarded Capsules & Transactional Patch Controller (`src/kintsugi/evolution/{contract_ledger,fast_learner,patch_transaction}.py`, `rust/src/audit/capsules.rs`):**
   - Enforced fail-closed teacher provenance (`ALLOWED_FIRST_PARTY_HOSTS` + cryptographic thinking signature verification), explicit mathematical precondition on `CAP-FIN-ERC4626`, 4 falsifiable domain contracts (`CONTRACT-CM-IDEMPOTENCY`, `CONTRACT-CM-DECIMAL-FX`, `CONTRACT-MM-ERC4626-BOUNDED`, `CONTRACT-MM-LEDGER-CONSERVATION`), and 2-Strike / Dead-Scar Auto-Freeze.
 - **Multi-Client `ContextEnvelope/3` & `DeliveryTelemetry/1` (`rust/src/audit/{context_envelope,delivery_telemetry}.rs`, `src/kintsugi/evolution/delivery_telemetry.py`, `src/kintsugi/mcp_server.py`):**

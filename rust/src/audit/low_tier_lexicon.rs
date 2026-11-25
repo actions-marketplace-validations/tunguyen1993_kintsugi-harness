@@ -8,6 +8,7 @@
 //!   - JIT-only injection: `0` tokens on clean/unrelated files; capped at `max_entries` (default 4).
 //!   - Every entry is Signature-Guarded & Falsifiable (paired bad vs good pattern + precondition).
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::Instant;
 
@@ -141,7 +142,10 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         slug: "boundary_odd_empty",
         category: "algo",
         languages: &["*"],
-        trigger_groups: &[&["@struct_halving_hash_tree", "merkle", "len", "range", "slice", "index", "items", "nodes"]],
+        trigger_groups: &[
+            &["@struct_halving_hash_tree", "merkle", "len", "length", "range", "slice", "array", "index", "items", "nodes"],
+            &["for", "while", "append", "push", "pop", "offset", "page", "limit", "bounds", "boundary", "empty", "is_empty", "single", "odd", "even", "mid", "midpoint", "median", "indexerror"],
+        ],
         bad_pattern: "Indexing `items[0]` on empty input, leaving `nodes.append(nodes[-1])` odd-node duplication (`[A,B,C]==[A,B,C,C]`), or `<` vs `<=` off-by-one",
         good_pattern: "Explicitly reject empty `items` (`if not items: raise ValueError(...)`), REMOVE any `nodes.append(nodes[-1])` odd-node duplication, and promote the trailing odd node unchanged",
         precondition: "Loop indexing, Merkle/tree reduction, pagination, or inclusive/exclusive bounds",
@@ -211,7 +215,7 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         slug: "ts_async_truthy_trap",
         category: "typescript",
         languages: &["typescript", "javascript"],
-        trigger_groups: &[&["async", "await", "promise", "foreach", "number", "amount", "qty", "price"]],
+        trigger_groups: &[&["async", "await", "promise", "foreach", "amount", "qty", "price"]],
         bad_pattern: "`items.forEach(async ...)` (unawaited promises!) or `if (!amount)` dropping valid `0`",
         good_pattern: "Use `for (const item of items) { await ... }` / `Promise.all` and explicit `amount === undefined || amount === null`",
         precondition: "TypeScript/Node async loops and numeric zero-value validation",
@@ -954,9 +958,6 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
             "unwrap",
             "expect",
             "split_at",
-            "index",
-            "indexed",
-            "slice",
             "from_be_bytes",
             "from_le_bytes",
             "checked_add",
@@ -964,6 +965,7 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
             "saturating_add",
             "try_from",
             "unchecked",
+            "get_unchecked",
         ]],
         bad_pattern: "Panicking on untrusted input via `slice[i]`/`.unwrap()`/`.expect()`, silently wrapping `a + b` in release builds, or truncating integers via `val as usize`/`as u32`",
         good_pattern: "Use bounds-checked `.get(i)` + `?` propagation, checked arithmetic (`checked_add`/`checked_mul`/`saturating_sub`), and fallible `usize::try_from(val)?` instead of `as` casts",
@@ -1060,10 +1062,11 @@ pub struct LexiconMatchReport {
     pub estimated_tokens: usize,
 }
 
-pub fn match_low_tier_lexicon_for_source(
+pub fn match_low_tier_lexicon_for_source_excluding(
     target_label: &str,
     code: &str,
     lang_hint: &str,
+    excluded_ids: &BTreeSet<String>,
     max_entries: usize,
 ) -> LexiconMatchReport {
     let t0 = Instant::now();
@@ -1071,7 +1074,7 @@ pub fn match_low_tier_lexicon_for_source(
     let mut scored: Vec<(usize, &'static PitfallEntry)> = Vec::new();
 
     for entry in LOW_TIER_PITFALL_LEXICON {
-        if !entry.supports_lang(lang_hint) {
+        if excluded_ids.contains(entry.id) || !entry.supports_lang(lang_hint) {
             continue;
         }
         let mut hits = 0usize;
@@ -1111,6 +1114,15 @@ pub fn match_low_tier_lexicon_for_source(
         compact_text,
         estimated_tokens,
     }
+}
+
+pub fn match_low_tier_lexicon_for_source(
+    target_label: &str,
+    code: &str,
+    lang_hint: &str,
+    max_entries: usize,
+) -> LexiconMatchReport {
+    match_low_tier_lexicon_for_source_excluding(target_label, code, lang_hint, &BTreeSet::new(), max_entries)
 }
 
 pub fn match_low_tier_lexicon_for_file(
@@ -1180,7 +1192,6 @@ pub fn render_all_lexicon_json() -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
     use super::*;
     use crate::json_dom::parse_json_value;
 
@@ -1353,6 +1364,10 @@ jobs:
     fn benign_repros_emit_zero_matches_and_zero_tokens() {
         for (file, lang, code) in [
             ("count.rs", "rust", "pub fn count(n: usize) -> usize { n }"),
+            ("count_items.rs", "rust", "fn count(items: usize) -> usize { items }"),
+            ("get_len.py", "python", "def get_len(x): return len(x)"),
+            ("f.ts", "typescript", "export function f(range: number) { return range; }"),
+            ("keep.rs", "rust", "fn keep(index: u8) -> u8 { index }"),
             ("latest.py", "python", "from pathlib import Path\ndef get_latest(): return Path('.')"),
             ("jobs.py", "python", "def run_jobs(max_runs: int): return max_runs"),
             ("perms.py", "python", "def check_checkout_permissions(user): return bool(user)"),
@@ -1369,5 +1384,41 @@ jobs:
             );
             assert_eq!(rep.estimated_tokens, 0, "expected 0 tokens for benign {file}");
         }
+    }
+
+    #[test]
+    fn lt009_trigger_groups_are_disjoint_and_match_real_boundary_snippets() {
+        let lt009 = LOW_TIER_PITFALL_LEXICON.iter().find(|e| e.id == "LT-009").unwrap();
+        assert_eq!(lt009.trigger_groups.len(), 2);
+        let g0: BTreeSet<&str> = lt009.trigger_groups[0].iter().copied().collect();
+        let g1: BTreeSet<&str> = lt009.trigger_groups[1].iter().copied().collect();
+        let overlap: Vec<&str> = g0.intersection(&g1).copied().collect();
+        assert!(overlap.is_empty(), "LT-009 trigger groups must be 100% disjoint, overlap={overlap:?}");
+
+        for (file, lang, code) in [
+            ("median.py", "python", "def median(items):\n    mid = len(items) // 2\n    return items[mid]\n"),
+            ("merkle.py", "python", "def merkle_root(nodes):\n    while len(nodes) > 1:\n        if len(nodes) % 2 == 1:\n            nodes.append(nodes[-1])\n    return nodes[0]\n"),
+            ("slice_empty.rs", "rust", "pub fn first_item(slice: &[u8]) -> Option<u8> {\n    if slice.is_empty() { return None; }\n    Some(slice[0])\n}\n"),
+            ("page.ts", "typescript", "export function paginate(items: string[], offset: number, limit: number) {\n    return items.slice(offset, offset + limit);\n}\n"),
+        ] {
+            let rep = match_low_tier_lexicon_for_source(file, code, lang, 6);
+            assert!(
+                rep.matched_entries.iter().any(|e| e.id == "LT-009"),
+                "expected LT-009 on {file}, got {:?}",
+                rep.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn match_lexicon_excluding_filters_frozen_ids_before_ranking_and_tokens() {
+        let code = "pub fn read_asset(root: &std::path::Path, rel: &str) -> String { std::fs::read_to_string(root.join(rel)).unwrap() }\n";
+        let full = match_low_tier_lexicon_for_source("asset.rs", code, "rust", 4);
+        assert!(full.matched_entries.iter().any(|e| e.id == "LT-074"));
+        let mut excluded = BTreeSet::new();
+        excluded.insert("LT-074".to_string());
+        let pruned = match_low_tier_lexicon_for_source_excluding("asset.rs", code, "rust", &excluded, 4);
+        assert!(!pruned.matched_entries.iter().any(|e| e.id == "LT-074"));
+        assert!(pruned.estimated_tokens < full.estimated_tokens);
     }
 }

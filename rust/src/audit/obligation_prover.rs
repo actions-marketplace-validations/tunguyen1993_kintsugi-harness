@@ -872,50 +872,40 @@ fn eval_cmd_obligation(
         );
     }
 
-    if mask_all.contains("...") {
-        return mk(
-            ObligationState::Unknown,
-            None,
-            None,
-            "object spread (...opts) can override shell: false at runtime",
-            "Pass explicit options object { shell: false } without untrusted spread",
-        );
-    }
-    if let Some(shell_state) = inspect_ts_shell_option(raw_all, mask_all) {
-        return match shell_state {
-            "true" | "string" => mk(
+    if matches!(
+        sink.callee.as_str(),
+        "execFile" | "execFileSync" | "child_process.execFile" | "child_process.execFileSync"
+    ) {
+        let arg_count = call.arg_line_offsets.len();
+        if arg_count == 0 {
+            return mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "empty execFile/execFileSync call lacks verifiable command arguments",
+                "Pass command binary and argv array or explicit { shell: false }",
+            );
+        }
+        // If 3-arg call is `execFile(file, { shell: true }, cb)`, arg1 itself can be an unsafe options literal.
+        if arg_count == 3 && parse_ts_options_object(&call.arg_line_offsets[1].1) == TsShellOptionState::Violated {
+            return mk(
                 ObligationState::Violated,
                 Some(call.span),
                 None,
                 "explicit shell: true or shell path in child_process options",
                 "Pass { shell: false } and argv array",
-            ),
-            "false" => mk(
-                ObligationState::Proven,
-                Some(call.span),
-                None,
-                "explicit { shell: false } verified",
-                "",
-            ),
-            _ => mk(
-                ObligationState::Unknown,
-                None,
-                None,
-                "dynamic shell option in child_process options",
-                "Pass literal { shell: false } explicitly",
-            ),
-        };
-    }
-    if matches!(
-        sink.callee.as_str(),
-        "execFile" | "execFileSync" | "child_process.execFile" | "child_process.execFileSync"
-    ) {
-        let safe_default = call.arg_line_offsets.len() <= 2
-            || call.arg_line_offsets.get(2).is_some_and(|(_, _, m_opt)| {
-                let mt = m_opt.trim();
-                mt.starts_with('{') && mt.ends_with('}') && !mt.contains("...") && !has_ts_shell_prop(mt)
-            });
-        if safe_default {
+            );
+        }
+        if arg_count == 1 {
+            if mask_all.contains("...") {
+                return mk(
+                    ObligationState::Unknown,
+                    None,
+                    None,
+                    "object spread (...opts) can override shell: false at runtime",
+                    "Pass explicit options object { shell: false } without untrusted spread",
+                );
+            }
             return mk(
                 ObligationState::Proven,
                 Some(call.span),
@@ -924,22 +914,243 @@ fn eval_cmd_obligation(
                 "",
             );
         }
+        if arg_count == 2 {
+            let r1 = call.arg_line_offsets[1].1.as_str();
+            let m1 = call.arg_line_offsets[1].2.trim();
+            return match parse_ts_options_object(r1) {
+                TsShellOptionState::Violated => mk(
+                    ObligationState::Violated,
+                    Some(call.span),
+                    None,
+                    "explicit shell: true or shell path in child_process options",
+                    "Pass { shell: false } and argv array",
+                ),
+                TsShellOptionState::Unknown => mk(
+                    ObligationState::Unknown,
+                    None,
+                    None,
+                    "dynamic, shorthand, getter, computed, or spread shell option in child_process options",
+                    "Pass literal { shell: false } explicitly",
+                ),
+                TsShellOptionState::SafeExplicitFalse => {
+                    if mask_all.contains("...") {
+                        mk(
+                            ObligationState::Unknown,
+                            None,
+                            None,
+                            "object spread (...opts) can override shell: false at runtime",
+                            "Pass explicit options object { shell: false } without untrusted spread",
+                        )
+                    } else {
+                        mk(
+                            ObligationState::Proven,
+                            Some(call.span),
+                            None,
+                            "explicit { shell: false } verified",
+                            "",
+                        )
+                    }
+                }
+                TsShellOptionState::SafeDefault => {
+                    if mask_all.contains("...") {
+                        mk(
+                            ObligationState::Unknown,
+                            None,
+                            None,
+                            "object spread (...opts) can override shell: false at runtime",
+                            "Pass explicit options object { shell: false } without untrusted spread",
+                        )
+                    } else {
+                        mk(
+                            ObligationState::Proven,
+                            Some(call.span),
+                            None,
+                            "execFile/execFileSync default shell=false verified",
+                            "",
+                        )
+                    }
+                }
+                TsShellOptionState::NotAnObjectLiteral => {
+                    if !mask_all.contains("...") && is_single_balanced_delim(m1, b'[', b']') {
+                        mk(
+                            ObligationState::Proven,
+                            Some(call.span),
+                            None,
+                            "execFile/execFileSync default shell=false verified",
+                            "",
+                        )
+                    } else {
+                        mk(
+                            ObligationState::Unknown,
+                            None,
+                            None,
+                            "opaque 2nd argument on execFile/execFileSync may be an options object enabling shell: true",
+                            "Pass inline argv array [...] or inline options object literal with explicit { shell: false }",
+                        )
+                    }
+                }
+            };
+        }
+        // arg_count >= 3: inspect ONLY the 3rd argument (index 2) as the options object literal (never arg1 or 4th-arg callback).
+        let r_opt = call.arg_line_offsets[2].1.as_str();
+        return match parse_ts_options_object(r_opt) {
+            TsShellOptionState::Violated => mk(
+                ObligationState::Violated,
+                Some(call.span),
+                None,
+                "explicit shell: true or shell path in child_process options",
+                "Pass { shell: false } and argv array",
+            ),
+            TsShellOptionState::Unknown => mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "dynamic, shorthand, getter, computed, or spread shell option in child_process options",
+                "Pass literal { shell: false } explicitly",
+            ),
+            TsShellOptionState::SafeExplicitFalse => {
+                if mask_all.contains("...") {
+                    mk(
+                        ObligationState::Unknown,
+                        None,
+                        None,
+                        "object spread (...opts) can override shell: false at runtime",
+                        "Pass explicit options object { shell: false } without untrusted spread",
+                    )
+                } else {
+                    mk(
+                        ObligationState::Proven,
+                        Some(call.span),
+                        None,
+                        "explicit { shell: false } verified",
+                        "",
+                    )
+                }
+            }
+            TsShellOptionState::SafeDefault => {
+                if mask_all.contains("...") {
+                    mk(
+                        ObligationState::Unknown,
+                        None,
+                        None,
+                        "object spread (...opts) can override shell: false at runtime",
+                        "Pass explicit options object { shell: false } without untrusted spread",
+                    )
+                } else {
+                    mk(
+                        ObligationState::Proven,
+                        Some(call.span),
+                        None,
+                        "execFile/execFileSync default shell=false verified",
+                        "",
+                    )
+                }
+            }
+            TsShellOptionState::NotAnObjectLiteral => mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "opaque options argument on execFile/execFileSync may enable shell: true",
+                "Pass inline options object literal with explicit { shell: false }",
+            ),
+        };
+    }
+
+    if sink.callee == "authorizeCommand" {
+        if mask_all.contains("...") {
+            return mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "object spread (...opts) can override shell: false at runtime",
+                "Pass explicit options object { shell: false } without untrusted spread",
+            );
+        }
+        let mut saw_bad = false;
+        let mut saw_unk = false;
+        for (_, ra, _) in &call.arg_line_offsets {
+            match parse_ts_options_object(ra) {
+                TsShellOptionState::Violated => saw_bad = true,
+                TsShellOptionState::Unknown => saw_unk = true,
+                _ => {}
+            }
+        }
+        if saw_bad {
+            return mk(
+                ObligationState::Violated,
+                Some(call.span),
+                None,
+                "explicit shell: true or shell path in child_process options",
+                "Pass { shell: false } and argv array",
+            );
+        }
+        if !saw_unk && !has_ts_shell_prop(mask_all) {
+            return mk(
+                ObligationState::Proven,
+                Some(call.span),
+                None,
+                "authorizeCommand verified without shell override",
+                "",
+            );
+        }
         return mk(
             ObligationState::Unknown,
             None,
             None,
-            "opaque options argument on execFile/execFileSync may enable shell: true",
-            "Pass inline options object literal with explicit { shell: false }",
+            "dynamic shell option in authorizeCommand options",
+            "Pass literal { shell: false } explicitly",
         );
     }
-    if sink.callee == "authorizeCommand" && !has_ts_shell_prop(mask_all) {
-        return mk(
-            ObligationState::Proven,
-            Some(call.span),
-            None,
-            "authorizeCommand verified without shell override",
-            "",
-        );
+
+    // spawn / spawnSync / runProcess / runCommand: inspect ONLY the exact options argument (2nd arg for 2-arg call, 3rd arg for >=3-arg call).
+    let opt_raw_opt = match call.arg_line_offsets.len() {
+        2 => Some(call.arg_line_offsets[1].1.as_str()),
+        n if n >= 3 => Some(call.arg_line_offsets[2].1.as_str()),
+        _ => None,
+    };
+    if let Some(opt_raw) = opt_raw_opt {
+        return match parse_ts_options_object(opt_raw) {
+            TsShellOptionState::Violated => mk(
+                ObligationState::Violated,
+                Some(call.span),
+                None,
+                "explicit shell: true or shell path in child_process options",
+                "Pass { shell: false } and argv array",
+            ),
+            TsShellOptionState::SafeExplicitFalse => {
+                if mask_all.contains("...") {
+                    mk(
+                        ObligationState::Unknown,
+                        None,
+                        None,
+                        "object spread (...opts) can override shell: false at runtime",
+                        "Pass explicit options object { shell: false } without untrusted spread",
+                    )
+                } else {
+                    mk(
+                        ObligationState::Proven,
+                        Some(call.span),
+                        None,
+                        "explicit { shell: false } verified",
+                        "",
+                    )
+                }
+            }
+            TsShellOptionState::Unknown => mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "dynamic, shorthand, getter, computed, or spread shell option in child_process options",
+                "Pass literal { shell: false } explicitly",
+            ),
+            TsShellOptionState::SafeDefault | TsShellOptionState::NotAnObjectLiteral => mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "missing explicit shell: false in child_process options",
+                "Pass { shell: false } explicitly",
+            ),
+        };
     }
     mk(
         ObligationState::Unknown,
@@ -948,6 +1159,25 @@ fn eval_cmd_obligation(
         "missing explicit shell: false in child_process options",
         "Pass { shell: false } explicitly",
     )
+}
+
+fn is_single_balanced_delim(s: &str, open: u8, close: u8) -> bool {
+    let b = s.as_bytes();
+    if b.len() < 2 || b[0] != open || b[b.len() - 1] != close {
+        return false;
+    }
+    let mut depth = 0usize;
+    for (i, &ch) in b.iter().enumerate() {
+        if ch == open {
+            depth += 1;
+        } else if ch == close {
+            depth = depth.saturating_sub(1);
+            if depth == 0 && i + 1 < b.len() {
+                return false;
+            }
+        }
+    }
+    depth == 0
 }
 
 fn has_ts_shell_prop(mask: &str) -> bool {
@@ -967,41 +1197,474 @@ fn has_ts_shell_prop(mask: &str) -> bool {
     false
 }
 
-fn inspect_ts_shell_option(raw_all: &str, mask_all: &str) -> Option<&'static str> {
-    let mb = mask_all.as_bytes();
-    let mut from = 0usize;
-    let mut found: Option<&'static str> = None;
-    while from < mask_all.len() {
-        let Some(rel) = mask_all[from..].find("shell") else { break };
-        let idx = from + rel;
-        let left_ok = idx == 0 || !is_ident_byte(mb[idx - 1]);
-        let after = idx + 5;
-        let right_ok = after >= mb.len() || !is_ident_byte(mb[after]);
-        if left_ok && right_ok {
-            let tail_m = &mask_all[after..];
-            let ws_len = tail_m.len() - tail_m.trim_start().len();
-            if tail_m[ws_len..].starts_with(':') {
-                let val_off = after + ws_len + 1;
-                let mv = mask_all.get(val_off..).unwrap_or("").trim_start();
-                let rv = raw_all.get(val_off..).unwrap_or("").trim_start();
-                let state = if mv.starts_with("true") && !mv.as_bytes().get(4).is_some_and(|&b| is_ident_byte(b)) {
-                    "true"
-                } else if mv.starts_with("false") && !mv.as_bytes().get(5).is_some_and(|&b| is_ident_byte(b)) {
-                    "false"
-                } else if rv.starts_with('"') || rv.starts_with('\'') || rv.starts_with('`') {
-                    "string"
-                } else {
-                    "dynamic"
-                };
-                if matches!(state, "true" | "string") {
-                    return Some(state);
-                }
-                found = Some(state);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TsShellOptionState {
+    NotAnObjectLiteral,
+    SafeDefault,
+    SafeExplicitFalse,
+    Violated,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TsShellVal {
+    False,
+    Violated,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TsQuotedKey {
+    Shell,
+    Suspicious,
+    OtherSafe,
+}
+
+fn skip_ts_ws_and_comments(s: &str, mut i: usize) -> Option<usize> {
+    let b = s.as_bytes();
+    while i < b.len() {
+        if b[i].is_ascii_whitespace() {
+            i += 1;
+        } else if b[i..].starts_with(b"//") {
+            i += 2;
+            while i < b.len() && b[i] != b'\n' {
+                i += 1;
             }
+        } else if b[i..].starts_with(b"/*") {
+            i += 2;
+            let mut closed = false;
+            while i + 1 < b.len() {
+                if b[i] == b'*' && b[i + 1] == b'/' {
+                    i += 2;
+                    closed = true;
+                    break;
+                }
+                i += 1;
+            }
+            if !closed {
+                return None;
+            }
+        } else {
+            break;
         }
-        from = after;
     }
-    found
+    Some(i)
+}
+
+fn advance_ts_string(s: &str, start: usize) -> Option<usize> {
+    let b = s.as_bytes();
+    let q = *b.get(start)?;
+    if q != b'"' && q != b'\'' {
+        return None;
+    }
+    let mut i = start + 1;
+    while i < b.len() {
+        if b[i] == b'\\' {
+            if i + 1 >= b.len() {
+                return None;
+            }
+            let step = s[i + 1..].chars().next().map_or(1, char::len_utf8);
+            i += 1 + step;
+            continue;
+        }
+        if b[i] == q {
+            return Some(i + 1);
+        }
+        i += s[i..].chars().next().map_or(1, char::len_utf8);
+    }
+    None
+}
+
+fn advance_ts_template(s: &str, start: usize) -> Option<usize> {
+    let b = s.as_bytes();
+    if b.get(start) != Some(&b'`') {
+        return None;
+    }
+    let mut i = start + 1;
+    while i < b.len() {
+        if b[i] == b'\\' {
+            if i + 1 >= b.len() {
+                return None;
+            }
+            let step = s[i + 1..].chars().next().map_or(1, char::len_utf8);
+            i += 1 + step;
+            continue;
+        }
+        if b[i] == b'`' {
+            return Some(i + 1);
+        }
+        if b[i] == b'$' && b.get(i + 1) == Some(&b'{') {
+            let close = scan_ts_balanced(s, i + 1, b'{', b'}')?;
+            i = close + 1;
+            continue;
+        }
+        i += s[i..].chars().next().map_or(1, char::len_utf8);
+    }
+    None
+}
+
+fn scan_ts_balanced(s: &str, start: usize, open: u8, close: u8) -> Option<usize> {
+    let b = s.as_bytes();
+    if b.get(start) != Some(&open) {
+        return None;
+    }
+    let mut depth = 0usize;
+    let mut i = start;
+    while i < b.len() {
+        let ch = b[i];
+        if ch == b'"' || ch == b'\'' {
+            i = advance_ts_string(s, i)?;
+        } else if ch == b'`' {
+            i = advance_ts_template(s, i)?;
+        } else if b[i..].starts_with(b"//") || b[i..].starts_with(b"/*") {
+            i = skip_ts_ws_and_comments(s, i)?;
+        } else if ch == open {
+            depth += 1;
+            i += 1;
+        } else if ch == close {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                return Some(i);
+            }
+            i += 1;
+        } else {
+            i += s[i..].chars().next().map_or(1, char::len_utf8);
+        }
+    }
+    None
+}
+
+fn trim_ts_ws_and_comments(s: &str) -> Option<&str> {
+    let start = skip_ts_ws_and_comments(s, 0)?;
+    if start >= s.len() {
+        return Some("");
+    }
+    let b = s.as_bytes();
+    let mut i = start;
+    let mut last_end = start;
+    while i < b.len() {
+        if b[i].is_ascii_whitespace() || b[i..].starts_with(b"//") || b[i..].starts_with(b"/*") {
+            i = skip_ts_ws_and_comments(s, i)?;
+        } else if b[i] == b'"' || b[i] == b'\'' {
+            i = advance_ts_string(s, i)?;
+            last_end = i;
+        } else if b[i] == b'`' {
+            i = advance_ts_template(s, i)?;
+            last_end = i;
+        } else {
+            i += s[i..].chars().next().map_or(1, char::len_utf8);
+            last_end = i;
+        }
+    }
+    Some(&s[start..last_end])
+}
+
+fn split_ts_top_level_entries(inner: &str) -> Option<Vec<&str>> {
+    let b = inner.as_bytes();
+    let mut out = Vec::new();
+    let (mut p, mut br, mut c) = (0usize, 0usize, 0usize);
+    let mut seg_start = 0usize;
+    let mut i = 0usize;
+    while i < b.len() {
+        let ch = b[i];
+        if ch == b'"' || ch == b'\'' {
+            i = advance_ts_string(inner, i)?;
+        } else if ch == b'`' {
+            i = advance_ts_template(inner, i)?;
+        } else if b[i..].starts_with(b"//") || b[i..].starts_with(b"/*") {
+            i = skip_ts_ws_and_comments(inner, i)?;
+        } else {
+            match ch {
+                b'(' => p += 1,
+                b')' => {
+                    if p == 0 { return None; }
+                    p -= 1;
+                }
+                b'[' => br += 1,
+                b']' => {
+                    if br == 0 { return None; }
+                    br -= 1;
+                }
+                b'{' => c += 1,
+                b'}' => {
+                    if c == 0 { return None; }
+                    c -= 1;
+                }
+                b',' if p == 0 && br == 0 && c == 0 => {
+                    out.push(&inner[seg_start..i]);
+                    seg_start = i + 1;
+                }
+                _ => {}
+            }
+            i += inner[i..].chars().next().map_or(1, char::len_utf8);
+        }
+    }
+    if p != 0 || br != 0 || c != 0 {
+        return None;
+    }
+    out.push(&inner[seg_start..]);
+    Some(out)
+}
+
+fn classify_ts_quoted_key(lit: &str) -> TsQuotedKey {
+    if lit.len() < 2 || lit.contains('\\') {
+        return TsQuotedKey::Suspicious;
+    }
+    if lit.starts_with('`') && lit.contains("${") {
+        return TsQuotedKey::Suspicious;
+    }
+    match &lit[1..lit.len() - 1] {
+        "shell" => TsQuotedKey::Shell,
+        "__proto__" => TsQuotedKey::Suspicious,
+        _ => TsQuotedKey::OtherSafe,
+    }
+}
+
+fn classify_ts_shell_value(raw_val: &str) -> TsShellVal {
+    let Some(v) = trim_ts_ws_and_comments(raw_val) else {
+        return TsShellVal::Unknown;
+    };
+    if v == "false" {
+        TsShellVal::False
+    } else if v == "true" {
+        TsShellVal::Violated
+    } else if v.starts_with('"') || v.starts_with('\'') {
+        let Some(end) = advance_ts_string(v, 0) else {
+            return TsShellVal::Unknown;
+        };
+        if end == v.len() || v[end..].trim_start().starts_with('+') {
+            TsShellVal::Violated
+        } else {
+            TsShellVal::Unknown
+        }
+    } else if v.starts_with('`') {
+        let Some(end) = advance_ts_template(v, 0) else {
+            return TsShellVal::Unknown;
+        };
+        if end == v.len() || v[end..].trim_start().starts_with('+') {
+            TsShellVal::Violated
+        } else {
+            TsShellVal::Unknown
+        }
+    } else {
+        TsShellVal::Unknown
+    }
+}
+
+fn parse_ts_options_object(raw_opt: &str) -> TsShellOptionState {
+    let Some(start) = skip_ts_ws_and_comments(raw_opt, 0) else {
+        return TsShellOptionState::Unknown;
+    };
+    if raw_opt.as_bytes().get(start) != Some(&b'{') {
+        return TsShellOptionState::NotAnObjectLiteral;
+    }
+    let Some(close) = scan_ts_balanced(raw_opt, start, b'{', b'}') else {
+        return TsShellOptionState::Unknown;
+    };
+    let Some(after) = skip_ts_ws_and_comments(raw_opt, close + 1) else {
+        return TsShellOptionState::Unknown;
+    };
+    if after != raw_opt.len() {
+        return TsShellOptionState::NotAnObjectLiteral;
+    }
+    let inner = &raw_opt[start + 1..close];
+    let Some(entries) = split_ts_top_level_entries(inner) else {
+        return TsShellOptionState::Unknown;
+    };
+
+    let mut saw_violated = false;
+    let mut saw_unknown = false;
+    let mut saw_explicit_false = false;
+
+    for entry in entries {
+        let Some(e_trimmed) = trim_ts_ws_and_comments(entry) else {
+            saw_unknown = true;
+            continue;
+        };
+        if e_trimmed.is_empty() {
+            continue;
+        }
+        if e_trimmed.starts_with("...") {
+            saw_unknown = true;
+            continue;
+        }
+        if e_trimmed.starts_with('[') {
+            let Some(close_br) = scan_ts_balanced(e_trimmed, 0, b'[', b']') else {
+                saw_unknown = true;
+                continue;
+            };
+            let Some(key_expr) = trim_ts_ws_and_comments(&e_trimmed[1..close_br]) else {
+                saw_unknown = true;
+                continue;
+            };
+            let Some(after_idx) = skip_ts_ws_and_comments(e_trimmed, close_br + 1) else {
+                saw_unknown = true;
+                continue;
+            };
+            let after_br = &e_trimmed[after_idx..];
+            let is_single_quote_lit = (key_expr.starts_with('"') || key_expr.starts_with('\''))
+                && advance_ts_string(key_expr, 0) == Some(key_expr.len());
+            let is_single_tpl_lit = key_expr.starts_with('`')
+                && advance_ts_template(key_expr, 0) == Some(key_expr.len());
+            if is_single_quote_lit || is_single_tpl_lit {
+                match classify_ts_quoted_key(key_expr) {
+                    TsQuotedKey::Shell => {
+                        if let Some(val_raw) = after_br.strip_prefix(':') {
+                            match classify_ts_shell_value(val_raw) {
+                                TsShellVal::Violated => saw_violated = true,
+                                TsShellVal::False => saw_explicit_false = true,
+                                TsShellVal::Unknown => saw_unknown = true,
+                            }
+                        } else {
+                            saw_unknown = true;
+                        }
+                    }
+                    TsQuotedKey::Suspicious => saw_unknown = true,
+                    TsQuotedKey::OtherSafe => {}
+                }
+            } else {
+                saw_unknown = true;
+            }
+            continue;
+        }
+        if e_trimmed.starts_with('"') || e_trimmed.starts_with('\'') {
+            let Some(q_end) = advance_ts_string(e_trimmed, 0) else {
+                saw_unknown = true;
+                continue;
+            };
+            let key_lit = &e_trimmed[..q_end];
+            let Some(after_idx) = skip_ts_ws_and_comments(e_trimmed, q_end) else {
+                saw_unknown = true;
+                continue;
+            };
+            let after_q = &e_trimmed[after_idx..];
+            match classify_ts_quoted_key(key_lit) {
+                TsQuotedKey::Shell => {
+                    if let Some(val_raw) = after_q.strip_prefix(':') {
+                        match classify_ts_shell_value(val_raw) {
+                            TsShellVal::Violated => saw_violated = true,
+                            TsShellVal::False => saw_explicit_false = true,
+                            TsShellVal::Unknown => saw_unknown = true,
+                        }
+                    } else {
+                        saw_unknown = true;
+                    }
+                }
+                TsQuotedKey::Suspicious => saw_unknown = true,
+                TsQuotedKey::OtherSafe => {}
+            }
+            continue;
+        }
+        // Generator method shorthand `*shell() {}` / `*"shell"() {}` / `*'shell'() {}` / `*[k]() {}` / `*__proto__() {}`
+        if let Some(after_star_raw) = e_trimmed.strip_prefix('*') {
+            let Some(ns) = skip_ts_ws_and_comments(after_star_raw, 0) else {
+                saw_unknown = true;
+                continue;
+            };
+            let after_star = &after_star_raw[ns..];
+            if after_star.starts_with('[') {
+                saw_unknown = true;
+            } else if after_star.starts_with('"') || after_star.starts_with('\'') {
+                let Some(q_end) = advance_ts_string(after_star, 0) else {
+                    saw_unknown = true;
+                    continue;
+                };
+                if !matches!(classify_ts_quoted_key(&after_star[..q_end]), TsQuotedKey::OtherSafe) {
+                    saw_unknown = true;
+                }
+            } else {
+                let ab = after_star.as_bytes();
+                let mut ae = 0usize;
+                while ae < ab.len() && is_ident_byte(ab[ae]) {
+                    ae += 1;
+                }
+                let gname = &after_star[..ae];
+                if gname == "shell" || gname == "__proto__" || gname.is_empty() {
+                    saw_unknown = true;
+                }
+            }
+            continue;
+        }
+        // Static identifier, shorthand property, getter/setter, or method
+        let eb = e_trimmed.as_bytes();
+        let mut id_end = 0usize;
+        while id_end < eb.len() && is_ident_byte(eb[id_end]) {
+            id_end += 1;
+        }
+        if id_end == 0 {
+            saw_unknown = true;
+            continue;
+        }
+        let first_id = &e_trimmed[..id_end];
+        let Some(after_idx) = skip_ts_ws_and_comments(e_trimmed, id_end) else {
+            saw_unknown = true;
+            continue;
+        };
+        let rest = &e_trimmed[after_idx..];
+        if let Some(val_raw) = rest.strip_prefix(':') {
+            if first_id == "shell" {
+                match classify_ts_shell_value(val_raw) {
+                    TsShellVal::Violated => saw_violated = true,
+                    TsShellVal::False => saw_explicit_false = true,
+                    TsShellVal::Unknown => saw_unknown = true,
+                }
+            } else if first_id == "__proto__" {
+                saw_unknown = true;
+            }
+        } else if rest.is_empty() {
+            // Shorthand property: `{ shell }` or `{ cwd }`
+            if first_id == "shell" || first_id == "__proto__" {
+                saw_unknown = true;
+            }
+        } else if rest.starts_with('(') {
+            // Method shorthand: `{ shell() {} }`
+            if first_id == "shell" || first_id == "__proto__" {
+                saw_unknown = true;
+            }
+        } else if matches!(first_id, "get" | "set" | "async") {
+            let mut prop = rest;
+            if first_id == "async" && prop.starts_with('*') {
+                let Some(ns) = skip_ts_ws_and_comments(&prop[1..], 0) else {
+                    saw_unknown = true;
+                    continue;
+                };
+                prop = &prop[1 + ns..];
+            }
+            if prop.starts_with('[') {
+                saw_unknown = true;
+            } else if prop.starts_with('"') || prop.starts_with('\'') {
+                let Some(q_end) = advance_ts_string(prop, 0) else {
+                    saw_unknown = true;
+                    continue;
+                };
+                if !matches!(classify_ts_quoted_key(&prop[..q_end]), TsQuotedKey::OtherSafe) {
+                    saw_unknown = true;
+                }
+            } else {
+                let pb = prop.as_bytes();
+                let mut pe = 0usize;
+                while pe < pb.len() && is_ident_byte(pb[pe]) {
+                    pe += 1;
+                }
+                let pname = &prop[..pe];
+                if pname == "shell" || pname == "__proto__" || pname.is_empty() {
+                    saw_unknown = true;
+                }
+            }
+        } else {
+            saw_unknown = true;
+        }
+    }
+
+    if saw_violated {
+        TsShellOptionState::Violated
+    } else if saw_unknown {
+        TsShellOptionState::Unknown
+    } else if saw_explicit_false {
+        TsShellOptionState::SafeExplicitFalse
+    } else {
+        TsShellOptionState::SafeDefault
+    }
 }
 
 fn eval_sql_obligation(
@@ -1357,5 +2020,118 @@ mod tests {
 
         let u2 = prove("utf8_aug.ts", "function f(db: any, id: string) {\n  /* 🚀🚀🚀 */ let sql = \"SELECT 'café' FROM u WHERE id = ?\";\n  db.query(sql, [id]);\n}\n");
         assert_eq!((u2.len(), u2[0].rule, u2[0].state), (1, "SQL_EXEC", ObligationState::Proven));
+
+        // PoC #13c (HIGH #3): 2-arg `execFileSync("printf", options)` MUST return UNKNOWN (never PROVEN!)
+        let o2_unk = prove(
+            "two_arg_opts.ts",
+            "import { execFileSync } from 'child_process';\nfunction run(options: any) {\n  execFileSync(\"printf\", options);\n}\n",
+        );
+        assert_eq!((o2_unk.len(), o2_unk[0].rule, o2_unk[0].state), (1, "CMD_EXEC", ObligationState::Unknown));
+
+        let o2_expr = prove(
+            "two_arg_expr.ts",
+            "import { execFileSync } from 'child_process';\nfunction run(argsOrOpts: any) {\n  execFileSync(\"printf\", argsOrOpts);\n  execFileSync(\"printf\", [\"a\"] || argsOrOpts);\n}\n",
+        );
+        assert_eq!(o2_expr.len(), 2);
+        assert!(o2_expr.iter().all(|o| o.rule == "CMD_EXEC" && o.state == ObligationState::Unknown));
+
+        let o2_bad = prove(
+            "two_arg_shell_true.ts",
+            "import { execFileSync } from 'child_process';\nfunction run() {\n  execFileSync(\"printf\", { shell: true });\n  execFileSync(\"printf\", { shell: \"/bin/sh\" });\n}\n",
+        );
+        assert_eq!(o2_bad.len(), 2);
+        assert!(o2_bad.iter().all(|o| o.rule == "CMD_EXEC" && o.state == ObligationState::Violated));
+
+        // Positive controls: 1-arg, 2-arg inline array, 2-arg inline safe options -> PROVEN
+        let o2_ok = prove(
+            "two_arg_safe.ts",
+            "import { execFileSync } from 'child_process';\nfunction run() {\n  execFileSync(\"ls\");\n  execFileSync(\"printf\", [\"hello\"]);\n  execFileSync(\"printf\", { timeout: 5000 });\n  execFileSync(\"printf\", { timeout: 5000, shell: false });\n}\n",
+        );
+        assert_eq!(o2_ok.len(), 4);
+        assert!(o2_ok.iter().all(|o| o.rule == "CMD_EXEC" && o.state == ObligationState::Proven));
+    }
+
+    #[test]
+    fn ts_cmd_exec_round2_options_parser_bypasses_and_comments() {
+        // Shorthand `{ shell }`, getter `get shell()`, dynamic computed `[keyVar]`, nested/callback/arg1 shell:false spoof -> UNKNOWN (NEVER PROVEN!)
+        for (fname, src) in [
+            (
+                "shorthand2.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(shell: boolean) { execFileSync(\"printf\", { shell }); }\n",
+            ),
+            (
+                "shorthand3.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(userArg: string, shell: boolean) { execFileSync(\"printf\", [userArg], { shell }); }\n",
+            ),
+            (
+                "getter.ts",
+                "import { execFileSync } from 'child_process';\nfunction run() { execFileSync(\"printf\", { get shell() { return true; } }); }\n",
+            ),
+            (
+                "computed_dyn.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(userArg: string, keyVar: string) { execFileSync(\"printf\", [userArg], { [keyVar]: true }); }\n",
+            ),
+            (
+                "nested_env_downgrade.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(x: string, dynamicFlag: any) { execFileSync(\"printf\", [x], { shell: dynamicFlag, env: { shell: false } }); }\n",
+            ),
+            (
+                "arg1_spoof_spawn.ts",
+                "import { spawnSync } from 'child_process';\nfunction run(opaqueOpts: any) { spawnSync(\"printf\", [helper({ shell: false })], opaqueOpts); }\n",
+            ),
+            (
+                "callback_downgrade.ts",
+                "import { execFile } from 'child_process';\nfunction run(x: string, dynamicFlag: any) { execFile(\"printf\", [x], { shell: dynamicFlag }, () => ({ shell: false })); }\n",
+            ),
+            (
+                "quoted_gen_dq.ts",
+                "import { execFileSync } from 'child_process';\nfunction run() { execFileSync(\"printf\", { *\"shell\"() {} }); }\n",
+            ),
+            (
+                "quoted_gen_sq.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(userArg: string) { execFileSync(\"printf\", [userArg], { *'shell'() {} }); }\n",
+            ),
+            (
+                "proto_gen.ts",
+                "import { execFileSync } from 'child_process';\nfunction run() { execFileSync(\"printf\", { *__proto__() {} }); }\n",
+            ),
+        ] {
+            let obs = prove(fname, src);
+            assert_eq!(obs.len(), 1, "{fname}");
+            assert_eq!(obs[0].rule, "CMD_EXEC", "{fname}");
+            assert_eq!(obs[0].state, ObligationState::Unknown, "{fname}: must be Unknown, never Proven");
+        }
+
+        // Quoted `"shell"` / `'shell'`, static computed `["shell"]`, and block comment before string value -> VIOLATED!
+        for (fname, src) in [
+            (
+                "quoted_dq.ts",
+                "import { execFileSync } from 'child_process';\nfunction run() { execFileSync(\"printf\", { \"shell\": true }); }\n",
+            ),
+            (
+                "quoted_sq.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(userArg: string) { execFileSync(\"printf\", [userArg], { 'shell': \"/bin/sh\" }); }\n",
+            ),
+            (
+                "computed_lit.ts",
+                "import { execFileSync } from 'child_process';\nfunction run(userArg: string) { execFileSync(\"printf\", [userArg], { [\"shell\"]: true }); }\n",
+            ),
+            (
+                "comment_val.ts",
+                "import { execFileSync } from 'child_process';\nfunction run() { execFileSync(\"printf\", { shell: /* comment */ \"/bin/sh\" }); }\n",
+            ),
+        ] {
+            let obs = prove(fname, src);
+            assert_eq!(obs.len(), 1, "{fname}");
+            assert_eq!(obs[0].rule, "CMD_EXEC", "{fname}");
+            assert_eq!(obs[0].state, ObligationState::Violated, "{fname}: must be Violated");
+        }
+
+        // Valid safe inline `{ shell: false, env: { FOO: "1" } }` -> PROVEN!
+        let ok = prove(
+            "safe_with_env.ts",
+            "import { execFileSync } from 'child_process';\nfunction run(x: string) { execFileSync(\"printf\", [x], { shell: false, env: { FOO: \"1\" } }); }\n",
+        );
+        assert_eq!((ok.len(), ok[0].rule, ok[0].state), (1, "CMD_EXEC", ObligationState::Proven));
     }
 }

@@ -864,56 +864,154 @@ fn extract_ident_before_dot(ml: &str, dot_pos: usize) -> Option<String> {
     }
 }
 
-fn extract_write_sink(raw: &[&str], masked: &[String], i: usize, lang: ExtLang) -> Option<(usize, Option<String>, String, String)> {
+fn split_py_top_args(ra: &str) -> Vec<&str> {
+    let bytes = ra.as_bytes();
+    let (mut p, mut b, mut c, mut i, mut start) = (0usize, 0usize, 0usize, 0usize, 0usize);
+    let mut quote: Option<u8> = None;
+    let mut out = Vec::new();
+    while i < bytes.len() {
+        let ch = bytes[i];
+        if let Some(q) = quote {
+            if ch == b'\\' && i + 1 < bytes.len() {
+                i += 2;
+                continue;
+            }
+            if ch == q {
+                quote = None;
+            }
+            i += 1;
+            continue;
+        }
+        match ch {
+            b'\'' | b'"' => quote = Some(ch),
+            b'(' => p += 1,
+            b')' => p = p.saturating_sub(1),
+            b'[' => b += 1,
+            b']' => b = b.saturating_sub(1),
+            b'{' => c += 1,
+            b'}' => c = c.saturating_sub(1),
+            b',' if p == 0 && b == 0 && c == 0 => {
+                out.push(&ra[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    if start < ra.len() {
+        out.push(&ra[start..]);
+    }
+    out
+}
+
+fn is_py_write_mode_literal(val: &str) -> bool {
+    const WRITE_MODES: &[&str] = &[
+        "'w'", "\"w\"", "'wb'", "\"wb\"", "'wt'", "\"wt\"", "'w+'", "\"w+\"",
+        "'wb+'", "\"wb+\"", "'w+b'", "\"w+b\"", "'a'", "\"a\"", "'ab'", "\"ab\"",
+        "'at'", "\"at\"", "'a+'", "\"a+\"", "'ab+'", "\"ab+\"", "'a+b'", "\"a+b\"",
+        "'x'", "\"x\"", "'xb'", "\"xb\"", "'xt'", "\"xt\"", "'x+'", "\"x+\"",
+        "'xb+'", "\"xb+\"", "'x+b'", "\"x+b\"", "'r+'", "\"r+\"", "'rb+'", "\"rb+\"",
+        "'r+b'", "\"r+b\"",
+    ];
+    let t = val.trim();
+    WRITE_MODES.contains(&t)
+}
+
+fn python_open_has_write_mode(ra: &str) -> bool {
+    let args = split_py_top_args(ra);
+    for (idx, arg) in args.iter().enumerate().skip(1) {
+        let t = arg.trim();
+        if let Some((k, v)) = t.split_once('=') {
+            if k.trim() == "mode" && is_py_write_mode_literal(v) {
+                return true;
+            }
+        } else if idx == 1 && is_py_write_mode_literal(t) {
+            return true;
+        }
+    }
+    false
+}
+
+fn extract_write_sinks(raw: &[&str], masked: &[String], i: usize, lang: ExtLang) -> Vec<(usize, Option<String>, String, String)> {
     let ml = masked[i].as_str();
+    let mb = ml.as_bytes();
+    let mut sinks = Vec::new();
     match lang {
         ExtLang::Python => {
-            if let Some(c) = ml.find("os.open(") {
-                if let Some((ra, ma, _)) = extract_balanced(raw, masked, i, c + 7, b'(', b')', 6) {
-                    if ["O_WRONLY", "O_CREAT", "O_RDWR", "O_TRUNC", "O_APPEND"].iter().any(|f| ma.contains(f)) {
-                        let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
-                        return Some((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
+            let mut from_os = 0usize;
+            while from_os < ml.len() {
+                let Some(rel) = ml[from_os..].find("os.open(") else { break };
+                let c = from_os + rel;
+                if c == 0 || !is_id(mb[c - 1]) {
+                    if let Some((ra, ma, _)) = extract_balanced(raw, masked, i, c + 7, b'(', b')', 6) {
+                        if ["O_WRONLY", "O_CREAT", "O_RDWR", "O_TRUNC", "O_APPEND"].iter().any(|f| ma.contains(f)) {
+                            let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
+                            sinks.push((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
+                        }
                     }
                 }
+                from_os = c + 8;
             }
-            if let Some(c) = ml.find(".write_text(").or_else(|| ml.find(".write_bytes(")) {
-                let tv = extract_ident_before_dot(ml, c);
-                return Some((c, tv, String::new(), String::new()));
-            }
-            let c = find_word_col(ml, "open", 0)?;
-            if !(c > 0 && ml.as_bytes()[c - 1] == b'.') && ml[c + 4..].starts_with('(') {
-                if let Some((ra, ma, _)) = extract_balanced(raw, masked, i, c + 4, b'(', b')', 6) {
-                    if ["'w'", "\"w\"", "'wb'", "\"wb\"", "'wt'", "\"wt\"", "'w+'", "\"w+\"", "'a'", "\"a\"", "'ab'", "\"ab\"", "'x'", "\"x\"", "'xb'", "\"xb\"", "'r+'", "\"r+\""]
-                        .iter().any(|m| ra.contains(m))
-                    {
-                        let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
-                        return Some((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
-                    }
+            for pat in [".write_text(", ".write_bytes("] {
+                let mut from_wt = 0usize;
+                while from_wt < ml.len() {
+                    let Some(rel) = ml[from_wt..].find(pat) else { break };
+                    let c = from_wt + rel;
+                    let tv = extract_ident_before_dot(ml, c);
+                    sinks.push((c, tv, String::new(), String::new()));
+                    from_wt = c + pat.len();
                 }
             }
-            None
+            let mut from_open = 0usize;
+            while let Some(c) = find_word_col(ml, "open", from_open) {
+                if !(c > 0 && mb[c - 1] == b'.') && ml[c + 4..].starts_with('(') {
+                    if let Some((ra, ma, _)) = extract_balanced(raw, masked, i, c + 4, b'(', b')', 6) {
+                        if python_open_has_write_mode(&ra) {
+                            let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
+                            sinks.push((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
+                        }
+                    }
+                }
+                from_open = c + 4;
+            }
         }
         ExtLang::JsTs => {
-            let (c, lp_off) = ml.find("writeFileSync(").map(|p| (p, 13))
-                .or_else(|| ml.find("fs.writeFile(").map(|p| (p, 12)))
-                .or_else(|| ml.find("promises.writeFile(").map(|p| (p, 18)))?;
-            let (ra, ma, _) = extract_balanced(raw, masked, i, c + lp_off, b'(', b')', 6).unwrap_or_default();
-            let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
-            Some((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma))
+            let mut seen_parens = BTreeSet::new();
+            for (pat, lp_off) in [("writeFileSync(", 13usize), ("fs.writeFile(", 12usize), ("promises.writeFile(", 18usize)] {
+                let mut from = 0usize;
+                while from < ml.len() {
+                    let Some(rel) = ml[from..].find(pat) else { break };
+                    let c = from + rel;
+                    let left_ok = c == 0 || !is_id(mb[c - 1]);
+                    if left_ok && seen_parens.insert(c + lp_off) {
+                        let (ra, ma, _) = extract_balanced(raw, masked, i, c + lp_off, b'(', b')', 6).unwrap_or_default();
+                        let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim());
+                        sinks.push((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
+                    }
+                    from = c + pat.len();
+                }
+            }
         }
         ExtLang::Rust => {
-            let c = ml.find("fs::write(")?;
-            let (ra, ma, _) = extract_balanced(raw, masked, i, c + 9, b'(', b')', 6).unwrap_or_default();
-            let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim())
-                .trim_start_matches("&mut ")
-                .trim_start_matches('&')
-                .trim()
-                .trim_end_matches(".as_path()")
-                .trim();
-            Some((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma))
+            let mut from = 0usize;
+            while from < ml.len() {
+                let Some(rel) = ml[from..].find("fs::write(") else { break };
+                let c = from + rel;
+                let (ra, ma, _) = extract_balanced(raw, masked, i, c + 9, b'(', b')', 6).unwrap_or_default();
+                let a0 = strip_outer_parens(extract_first_top_arg(&ma).trim())
+                    .trim_start_matches("&mut ")
+                    .trim_start_matches('&')
+                    .trim()
+                    .trim_end_matches(".as_path()")
+                    .trim();
+                sinks.push((c, is_simple_ident(a0).then(|| a0.to_string()), ra, ma));
+                from = c + 10;
+            }
         }
-        _ => None,
+        _ => {}
     }
+    sinks.sort_by_key(|s| s.0);
+    sinks
 }
 
 fn has_sep_suffix(raw: &str, mask: &str) -> bool {
@@ -1147,111 +1245,75 @@ fn prove_path_confine(raw: &[&str], masked: &[String], lang: ExtLang, hash: &str
         if !has_ops { continue; }
         for i in blk.body_start..=blk.end {
             if is_nested_py(&blocks, lang, blk, i) || skip_fixture(raw[i]) { continue; }
-            let Some((_, target_var, sink_ra, sink_ma)) = extract_write_sink(raw, masked, i, lang) else { continue };
+            for (sink_col, target_var, sink_ra, sink_ma) in extract_write_sinks(raw, masked, i, lang) {
+                let (mut target_can, mut target_unclean_join, mut s_pref, mut b_pref, mut sym) = (None, None, None, None, None);
+                let (mut sep_vars, mut lstat_vars, mut str_vars, mut target_str_aliases) = (BTreeSet::new(), BTreeSet::new(), BTreeSet::new(), BTreeSet::new());
+                let mut target_str_converted = false;
 
-            let (mut target_can, mut target_unclean_join, mut s_pref, mut b_pref, mut sym) = (None, None, None, None, None);
-            let (mut sep_vars, mut lstat_vars, mut str_vars, mut target_str_aliases) = (BTreeSet::new(), BTreeSet::new(), BTreeSet::new(), BTreeSet::new());
-            let mut target_str_converted = false;
+                for l in blk.start..=i {
+                    if is_nested_py(&blocks, lang, blk, l) { continue; }
+                    let (rl, ml) = (raw[l], masked[l].as_str());
 
-            for l in blk.start..=i {
-                if is_nested_py(&blocks, lang, blk, l) { continue; }
-                let (rl, ml) = (raw[l], masked[l].as_str());
-
-                if let Some((lhs, eq)) = parse_simple_lhs(ml) {
-                    let rhs_r = rl.get(eq + 1..).unwrap_or("");
-                    let rhs_m = ml.get(eq + 1..).unwrap_or("");
-                    if has_sep_suffix(rhs_r, rhs_m) { sep_vars.insert(lhs.to_string()); }
-                    if lang == ExtLang::Rust
-                        && ["to_str(", "to_string_lossy(", ".display(", "format!(", ".to_string("].iter().any(|k| rhs_m.contains(k))
-                    {
-                        str_vars.insert(lhs.to_string());
-                        if target_var.as_deref().is_some_and(|tv| has_word(rhs_m, tv)) {
-                            target_str_converted = true;
-                            target_str_aliases.insert(lhs.to_string());
+                    if let Some((lhs, eq)) = parse_simple_lhs(ml) {
+                        let rhs_r = rl.get(eq + 1..).unwrap_or("");
+                        let rhs_m = ml.get(eq + 1..).unwrap_or("");
+                        if has_sep_suffix(rhs_r, rhs_m) { sep_vars.insert(lhs.to_string()); }
+                        if lang == ExtLang::Rust
+                            && ["to_str(", "to_string_lossy(", ".display(", "format!(", ".to_string("].iter().any(|k| rhs_m.contains(k))
+                        {
+                            str_vars.insert(lhs.to_string());
+                            if target_var.as_deref().is_some_and(|tv| has_word(rhs_m, tv)) {
+                                target_str_converted = true;
+                                target_str_aliases.insert(lhs.to_string());
+                            }
                         }
-                    }
-                    if let Some(tv) = target_var.as_deref() {
-                        if ["lstatSync(", "lstat(", "symlink_metadata("].iter().any(|k| rhs_m.contains(k)) && has_word(rhs_m, tv) {
-                            lstat_vars.insert(lhs.to_string());
-                        }
-                        if lhs == tv {
-                            // Reassignment of `target_var`: reset prior guards and evaluate new RHS strictly!
-                            s_pref = None;
-                            sym = None;
-                            if is_real_canonicalizer_rhs(rhs_m, lang) {
-                                target_can = Some(l);
-                                target_unclean_join = None;
-                            } else {
-                                target_can = None;
-                                if is_path_join_rhs(rhs_r, rhs_m, lang) {
-                                    target_unclean_join = Some(l);
+                        if let Some(tv) = target_var.as_deref() {
+                            if ["lstatSync(", "lstat(", "symlink_metadata("].iter().any(|k| rhs_m.contains(k)) && has_word(rhs_m, tv) {
+                                lstat_vars.insert(lhs.to_string());
+                            }
+                            if lhs == tv {
+                                // Reassignment of `target_var`: reset prior guards and evaluate new RHS strictly!
+                                s_pref = None;
+                                sym = None;
+                                if is_real_canonicalizer_rhs(rhs_m, lang) {
+                                    target_can = Some(l);
+                                    target_unclean_join = None;
+                                } else {
+                                    target_can = None;
+                                    if is_path_join_rhs(rhs_r, rhs_m, lang) {
+                                        target_unclean_join = Some(l);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if lang == ExtLang::Rust {
-                    if let Some(tv) = target_var.as_deref() {
-                        if has_word(ml, tv) && ["to_str(", "to_string_lossy(", ".display("].iter().any(|k| ml.contains(k)) {
-                            target_str_converted = true;
+                    if lang == ExtLang::Rust {
+                        if let Some(tv) = target_var.as_deref() {
+                            if has_word(ml, tv) && ["to_str(", "to_string_lossy(", ".display("].iter().any(|k| ml.contains(k)) {
+                                target_str_converted = true;
+                            }
                         }
                     }
-                }
 
-                let Some(tv) = target_var.as_deref() else { continue };
+                    let Some(tv) = target_var.as_deref() else { continue };
 
-                // Check O_NOFOLLOW directly on sink line `i`
-                if l == i && ml.contains("O_NOFOLLOW") && has_word(ml, tv) {
-                    sym = Some(i);
-                }
-
-                let guard_form = classify_rejecting_guard(raw, masked, blk, l, i, lang);
-
-                // Symlink check bound to `tv` inside a rejecting `if`/`assert`
-                if let Some(form) = guard_form {
-                    if line_has_bound_symlink_check(ml, tv, &lstat_vars, form, lang) {
-                        sym = Some(l);
+                    // Check O_NOFOLLOW directly on sink line `i`
+                    if l == i && ml.contains("O_NOFOLLOW") && has_word(ml, tv) {
+                        sym = Some(i);
                     }
-                }
 
-                // Prefix check `.is_relative_to(...)` bound to `tv`
-                if let Some(pos) = ml.find(".is_relative_to(") {
-                    if extract_ident_before_dot(ml, pos).as_deref() == Some(tv) {
-                        if let Some(form) = guard_form {
-                            let cond = guard_condition_slice(ml, form, lang);
-                            let neg = is_expr_negated_in_clause(ml, pos.saturating_sub(tv.len()));
-                            let pol_ok = match form {
-                                GuardForm::Assert => !neg && !cond.contains(" or ") && !cond.contains("||"),
-                                GuardForm::RejectIf => neg && !cond.contains(" and ") && !cond.contains("&&"),
-                            };
-                            if pol_ok { s_pref = Some(l); }
+                    let guard_form = classify_rejecting_guard(raw, masked, blk, l, i, lang);
+
+                    // Symlink check bound to `tv` inside a rejecting `if`/`assert`
+                    if let Some(form) = guard_form {
+                        if line_has_bound_symlink_check(ml, tv, &lstat_vars, form, lang) {
+                            sym = Some(l);
                         }
                     }
-                }
 
-                // Prefix check `.startswith(` / `.startsWith(` / `.starts_with(`
-                for needle in [".startswith(", ".startsWith(", ".starts_with("] {
-                    if let Some((pos, (ra, ma, _))) = ml.find(needle).and_then(|p| {
-                        Some((p, extract_balanced(raw, masked, l, p + needle.len() - 1, b'(', b')', 3)?))
-                    }) {
-                        let mt = ma.trim();
-                        if mt.is_empty() { continue; }
-                        let recv = extract_ident_before_dot(ml, pos);
-                        let is_target = recv.as_deref() == Some(tv);
-                        let is_str_alias = recv.as_deref().is_some_and(|r| target_str_aliases.contains(r));
-                        if !is_target && !is_str_alias { continue; }
-
-                        let rust_path_safe = lang == ExtLang::Rust
-                            && is_target
-                            && target_can.is_some()
-                            && !target_str_converted
-                            && !str_vars.contains(tv)
-                            && !["to_str", "to_string_lossy", "display"].iter().any(|k| ml[..pos].contains(k) || ma.contains(k))
-                            && !extract_idents(&ma).iter().any(|id| str_vars.contains(id));
-                        let ok = rust_path_safe || has_sep_suffix(&ra, &ma) || sep_vars.contains(mt);
-                        if !ok {
-                            b_pref = Some(l);
-                        } else if is_target {
+                    // Prefix check `.is_relative_to(...)` bound to `tv`
+                    if let Some(pos) = ml.find(".is_relative_to(") {
+                        if extract_ident_before_dot(ml, pos).as_deref() == Some(tv) {
                             if let Some(form) = guard_form {
                                 let cond = guard_condition_slice(ml, form, lang);
                                 let neg = is_expr_negated_in_clause(ml, pos.saturating_sub(tv.len()));
@@ -1263,24 +1325,88 @@ fn prove_path_confine(raw: &[&str], masked: &[String], lang: ExtLang, hash: &str
                             }
                         }
                     }
+
+                    // Prefix check `.startswith(` / `.startsWith(` / `.starts_with(`
+                    for needle in [".startswith(", ".startsWith(", ".starts_with("] {
+                        if let Some((pos, (ra, ma, _))) = ml.find(needle).and_then(|p| {
+                            Some((p, extract_balanced(raw, masked, l, p + needle.len() - 1, b'(', b')', 3)?))
+                        }) {
+                            let mt = ma.trim();
+                            if mt.is_empty() { continue; }
+                            let recv = extract_ident_before_dot(ml, pos);
+                            let is_target = recv.as_deref() == Some(tv);
+                            let is_str_alias = recv.as_deref().is_some_and(|r| target_str_aliases.contains(r));
+                            if !is_target && !is_str_alias { continue; }
+
+                            let rust_path_safe = lang == ExtLang::Rust
+                                && is_target
+                                && target_can.is_some()
+                                && !target_str_converted
+                                && !str_vars.contains(tv)
+                                && !["to_str", "to_string_lossy", "display"].iter().any(|k| ml[..pos].contains(k) || ma.contains(k))
+                                && !extract_idents(&ma).iter().any(|id| str_vars.contains(id));
+                            let ok = rust_path_safe || has_sep_suffix(&ra, &ma) || sep_vars.contains(mt);
+                            if !ok {
+                                b_pref = Some(l);
+                            } else if is_target {
+                                if let Some(form) = guard_form {
+                                    let cond = guard_condition_slice(ml, form, lang);
+                                    let neg = is_expr_negated_in_clause(ml, pos.saturating_sub(tv.len()));
+                                    let pol_ok = match form {
+                                        GuardForm::Assert => !neg && !cond.contains(" or ") && !cond.contains("||"),
+                                        GuardForm::RejectIf => neg && !cond.contains(" and ") && !cond.contains("&&"),
+                                    };
+                                    if pol_ok { s_pref = Some(l); }
+                                }
+                            }
+                        }
+                    }
                 }
+
+                let sink_end_col = {
+                    let rest = masked[i].get(sink_col..).unwrap_or("");
+                    if let Some(lp) = rest.find('(') {
+                        let mut d = 0usize;
+                        let mut end_c = raw[i].len().max(sink_col + 1);
+                        for (bi, &b) in rest.as_bytes()[lp..].iter().enumerate() {
+                            if b == b'(' {
+                                d += 1;
+                            } else if b == b')' {
+                                d = d.saturating_sub(1);
+                                if d == 0 {
+                                    end_c = sink_col + lp + bi + 1;
+                                    break;
+                                }
+                            }
+                        }
+                        end_c
+                    } else {
+                        raw[i].len().max(sink_col + 1)
+                    }
+                };
+                let sink = Span {
+                    start_line: i + 1,
+                    start_col: sink_col + 1,
+                    end_line: i + 1,
+                    end_col: sink_end_col.max(sink_col + 1),
+                };
+                let a0_ra = extract_first_top_arg(&sink_ra);
+                let a0_ma = extract_first_top_arg(&sink_ma);
+                let inline_unclean_join = target_var.is_none()
+                    && !is_real_canonicalizer_rhs(a0_ma, lang)
+                    && is_path_join_rhs(a0_ra, a0_ma, lang);
+
+                let (st, wit, rsn, hint) = if let Some(bl) = b_pref {
+                    (ObligationState::Violated, Some(lspan(bl, raw[bl].len())), "prefix check startswith(root) lacks trailing separator or converts Path to string (sibling bypass)", "Use canonicalize + startswith(root + sep)/is_relative_to + symlink check")
+                } else if target_unclean_join.is_some() || inline_unclean_join {
+                    (ObligationState::Violated, Some(sink), "joined target path written without post-join symlink-resolving canonicalize/realpath/resolve", "Canonicalize joined target via realpath/Path.resolve/realpathSync/canonicalize before write")
+                } else if let (Some(cl), Some(pl), Some(_)) = (target_can, s_pref, sym) {
+                    (ObligationState::Proven, Some(Span { start_line: cl + 1, start_col: 1, end_line: pl + 1, end_col: 1 }), "target canonicalized, rejecting sibling-safe prefix check, and symlink defense verified", "")
+                } else {
+                    (ObligationState::Unknown, target_can.or(s_pref).map(|l| lspan(l, 1)), "incomplete path confinement on target variable (requires real canonicalize + rejecting sibling-safe prefix + symlink defense)", "Canonicalize target variable, reject escaping prefixes with if/assert, and check symlink/O_NOFOLLOW on target")
+                };
+                out.push(mk_ob("PATH_CONFINE", lang, sink, wit, target_var, hash, st, rsn, hint));
             }
-
-            let sink = lspan(i, raw[i].len());
-            let inline_unclean_join = target_var.is_none()
-                && !is_real_canonicalizer_rhs(extract_first_top_arg(&sink_ma), lang)
-                && is_path_join_rhs(&sink_ra, &sink_ma, lang);
-
-            let (st, wit, rsn, hint) = if let Some(bl) = b_pref {
-                (ObligationState::Violated, Some(lspan(bl, raw[bl].len())), "prefix check startswith(root) lacks trailing separator or converts Path to string (sibling bypass)", "Use canonicalize + startswith(root + sep)/is_relative_to + symlink check")
-            } else if target_unclean_join.is_some() || inline_unclean_join {
-                (ObligationState::Violated, Some(sink), "joined target path written without post-join symlink-resolving canonicalize/realpath/resolve", "Canonicalize joined target via realpath/Path.resolve/realpathSync/canonicalize before write")
-            } else if let (Some(cl), Some(pl), Some(_)) = (target_can, s_pref, sym) {
-                (ObligationState::Proven, Some(Span { start_line: cl + 1, start_col: 1, end_line: pl + 1, end_col: 1 }), "target canonicalized, rejecting sibling-safe prefix check, and symlink defense verified", "")
-            } else {
-                (ObligationState::Unknown, target_can.or(s_pref).map(|l| lspan(l, 1)), "incomplete path confinement on target variable (requires real canonicalize + rejecting sibling-safe prefix + symlink defense)", "Canonicalize target variable, reject escaping prefixes with if/assert, and check symlink/O_NOFOLLOW on target")
-            };
-            out.push(mk_ob("PATH_CONFINE", lang, sink, wit, target_var, hash, st, rsn, hint));
         }
     }
     out
@@ -1698,10 +1824,512 @@ fn matches_safe_erc20_require(raw: &[&str], masked: &[String], k: usize, ok_var:
     })
 }
 
+fn has_safe_erc20_import(raw: &[&str]) -> bool {
+    let cleaned = strip_js_comments(&raw.join("\n"));
+    let bytes = cleaned.as_bytes();
+    let mut i = 0usize;
+    let mut seg_start = 0usize;
+    let mut seg_start_depth = 0usize;
+    let mut brace_depth = 0usize;
+    let mut quote: Option<u8> = None;
+    let mut stmts: Vec<&str> = Vec::new();
+
+    while i < bytes.len() {
+        let ch = bytes[i];
+        if let Some(q) = quote {
+            if ch == b'\\' && i + 1 < bytes.len() {
+                let step = cleaned[i + 1..].chars().next().map_or(1, char::len_utf8);
+                i += 1 + step;
+                continue;
+            }
+            if ch == q {
+                quote = None;
+            }
+            i += cleaned[i..].chars().next().map_or(1, char::len_utf8);
+            continue;
+        }
+        match ch {
+            b'"' | b'\'' => {
+                quote = Some(ch);
+                i += 1;
+            }
+            b'{' => {
+                brace_depth += 1;
+                i += 1;
+            }
+            b'}' => {
+                brace_depth = brace_depth.saturating_sub(1);
+                i += 1;
+                // Only reset statement start when closing a contract/library block (not `import { ... } from "..."`)
+                let prefix_t = cleaned[seg_start..i].trim_start();
+                let is_import_prefix = prefix_t.starts_with("import")
+                    && prefix_t.as_bytes().get(6).map_or(true, |&b| !is_id(b));
+                if brace_depth == 0 && !is_import_prefix {
+                    seg_start = i;
+                    seg_start_depth = 0;
+                }
+            }
+            b';' if brace_depth == 0 => {
+                if seg_start_depth == 0 {
+                    stmts.push(&cleaned[seg_start..i]);
+                }
+                i += 1;
+                seg_start = i;
+                seg_start_depth = brace_depth;
+            }
+            _ => {
+                i += cleaned[i..].chars().next().map_or(1, char::len_utf8);
+            }
+        }
+    }
+
+    for stmt_raw in stmts {
+        let stmt = stmt_raw.trim();
+        let starts_import = stmt.starts_with("import")
+            && stmt.as_bytes().get(6).map_or(false, |&b| !is_id(b));
+        if !starts_import {
+            continue;
+        }
+        let sb = stmt.as_bytes();
+        let mut quoted: Vec<String> = Vec::new();
+        let mut outside = String::with_capacity(stmt.len());
+        let mut j = 0usize;
+        let mut unclosed = false;
+        while j < sb.len() {
+            let b = sb[j];
+            if b == b'"' || b == b'\'' {
+                let q = b;
+                j += 1;
+                let q_start = j;
+                let mut closed = false;
+                while j < sb.len() {
+                    if sb[j] == b'\\' && j + 1 < sb.len() {
+                        let step = stmt[j + 1..].chars().next().map_or(1, char::len_utf8);
+                        j += 1 + step;
+                        continue;
+                    }
+                    if sb[j] == q {
+                        quoted.push(stmt[q_start..j].to_string());
+                        j += 1;
+                        closed = true;
+                        break;
+                    }
+                    j += stmt[j..].chars().next().map_or(1, char::len_utf8);
+                }
+                if !closed {
+                    unclosed = true;
+                    break;
+                }
+                outside.push(' ');
+            } else {
+                let ch = stmt[j..].chars().next().unwrap_or(' ');
+                outside.push(ch);
+                j += ch.len_utf8();
+            }
+        }
+        if unclosed || quoted.len() != 1 {
+            continue;
+        }
+        let path = &quoted[0];
+        if !(path == "SafeERC20.sol" || path.ends_with("/SafeERC20.sol")) {
+            continue;
+        }
+        // Reject any `as` alias/namespace clause outside quotes (`import "..." as Other`, `import { Evil as SafeERC20 }`, etc.)
+        if has_word(&outside, "as") || outside.contains('*') {
+            continue;
+        }
+        if outside.contains('{') || outside.contains('}') {
+            let (Some(lb), Some(rb)) = (outside.find('{'), outside.rfind('}')) else {
+                continue;
+            };
+            if rb <= lb {
+                continue;
+            }
+            let inner = &outside[lb + 1..rb];
+            if inner.contains('{') || inner.contains('}') {
+                continue;
+            }
+            if outside[..lb].trim() != "import" || outside[rb + 1..].trim() != "from" {
+                continue;
+            }
+            if inner.split(',').any(|item| item.trim() == "SafeERC20") {
+                return true;
+            }
+        } else if outside.trim() == "import" {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_local_safe_erc20_shadow(masked: &[String]) -> bool {
+    let joined = masked.join("\n");
+    let mut cur = 0usize;
+    while let Some(p) = find_word_col(&joined, "SafeERC20", cur) {
+        let before = joined[..p].trim_end();
+        let after_raw = &joined[p + "SafeERC20".len()..];
+        let after = after_raw.trim_start();
+        let after_same_line = after_raw.split('\n').next().unwrap_or("").trim_start();
+        let prev_word = before
+            .rsplit(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '$')
+            .next()
+            .unwrap_or("");
+        if matches!(
+            prev_word,
+            "library" | "contract" | "interface" | "struct" | "enum"
+                | "function" | "modifier" | "event" | "error" | "type"
+        ) {
+            return true;
+        }
+        let followed_by_dot = after.starts_with('.');
+        let followed_by_for = after.starts_with("for")
+            && after.as_bytes().get(3).map_or(true, |&b| !is_id(b));
+        if !followed_by_dot && !followed_by_for {
+            if after.starts_with('=') && !after.starts_with("==") {
+                return true;
+            }
+            let prev_byte = before.as_bytes().last().copied();
+            let preceded_by_type_or_qual = prev_byte.is_some_and(|b| is_id(b) || b == b']' || b == b')')
+                && !matches!(prev_word, "using" | "import" | "from" | "return");
+            let followed_by_decl_delim = after.is_empty()
+                || after_same_line.is_empty()
+                || matches!(after.as_bytes()[0], b',' | b')' | b';' | b'=' | b'{' | b'}');
+            if preceded_by_type_or_qual && followed_by_decl_delim {
+                return true;
+            }
+        }
+        cur = p + "SafeERC20".len();
+    }
+    false
+}
+
+fn is_valid_erc20_using_type(ty: &str) -> bool {
+    if !is_simple_ident(ty) {
+        return false;
+    }
+    if matches!(ty, "address" | "bool" | "string" | "bytes" | "uint" | "int" | "payable")
+        || (ty.starts_with("uint") && ty.len() > 4 && ty[4..].bytes().all(|b| b.is_ascii_digit()))
+        || (ty.starts_with("int") && ty.len() > 3 && ty[3..].bytes().all(|b| b.is_ascii_digit()))
+        || (ty.starts_with("bytes") && ty.len() > 5 && ty[5..].bytes().all(|b| b.is_ascii_digit()))
+    {
+        return false;
+    }
+    matches!(
+        ty,
+        "IERC20"
+            | "IERC20Upgradeable"
+            | "IERC20Metadata"
+            | "IERC20MetadataUpgradeable"
+            | "IERC20Permit"
+            | "IERC20PermitUpgradeable"
+            | "ERC20"
+            | "ERC20Upgradeable"
+            | "ERC20Permit"
+            | "ERC20PermitUpgradeable"
+    ) || ty.ends_with("ERC20")
+        || ty.ends_with("ERC20Upgradeable")
+}
+
+fn parse_using_safe_erc20_type(stmt: &str, require_global: bool) -> Option<String> {
+    let tokens: Vec<&str> = stmt.split_whitespace().collect();
+    if tokens.len() < 4 || tokens[0] != "using" || tokens[1] != "SafeERC20" || tokens[2] != "for" {
+        return None;
+    }
+    let ty = tokens[3];
+    if require_global {
+        if tokens.len() != 5 || tokens[4] != "global" {
+            return None;
+        }
+    } else if tokens.len() != 4 {
+        return None;
+    }
+    is_valid_erc20_using_type(ty).then(|| ty.to_string())
+}
+
+fn defines_local_safe_transfer_fn(s: &str) -> bool {
+    let mut cur = 0usize;
+    while let Some(fp) = find_word_col(s, "function", cur) {
+        let after_fn = s[fp + 8..].trim_start();
+        for name in ["safeTransferFrom", "safeTransfer"] {
+            if let Some(tail) = after_fn.strip_prefix(name) {
+                if tail.is_empty() || !is_id(tail.as_bytes()[0]) {
+                    if tail.trim_start().starts_with('(') {
+                        return true;
+                    }
+                }
+            }
+        }
+        cur = fp + 8;
+    }
+    false
+}
+
+#[derive(Debug, Clone)]
+struct SolContractScope {
+    start: usize,
+    end: usize,
+    bound_types: BTreeSet<String>,
+    defines_local_safe_transfer: bool,
+    body_depth1_text: String,
+}
+
+fn extract_sol_scopes(masked: &[String]) -> (Vec<SolContractScope>, BTreeSet<String>, bool) {
+    let mut contracts = Vec::new();
+    let mut global_using = BTreeSet::new();
+    let mut file_level_safe_transfer = false;
+    let n = masked.len();
+
+    let mut depth = 0usize;
+    let mut file_stmt = String::new();
+    let mut i = 0usize;
+    while i < n {
+        let mt = masked[i].trim();
+        let is_contract_hdr = depth == 0
+            && (has_word(mt, "contract") || has_word(mt, "library") || has_word(mt, "interface"))
+            && !mt.starts_with("import")
+            && !mt.starts_with("using")
+            && !mt.starts_with("pragma");
+        if is_contract_hdr {
+            let (mut open_pos, mut pd) = (None, 0usize);
+            'hdr: for h in i..n.min(i + 20) {
+                for (bi, &b) in masked[h].as_bytes().iter().enumerate() {
+                    if b == b'(' {
+                        pd += 1;
+                    } else if b == b')' {
+                        pd = pd.saturating_sub(1);
+                    } else if pd == 0 && b == b';' {
+                        break 'hdr;
+                    } else if pd == 0 && b == b'{' {
+                        open_pos = Some((h, bi));
+                        break 'hdr;
+                    }
+                }
+            }
+            if let Some((bl, oc)) = open_pos {
+                let mut d = 0usize;
+                let mut end = bl;
+                let mut depth1_buf = String::new();
+                'scan: for j in bl..n {
+                    let bytes = masked[j].as_bytes();
+                    let start_b = if j == bl { oc } else { 0 };
+                    for &b in &bytes[start_b..] {
+                        if b == b'{' {
+                            d += 1;
+                            if d == 2 {
+                                depth1_buf.push(' ');
+                            }
+                        } else if b == b'}' {
+                            d = d.saturating_sub(1);
+                            if d == 0 {
+                                end = j;
+                                break 'scan;
+                            }
+                            if d == 1 {
+                                depth1_buf.push(';');
+                            }
+                        } else if d == 1 {
+                            depth1_buf.push(b as char);
+                        }
+                    }
+                    if d == 1 {
+                        depth1_buf.push('\n');
+                    }
+                    end = j;
+                }
+                let mut bound_types = BTreeSet::new();
+                for stmt in depth1_buf.split(';') {
+                    if let Some(ty) = parse_using_safe_erc20_type(stmt, false) {
+                        bound_types.insert(ty);
+                    }
+                }
+                let defines_local_safe_transfer = defines_local_safe_transfer_fn(&depth1_buf);
+                contracts.push(SolContractScope {
+                    start: i,
+                    end,
+                    bound_types,
+                    defines_local_safe_transfer,
+                    body_depth1_text: depth1_buf,
+                });
+                file_stmt.clear();
+                i = end + 1;
+                continue;
+            }
+        }
+        // Track file-level statements (depth == 0)
+        for &b in masked[i].as_bytes() {
+            if b == b'{' {
+                depth += 1;
+                if depth == 1 && defines_local_safe_transfer_fn(&file_stmt) {
+                    file_level_safe_transfer = true;
+                }
+                file_stmt.clear();
+            } else if b == b'}' {
+                depth = depth.saturating_sub(1);
+            } else if depth == 0 {
+                if b == b';' {
+                    if let Some(ty) = parse_using_safe_erc20_type(&file_stmt, true) {
+                        global_using.insert(ty);
+                    }
+                    if defines_local_safe_transfer_fn(&file_stmt) {
+                        file_level_safe_transfer = true;
+                    }
+                    file_stmt.clear();
+                } else {
+                    file_stmt.push(b as char);
+                }
+            }
+        }
+        if depth == 0 {
+            file_stmt.push(' ');
+        }
+        i += 1;
+    }
+    (contracts, global_using, file_level_safe_transfer)
+}
+
+fn is_this_or_super_recv(ml: &str, dot_pos: usize) -> bool {
+    let mut trimmed = ml[..dot_pos].trim_end();
+    while trimmed.ends_with(')') {
+        let bytes = trimmed.as_bytes();
+        let mut d = 0usize;
+        let mut open = None;
+        for i in (0..bytes.len()).rev() {
+            if bytes[i] == b')' {
+                d += 1;
+            } else if bytes[i] == b'(' {
+                d -= 1;
+                if d == 0 {
+                    open = Some(i);
+                    break;
+                }
+            }
+        }
+        if let Some(op) = open {
+            let before_op = trimmed[..op].trim_end();
+            if before_op.as_bytes().last().is_some_and(|&b| is_id(b)) {
+                break;
+            }
+            trimmed = trimmed[op + 1..trimmed.len() - 1].trim();
+        } else {
+            break;
+        }
+    }
+    let bytes = trimmed.as_bytes();
+    let mut start = bytes.len();
+    while start > 0 && is_id(bytes[start - 1]) {
+        start -= 1;
+    }
+    let ident = &trimmed[start..];
+    matches!(ident, "this" | "super") && (start == 0 || bytes[start - 1] != b'.')
+}
+
+fn find_sol_var_declared_type(scope_text: &str, var: &str) -> Option<String> {
+    let mut cur = 0usize;
+    while let Some(p) = find_word_col(scope_text, var, cur) {
+        let after = scope_text[p + var.len()..].trim_start();
+        let is_decl_end = after.is_empty()
+            || (matches!(after.as_bytes()[0], b',' | b')' | b';' | b'=') && !after.starts_with("=="));
+        if is_decl_end {
+            let before = scope_text[..p].trim_end();
+            let seg_start = before
+                .rfind(|c: char| matches!(c, '(' | ',' | ';' | '{' | '}' | '='))
+                .map_or(0, |k| k + 1);
+            let decl_prefix = before[seg_start..].trim();
+            let parts: Vec<&str> = decl_prefix
+                .split_whitespace()
+                .filter(|tok| {
+                    !matches!(
+                        *tok,
+                        "memory" | "calldata" | "storage" | "payable"
+                            | "public" | "private" | "internal" | "immutable" | "constant"
+                    )
+                })
+                .collect();
+            if parts.len() == 1
+                && is_simple_ident(parts[0])
+                && !matches!(parts[0], "return" | "returns" | "delete" | "emit" | "using" | "for" | "is")
+            {
+                return Some(parts[0].to_string());
+            }
+        }
+        cur = p + var.len();
+    }
+    None
+}
+
+fn extract_sol_cast_type_before_dot(ml: &str, dot_pos: usize) -> Option<String> {
+    let mut trimmed = ml[..dot_pos].trim_end();
+    loop {
+        if !trimmed.ends_with(')') {
+            return None;
+        }
+        let bytes = trimmed.as_bytes();
+        let mut d = 0usize;
+        let mut open = None;
+        for i in (0..bytes.len()).rev() {
+            if bytes[i] == b')' {
+                d += 1;
+            } else if bytes[i] == b'(' {
+                d -= 1;
+                if d == 0 {
+                    open = Some(i);
+                    break;
+                }
+            }
+        }
+        let op = open?;
+        let before_op = trimmed[..op].trim_end();
+        if before_op.as_bytes().last().is_some_and(|&b| is_id(b)) {
+            let bb = before_op.as_bytes();
+            let mut st = bb.len();
+            while st > 0 && is_id(bb[st - 1]) {
+                st -= 1;
+            }
+            if st > 0 && bb[st - 1] == b'.' {
+                return None;
+            }
+            let ty = &before_op[st..];
+            return is_simple_ident(ty).then(|| ty.to_string());
+        }
+        trimmed = trimmed[op + 1..trimmed.len() - 1].trim();
+    }
+}
+
+fn find_safe_transfer_dot_cols(ml: &str) -> Vec<usize> {
+    let mut dots = Vec::new();
+    for needle in [".safeTransfer(", ".safeTransferFrom("] {
+        let mut from = 0usize;
+        while from < ml.len() {
+            let Some(rel) = ml[from..].find(needle) else { break };
+            let pos = from + rel;
+            dots.push(pos);
+            from = pos + needle.len();
+        }
+    }
+    dots.sort_unstable();
+    dots.dedup();
+    dots
+}
+
 fn prove_solidity(raw: &[&str], masked: &[String], hash: &str) -> Vec<Obligation> {
     let mut out = Vec::new();
     let fake_nr = has_fake_nonreentrant_modifier(raw, masked);
+    let safe_erc20_import = has_safe_erc20_import(raw);
+    let safe_erc20_shadow = has_local_safe_erc20_shadow(masked);
+    let (sol_contracts, global_using_types, file_level_safe_transfer) = extract_sol_scopes(masked);
     for blk in extract_functions(raw, masked, ExtLang::Solidity) {
+        let enclosing_contract = sol_contracts
+            .iter()
+            .find(|c| blk.start >= c.start && blk.end <= c.end);
+        let mut active_using_types: BTreeSet<&str> = global_using_types.iter().map(|s| s.as_str()).collect();
+        if let Some(c) = enclosing_contract {
+            for ty in &c.bound_types {
+                active_using_types.insert(ty.as_str());
+            }
+        }
+        let local_safe_transfer_defined = file_level_safe_transfer
+            || enclosing_contract.is_some_and(|c| c.defines_local_safe_transfer);
+        let fn_scope_text = masked[blk.start..=blk.end].join("\n");
         let has_nr = !fake_nr && has_nonreentrant_in_header_tail(masked, blk);
         let (mut has_low, mut has_eth, mut has_asm, mut in_loop, mut post_help) = (false, false, false, false, false);
         let (mut f_call, mut m_bef, mut m_aft, mut loop_d, mut rel_d) = (None, None, None, 0usize, 0usize);
@@ -1766,8 +2394,68 @@ fn prove_solidity(raw: &[&str], masked: &[String], hash: &str) -> Vec<Obligation
             let (ml, mt) = (masked[l].as_str(), masked[l].trim());
             if skip_fixture(raw[l]) || mt.is_empty() || mt.starts_with("emit ") || mt.starts_with("event ") { continue; }
             let sink = lspan(l, raw[l].len());
-            if ml.contains(".safeTransfer(") || ml.contains(".safeTransferFrom(") {
-                out.push(mk_ob("SOL_SAFE_ERC20", ExtLang::Solidity, sink, Some(sink), None, hash, ObligationState::Proven, "SafeERC20 safeTransfer/safeTransferFrom verified", ""));
+            let safe_dots = find_safe_transfer_dot_cols(ml);
+            if !safe_dots.is_empty() {
+                for dot_pos in safe_dots {
+                    let recv = extract_ident_before_dot(ml, dot_pos);
+                    let is_direct_lib = recv.as_deref() == Some("SafeERC20");
+                    let is_self_member = is_this_or_super_recv(ml, dot_pos);
+                    let recv_type_verified = if !is_direct_lib && !is_self_member {
+                        let resolved_ty = if let Some(rv) = recv.as_deref() {
+                            find_sol_var_declared_type(&fn_scope_text, rv).or_else(|| {
+                                enclosing_contract
+                                    .and_then(|c| find_sol_var_declared_type(&c.body_depth1_text, rv))
+                            })
+                        } else {
+                            extract_sol_cast_type_before_dot(ml, dot_pos)
+                        };
+                        resolved_ty
+                            .as_deref()
+                            .is_some_and(|ty| active_using_types.contains(ty))
+                    } else {
+                        false
+                    };
+                    let (st, wit, bnd, rsn, hint) = if safe_erc20_shadow {
+                        (
+                            ObligationState::Unknown,
+                            None,
+                            None,
+                            "SafeERC20 is locally defined/shadowed; cannot verify canonical SafeERC20",
+                            "Import OpenZeppelin SafeERC20 instead of defining a local SafeERC20 shadow",
+                        )
+                    } else if is_direct_lib && safe_erc20_import {
+                        (
+                            ObligationState::Proven,
+                            Some(sink),
+                            Some("SafeERC20".into()),
+                            "SafeERC20.safeTransfer/safeTransferFrom verified with SafeERC20 import",
+                            "",
+                        )
+                    } else if !is_direct_lib
+                        && safe_erc20_import
+                        && !active_using_types.is_empty()
+                        && !is_self_member
+                        && !local_safe_transfer_defined
+                        && recv_type_verified
+                    {
+                        (
+                            ObligationState::Proven,
+                            Some(sink),
+                            Some("SafeERC20".into()),
+                            "SafeERC20 safeTransfer/safeTransferFrom verified with import and contract-scoped ERC20 using-for binding",
+                            "",
+                        )
+                    } else {
+                        (
+                            ObligationState::Unknown,
+                            None,
+                            None,
+                            "safeTransfer/safeTransferFrom call lacks verified SafeERC20 import and contract-scoped ERC20 using-for binding",
+                            "Import OpenZeppelin SafeERC20 and bind with 'using SafeERC20 for IERC20;' in the enclosing contract or call SafeERC20.safeTransfer/safeTransferFrom",
+                        )
+                    };
+                    out.push(mk_ob("SOL_SAFE_ERC20", ExtLang::Solidity, sink, wit, bnd, hash, st, rsn, hint));
+                }
             } else if ml.contains(".call(") && (ml.contains("abi.encodeWithSelector(") || ml.contains("abi.encodeWithSignature(")) {
                 let req_ok = extract_sol_call_tuple(ml).is_some_and(|(ok_v, data_v)| {
                     (l..=blk.end).any(|k| {
@@ -1886,7 +2574,9 @@ mod tests {
             ("Txo.sol", "SOL_REENTRANCY_CEI", "contract A {\n  function sweep() external { require(tx.origin == owner); }\n}\n", ObligationState::Violated),
             ("Pay.sol", "SOL_SAFE_ERC20", "contract P {\n  function pay(address t, address to, uint256 a) external {\n    IERC20(t).transfer(to, a);\n  }\n}\n", ObligationState::Violated),
             ("PayReq.sol", "SOL_SAFE_ERC20", "contract P {\n  function pay(address t, address to, uint256 a) external {\n    require(IERC20(t).transfer(to, a));\n  }\n}\n", ObligationState::Unknown),
-            ("PaySafe.sol", "SOL_SAFE_ERC20", "contract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n", ObligationState::Proven),
+            ("PaySafe.sol", "SOL_SAFE_ERC20", "contract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n", ObligationState::Unknown),
+            ("PaySafeBound.sol", "SOL_SAFE_ERC20", "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n", ObligationState::Proven),
+            ("PaySafeDirect.sol", "SOL_SAFE_ERC20", "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n", ObligationState::Proven),
             ("PayHelp.sol", "SOL_SAFE_ERC20", "contract P {\n  function pay(address t, address to, uint256 a) external {\n    _customTransfer(t, to, a);\n  }\n}\n", ObligationState::Unknown),
         ] {
             let r = run(f, code);
@@ -2045,6 +2735,48 @@ mod tests {
         let s7 = run("InvErc.sol", "contract P {\n  function pay(address t, address to, uint256 a) external {\n    (bool ok, bytes memory data) = t.call(abi.encodeWithSelector(0xa9059cbb, to, a));\n    require(ok || (data.length == 0 && abi.decode(data, (bool))));\n  }\n}\n");
         let erc7: Vec<_> = s7.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
         assert_eq!(erc7[0].state, ObligationState::Unknown);
+
+        // PoC #5.8 (HIGH #2): Unbound / shadowed SafeERC20 calls MUST NEVER return PROVEN!
+        for (fname, src) in [
+            (
+                "UnboundMember.sol",
+                "contract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n",
+            ),
+            (
+                "ImportNoUsing.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "UsingNoImport.sol",
+                "contract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "DirectNoImport.sol",
+                "contract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+            ),
+            (
+                "LocalShadowLib.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\nlibrary SafeERC20 {\n  function safeTransferFrom(IERC20, address, address, uint256) internal {}\n}\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n",
+            ),
+            (
+                "CommentSpoofSafe.sol",
+                "// import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\n// using SafeERC20 for IERC20;\ncontract P {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n  }\n}\n",
+            ),
+        ] {
+            let obs = run(fname, src);
+            let erc: Vec<_> = obs.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
+            assert!(!erc.is_empty(), "{fname}: expected SOL_SAFE_ERC20 obligation");
+            assert_eq!(erc[0].state, ObligationState::Unknown, "{fname}: must be UNKNOWN, never PROVEN");
+        }
+
+        // Positive control: canonical OpenZeppelin import + using SafeERC20 for IERC20 -> PROVEN
+        let s_pos = run(
+            "OzSafe.sol",
+            "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransferFrom(msg.sender, to, a);\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+        );
+        let erc_pos: Vec<_> = s_pos.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
+        assert_eq!(erc_pos.len(), 2);
+        assert!(erc_pos.iter().all(|o| o.state == ObligationState::Proven));
     }
 
     #[test]
@@ -2076,5 +2808,106 @@ mod tests {
 
         let m3b = run("tok_sec.py", "import hmac, hashlib\ndef verify(k, m, sig, caller_token, api_secret):\n    mac = hmac.new(k, m, hashlib.sha256).hexdigest()\n    if caller_token == api_secret:\n        return True\n    return hmac.compare_digest(sig, mac)\n");
         assert_eq!(m3b[0].state, ObligationState::Violated);
+    }
+
+    #[test]
+    fn sol_safe_erc20_round2_four_bypass_classes_never_proven() {
+        for (fname, src) in [
+            // (a) Import path / namespace spoofs
+            (
+                "ImportDirSpoof.sol",
+                "import { Evil } from \"./SafeERC20/Evil.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "ImportNsAlias.sol",
+                "import \"./SafeERC20.sol\" as Other;\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "ImportEvilAlias.sol",
+                "import { Evil as SafeERC20 } from \"./SafeERC20/fake.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+            ),
+            // (b) Cross-contract `using` bleed
+            (
+                "CrossContractUsing.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract A {\n  using SafeERC20 for IERC20;\n}\ncontract B {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            // (c) Wrong `using-for` type, `this`/`super`, and local `function safeTransfer(...)`
+            (
+                "UsingUint256.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for uint256;\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "ThisSafeTransfer.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(address to, uint256 a) external {\n    this.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "LocalFnSafeTransfer.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function safeTransfer(address to, uint256 a) public {}\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            // (d) Typed variable / parameter / state variable shadow
+            (
+                "ParamShadow.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  function pay(IFake SafeERC20, IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+            ),
+            (
+                "StateVarShadow.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  IFake SafeERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+            ),
+            (
+                "PublicStateShadow.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  IFake public SafeERC20;\n  function pay(IERC20 t, address to, uint256 a) external {\n    SafeERC20.safeTransfer(t, to, a);\n  }\n}\n",
+            ),
+            // (e) Fail-closed receiver typing: cast/indexed/chained/inherited non-ERC20 receivers MUST be Unknown
+            (
+                "CastEvilRecv.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ninterface IEvil { function safeTransfer(address to, uint256 a) external; }\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(address evilAddr, address to, uint256 a) external {\n    IEvil(evilAddr).safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "MappedEvilRecv.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  mapping(uint256 => IEvil) public evilMap;\n  function pay(address to, uint256 a) external {\n    evilMap[0].safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "ChainedStructRecv.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  struct Cfg { IEvil tok; }\n  Cfg internal cfg;\n  function pay(address to, uint256 a) external {\n    cfg.tok.safeTransfer(to, a);\n  }\n}\n",
+            ),
+            (
+                "InheritedEvilRecv.sol",
+                "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract Base { IEvil internal inheritedEvil; }\ncontract P is Base {\n  using SafeERC20 for IERC20;\n  function pay(address to, uint256 a) external {\n    inheritedEvil.safeTransfer(to, a);\n  }\n}\n",
+            ),
+        ] {
+            let obs = run(fname, src);
+            let erc: Vec<_> = obs.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
+            assert!(!erc.is_empty(), "{fname}: expected SOL_SAFE_ERC20 obligation");
+            assert!(
+                erc.iter().all(|o| o.state == ObligationState::Unknown),
+                "{fname}: all obligations must be Unknown (never Proven): {:?}",
+                erc
+            );
+        }
+
+        // Positive controls: global `using SafeERC20 for IERC20 global;` + explicit `IERC20(addr).safeTransfer(...)` cast remain PROVEN!
+        let pos_global = run(
+            "GlobalUsing.sol",
+            "import { SafeERC20 } from \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\nusing SafeERC20 for IERC20 global;\ncontract B {\n  function pay(IERC20 t, address to, uint256 a) external {\n    t.safeTransfer(to, a);\n  }\n}\n",
+        );
+        let erc_g: Vec<_> = pos_global.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
+        assert_eq!((erc_g.len(), erc_g[0].state), (1, ObligationState::Proven));
+
+        let pos_cast = run(
+            "ExplicitCastUsing.sol",
+            "import \"@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol\";\ncontract P {\n  using SafeERC20 for IERC20;\n  function pay(address tokenAddr, address to, uint256 a) external {\n    IERC20(tokenAddr).safeTransfer(to, a);\n  }\n}\n",
+        );
+        let erc_c: Vec<_> = pos_cast.iter().filter(|o| o.rule == "SOL_SAFE_ERC20").collect();
+        assert_eq!((erc_c.len(), erc_c[0].state), (1, ObligationState::Proven));
+    }
+
+    #[test]
+    fn path_confine_same_line_double_write_emits_both_obligations() {
+        let code = "import os\ndef save(root, rel, u, d):\n    r = os.path.realpath(root)\n    safe_p = os.path.realpath(os.path.join(r, rel))\n    if not safe_p.startswith(r + os.sep) or os.path.islink(safe_p): raise ValueError()\n    open(safe_p, \"w\"); open(os.path.join(root, u), \"w\")\n";
+        let obs = run("double_write.py", code);
+        let pc: Vec<_> = obs.iter().filter(|o| o.rule == "PATH_CONFINE").collect();
+        assert_eq!(pc.len(), 2, "must emit BOTH PATH_CONFINE obligations on same line: {:?}", pc);
+        assert_eq!(pc[0].state, ObligationState::Proven);
+        assert_eq!(pc[1].state, ObligationState::Violated);
     }
 }

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import ast
+import errno
 import hashlib
 import json
 import os
 import re
+import stat
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import Any, Dict, List, Optional, TextIO, Tuple, Union
 
 from kintsugi import __version__
 from kintsugi.compactor import ConversationCompactor
@@ -25,6 +27,152 @@ from kintsugi.models import FailureTrace, Severity
 from kintsugi.scanner import KintsugiScanner
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
+MAX_MCP_READ_BYTES = 10 * 1024 * 1024
+
+
+def _is_macos_system_root_symlink(path: Path) -> bool:
+    if sys.platform != "darwin":
+        return False
+    s = str(path)
+    if s not in ("/var", "/tmp", "/etc"):
+        return False
+    try:
+        return os.readlink(s) == f"private{s}"
+    except OSError:
+        return False
+
+
+def _reject_symlink_ancestors(path: Path) -> None:
+    parts = path.parent.parts
+    if not parts:
+        return
+    cur = Path(parts[0])
+    for idx, part in enumerate(parts):
+        if idx > 0:
+            cur = cur / part
+        if str(cur) in ("", "."):
+            continue
+        st = os.lstat(str(cur))
+        if stat.S_ISLNK(st.st_mode):
+            if not _is_macos_system_root_symlink(cur):
+                raise PermissionError(f"REFUSING_SYMLINK_ANCESTOR: {cur}")
+        elif not stat.S_ISDIR(st.st_mode):
+            raise PermissionError(f"ANCESTOR_NOT_DIR: {cur}")
+
+
+def _open_regular_file_nofollow_dirfd(fp: Path) -> int:
+    """Open `fp` using kernel-enforced step-by-step `dir_fd` (`O_DIRECTORY | O_NOFOLLOW`) traversal."""
+    leaf = fp.name
+    if not leaf or leaf in (".", "..") or str(fp).endswith(os.sep):
+        raise PermissionError(f"NOT_REGULAR_FILE: {fp}")
+
+    supports_dir_fd = os.open in getattr(os, "supports_dir_fd", set())
+    o_dir = getattr(os, "O_DIRECTORY", 0)
+    o_nofollow = getattr(os, "O_NOFOLLOW", 0)
+    o_nonblock = getattr(os, "O_NONBLOCK", 0)
+    if supports_dir_fd and o_dir and o_nofollow:
+        is_abs = fp.is_absolute()
+        parent_parts = [p for p in fp.parent.parts if p not in ("", "/", ".")]
+        dir_flags = os.O_RDONLY | o_dir | o_nofollow
+        cur_fd = os.open("/" if is_abs else ".", os.O_RDONLY | o_dir)
+        cur_path = Path("/" if is_abs else ".")
+        try:
+            for idx, part in enumerate(parent_parts):
+                next_path = cur_path / part
+                if is_abs and idx == 0 and _is_macos_system_root_symlink(next_path):
+                    priv_fd = os.open("private", dir_flags, dir_fd=cur_fd)
+                    os.close(cur_fd)
+                    cur_fd = priv_fd
+                try:
+                    next_fd = os.open(part, dir_flags, dir_fd=cur_fd)
+                except OSError as exc:
+                    if exc.errno in (errno.ELOOP, getattr(errno, "EMLINK", -1)):
+                        raise PermissionError(f"REFUSING_SYMLINK_ANCESTOR: {next_path}") from exc
+                    if exc.errno == errno.ENOTDIR:
+                        try:
+                            lst = os.lstat(part, dir_fd=cur_fd)
+                        except OSError:
+                            lst = None
+                        if lst is not None and stat.S_ISLNK(lst.st_mode):
+                            raise PermissionError(f"REFUSING_SYMLINK_ANCESTOR: {next_path}") from exc
+                        raise PermissionError(f"ANCESTOR_NOT_DIR: {next_path}") from exc
+                    raise
+                os.close(cur_fd)
+                cur_fd = next_fd
+                cur_path = next_path
+            try:
+                return os.open(leaf, os.O_RDONLY | o_nofollow | o_nonblock, dir_fd=cur_fd)
+            except OSError as exc:
+                if exc.errno in (errno.ELOOP, getattr(errno, "EMLINK", -1)):
+                    raise PermissionError(f"REFUSING_SYMLINK: {fp}") from exc
+                if exc.errno == errno.EISDIR:
+                    raise PermissionError(f"NOT_REGULAR_FILE: {fp}") from exc
+                raise
+        finally:
+            os.close(cur_fd)
+
+    # Non-POSIX fallback (e.g., Windows without O_DIRECTORY/dir_fd)
+    _reject_symlink_ancestors(fp)
+    pre_st = os.lstat(str(fp))
+    if stat.S_ISLNK(pre_st.st_mode):
+        raise PermissionError(f"REFUSING_SYMLINK: {fp}")
+    if not stat.S_ISREG(pre_st.st_mode):
+        raise PermissionError(f"NOT_REGULAR_FILE: {fp}")
+    try:
+        return os.open(str(fp), os.O_RDONLY | o_nofollow | o_nonblock)
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, getattr(errno, "EMLINK", -1)):
+            raise PermissionError(f"REFUSING_SYMLINK: {fp}") from exc
+        raise
+
+
+def _read_regular_file_bytes_secure(
+    raw_path: Union[str, Path],
+    max_bytes: int = MAX_MCP_READ_BYTES,
+) -> Tuple[Path, bytes]:
+    """Read a regular file safely without following symlinks (dir_fd TOCTOU-free) or unbounded DoS reads."""
+    if not isinstance(raw_path, (str, Path)):
+        raise ValueError("INVALID_FILE_PATH: expected non-empty string path")
+    raw_str = str(raw_path)
+    if not raw_str.strip() or "\x00" in raw_str:
+        raise ValueError("INVALID_FILE_PATH: empty path or NUL byte")
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise ValueError("INVALID_MAX_BYTES: max_bytes must be a positive integer")
+    fp = Path(raw_str)
+    fd = _open_regular_file_nofollow_dirfd(fp)
+    try:
+        fst = os.fstat(fd)
+        if not stat.S_ISREG(fst.st_mode):
+            raise PermissionError(f"NOT_REGULAR_FILE: {fp}")
+        if fst.st_size > max_bytes:
+            raise ValueError(f"SOURCE_FILE_TOO_LARGE: exceeds {max_bytes} bytes")
+        buf = bytearray()
+        remaining = max_bytes + 1
+        while remaining > 0:
+            chunk = os.read(fd, min(65536, remaining))
+            if not chunk:
+                break
+            buf.extend(chunk)
+            remaining -= len(chunk)
+            if len(buf) > max_bytes:
+                raise ValueError(f"SOURCE_FILE_TOO_LARGE: exceeds {max_bytes} bytes")
+    finally:
+        os.close(fd)
+    return fp, bytes(buf)
+
+
+def _parse_positive_int_arg(
+    args: Dict[str, Any],
+    key: str,
+    default: int,
+    error_code: str,
+) -> int:
+    raw = args.get(key)
+    if raw is None:
+        return default
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+        raise ValueError(f"{error_code}: {key} must be a positive integer")
+    return raw
 
 
 def _tool_definitions() -> list[Dict[str, Any]]:
@@ -449,6 +597,10 @@ def _v3_envelope_tool_definitions() -> list[Dict[str, Any]]:
                     "file_path": {"type": "string", "description": "Path to source file to read with JIT envelope"},
                     "low_tier": {"type": "boolean", "default": True, "description": "Include matched Low-Tier Model Failure Lexicon entries"},
                     "max_tokens": {"type": "integer", "default": 320, "description": "Strict token cap for compact context"},
+                    "telemetry_store": {
+                        "type": "string",
+                        "description": "Optional DeliveryTelemetry/1 JSON store path forwarded to kintsugi-rs context (--telemetry-store; defaults to <ledger_dir>/delivery_telemetry.json when present)",
+                    },
                 },
             },
         },
@@ -1090,19 +1242,59 @@ class KintsugiMCPServer:
                 raise FileNotFoundError("kintsugi-rs release binary not found for v3 ContextEnvelope tool")
 
             if name == "kintsugi_read_with_context":
-                fp = Path(str(args["file_path"])).resolve()
-                cmd = [str(kbin), "context", str(fp), "--format", "json", "--max-tokens", str(int(args.get("max_tokens") or 320))]
+                if "file_path" not in args or args["file_path"] is None:
+                    raise ValueError("INVALID_FILE_PATH: file_path is required")
+                max_tokens = _parse_positive_int_arg(
+                    args, "max_tokens", 320, "INVALID_MAX_TOKENS"
+                )
+                raw_file_path = args["file_path"]
+                fp, raw_bytes_before = _read_regular_file_bytes_secure(
+                    raw_file_path, max_bytes=MAX_MCP_READ_BYTES
+                )
+                cmd = [
+                    str(kbin),
+                    "context",
+                    str(fp),
+                    "--format",
+                    "json",
+                    "--max-tokens",
+                    str(max_tokens),
+                ]
                 if bool(args.get("low_tier", True)):
                     cmd.append("--low-tier")
-                proc = _sp.run(cmd, capture_output=True, text=True, shell=False, timeout=15)
-                if proc.returncode != 0:
-                    raise RuntimeError(f"kintsugi-rs context failed: {proc.stderr or proc.stdout}")
-                env_obj = json.loads(proc.stdout.strip())
+                raw_telemetry_store = args.get("telemetry_store")
+                trimmed_store = ""
+                if raw_telemetry_store is not None:
+                    if not isinstance(raw_telemetry_store, (str, Path)):
+                        raise ValueError("INVALID_TELEMETRY_STORE: expected string path")
+                    trimmed_store = str(raw_telemetry_store).strip()
+                if trimmed_store:
+                    cmd.extend(["--telemetry-store", trimmed_store])
+                else:
+                    default_telemetry_store = self.ledger.path.parent / "delivery_telemetry.json"
+                    if os.path.lexists(str(default_telemetry_store)):
+                        cmd.extend(["--telemetry-store", str(default_telemetry_store)])
+                env_obj: Optional[Dict[str, Any]] = None
+                for _attempt in range(2):
+                    if _attempt > 0:
+                        fp, raw_bytes_before = _read_regular_file_bytes_secure(
+                            raw_file_path, max_bytes=MAX_MCP_READ_BYTES
+                        )
+                    digest_before = hashlib.sha256(raw_bytes_before).hexdigest()[:16]
+                    proc = _sp.run(cmd, capture_output=True, text=True, shell=False, timeout=15)
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"kintsugi-rs context failed: {proc.stderr or proc.stdout}")
+                    cand_env = json.loads(proc.stdout.strip())
+                    if cand_env.get("source_digest") == digest_before:
+                        env_obj = cand_env
+                        break
+                if env_obj is None:
+                    raise RuntimeError("SNAPSHOT_DIGEST_MISMATCH: file changed during read")
                 env_obj["receipt_stage"] = "included_in_input"
                 return {
                     "ok": True,
                     "file_path": str(fp),
-                    "content": fp.read_text(encoding="utf-8"),
+                    "content": raw_bytes_before.decode("utf-8"),
                     "envelope": env_obj,
                 }
 
@@ -1110,7 +1302,13 @@ class KintsugiMCPServer:
             if bool(args.get("show_all", False)) or not args.get("file_path"):
                 cmd.append("--all")
             else:
-                cmd.extend([str(Path(str(args["file_path"])).resolve()), "--max-entries", str(int(args.get("max_entries") or 4))])
+                max_entries = _parse_positive_int_arg(
+                    args, "max_entries", 4, "INVALID_MAX_ENTRIES"
+                )
+                fp, _ = _read_regular_file_bytes_secure(
+                    args["file_path"], max_bytes=MAX_MCP_READ_BYTES
+                )
+                cmd.extend([str(fp), "--max-entries", str(max_entries)])
             proc = _sp.run(cmd, capture_output=True, text=True, shell=False, timeout=15)
             if proc.returncode != 0:
                 raise RuntimeError(f"kintsugi-rs lexicon failed: {proc.stderr or proc.stdout}")

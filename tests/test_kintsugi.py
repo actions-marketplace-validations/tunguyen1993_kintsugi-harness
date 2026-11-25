@@ -3370,18 +3370,18 @@ class TestIndependentAuditRegressionsV241(unittest.TestCase):
         self.assertEqual(len(ev_sc2.scan_text("strict_tls=(0)\n")), 1)
         self.assertEqual(len(ev_sc2.scan_text("strict_tls = True\n")), 0)
 
-        # KH-R2-REL-06 & KH-R2-BENCH-05: 3.0.0 version parity & synthetic benchmark labeling
-        self.assertEqual(__version__, "3.0.0")
-        self.assertIn('version = "3.0.0"', (repo_root / "pyproject.toml").read_text(encoding="utf-8"))
-        self.assertIn('version = "3.0.0"', (repo_root / "Cargo.toml").read_text(encoding="utf-8"))
+        # KH-R2-REL-06 & KH-R2-BENCH-05: 3.0.1 version parity & synthetic benchmark labeling
+        self.assertEqual(__version__, "3.0.1")
+        self.assertIn('version = "3.0.1"', (repo_root / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertIn('version = "3.0.1"', (repo_root / "Cargo.toml").read_text(encoding="utf-8"))
         cortex_m = json.loads(
             (repo_root / "collective-pool" / "synthesized-empirical-cortex" / "MANIFEST.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(cortex_m["version"], "3.0.0")
+        self.assertEqual(cortex_m["version"], "3.0.1")
         with tempfile.TemporaryDirectory() as tmp:
             srv = KintsugiMCPServer(Path(tmp) / "scars.json")
             init_resp = srv.handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
-            self.assertEqual(init_resp["result"]["serverInfo"]["version"], "3.0.0")
+            self.assertEqual(init_resp["result"]["serverInfo"]["version"], "3.0.1")
         swe_readme = (
             repo_root / "benchmarks" / "swebench_submission" / "entry" / "20261108_kintsugi-harness" / "README.md"
         ).read_text(encoding="utf-8")

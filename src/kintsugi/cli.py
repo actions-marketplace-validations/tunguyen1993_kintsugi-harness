@@ -308,9 +308,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mcp.add_argument(
         "--profile",
         dest="mcp_profile",
-        choices=["default", "nextgen", "coding", "build3", "cognitive"],
+        choices=["default", "nextgen", "coding", "build3", "cognitive", "v3"],
         default="default",
-        help="MCP tool surface profile (default: 9 core tools; nextgen/coding: 19 tools; build3/cognitive: 23 tools)",
+        help="MCP tool surface profile (default: 9 core tools; nextgen/coding: 19 tools; build3/cognitive: 23 tools; v3: 26 tools)",
     )
 
     # stats

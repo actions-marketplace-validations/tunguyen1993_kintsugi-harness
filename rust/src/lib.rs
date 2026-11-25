@@ -1,5 +1,5 @@
 // kintsugi: ignore-file
-//! Kintsugi Core (`kintsugi_core` v3.0.0) — Zero-dependency modular Rust scanner,
+//! Kintsugi Core (`kintsugi_core` v3.0.1) — Zero-dependency modular Rust scanner,
 //! Flat-CSR SIMD prefilter, Multi-core deterministic repo walker, Feature-Gated
 //! `RuleIR/1` & `@CT2` Grade-S3 Seam Auditor, Agent-Native `gate` formatters, and C-ABI FFI.
 //!

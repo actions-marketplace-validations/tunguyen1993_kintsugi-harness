@@ -1,0 +1,204 @@
+{
+  "schema": "kintsugi.low_tier_lexicon_ab_results.v3",
+  "harness_version": "3.0.1",
+  "generated_date": "2026-11-25",
+  "dlp_sanitized": true,
+  "lexicon_scope": "LT-001..LT-080",
+  "methodology": {
+    "evaluation_type": "synthetic_and_held_out_blind_zero_hint_suites",
+    "official_swebench_leaderboard": false,
+    "design": "Paired blind zero-hint A/B runs comparing raw budget models (baseline) against the same models receiving symbol-scoped JIT Low-Tier Model Failure Lexicon injection (treatment).",
+    "zero_bloat_check": "0 matches / 0 tokens injected verified on benign fixture corpus (Python, TypeScript, Rust, Go)."
+  },
+  "headline_4_round_summary": {
+    "rounds_included": [
+      "HeldOut12",
+      "HardCrucible16",
+      "DualStack16",
+      "OnlineOpsScars12"
+    ],
+    "total_tasks": 56,
+    "models_evaluated": [
+      "Budget-Reasoning-Model",
+      "DeepSeek-R1",
+      "GLM-4-Flash"
+    ],
+    "total_runs": 168,
+    "baseline_passed": 83,
+    "baseline_pass_rate_pct": 49.4,
+    "with_lexicon_passed": 161,
+    "with_lexicon_pass_rate_pct": 95.8,
+    "delta_passed": 78,
+    "delta_pp": 46.4,
+    "per_model_totals": {
+      "Budget-Reasoning-Model": {
+        "tasks": 56,
+        "baseline_passed": 30,
+        "baseline_pass_rate_pct": 53.6,
+        "with_lexicon_passed": 54,
+        "with_lexicon_pass_rate_pct": 96.4,
+        "delta_passed": 24,
+        "delta_pp": 42.9
+      },
+      "DeepSeek-R1": {
+        "tasks": 56,
+        "baseline_passed": 30,
+        "baseline_pass_rate_pct": 53.6,
+        "with_lexicon_passed": 54,
+        "with_lexicon_pass_rate_pct": 96.4,
+        "delta_passed": 24,
+        "delta_pp": 42.9
+      },
+      "GLM-4-Flash": {
+        "tasks": 56,
+        "baseline_passed": 23,
+        "baseline_pass_rate_pct": 41.1,
+        "with_lexicon_passed": 53,
+        "with_lexicon_pass_rate_pct": 94.6,
+        "delta_passed": 30,
+        "delta_pp": 53.6
+      }
+    }
+  },
+  "rounds": [
+    {
+      "round_id": "HeldOut12",
+      "description": "12 Python ERP/FinTech blind zero-hint tasks",
+      "tasks": 12,
+      "total_runs": 36,
+      "baseline_passed": 15,
+      "baseline_pass_rate_pct": 41.7,
+      "with_lexicon_passed": 32,
+      "with_lexicon_pass_rate_pct": 88.9,
+      "delta_passed": 17,
+      "delta_pp": 47.2,
+      "models": {
+        "Budget-Reasoning-Model": {
+          "baseline_passed": 4,
+          "with_lexicon_passed": 11,
+          "tasks": 12
+        },
+        "DeepSeek-R1": {
+          "baseline_passed": 6,
+          "with_lexicon_passed": 11,
+          "tasks": 12
+        },
+        "GLM-4-Flash": {
+          "baseline_passed": 5,
+          "with_lexicon_passed": 10,
+          "tasks": 12
+        }
+      }
+    },
+    {
+      "round_id": "HardCrucible16",
+      "description": "16 OWASP/SWE-bench-style blind zero-hint tasks",
+      "tasks": 16,
+      "total_runs": 48,
+      "baseline_passed": 29,
+      "baseline_pass_rate_pct": 60.4,
+      "with_lexicon_passed": 46,
+      "with_lexicon_pass_rate_pct": 95.8,
+      "delta_passed": 17,
+      "delta_pp": 35.4,
+      "models": {
+        "Budget-Reasoning-Model": {
+          "baseline_passed": 11,
+          "with_lexicon_passed": 15,
+          "tasks": 16
+        },
+        "DeepSeek-R1": {
+          "baseline_passed": 9,
+          "with_lexicon_passed": 15,
+          "tasks": 16
+        },
+        "GLM-4-Flash": {
+          "baseline_passed": 9,
+          "with_lexicon_passed": 16,
+          "tasks": 16
+        }
+      }
+    },
+    {
+      "round_id": "DualStack16",
+      "description": "16 dual-stack blind zero-hint tasks (ERP_TS_MySQL_8 + DeFi_Solidity_8)",
+      "sub_suites": [
+        "ERP_TS_MySQL_8",
+        "DeFi_Solidity_8"
+      ],
+      "tasks": 16,
+      "total_runs": 48,
+      "baseline_passed": 30,
+      "baseline_pass_rate_pct": 62.5,
+      "with_lexicon_passed": 48,
+      "with_lexicon_pass_rate_pct": 100.0,
+      "delta_passed": 18,
+      "delta_pp": 37.5,
+      "models": {
+        "Budget-Reasoning-Model": {
+          "baseline_passed": 12,
+          "with_lexicon_passed": 16,
+          "tasks": 16
+        },
+        "DeepSeek-R1": {
+          "baseline_passed": 12,
+          "with_lexicon_passed": 16,
+          "tasks": 16
+        },
+        "GLM-4-Flash": {
+          "baseline_passed": 6,
+          "with_lexicon_passed": 16,
+          "tasks": 16
+        }
+      }
+    },
+    {
+      "round_id": "OnlineOpsScars12",
+      "description": "12 Online Bounty/Audit operational scars (LT-051..LT-062) blind zero-hint tasks",
+      "tasks": 12,
+      "total_runs": 36,
+      "baseline_passed": 9,
+      "baseline_pass_rate_pct": 25.0,
+      "with_lexicon_passed": 35,
+      "with_lexicon_pass_rate_pct": 97.2,
+      "delta_passed": 26,
+      "delta_pp": 72.2,
+      "models": {
+        "Budget-Reasoning-Model": {
+          "baseline_passed": 3,
+          "with_lexicon_passed": 12,
+          "tasks": 12
+        },
+        "DeepSeek-R1": {
+          "baseline_passed": 3,
+          "with_lexicon_passed": 12,
+          "tasks": 12
+        },
+        "GLM-4-Flash": {
+          "baseline_passed": 3,
+          "with_lexicon_passed": 11,
+          "tasks": 12
+        }
+      }
+    }
+  ],
+  "round_5_polyglot_infra_verification": {
+    "round_id": "PolyglotInfra7",
+    "included_in_168_run_headline": false,
+    "description": "7 Go / Docker / GitHub Actions CI supply-chain blind zero-hint tasks (LT-071..LT-080)",
+    "model": "glm-4.7-flash",
+    "tasks": 7,
+    "baseline_passed": 0,
+    "baseline_pass_rate_pct": 0.0,
+    "with_lexicon_passed": 6,
+    "with_lexicon_pass_rate_pct": 85.7,
+    "delta_passed": 6,
+    "delta_pp": 85.7
+  },
+  "honest_caveats": [
+    "All rounds are synthetic/held-out blind zero-hint benchmark suites designed to test recurring budget-LLM failure modes, not an official SWE-bench leaderboard submission.",
+    "Zero-bloat overhead (0 matches / 0 tokens) is verified on the benign fixture corpus (Python, TypeScript, Rust, Go) rather than claimed universally across arbitrary repositories.",
+    "Obligation Prover '0 false PROVEN' accuracy is scoped to the repository negative test corpus.",
+    "Round 5 (PolyglotInfra7 on glm-4.7-flash, 0/7 -> 6/7) is reported separately from the 4-round 168-run headline aggregate (83/168 -> 161/168)."
+  ]
+}

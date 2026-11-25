@@ -1,6 +1,6 @@
 {
-  "schema": "kintsugi.synthesized_empirical_cortex.v3.0.0",
-  "version": "3.0.0",
+  "schema": "kintsugi.synthesized_empirical_cortex.v3.0.1",
+  "version": "3.0.1",
   "dlp_sanitized": true,
   "zero_private_leaks_verified": true,
   "current_shipped_ledger_scars": 1797,

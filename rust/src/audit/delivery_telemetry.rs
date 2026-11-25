@@ -120,6 +120,7 @@ struct TelemetryStore {
     updated_at_utc: u64,
     envelopes: BTreeMap<String, EnvelopeTelemetryRecord>,
     efficacy: BTreeMap<String, EfficacyRecord>,
+    applied_outcomes: BTreeSet<String>,
 }
 
 #[inline]
@@ -134,8 +135,8 @@ fn validate_id_token(field: &str, raw: &str, required: bool) -> Result<String, S
     if t.is_empty() {
         return if required { Err(format!("MISSING_{}", field.to_ascii_uppercase())) } else { Ok(String::new()) };
     }
-    if t.len() > MAX_ID_LEN || t.bytes().any(|b| b < 0x20 || b == 0x7f) {
-        return Err(format!("INVALID_{}: control chars or length > {MAX_ID_LEN}", field.to_ascii_uppercase()));
+    if t.len() > MAX_ID_LEN || t.bytes().any(|b| b < 0x20 || b == 0x7f || b == b'|') {
+        return Err(format!("INVALID_{}: control chars, '|', or length > {MAX_ID_LEN}", field.to_ascii_uppercase()));
     }
     Ok(t.to_string())
 }
@@ -278,17 +279,13 @@ impl StoreLockGuard {
                         if m.file_type().is_symlink() {
                             return Err(format!("REFUSING_SYMLINK: {}", lock_path.display()));
                         }
-                        let stale = m.modified().ok()
-                            .and_then(|t| SystemTime::now().duration_since(t).ok())
-                            .map_or(false, |d| d.as_secs() > 60);
-                        if stale { let _ = fs::remove_file(&lock_path); continue; }
                     }
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
                 Err(e) => return Err(format!("LOCK_OPEN_FAILED: {e}")),
             }
         }
-        Err(format!("LOCK_TIMEOUT: {}", lock_path.display()))
+        Err(format!("TELEMETRY_LOCK_TIMEOUT: {}", lock_path.display()))
     }
 }
 
@@ -342,30 +339,19 @@ fn req_nonempty_str(o: &JObj, k: &str) -> Result<String, String> {
     }
 }
 fn opt_str_v(o: &JObj, k: &str) -> Result<Option<String>, String> { match o.get(k) { None | Some(JsonValue::Null) => Ok(None), Some(JsonValue::Str(s)) => Ok(Some(s.clone())), _ => Err(format!("Bad str '{k}'")) } }
-fn opt_u64_v(o: &JObj, k: &str) -> Result<Option<u64>, String> { match o.get(k) { None | Some(JsonValue::Null) => Ok(None), Some(JsonValue::Number(s)) => s.parse().map(Some).map_err(|_| format!("Bad u64 '{k}'")), _ => Err(format!("Bad u64 '{k}'")) } }
+fn str_or_empty_v(o: &JObj, k: &str) -> Result<String, String> { match o.get(k) { None => Ok(String::new()), Some(JsonValue::Str(s)) => Ok(s.clone()), _ => Err(format!("Bad str '{k}'")) } }
+fn parse_u64_str(k: &str, s: &str, ty: &str) -> Result<u64, String> {
+    s.parse().map_err(|_| if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) { format!("INT_OVERFLOW: '{k}'={s}") } else { format!("Bad {ty} '{k}'") })
+}
+fn opt_u64_v(o: &JObj, k: &str) -> Result<Option<u64>, String> { match o.get(k) { None | Some(JsonValue::Null) => Ok(None), Some(JsonValue::Number(s)) => parse_u64_str(k, s, "u64").map(Some), _ => Err(format!("Bad u64 '{k}'")) } }
+fn u64_counter_v(o: &JObj, k: &str) -> Result<u64, String> { match o.get(k) { None => Ok(0), Some(JsonValue::Number(s)) => parse_u64_str(k, s, "u64"), Some(_) => Err(format!("Bad u64 '{k}'")) } }
 fn u32_counter_v(o: &JObj, k: &str) -> Result<u32, String> {
-    match o.get(k) {
-        None => Ok(0),
-        Some(JsonValue::Number(s)) => {
-            let v = s.parse::<u64>().map_err(|_| {
-                if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) { format!("INT_OVERFLOW: '{k}'={s}") } else { format!("Bad u32 '{k}'") }
-            })?;
-            u32::try_from(v).map_err(|_| format!("INT_OVERFLOW: '{k}'={v} exceeds u32::MAX"))
-        }
-        Some(_) => Err(format!("Bad u32 '{k}'")),
-    }
+    let v = match o.get(k) { None => return Ok(0), Some(JsonValue::Number(s)) => parse_u64_str(k, s, "u32")?, Some(_) => return Err(format!("Bad u32 '{k}'")) };
+    u32::try_from(v).map_err(|_| format!("INT_OVERFLOW: '{k}'={v} exceeds u32::MAX"))
 }
 fn usize_counter_v(o: &JObj, k: &str) -> Result<usize, String> {
-    match o.get(k) {
-        None => Ok(0),
-        Some(JsonValue::Number(s)) => {
-            let v = s.parse::<u64>().map_err(|_| {
-                if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) { format!("INT_OVERFLOW: '{k}'={s}") } else { format!("Bad usize '{k}'") }
-            })?;
-            usize::try_from(v).map_err(|_| format!("INT_OVERFLOW: '{k}'={v} exceeds usize::MAX"))
-        }
-        Some(_) => Err(format!("Bad usize '{k}'")),
-    }
+    let v = match o.get(k) { None => return Ok(0), Some(JsonValue::Number(s)) => parse_u64_str(k, s, "usize")?, Some(_) => return Err(format!("Bad usize '{k}'")) };
+    usize::try_from(v).map_err(|_| format!("INT_OVERFLOW: '{k}'={v} exceeds usize::MAX"))
 }
 fn req_bool_v(o: &JObj, k: &str) -> Result<bool, String> { match o.get(k) { None => Ok(false), Some(JsonValue::Bool(b)) => Ok(*b), _ => Err(format!("Bad bool '{k}'")) } }
 fn opt_bool_v(o: &JObj, k: &str) -> Result<Option<bool>, String> { match o.get(k) { None | Some(JsonValue::Null) => Ok(None), Some(JsonValue::Bool(b)) => Ok(Some(*b)), _ => Err(format!("Bad bool '{k}'")) } }
@@ -380,64 +366,82 @@ fn load_store(store_path: &Path) -> Result<TelemetryStore, String> {
         Err(e) => return Err(format!("STAT_ERROR: {e}")),
     }
     let raw = read_regular_file_fd_verified(store_path, MAX_TELEMETRY_FILE_BYTES)?;
-    if raw.trim().is_empty() { return Ok(TelemetryStore::default()); }
+    if raw.is_empty() { return Ok(TelemetryStore::default()); }
     let val = parse_json_value(raw.trim())?;
-    let root = val.as_object().ok_or_else(|| "Telemetry store root must be object".to_string())?;
+    let root = val.as_object().ok_or_else(|| "UNRECOGNIZED_TELEMETRY_STORE: root must be object".to_string())?;
     match root.get("schema") {
-        None | Some(JsonValue::Null) => {}
         Some(JsonValue::Str(s)) if s == DELIVERY_TELEMETRY_SCHEMA => {}
-        Some(JsonValue::Str(s)) => return Err(format!("UNSUPPORTED_SCHEMA: {s}")),
-        Some(_) => return Err("CORRUPT_STORE: 'schema' must be string".to_string()),
+        Some(JsonValue::Str(s)) => return Err(format!("UNRECOGNIZED_TELEMETRY_STORE: UNSUPPORTED_SCHEMA: {s}")),
+        _ => return Err("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid schema".to_string()),
     }
     let updated_at_utc = match root.get("updated_at_utc") {
         None | Some(JsonValue::Null) => 0u64,
-        Some(JsonValue::Number(s)) => s.parse::<u64>().map_err(|_| "CORRUPT_STORE: bad 'updated_at_utc'".to_string())?,
+        Some(JsonValue::Number(s)) => s.parse::<u64>().map_err(|_| {
+            if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) { format!("INT_OVERFLOW: 'updated_at_utc'={s}") } else { "CORRUPT_STORE: bad 'updated_at_utc'".to_string() }
+        })?,
         Some(_) => return Err("CORRUPT_STORE: 'updated_at_utc' must be u64".to_string()),
     };
-    let envs_opt = match root.get("envelopes") {
-        None | Some(JsonValue::Null) => None,
-        Some(JsonValue::Object(m)) => Some(m),
-        Some(_) => return Err("CORRUPT_STORE: 'envelopes' must be object".to_string()),
+    let envs = match root.get("envelopes") {
+        Some(JsonValue::Object(m)) => m,
+        _ => return Err("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid 'envelopes' object".to_string()),
     };
-    let effs_opt = match root.get("efficacy") {
-        None | Some(JsonValue::Null) => None,
-        Some(JsonValue::Object(m)) => Some(m),
-        Some(_) => return Err("CORRUPT_STORE: 'efficacy' must be object".to_string()),
+    let effs = match root.get("efficacy") {
+        Some(JsonValue::Object(m)) => m,
+        _ => return Err("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid 'efficacy' object".to_string()),
     };
-    let mut store = TelemetryStore { updated_at_utc, ..Default::default() };
-    if let Some(envs) = envs_opt {
-        for (k, ev) in envs {
-            let o = ev.as_object().ok_or_else(|| format!("Envelope '{k}' not object"))?;
-            let client = req_nonempty_str(o, "client")?;
-            if !is_supported_client(&client) { return Err(format!("UNSUPPORTED_CLIENT_IN_STORE: {client}")); }
-            let stage = req_nonempty_str(o, "stage")?;
-            if !SUPPORTED_STAGES.contains(&stage.as_str()) { return Err(format!("UNSUPPORTED_STAGE_IN_STORE: {stage}")); }
-            store.envelopes.insert(k.clone(), EnvelopeTelemetryRecord {
-                envelope_id: req_nonempty_str(o, "envelope_id")?,
-                session_id: req_nonempty_str(o, "session_id")?, client,
-                source_digest: opt_str_v(o, "source_digest")?.unwrap_or_default(),
-                capsule_ids: str_vec_v(o, "capsule_ids")?, pitfall_ids: str_vec_v(o, "pitfall_ids")?,
-                estimated_tokens: usize_counter_v(o, "estimated_tokens")?,
-                stage, timestamp_utc: opt_u64_v(o, "timestamp_utc")?.unwrap_or(0),
-                included_in_input: req_bool_v(o, "included_in_input")?,
-                included_before_first_patch: req_bool_v(o, "included_before_first_patch")?,
-                included_at_utc: opt_u64_v(o, "included_at_utc")?, patch_bound: req_bool_v(o, "patch_bound")?,
-                patch_digest: opt_str_v(o, "patch_digest")?.unwrap_or_default(),
-                passed: opt_bool_v(o, "passed")?, first_patch: req_bool_v(o, "first_patch")?,
-                patch_bound_at_utc: opt_u64_v(o, "patch_bound_at_utc")?,
-            });
+    let mut applied_outcomes = BTreeSet::new();
+    let needs_backfill = match root.get("applied_outcomes") {
+        None => true,
+        Some(JsonValue::Array(arr)) => {
+            for item in arr {
+                let s = item.as_str().ok_or_else(|| "CORRUPT_STORE: 'applied_outcomes' items must be strings".to_string())?;
+                applied_outcomes.insert(s.to_string());
+            }
+            false
         }
+        Some(_) => return Err("CORRUPT_STORE: 'applied_outcomes' must be array".to_string()),
+    };
+    let mut store = TelemetryStore { updated_at_utc, applied_outcomes, ..Default::default() };
+    for (k, ev) in envs {
+        let o = ev.as_object().ok_or_else(|| format!("Envelope '{k}' not object"))?;
+        let client = req_nonempty_str(o, "client")?;
+        if !is_supported_client(&client) { return Err(format!("UNSUPPORTED_CLIENT_IN_STORE: {client}")); }
+        let stage = req_nonempty_str(o, "stage")?;
+        if !SUPPORTED_STAGES.contains(&stage.as_str()) { return Err(format!("UNSUPPORTED_STAGE_IN_STORE: {stage}")); }
+        let _ = opt_bool_v(o, "patch_passed")?;
+        store.envelopes.insert(k.clone(), EnvelopeTelemetryRecord {
+            envelope_id: req_nonempty_str(o, "envelope_id")?,
+            session_id: req_nonempty_str(o, "session_id")?, client,
+            source_digest: str_or_empty_v(o, "source_digest")?,
+            capsule_ids: str_vec_v(o, "capsule_ids")?, pitfall_ids: str_vec_v(o, "pitfall_ids")?,
+            estimated_tokens: usize_counter_v(o, "estimated_tokens")?,
+            stage, timestamp_utc: u64_counter_v(o, "timestamp_utc")?,
+            included_in_input: req_bool_v(o, "included_in_input")?,
+            included_before_first_patch: req_bool_v(o, "included_before_first_patch")?,
+            included_at_utc: opt_u64_v(o, "included_at_utc")?, patch_bound: req_bool_v(o, "patch_bound")?,
+            patch_digest: opt_str_v(o, "patch_digest")?.unwrap_or_default(),
+            passed: opt_bool_v(o, "passed")?, first_patch: req_bool_v(o, "first_patch")?,
+            patch_bound_at_utc: opt_u64_v(o, "patch_bound_at_utc")?,
+        });
     }
-    if let Some(effs) = effs_opt {
-        for (k, fv) in effs {
-            let o = fv.as_object().ok_or_else(|| format!("Efficacy '{k}' not object"))?;
-            let id = opt_str_v(o, "id")?.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| k.clone());
-            store.efficacy.insert(k.clone(), EfficacyRecord {
-                id,
-                wins: u32_counter_v(o, "wins")?, losses: u32_counter_v(o, "losses")?,
-                trials: u32_counter_v(o, "trials")?, consecutive_losses: u32_counter_v(o, "consecutive_losses")?,
-                frozen: req_bool_v(o, "frozen")?, freeze_reason: opt_str_v(o, "freeze_reason")?,
-            });
+    for (k, fv) in effs {
+        let o = fv.as_object().ok_or_else(|| format!("Efficacy '{k}' not object"))?;
+        let _ = u64_counter_v(o, "last_updated_utc")?;
+        let id = opt_str_v(o, "id")?.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| k.clone());
+        store.efficacy.insert(k.clone(), EfficacyRecord {
+            id,
+            wins: u32_counter_v(o, "wins")?, losses: u32_counter_v(o, "losses")?,
+            trials: u32_counter_v(o, "trials")?, consecutive_losses: u32_counter_v(o, "consecutive_losses")?,
+            frozen: req_bool_v(o, "frozen")?, freeze_reason: opt_str_v(o, "freeze_reason")?,
+        });
+    }
+    if needs_backfill {
+        for env in store.envelopes.values() {
+            if env.patch_bound && env.included_before_first_patch && !env.patch_digest.is_empty() {
+                for id in env.capsule_ids.iter().chain(env.pitfall_ids.iter()) {
+                    store.applied_outcomes.insert(format!("{}|{}|{}|{}", env.client, env.session_id, env.patch_digest, id));
+                }
+            }
         }
     }
     Ok(store)
@@ -469,10 +473,12 @@ fn save_store(store_path: &Path, store: &TelemetryStore) -> Result<(), String> {
             .bool("frozen", f.is_auto_frozen()).opt_str("freeze_reason", f.effective_freeze_reason()).finish();
         eff_j = eff_j.raw(k, &s);
     }
+    let applied_arr = store.applied_outcomes.iter().fold(JsonArr::new(), |a, k| a.str(k));
     let mut bytes = JsonObj::with_capacity(512)
         .str("schema", DELIVERY_TELEMETRY_SCHEMA).str("schema_version", ENGINE_VERSION)
         .u64("updated_at_utc", store.updated_at_utc)
-        .raw("envelopes", &envs_j.finish()).raw("efficacy", &eff_j.finish()).finish().into_bytes();
+        .raw("envelopes", &envs_j.finish()).raw("efficacy", &eff_j.finish())
+        .arr("applied_outcomes", applied_arr).finish().into_bytes();
     bytes.push(b'\n');
     if (bytes.len() as u64) > MAX_TELEMETRY_FILE_BYTES {
         return Err(format!(
@@ -537,7 +543,8 @@ pub fn record_telemetry_event(
             if !env.included_in_input {
                 env.included_in_input = true;
                 env.included_at_utc = Some(now);
-                if !env.patch_bound && !has_patch { env.included_before_first_patch = true; env.stage = "included_in_input".to_string(); }
+                if env.stage == "issued" { env.stage = "included_in_input".to_string(); }
+                if !env.patch_bound && !has_patch { env.included_before_first_patch = true; }
             }
             (res_sess, res_incl_before, res_first_patch, res_passed) = (env.session_id.clone(), env.included_before_first_patch, env.first_patch, env.passed);
         }
@@ -550,12 +557,15 @@ pub fn record_telemetry_event(
             };
             let is_first = !store.envelopes.values().any(|e| e.client == client && e.session_id == target_sess && e.patch_bound);
             let env = store.envelopes.get_mut(&env_id).ok_or_else(|| format!("UNKNOWN_ENVELOPE_ID: '{env_id}'"))?;
-            env.patch_bound = true; env.patch_digest = p_dig_pre; env.passed = Some(pass_val);
+            env.patch_bound = true; env.patch_digest = p_dig_pre.clone(); env.passed = Some(pass_val);
             env.first_patch = is_first; env.patch_bound_at_utc = Some(now); env.stage = "patch_bound".to_string();
             (res_sess, res_incl_before, res_first_patch, res_passed) = (env.session_id.clone(), env.included_before_first_patch, is_first, Some(pass_val));
             if res_incl_before && !tracked.is_empty() {
-                efficacy_updated = true;
                 for id in tracked {
+                    if !store.applied_outcomes.insert(format!("{client}|{res_sess}|{p_dig_pre}|{id}")) {
+                        continue;
+                    }
+                    efficacy_updated = true;
                     let eff = store.efficacy.entry(id.clone()).or_insert_with(|| EfficacyRecord::new(id.clone()));
                     if eff.apply_outcome(pass_val) { newly_frozen.push(id); }
                 }
@@ -700,6 +710,80 @@ mod tests {
             assert!(render_telemetry_report_json(&nested).is_err());
             assert!(!outside.join("nested").exists());
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unrecognized_json_preserved_multifile_patch_dedup_and_late_stage_parity() {
+        let dir = std::env::temp_dir().join(format!("kintsugi_dt_v301_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        // HIGH #5: unrecognized existing JSON file MUST fail closed without overwriting bytes!
+        let foreign = dir.join("foreign.json");
+        fs::write(&foreign, br#"{"note":1}"#).unwrap();
+        let err = record_telemetry_event(&foreign, "claude_code", "issued", "s1", "e1", "d1", "", &[], &[], 10, None).unwrap_err();
+        assert!(err.contains("UNRECOGNIZED_TELEMETRY_STORE"), "got {err}");
+        assert_eq!(fs::read(&foreign).unwrap(), br#"{"note":1}"#);
+        let missing_sections = dir.join("missing_sec.json");
+        fs::write(&missing_sections, br#"{"schema":"DeliveryTelemetry/1"}"#).unwrap();
+        assert!(record_telemetry_event(&missing_sections, "claude_code", "issued", "s1", "e1", "d1", "", &[], &[], 10, None).is_err());
+        assert_eq!(fs::read(&missing_sections).unwrap(), br#"{"schema":"DeliveryTelemetry/1"}"#);
+        // 0-byte empty file auto-initializes cleanly
+        let zero = dir.join("empty.json");
+        fs::write(&zero, b"").unwrap();
+        assert!(record_telemetry_event(&zero, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 5, None).is_ok());
+
+        // HIGH #6: 2 envelopes in same session bound to same patch_digest="p" count ONCE; 2nd patch "p2" freezes!
+        let dedup_store = dir.join("dedup.json");
+        let caps = vec!["CAP-DEDUP".to_string()];
+        record_telemetry_event(&dedup_store, "claude_code", "issued", "s1", "e1", "d1", "", &caps, &[], 50, None).unwrap();
+        record_telemetry_event(&dedup_store, "claude_code", "included_in_input", "s1", "e1", "", "", &[], &[], 0, None).unwrap();
+        record_telemetry_event(&dedup_store, "claude_code", "issued", "s1", "e2", "d2", "", &caps, &[], 50, None).unwrap();
+        record_telemetry_event(&dedup_store, "claude_code", "included_in_input", "s1", "e2", "", "", &[], &[], 0, None).unwrap();
+        let r1 = record_telemetry_event(&dedup_store, "claude_code", "patch_bound", "s1", "e1", "", "p", &[], &[], 0, Some(false)).unwrap();
+        let r2 = record_telemetry_event(&dedup_store, "claude_code", "patch_bound", "s1", "e2", "", "p", &[], &[], 0, Some(false)).unwrap();
+        assert!(r1.contains("\"efficacy_updated\":true") && r2.contains("\"efficacy_updated\":false"));
+        let st1 = load_store(&dedup_store).unwrap();
+        assert_eq!(st1.envelopes.len(), 2);
+        let eff1 = st1.efficacy.get("CAP-DEDUP").unwrap();
+        assert_eq!((eff1.losses, eff1.trials, eff1.is_auto_frozen()), (1, 1, false));
+        // Late included_in_input (MEDIUM #9) after session already has a patch: updates stage to "included_in_input" while included_before_first_patch stays false!
+        record_telemetry_event(&dedup_store, "claude_code", "issued", "s1", "e_late", "d3", "", &caps, &[], 20, None).unwrap();
+        let rl = record_telemetry_event(&dedup_store, "claude_code", "included_in_input", "s1", "e_late", "", "", &[], &[], 0, None).unwrap();
+        assert!(rl.contains("\"included_before_first_patch\":false"));
+        let st_late = load_store(&dedup_store).unwrap();
+        let rec_late = st_late.envelopes.get("e_late").unwrap();
+        assert_eq!(rec_late.stage, "included_in_input");
+        assert!(rec_late.included_in_input && !rec_late.included_before_first_patch);
+        // 2nd distinct failing patch "p2" triggers 2-strike freeze!
+        record_telemetry_event(&dedup_store, "claude_code", "issued", "s2", "e3", "d4", "", &caps, &[], 50, None).unwrap();
+        record_telemetry_event(&dedup_store, "claude_code", "included_in_input", "s2", "e3", "", "", &[], &[], 0, None).unwrap();
+        let r3 = record_telemetry_event(&dedup_store, "claude_code", "patch_bound", "s2", "e3", "", "p2", &[], &[], 0, Some(false)).unwrap();
+        assert!(r3.contains("\"newly_frozen_ids\":[\"CAP-DEDUP\"]"));
+        let st2 = load_store(&dedup_store).unwrap();
+        let eff2 = st2.efficacy.get("CAP-DEDUP").unwrap();
+        assert_eq!((eff2.losses, eff2.trials, eff2.is_auto_frozen()), (2, 2, true));
+        // Pipe '|' rejected in session_id, patch_digest, and item_id; malformed envelope fields fail closed; legacy v3.0.0 backfill prevents double-count; u32::MAX saturates!
+        assert!(record_telemetry_event(&dedup_store, "claude_code", "issued", "s|1", "ep1", "d", "", &[], &[], 0, None).is_err());
+        assert!(record_telemetry_event(&dedup_store, "claude_code", "issued", "sp", "ep2", "d", "", &["CAP|1".to_string()], &[], 0, None).is_err());
+        record_telemetry_event(&dedup_store, "claude_code", "issued", "sp", "ep3", "d", "", &[], &[], 0, None).unwrap();
+        assert!(record_telemetry_event(&dedup_store, "claude_code", "patch_bound", "sp", "ep3", "", "p|1", &[], &[], 0, Some(true)).is_err());
+        for bad_env in [
+            r#"{"schema":"DeliveryTelemetry/1","envelopes":{"e1":{"envelope_id":"e1","session_id":"s1","client":"claude_code","stage":"issued","patch_bound":"false"}},"efficacy":{}}"#,
+            r#"{"schema":"DeliveryTelemetry/1","envelopes":{"e1":{"envelope_id":"e1","session_id":"s1","client":"claude_code","stage":"issued","capsule_ids":"CAP-1"}},"efficacy":{}}"#,
+            r#"{"schema":"DeliveryTelemetry/1","envelopes":{"e1":{"envelope_id":"e1","session_id":"s1","client":"claude_code","stage":"issued","estimated_tokens":null}},"efficacy":{}}"#,
+        ] {
+            let bp = dir.join("bad_env_r2.json");
+            fs::write(&bp, bad_env).unwrap();
+            assert!(load_store(&bp).is_err(), "expected err for {bad_env}");
+        }
+        let leg = dir.join("legacy_backfill.json");
+        fs::write(&leg, r#"{"schema":"DeliveryTelemetry/1","envelopes":{"e1":{"envelope_id":"e1","session_id":"s1","client":"claude_code","stage":"patch_bound","capsule_ids":["CAP-L"],"pitfall_ids":[],"included_in_input":true,"included_before_first_patch":true,"patch_bound":true,"patch_digest":"p1","passed":false},"e2":{"envelope_id":"e2","session_id":"s1","client":"claude_code","stage":"included_in_input","capsule_ids":["CAP-L"],"pitfall_ids":[],"included_in_input":true,"included_before_first_patch":true,"patch_bound":false,"patch_digest":"","passed":null}},"efficacy":{"CAP-L":{"id":"CAP-L","wins":0,"losses":1,"trials":1,"consecutive_losses":1,"frozen":false,"freeze_reason":null}}}"#).unwrap();
+        let rl_bf = record_telemetry_event(&leg, "claude_code", "patch_bound", "s1", "e2", "", "p1", &[], &[], 0, Some(false)).unwrap();
+        assert!(rl_bf.contains("\"efficacy_updated\":false") && load_frozen_ids(&leg).is_empty());
+        let mut sat = EfficacyRecord { id: "CAP-SAT".into(), wins: u32::MAX, losses: u32::MAX, trials: u32::MAX, consecutive_losses: u32::MAX, frozen: false, freeze_reason: None };
+        sat.apply_outcome(false);
+        assert_eq!((sat.trials, sat.losses, sat.consecutive_losses), (u32::MAX, u32::MAX, u32::MAX));
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -44,9 +44,11 @@ pub fn run_s3_audit_cmd(args: &[String]) {
         use kintsugi_core::audit::{compute_s3_verdicts, render_s3_audit_json, s3_audit_path_with_mode};
         let mut rep = s3_audit_path_with_mode(Path::new(targets[0]), strict_proven);
         if targets.len() > 1 {
+            let mut had_no_input = rep.verdict == "FAIL_NO_INPUT";
             rep.target = targets.join(",");
             for t in &targets[1..] {
                 let mut sub = s3_audit_path_with_mode(Path::new(t), strict_proven);
+                had_no_input |= sub.verdict == "FAIL_NO_INPUT";
                 rep.files_scanned += sub.files_scanned;
                 rep.total_functions += sub.total_functions;
                 rep.total_classes += sub.total_classes;
@@ -57,18 +59,25 @@ pub fn run_s3_audit_cmd(args: &[String]) {
                 rep.unguarded_s0_seams += sub.unguarded_s0_seams;
                 rep.ignored_override |= sub.ignored_override;
                 rep.ignored_override_files += sub.ignored_override_files;
+                rep.missing_targets.append(&mut sub.missing_targets);
                 rep.elapsed_ms += sub.elapsed_ms;
                 rep.files.append(&mut sub.files);
             }
-            let (tier, verd, sverd) = compute_s3_verdicts(
-                rep.unguarded_s0_seams,
-                rep.unproven_seams,
-                rep.ignored_override,
-                strict_proven,
-            );
-            rep.assurance_tier = tier;
-            rep.verdict = verd;
-            rep.strict_verdict = sverd;
+            if had_no_input || !rep.missing_targets.is_empty() {
+                rep.assurance_tier = "NO_INPUT";
+                rep.verdict = "FAIL_NO_INPUT";
+                rep.strict_verdict = "NO_INPUT";
+            } else {
+                let (tier, verd, sverd) = compute_s3_verdicts(
+                    rep.unguarded_s0_seams,
+                    rep.unproven_seams,
+                    rep.ignored_override,
+                    strict_proven,
+                );
+                rep.assurance_tier = tier;
+                rep.verdict = verd;
+                rep.strict_verdict = sverd;
+            }
         }
         if format == "text" {
             write_stdout_ln(&format!(
@@ -91,6 +100,9 @@ pub fn run_s3_audit_cmd(args: &[String]) {
             }
         } else {
             write_stdout_ln(&render_s3_audit_json(&rep));
+        }
+        if rep.verdict == "FAIL_NO_INPUT" {
+            process::exit(2);
         }
         if rep.verdict != "PASS_S3_LOCKED" {
             process::exit(1);
@@ -185,6 +197,7 @@ pub fn run_hook_cmd(args: &[String]) {
     let mut mode = "claude-pre-tool";
     let mut block_on = Severity::High;
     let mut workspace: Option<&str> = None;
+    let mut telemetry_store: Option<&str> = None;
     let mut exit_on_deny = false;
     let mut include_low_tier = false;
     let mut max_tokens: usize = 320;
@@ -196,6 +209,7 @@ pub fn run_hook_cmd(args: &[String]) {
             CliToken::Positional("claude-post-read") => mode = "claude-post-read",
             CliToken::Flag("--block-on") => block_on = cur.parse_severity("--block-on"),
             CliToken::Flag("--workspace") => workspace = Some(cur.require_value("--workspace")),
+            CliToken::Flag("--telemetry-store") => telemetry_store = Some(cur.require_value("--telemetry-store")),
             CliToken::Flag("--exit-on-deny") => exit_on_deny = true,
             CliToken::Flag("--low-tier") => include_low_tier = true,
             CliToken::Flag("--max-tokens") => {
@@ -227,7 +241,14 @@ pub fn run_hook_cmd(args: &[String]) {
             process::exit(2);
         });
         if mode == "claude-post-read" {
-            let out = kintsugi_core::audit::evaluate_post_read_hook_json(&stdin_buf, include_low_tier, max_tokens);
+            let out = kintsugi_core::audit::context_envelope::evaluate_post_read_hook_json_with_workspace_telemetry(
+                &stdin_buf,
+                include_low_tier,
+                max_tokens,
+                workspace.map(Path::new),
+                telemetry_store.map(Path::new),
+            )
+            .unwrap_or_else(|e| emit_cli_error_json("TELEMETRY_ERROR", &e, 2));
             write_stdout_ln(&out);
             return;
         }
@@ -243,7 +264,7 @@ pub fn run_hook_cmd(args: &[String]) {
     }
     #[cfg(not(feature = "audit"))]
     {
-        let _ = (mode, block_on, workspace, exit_on_deny, include_low_tier, max_tokens);
+        let _ = (mode, block_on, workspace, telemetry_store, exit_on_deny, include_low_tier, max_tokens);
         require_audit_feature("hook");
     }
 }
@@ -360,6 +381,7 @@ pub fn run_context_cmd(args: &[String]) {
     let mut target: Option<&str> = None;
     let mut capsules_file: Option<&str> = None;
     let mut workspace: Option<&str> = None;
+    let mut telemetry_store: Option<&str> = None;
     let mut include_low_tier = false;
     let mut max_tokens: usize = 320;
     let mut format = "json";
@@ -375,6 +397,7 @@ pub fn run_context_cmd(args: &[String]) {
             }
             CliToken::Flag("--capsules-file") => capsules_file = Some(cur.require_value("--capsules-file")),
             CliToken::Flag("--workspace") => workspace = Some(cur.require_value("--workspace")),
+            CliToken::Flag("--telemetry-store") => telemetry_store = Some(cur.require_value("--telemetry-store")),
             CliToken::Flag("--low-tier") => include_low_tier = true,
             CliToken::Flag("--max-tokens") => {
                 max_tokens = cur.parse_usize("--max-tokens");
@@ -387,25 +410,25 @@ pub fn run_context_cmd(args: &[String]) {
         }
     }
     let Some(target_path) = target else {
-        emit_cli_error_json("MISSING_TARGET", "Usage: kintsugi-rs context <FILE_PATH> [--low-tier] [--capsules-file PATH] [--max-tokens N] [--format json|compact]", 2);
+        emit_cli_error_json("MISSING_TARGET", "Usage: kintsugi-rs context <FILE_PATH> [--low-tier] [--capsules-file PATH] [--telemetry-store PATH] [--max-tokens N] [--format json|compact]", 2);
     };
 
     #[cfg(feature = "audit")]
     {
-        use kintsugi_core::audit::{
-            build_context_envelope_for_file, load_custom_capsules_json, render_context_envelope_json,
-        };
+        use kintsugi_core::audit::context_envelope::build_context_envelope_for_file_with_telemetry;
+        use kintsugi_core::audit::{load_custom_capsules_json, render_context_envelope_json};
         let extra = match capsules_file {
             Some(cf) => load_custom_capsules_json(Path::new(cf))
                 .unwrap_or_else(|e| emit_cli_error_json("INVALID_CAPSULES_FILE", &e, 2)),
             None => Vec::new(),
         };
-        let env = build_context_envelope_for_file(
+        let env = build_context_envelope_for_file_with_telemetry(
             Path::new(target_path),
             workspace.map(Path::new),
             &extra,
             include_low_tier,
             max_tokens,
+            telemetry_store.map(Path::new),
         )
         .unwrap_or_else(|e| emit_cli_error_json("IO_ERROR", &e, 2));
         if format == "json" {
@@ -416,13 +439,14 @@ pub fn run_context_cmd(args: &[String]) {
     }
     #[cfg(not(feature = "audit"))]
     {
-        let _ = (target_path, capsules_file, workspace, include_low_tier, max_tokens, format);
+        let _ = (target_path, capsules_file, workspace, telemetry_store, include_low_tier, max_tokens, format);
         require_audit_feature("context");
     }
 }
 
 pub fn run_task_pack_cmd(args: &[String]) {
     let mut targets: Vec<&str> = Vec::new();
+    let mut telemetry_store: Option<&str> = None;
     let mut include_low_tier = true;
     let mut max_tokens: usize = 480;
     let mut format = "compact";
@@ -431,6 +455,7 @@ pub fn run_task_pack_cmd(args: &[String]) {
     while let Some(tok) = cur.next_item() {
         match tok {
             CliToken::Positional(p) => targets.push(p),
+            CliToken::Flag("--telemetry-store") => telemetry_store = Some(cur.require_value("--telemetry-store")),
             CliToken::Flag("--low-tier") => include_low_tier = true,
             CliToken::Flag("--no-low-tier") => include_low_tier = false,
             CliToken::Flag("--max-tokens") => {
@@ -444,45 +469,51 @@ pub fn run_task_pack_cmd(args: &[String]) {
         }
     }
     if targets.is_empty() {
-        emit_cli_error_json("MISSING_TARGET", "Usage: kintsugi-rs task-pack <FILE_PATH...> [--low-tier|--no-low-tier] [--max-tokens N] [--format compact|json]", 2);
+        emit_cli_error_json("MISSING_TARGET", "Usage: kintsugi-rs task-pack <FILE_PATH...> [--low-tier|--no-low-tier] [--telemetry-store PATH] [--max-tokens N] [--format compact|json]", 2);
     }
 
     #[cfg(feature = "audit")]
     {
-        use kintsugi_core::audit::{build_context_envelope_for_file, render_context_envelope_json};
+        use kintsugi_core::audit::context_envelope::build_task_pack_with_telemetry;
+        use kintsugi_core::audit::render_context_envelope_json;
         use kintsugi_core::io_json::JsonArr;
-        let per_file_budget = (max_tokens / targets.len().max(1)).max(80);
-        let mut envs_json = JsonArr::new();
-        let mut blocks: Vec<String> = Vec::new();
-        let mut total_tokens = 0usize;
-        for &t in &targets {
-            let env = build_context_envelope_for_file(Path::new(t), None, &[], include_low_tier, per_file_budget)
-                .unwrap_or_else(|e| emit_cli_error_json("IO_ERROR", &e, 2));
-            total_tokens += env.estimated_tokens;
-            if !env.compact_context.is_empty() {
-                blocks.push(format!("### FILE: {} (sha={})\n{}", env.path, env.source_digest, env.compact_context));
-            }
-            envs_json = envs_json.raw(&render_context_envelope_json(&env));
-        }
-        let combined = blocks.join("\n\n");
+        let target_paths: Vec<&Path> = targets.iter().map(|t| Path::new(*t)).collect();
+        let pack = build_task_pack_with_telemetry(
+            &target_paths,
+            include_low_tier,
+            max_tokens,
+            telemetry_store.map(Path::new),
+        )
+        .unwrap_or_else(|e| emit_cli_error_json("IO_ERROR", &e, 2));
         if format == "json" {
-            let out = JsonObj::with_capacity(combined.len() + 256)
+            let mut files_json = JsonArr::new();
+            let mut envs_json = JsonArr::new();
+            for env in &pack.files {
+                let rendered = render_context_envelope_json(env);
+                files_json = files_json.raw(&rendered);
+                envs_json = envs_json.raw(&rendered);
+            }
+            let out = JsonObj::with_capacity(pack.packet.len() + 512)
                 .bool("ok", true)
                 .str("schema_version", ENGINE_VERSION)
                 .bool("low_tier_enabled", include_low_tier)
-                .usize("files_count", targets.len())
-                .usize("estimated_tokens", total_tokens)
+                .usize("max_tokens", max_tokens)
+                .usize("files_count", pack.files.len())
+                .usize("requested_files_count", targets.len())
+                .usize("total_tokens", pack.total_tokens)
+                .usize("estimated_tokens", pack.total_tokens)
+                .arr("files", files_json)
                 .arr("envelopes", envs_json)
-                .str("packet", &combined)
+                .str("packet", &pack.packet)
                 .finish();
             write_stdout_ln(&out);
-        } else if !combined.is_empty() {
-            write_stdout_ln(&combined);
+        } else if !pack.packet.is_empty() {
+            write_stdout_ln(&pack.packet);
         }
     }
     #[cfg(not(feature = "audit"))]
     {
-        let _ = (targets, include_low_tier, max_tokens, format);
+        let _ = (targets, telemetry_store, include_low_tier, max_tokens, format);
         require_audit_feature("task-pack");
     }
 }

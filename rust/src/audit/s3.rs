@@ -22,6 +22,7 @@ pub const S3_EVIDENCE_MODEL: &str = "stateful_lex_pre_sink_var_bound_v2";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeamEvidence {
     pub seam_line: usize,
+    pub seam_col: usize,
     pub guard_line: usize,
     pub seam_kind: &'static str,
     pub bound_vars: Vec<String>,
@@ -30,6 +31,7 @@ pub struct SeamEvidence {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FailingSeam {
     pub seam_line: usize,
+    pub seam_col: usize,
     pub seam_kind: &'static str,
     pub tier: &'static str,
     pub reason: &'static str,
@@ -72,6 +74,7 @@ pub struct S3AuditSummary {
     pub unguarded_s0_seams: usize,
     pub ignored_override: bool,
     pub ignored_override_files: usize,
+    pub missing_targets: Vec<String>,
     pub elapsed_ms: f64,
     pub assurance_tier: &'static str,
     pub verdict: &'static str,
@@ -81,6 +84,15 @@ pub struct S3AuditSummary {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SeamTier { ExposedS0, ProvenS3, Unproven }
+
+#[derive(Debug, Clone, Copy)]
+enum LegacySuppression {
+    /// Suppress ONLY the exact call matching `(line, kind)` at `start_col` OR `paren_col`
+    /// so nested calls inside arguments (e.g. `open(safe_p, "w", encoding=open(evil_p)...)`) are NEVER hidden.
+    ExactCall { line: usize, start_col: usize, paren_col: usize, kind: &'static str },
+    /// Suppress legacy seams within a line/column span (used for whole-line `CRYPTO_MAC_BIDI` spans).
+    ColRange { line: usize, start_col: usize, end_col: usize, kind: &'static str },
+}
 
 /// Compute `(assurance_tier, verdict, strict_verdict)`; `ignored_override` NEVER returns `PASS_S3_LOCKED`.
 #[inline]
@@ -175,32 +187,147 @@ fn extract_sink_arg_vars(raw_seam: &str, mask_seam: &str, needles: &[&str]) -> V
     Vec::new()
 }
 
-fn classify_s3_seam_line(raw_t: &str, mask_t: &str) -> Option<&'static str> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LegacySeamHit {
+    kind: &'static str,
+    start_byte: usize,
+    paren_byte: usize,
+    end_byte: usize,
+}
+
+fn find_call_end(masked: &str, open_paren_byte: usize) -> usize {
+    let bytes = masked.as_bytes();
+    if open_paren_byte >= bytes.len() || bytes[open_paren_byte] != b'(' {
+        return open_paren_byte.min(bytes.len());
+    }
+    let mut depth = 0usize;
+    for (bi, &b) in bytes[open_paren_byte..].iter().enumerate() {
+        match b {
+            b'(' => depth += 1,
+            b')' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return open_paren_byte + bi + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    bytes.len()
+}
+
+fn collect_call_hits(
+    masked: &str,
+    kind: &'static str,
+    needles: &[&str],
+    bare_needles: &[&str],
+    out: &mut Vec<LegacySeamHit>,
+) {
+    let mb = masked.as_bytes();
+    for &needle in needles {
+        let mut from = 0usize;
+        while from < masked.len() {
+            let Some(rel) = masked[from..].find(needle) else { break };
+            let idx = from + rel;
+            let left_ok = needle.starts_with('.')
+                || idx == 0
+                || !matches!(mb[idx - 1], b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_');
+            if left_ok {
+                let (paren_byte, end_byte) = if needle.ends_with('(') {
+                    let pb = idx + needle.len() - 1;
+                    (pb, find_call_end(masked, pb))
+                } else {
+                    let mut e = idx + needle.len();
+                    while e < mb.len() && matches!(mb[e], b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_') {
+                        e += 1;
+                    }
+                    if mb.get(e) == Some(&b'(') {
+                        (e, find_call_end(masked, e))
+                    } else {
+                        (idx, e)
+                    }
+                };
+                out.push(LegacySeamHit { kind, start_byte: idx, paren_byte, end_byte });
+            }
+            from = idx + needle.len();
+        }
+    }
+    for &needle in bare_needles {
+        let mut from = 0usize;
+        while from < masked.len() {
+            let Some(rel) = masked[from..].find(needle) else { break };
+            let idx = from + rel;
+            let left_ok = idx == 0
+                || !matches!(mb[idx - 1], b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'.');
+            if left_ok {
+                let pb = idx + needle.len() - 1;
+                out.push(LegacySeamHit {
+                    kind,
+                    start_byte: idx,
+                    paren_byte: pb,
+                    end_byte: find_call_end(masked, pb),
+                });
+            }
+            from = idx + needle.len();
+        }
+    }
+}
+
+fn classify_s3_seam_occurrences(raw_line: &str, masked_line: &str) -> Vec<LegacySeamHit> {
+    let raw_t = raw_line.trim();
+    let mask_t = masked_line.trim();
     if mask_t.is_empty()
         || ["*", "fix_hint:", "title:", "kmi_token:", "let bad_", "let ignored_", "poisoned."].iter().any(|p| raw_t.starts_with(p))
         || raw_t.contains(".contains(\"") || is_fixture_definition_line(raw_t)
     {
-        return None;
+        return Vec::new();
     }
     const CMD_CALLS: &[&str] = &[
         "spawnSync(", "execFileSync(", "execFile(", "execSync(", "child_process.exec(", "subprocess.run(",
         "subprocess.Popen(", "subprocess.call(", "subprocess.check_call(", "subprocess.check_output(",
         "Command::new(", "authorizeCommand(", "runProcess(", "runCommand(", "os.system(", "os.popen(",
     ];
-    if CMD_CALLS.iter().any(|c| mask_t.contains(c)) || has_bare_call(mask_t, "spawn(") || has_bare_call(mask_t, "eval(") { return Some("CMD_EXEC"); }
-    if [".execute(", ".executemany(", "executeQuery(", "prepareStatement(", "mysqli_query(", "mysql_query("].iter().any(|c| mask_t.contains(c)) { return Some("SQL_EXEC"); }
+    const SQL_CALLS: &[&str] = &[
+        ".execute(", ".executemany(", "executeQuery(", "prepareStatement(", "mysqli_query(", "mysql_query(",
+    ];
     const PATH_CALLS: &[&str] = &[
         "resolveInside(", "realpathSync(", "lstatSync(", "symlink_metadata(", "canonicalize(",
         "read_regular_file_fd_verified(", "readSanitizedOutboundFileS3(", "assert_not_symlink(", "os.open(",
+        "fs.readFileSync(",
     ];
-    if PATH_CALLS.iter().any(|c| mask_t.contains(c)) || has_bare_call(mask_t, "open(") { return Some("PATH_LFI"); }
-    if ["writeJsonAtomic(", "atomicWriteJsonS3(", "atomic_write", "locked_cortex_transaction(", "writeFileSync("].iter().any(|c| mask_t.contains(c)) { return Some("STATE_MUTATION"); }
-    if ["createHash(", "hashlib.sha256(", "hmac.new(", "hmac.digest(", "compare_digest(", "timingSafeEqual("].iter().any(|c| mask_t.contains(c))
-        || has_unsafe_hmac_secret_eq(mask_t)
-    {
-        return Some("CRYPTO_VERIFY");
+    const STATE_CALLS: &[&str] = &[
+        "writeJsonAtomic(", "atomicWriteJsonS3(", "atomic_write", "locked_cortex_transaction(", "writeFileSync(",
+    ];
+    const CRYPTO_CALLS: &[&str] = &[
+        "createHash(", "hashlib.sha256(", "hmac.new(", "hmac.digest(", "compare_digest(", "timingSafeEqual(",
+    ];
+
+    let mut raw_hits = Vec::new();
+    collect_call_hits(masked_line, "CMD_EXEC", CMD_CALLS, &["spawn(", "eval("], &mut raw_hits);
+    collect_call_hits(masked_line, "SQL_EXEC", SQL_CALLS, &[], &mut raw_hits);
+    collect_call_hits(masked_line, "PATH_LFI", PATH_CALLS, &["open("], &mut raw_hits);
+    collect_call_hits(masked_line, "STATE_MUTATION", STATE_CALLS, &[], &mut raw_hits);
+    let crypto_before = raw_hits.len();
+    collect_call_hits(masked_line, "CRYPTO_VERIFY", CRYPTO_CALLS, &[], &mut raw_hits);
+    if raw_hits.len() == crypto_before && has_unsafe_hmac_secret_eq(mask_t) {
+        let first_non_ws = masked_line.len() - masked_line.trim_start().len();
+        raw_hits.push(LegacySeamHit {
+            kind: "CRYPTO_VERIFY",
+            start_byte: first_non_ws,
+            paren_byte: first_non_ws,
+            end_byte: masked_line.len(),
+        });
     }
-    None
+
+    raw_hits.sort_by_key(|h| (h.paren_byte, h.kind, h.start_byte));
+    let mut deduped: Vec<LegacySeamHit> = Vec::with_capacity(raw_hits.len());
+    for hit in raw_hits {
+        if !deduped.iter().any(|prev| prev.kind == hit.kind && prev.paren_byte == hit.paren_byte) {
+            deduped.push(hit);
+        }
+    }
+    deduped.sort_by_key(|h| (h.start_byte, h.paren_byte, h.kind));
+    deduped
 }
 
 fn has_sql_fstring_or_concat(raw_t: &str, mask_t: &str) -> bool {
@@ -315,9 +442,10 @@ fn is_intrinsic_safe_seam_call(seam_kind: &str, raw_seam: &str, mask_seam: &str)
 }
 
 fn grade_seam_window(
-    seam_kind: &'static str, seam_offset: usize, win_start_line0: usize,
+    hit: LegacySeamHit, seam_offset: usize, win_start_line0: usize,
     raw_win: &[&str], masked_win: &[String], file_ignored: bool,
 ) -> (SeamTier, bool, Option<SeamEvidence>) {
+    let seam_kind = hit.kind;
     let has_ignore = file_ignored || raw_win.iter().any(|wl| wl.to_ascii_lowercase().contains("kintsugi: ignore"));
     let raw_exposed_s0 = raw_win.iter().zip(masked_win.iter()).any(|(raw_l, mask_l)| {
         let (wt, mt) = (raw_l.trim(), mask_l.trim());
@@ -334,30 +462,50 @@ fn grade_seam_window(
     if file_ignored { return (SeamTier::Unproven, true, None); }
 
     let seam_line = win_start_line0 + seam_offset + 1;
-    let seam_vars: Vec<String> = extract_var_tokens(&masked_win[seam_offset]).into_iter().take(6).collect();
+    let seam_col = hit.start_byte + 1;
+    let full_raw_seam = raw_win[seam_offset];
+    let full_mask_seam = masked_win[seam_offset].as_str();
+    let (raw_seam, mask_seam) = if hit.start_byte < hit.end_byte
+        && hit.end_byte <= full_mask_seam.len()
+        && full_mask_seam.is_char_boundary(hit.start_byte)
+        && full_mask_seam.is_char_boundary(hit.end_byte)
+    {
+        let r_end = hit.end_byte.min(full_raw_seam.len());
+        let r_slice = if hit.start_byte <= r_end
+            && full_raw_seam.is_char_boundary(hit.start_byte)
+            && full_raw_seam.is_char_boundary(r_end)
+        {
+            &full_raw_seam[hit.start_byte..r_end]
+        } else {
+            full_raw_seam
+        };
+        (r_slice, &full_mask_seam[hit.start_byte..hit.end_byte])
+    } else {
+        (full_raw_seam, full_mask_seam)
+    };
+    let seam_vars: Vec<String> = extract_var_tokens(mask_seam).into_iter().take(6).collect();
 
     match seam_kind {
         "CMD_EXEC" => {
             let end_call = raw_win.len().min(seam_offset + 4);
             let raw_call = &raw_win[seam_offset..end_call];
-            let is_rust_sh_c = masked_win[seam_offset].contains("Command::new(")
+            let is_rust_sh_c = mask_seam.contains("Command::new(")
                 && raw_call.iter().any(|r| ["\"sh\"", "\"/bin/sh\"", "\"bash\"", "\"zsh\""].iter().any(|s| r.contains(s))) && raw_call.iter().any(|r| r.contains("\"-c\""));
             let guard_off = (seam_offset..end_call)
                 .find(|&gi| { let wt = raw_win[gi].trim(); has_unquoted_call(wt, "shell=False") || has_unquoted_call(wt, "shell: false") })
-                .or_else(|| (["execFile(", "execFileSync(", "authorizeCommand("].iter().any(|g| masked_win[seam_offset].contains(g))
-                    || (masked_win[seam_offset].contains("Command::new(") && !is_rust_sh_c)).then_some(seam_offset))
+                .or_else(|| (["execFile(", "execFileSync(", "authorizeCommand("].iter().any(|g| mask_seam.contains(g))
+                    || (mask_seam.contains("Command::new(") && !is_rust_sh_c)).then_some(seam_offset))
                 .or_else(|| (0..seam_offset).rev().find(|&gi| masked_win[gi].contains("authorizeCommand(") || masked_win[gi].contains("escapeshellarg")));
             if let Some(goff) = guard_off {
-                return (SeamTier::ProvenS3, false, Some(SeamEvidence { seam_line, guard_line: win_start_line0 + goff + 1, seam_kind, bound_vars: seam_vars }));
+                return (SeamTier::ProvenS3, false, Some(SeamEvidence { seam_line, seam_col, guard_line: win_start_line0 + goff + 1, seam_kind, bound_vars: seam_vars }));
             }
         }
         "PATH_LFI" | "STATE_MUTATION" | "SQL_EXEC" | "CRYPTO_VERIFY" => {
-            let (raw_seam, mask_seam) = (raw_win[seam_offset], masked_win[seam_offset].as_str());
             if is_intrinsic_safe_seam_call(seam_kind, raw_seam, mask_seam) {
-                return (SeamTier::ProvenS3, false, Some(SeamEvidence { seam_line, guard_line: seam_line, seam_kind, bound_vars: seam_vars }));
+                return (SeamTier::ProvenS3, false, Some(SeamEvidence { seam_line, seam_col, guard_line: seam_line, seam_kind, bound_vars: seam_vars }));
             }
             let sink_needles: &[&str] = match seam_kind {
-                "PATH_LFI" => &["canonicalize(", "realpathSync(", "lstatSync(", "symlink_metadata(", "os.open(", "open("],
+                "PATH_LFI" => &["canonicalize(", "realpathSync(", "lstatSync(", "symlink_metadata(", "os.open(", "fs.readFileSync(", "open("],
                 "STATE_MUTATION" => &["writeFileSync("],
                 "SQL_EXEC" => &["prepareStatement(", ".executemany(", ".execute(", "executeQuery(", "mysqli_query(", "mysql_query("],
                 _ => &["hmac.new(", "hmac.digest("],
@@ -403,13 +551,19 @@ fn grade_seam_window(
                         .filter(|v| bound_candidates.contains(v))
                         .take(6)
                         .collect();
-                    if bound_candidates.is_empty() || !shared.is_empty() {
+                    let guard_binds_sink = if seam_kind == "PATH_LFI" {
+                        !shared.is_empty()
+                    } else {
+                        bound_candidates.is_empty() || !shared.is_empty()
+                    };
+                    if guard_binds_sink {
                         let bvars = if shared.is_empty() { seam_vars } else { shared };
                         return (
                             SeamTier::ProvenS3,
                             false,
                             Some(SeamEvidence {
                                 seam_line,
+                                seam_col,
                                 guard_line: win_start_line0 + gi + 1,
                                 seam_kind,
                                 bound_vars: bvars,
@@ -488,15 +642,38 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
     // Kintsugi v3.0 Typed Obligation Prover handles CMD_EXEC, SQL_EXEC, and extended obligations
     // (TSX_XSS, PATH_CONFINE, CRYPTO_MAC_BIDI, SOL_REENTRANCY_CEI, SOL_SAFE_ERC20).
     let obligations = prove_file_obligations(file, &content, &masked_lines);
-    let mut ob_suppressed_legacy: BTreeSet<(usize, &'static str)> = BTreeSet::new();
+    let mut ob_suppressed_legacy: Vec<LegacySuppression> = Vec::new();
     for ob in &obligations {
         let line_idx0 = ob.sink_span.start_line.saturating_sub(1);
+        let span_start_col = ob.sink_span.start_col.max(1);
+        let span_end_col = if ob.sink_span.end_line > ob.sink_span.start_line {
+            lines.get(line_idx0).map_or(usize::MAX, |s| s.len().max(span_start_col))
+        } else {
+            ob.sink_span.end_col.max(span_start_col)
+        };
+        let ob_paren_col = masked_lines
+            .get(line_idx0)
+            .and_then(|ml| {
+                let s0 = span_start_col.saturating_sub(1);
+                ml.get(s0..)?.find('(').map(|rel| s0 + rel + 1)
+            })
+            .unwrap_or(span_start_col);
         match ob.rule {
             "CMD_EXEC" | "SQL_EXEC" => {
-                ob_suppressed_legacy.insert((line_idx0, ob.rule));
+                ob_suppressed_legacy.push(LegacySuppression::ExactCall {
+                    line: line_idx0,
+                    start_col: span_start_col,
+                    paren_col: span_start_col,
+                    kind: ob.rule,
+                });
             }
             "PATH_CONFINE" => {
-                ob_suppressed_legacy.insert((line_idx0, "PATH_LFI"));
+                ob_suppressed_legacy.push(LegacySuppression::ExactCall {
+                    line: line_idx0,
+                    start_col: span_start_col,
+                    paren_col: ob_paren_col,
+                    kind: "PATH_LFI",
+                });
                 // Only suppress legacy STATE_MUTATION when atomic write or 0o600 confinement is genuinely proven.
                 let sink_raw = lines.get(line_idx0).copied().unwrap_or("");
                 let sink_mask = masked_lines.get(line_idx0).map(|s| s.as_str()).unwrap_or("");
@@ -507,27 +684,57 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
                         line_matches_guard("STATE_MUTATION", rl, ml)
                     });
                 if atomic_proven {
-                    ob_suppressed_legacy.insert((line_idx0, "STATE_MUTATION"));
+                    ob_suppressed_legacy.push(LegacySuppression::ExactCall {
+                        line: line_idx0,
+                        start_col: span_start_col,
+                        paren_col: ob_paren_col,
+                        kind: "STATE_MUTATION",
+                    });
                 }
-                // Suppress ONLY exact canonicalize/lstat supporting lines, NEVER intermediate open() lines.
+                // Suppress ONLY exact canonicalize/lstat helper calls on supporting lines, NEVER intermediate or nested open() calls.
                 let lo = ob.witness_span.map(|w| w.start_line.saturating_sub(1)).unwrap_or(line_idx0).min(line_idx0);
                 let scan_lo = lo.min(line_idx0.saturating_sub(8));
                 for l in scan_lo..line_idx0 {
                     let lm = masked_lines.get(l).map(|s| s.as_str()).unwrap_or("");
-                    if ["realpathSync(", "lstatSync(", "canonicalize(", "symlink_metadata("].iter().any(|k| lm.contains(k))
-                        && !has_bare_call(lm, "open(")
-                        && !lm.contains("os.open(")
-                    {
-                        ob_suppressed_legacy.insert((l, "PATH_LFI"));
+                    for helper in ["realpathSync(", "lstatSync(", "canonicalize(", "symlink_metadata("] {
+                        let mut from = 0usize;
+                        while from < lm.len() {
+                            let Some(rel) = lm[from..].find(helper) else { break };
+                            let pos = from + rel;
+                            let pb = pos + helper.len() - 1;
+                            ob_suppressed_legacy.push(LegacySuppression::ExactCall {
+                                line: l,
+                                start_col: pos + 1,
+                                paren_col: pb + 1,
+                                kind: "PATH_LFI",
+                            });
+                            from = pos + helper.len();
+                        }
                     }
                 }
             }
             "CRYPTO_MAC_BIDI" => {
-                // Suppress ONLY the exact sink and witness lines, never intermediate lines between them.
-                ob_suppressed_legacy.insert((line_idx0, "CRYPTO_VERIFY"));
+                // Suppress ONLY the exact sink and witness spans, never intermediate lines between them.
+                ob_suppressed_legacy.push(LegacySuppression::ColRange {
+                    line: line_idx0,
+                    start_col: span_start_col,
+                    end_col: span_end_col,
+                    kind: "CRYPTO_VERIFY",
+                });
                 if let Some(w) = ob.witness_span {
                     let w0 = w.start_line.saturating_sub(1);
-                    ob_suppressed_legacy.insert((w0, "CRYPTO_VERIFY"));
+                    let w_start = w.start_col.max(1);
+                    let w_end = if w.end_line > w.start_line {
+                        lines.get(w0).map_or(usize::MAX, |s| s.len().max(w_start))
+                    } else {
+                        w.end_col.max(w_start)
+                    };
+                    ob_suppressed_legacy.push(LegacySuppression::ColRange {
+                        line: w0,
+                        start_col: w_start,
+                        end_col: w_end,
+                        kind: "CRYPTO_VERIFY",
+                    });
                 }
             }
             _ => {}
@@ -544,6 +751,7 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
             unproven += 1;
             failing_seams.push(FailingSeam {
                 seam_line: ob.sink_span.start_line,
+                seam_col: span_start_col,
                 seam_kind: ob.rule,
                 tier: "UNPROVEN",
                 reason: "inline kintsugi: ignore override quarantined",
@@ -558,6 +766,7 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
                 let bound_vars = ob.binding.iter().cloned().collect();
                 evidence_chains.push(SeamEvidence {
                     seam_line: ob.sink_span.start_line,
+                    seam_col: span_start_col,
                     guard_line,
                     seam_kind: ob.rule,
                     bound_vars,
@@ -567,6 +776,7 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
                 unguarded_s0 += 1;
                 failing_seams.push(FailingSeam {
                     seam_line: ob.sink_span.start_line,
+                    seam_col: span_start_col,
                     seam_kind: ob.rule,
                     tier: "S0_EXPOSED",
                     reason: ob.reason,
@@ -577,6 +787,7 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
                 unproven += 1;
                 failing_seams.push(FailingSeam {
                     seam_line: ob.sink_span.start_line,
+                    seam_col: span_start_col,
                     seam_kind: ob.rule,
                     tier: "UNPROVEN",
                     reason: ob.reason,
@@ -588,6 +799,7 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
                 unproven += 1;
                 failing_seams.push(FailingSeam {
                     seam_line: ob.sink_span.start_line,
+                    seam_col: span_start_col,
                     seam_kind: ob.rule,
                     tier: "UNSUPPORTED",
                     reason: ob.reason,
@@ -597,31 +809,45 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
         }
     }
 
+    let mut seen_legacy: BTreeSet<(usize, usize, &'static str)> = BTreeSet::new();
     for (idx, line) in lines.iter().enumerate() {
-        let (t, mt) = (line.trim(), masked_lines[idx].trim());
+        let mt = masked_lines[idx].trim();
         if ["def ", "async def ", "function ", "async function ", "export function ", "export async function ", "pub fn ", "fn "].iter().any(|p| mt.starts_with(p)) { fn_count += 1; }
         if ["class ", "export class ", "pub struct ", "struct ", "contract ", "library ", "interface "].iter().any(|p| mt.starts_with(p)) { cls_count += 1; }
-        if let Some(seam_kind) = classify_s3_seam_line(t, mt) {
-            // Skip legacy seams already graded by the v3 Typed Obligation Prover
-            if ob_suppressed_legacy.contains(&(idx, seam_kind)) {
+        for hit in classify_s3_seam_occurrences(line, &masked_lines[idx]) {
+            let seam_col = hit.start_byte + 1;
+            let paren_col = hit.paren_byte + 1;
+            // Skip legacy seams whose exact call identity is already graded by the v3 Typed Obligation Prover
+            let suppressed = ob_suppressed_legacy.iter().any(|sup| match *sup {
+                LegacySuppression::ExactCall { line, start_col, paren_col: ob_pcol, kind } => {
+                    line == idx && kind == hit.kind && (seam_col == start_col || paren_col == ob_pcol)
+                }
+                LegacySuppression::ColRange { line, start_col, end_col, kind } => {
+                    line == idx
+                        && kind == hit.kind
+                        && ((seam_col >= start_col && seam_col <= end_col)
+                            || (paren_col >= start_col && paren_col <= end_col))
+                }
+            });
+            if suppressed || !seen_legacy.insert((idx, seam_col, hit.kind)) {
                 continue;
             }
             total_seams += 1;
             let (win_start, win_end) = (idx.saturating_sub(6), (idx + 7).min(lines.len()));
-            let (tier, used_ignore, ev_opt) = grade_seam_window(seam_kind, idx - win_start, win_start, &lines[win_start..win_end], &masked_lines[win_start..win_end], file_ignored);
+            let (tier, used_ignore, ev_opt) = grade_seam_window(hit, idx - win_start, win_start, &lines[win_start..win_end], &masked_lines[win_start..win_end], file_ignored);
             if used_ignore { ignored_override = true; }
             if let Some(ev) = ev_opt { evidence_chains.push(ev); }
             match tier {
                 SeamTier::ExposedS0 => {
                     unguarded_s0 += 1;
-                    let (reason, fix_hint) = s3_failing_reason_and_hint(seam_kind, true);
-                    failing_seams.push(FailingSeam { seam_line: idx + 1, seam_kind, tier: "S0_EXPOSED", reason, fix_hint });
+                    let (reason, fix_hint) = s3_failing_reason_and_hint(hit.kind, true);
+                    failing_seams.push(FailingSeam { seam_line: idx + 1, seam_col, seam_kind: hit.kind, tier: "S0_EXPOSED", reason, fix_hint });
                 }
                 SeamTier::ProvenS3 => proven_s3 += 1,
                 SeamTier::Unproven => {
                     unproven += 1;
-                    let (reason, fix_hint) = s3_failing_reason_and_hint(seam_kind, false);
-                    failing_seams.push(FailingSeam { seam_line: idx + 1, seam_kind, tier: "UNPROVEN", reason, fix_hint });
+                    let (reason, fix_hint) = s3_failing_reason_and_hint(hit.kind, false);
+                    failing_seams.push(FailingSeam { seam_line: idx + 1, seam_col, seam_kind: hit.kind, tier: "UNPROVEN", reason, fix_hint });
                 }
             }
         }
@@ -643,8 +869,32 @@ pub fn s3_audit_path(target: &Path) -> S3AuditSummary { s3_audit_path_with_mode(
 
 pub fn s3_audit_path_with_mode(target: &Path, strict_proven: bool) -> S3AuditSummary {
     let t0 = Instant::now();
+    let target_display = target.to_string_lossy().to_string();
+    let mut missing_targets = Vec::new();
+    let has_parent_dir = target.components().any(|c| matches!(c, std::path::Component::ParentDir));
+    let sym_meta = std::fs::symlink_metadata(target);
+    let target_meta = std::fs::metadata(target);
+    let target_unreadable = if has_parent_dir {
+        true
+    } else {
+        match (&sym_meta, &target_meta) {
+            (Ok(sm), Ok(tm)) => {
+                if sm.file_type().is_symlink() {
+                    true
+                } else if tm.is_dir() {
+                    std::fs::read_dir(target).is_err()
+                } else {
+                    !tm.is_file()
+                }
+            }
+            _ => true,
+        }
+    };
+
     let mut files = Vec::new();
-    collect_files(target, &mut files);
+    if !target_unreadable {
+        collect_files(target, &mut files);
+    }
     let base_root = if target.is_dir() { Some(target) } else { target.parent() };
 
     let mut audits = Vec::new();
@@ -664,13 +914,21 @@ pub fn s3_audit_path_with_mode(target: &Path, strict_proven: bool) -> S3AuditSum
         }
     }
 
+    if target_unreadable || audits.is_empty() {
+        missing_targets.push(target_display.clone());
+    }
+
     let ignored_override = ignored_override_files > 0;
-    let (assurance_tier, verdict, strict_verdict) = compute_s3_verdicts(unguarded_s0_seams, unproven_seams, ignored_override, strict_proven);
+    let (assurance_tier, verdict, strict_verdict) = if !missing_targets.is_empty() {
+        ("NO_INPUT", "FAIL_NO_INPUT", "NO_INPUT")
+    } else {
+        compute_s3_verdicts(unguarded_s0_seams, unproven_seams, ignored_override, strict_proven)
+    };
 
     S3AuditSummary {
-        target: target.to_string_lossy().to_string(), strict_proven, files_scanned: audits.len(),
+        target: target_display, strict_proven, files_scanned: audits.len(),
         total_functions, total_classes, total_seams, s3_locked_seams: proven_s3_seams, proven_s3_seams,
-        unproven_seams, unguarded_s0_seams, ignored_override, ignored_override_files,
+        unproven_seams, unguarded_s0_seams, ignored_override, ignored_override_files, missing_targets,
         elapsed_ms: (t0.elapsed().as_micros() as f64) / 1000.0, assurance_tier, verdict, strict_verdict, files: audits,
     }
 }
@@ -683,13 +941,21 @@ pub fn render_s3_audit_json(rep: &S3AuditSummary) -> String {
         for ev in f.evidence_chains.iter().take(8) {
             let mut bv = JsonArr::new();
             for v in &ev.bound_vars { bv = bv.str(v); }
-            ev_arr = ev_arr.obj(JsonObj::new().usize("seam_line", ev.seam_line).usize("guard_line", ev.guard_line).str("seam_kind", ev.seam_kind).arr("bound_vars", bv));
+            ev_arr = ev_arr.obj(
+                JsonObj::new()
+                    .usize("seam_line", ev.seam_line)
+                    .usize("seam_col", ev.seam_col)
+                    .usize("guard_line", ev.guard_line)
+                    .str("seam_kind", ev.seam_kind)
+                    .arr("bound_vars", bv),
+            );
         }
         let mut fail_arr = JsonArr::new();
         for fs in f.failing_seams.iter().take(16) {
             fail_arr = fail_arr.obj(
                 JsonObj::new()
                     .usize("seam_line", fs.seam_line)
+                    .usize("seam_col", fs.seam_col)
                     .str("seam_kind", fs.seam_kind)
                     .str("tier", fs.tier)
                     .str("reason", fs.reason)
@@ -728,6 +994,10 @@ pub fn render_s3_audit_json(rep: &S3AuditSummary) -> String {
                 .str("assurance_tier", f.assurance_tier).str("verdict", f.verdict).str("strict_verdict", f.strict_verdict),
         );
     }
+    let mut missing_arr = JsonArr::new();
+    for m in &rep.missing_targets {
+        missing_arr = missing_arr.str(m);
+    }
     JsonObj::with_capacity(780 + rep.files.len().saturating_mul(360))
         .bool("ok", rep.verdict == "PASS_S3_LOCKED").str("schema_version", ENGINE_VERSION)
         .str("engine", "kintsugi-rs").str("engine_version", ENGINE_VERSION)
@@ -741,6 +1011,7 @@ pub fn render_s3_audit_json(rep: &S3AuditSummary) -> String {
         .usize("unproven_seams", rep.unproven_seams).usize("unguarded_s0_seams", rep.unguarded_s0_seams)
         .usize("evidence_chains_count", total_ev)
         .bool("ignored_override", rep.ignored_override).usize("ignored_override_files", rep.ignored_override_files)
+        .arr("missing_targets", missing_arr)
         .f64_3("elapsed_ms", rep.elapsed_ms).str("assurance_tier", rep.assurance_tier)
         .str("verdict", rep.verdict).str("strict_verdict", rep.strict_verdict).arr("files", files_arr).finish()
 }
@@ -939,6 +1210,159 @@ mod tests {
             r_sec.files[0].failing_seams.iter().any(|f| f.tier == "S0_EXPOSED" && f.seam_line == 4),
             "line 4 must be reported as S0_EXPOSED: {:?}",
             r_sec.files[0].failing_seams
+        );
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn nonexistent_or_unreadable_target_returns_fail_no_input_never_pass_s3_proven() {
+        let missing = Path::new(".kintsugi/nonexistent-review-target.py");
+        for strict in [false, true] {
+            let rep = s3_audit_path_with_mode(missing, strict);
+            assert_eq!(rep.files_scanned, 0);
+            assert_eq!(rep.verdict, "FAIL_NO_INPUT");
+            assert_eq!(rep.strict_verdict, "NO_INPUT");
+            assert_eq!(rep.assurance_tier, "NO_INPUT");
+            assert_eq!(rep.missing_targets, vec![".kintsugi/nonexistent-review-target.py".to_string()]);
+            assert_ne!(rep.verdict, "PASS_S3_LOCKED");
+            assert_ne!(rep.strict_verdict, "PASS_S3_PROVEN");
+            let json = render_s3_audit_json(&rep);
+            assert!(parse_json_value(&json).is_ok());
+            assert!(json.contains("\"ok\":false"), "missing target JSON must not be ok: {json}");
+            assert!(json.contains("\"missing_targets\":[\".kintsugi/nonexistent-review-target.py\"]"), "{json}");
+        }
+
+        // Valid readable clean file with 0 seams MUST STILL pass S3 cleanly!
+        let base = scratch_dir("clean_zero_seams");
+        let clean = base.join("model.py");
+        fs::write(&clean, "from dataclasses import dataclass\n\n@dataclass\nclass Item:\n    name: str\n    qty: int\n").unwrap();
+        let rep_clean = s3_audit_path_with_mode(&clean, true);
+        assert_eq!(rep_clean.files_scanned, 1);
+        assert_eq!(rep_clean.total_seams, 0);
+        assert!(rep_clean.missing_targets.is_empty());
+        assert_eq!(rep_clean.verdict, "PASS_S3_LOCKED");
+        assert_eq!(rep_clean.strict_verdict, "PASS_S3_PROVEN");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn multi_call_same_line_records_each_distinct_column_seam_and_column_scoped_suppression() {
+        let base = scratch_dir("multi_col");
+
+        // Finding #4: `open("a"), open("b")` on ONE line MUST record 2 distinct PATH_LFI seams at distinct columns!
+        let x_py = base.join("x.py");
+        fs::write(&x_py, "open(\"a\"), open(\"b\")\n").unwrap();
+        let rep = s3_audit_path_with_mode(&x_py, true);
+        assert_eq!(rep.total_seams, 2, "both open() calls must be counted: {:?}", rep.files[0].failing_seams);
+        assert_eq!(rep.unproven_seams, 2);
+        assert_eq!(rep.files[0].failing_seams.len(), 2);
+        assert_eq!(rep.files[0].failing_seams[0].seam_kind, "PATH_LFI");
+        assert_eq!(rep.files[0].failing_seams[1].seam_kind, "PATH_LFI");
+        assert_eq!(rep.files[0].failing_seams[0].seam_line, 1);
+        assert_eq!(rep.files[0].failing_seams[1].seam_line, 1);
+        assert_eq!(rep.files[0].failing_seams[0].seam_col, 1);
+        assert_eq!(rep.files[0].failing_seams[1].seam_col, 12);
+        assert_ne!(rep.files[0].failing_seams[0].seam_col, rep.files[0].failing_seams[1].seam_col);
+
+        // Guarded 1st open(safe_p) + unguarded 2nd open(evil_p) on ONE line must not promote evil_p!
+        let mixed = base.join("mixed_col.py");
+        fs::write(
+            &mixed,
+            "import os\ndef f(root, safe_p, evil_p):\n    safe_p = os.path.realpath(safe_p)\n    assert safe_p.startswith(root)\n    return open(safe_p), open(evil_p)\n",
+        )
+        .unwrap();
+        let rep_mix = s3_audit_path_with_mode(&mixed, true);
+        assert_eq!(rep_mix.total_seams, 2);
+        assert_eq!(rep_mix.proven_s3_seams, 1);
+        assert_eq!(rep_mix.unproven_seams, 1);
+        assert_eq!(rep_mix.files[0].failing_seams.len(), 1);
+        assert_eq!(rep_mix.files[0].failing_seams[0].seam_line, 5);
+        assert_eq!(rep_mix.files[0].failing_seams[0].seam_col, 26);
+
+        // Typed PATH_CONFINE write open(t, 'w') on same line as unguarded read open("a") must NOT suppress open("a")!
+        let col_sup = base.join("col_sup.py");
+        fs::write(
+            &col_sup,
+            "import os\ndef save(root, rel, d):\n    r = os.path.realpath(root)\n    t = os.path.realpath(os.path.join(r, rel))\n    if not t.startswith(r + os.sep) or os.path.islink(t): raise ValueError()\n    raw = open(\"a\").read(); open(t, 'w').write(d + raw)\n",
+        )
+        .unwrap();
+        let rep_sup = s3_audit_path_with_mode(&col_sup, true);
+        assert_eq!(rep_sup.proven_s3_seams, 1, "confined write open(t, 'w') stays PROVEN");
+        assert!(
+            rep_sup.files[0].failing_seams.iter().any(|f| f.seam_kind == "PATH_LFI" && f.seam_line == 6 && f.seam_col == 11),
+            "read-only open(\"a\") at col 11 must remain unsuppressed: {:?}",
+            rep_sup.files[0].failing_seams
+        );
+        assert_ne!(rep_sup.strict_verdict, "PASS_S3_PROVEN");
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn parent_dir_and_empty_dir_targets_fail_closed_no_input_never_pass_s3_proven() {
+        let base = scratch_dir("parent_dir_no_input");
+        let sub = base.join("nested");
+        fs::create_dir_all(&sub).unwrap();
+        let dotdot = sub.join("..").join("nested");
+        for strict in [false, true] {
+            let rep_dd = s3_audit_path_with_mode(&dotdot, strict);
+            assert_eq!(rep_dd.files_scanned, 0);
+            assert_eq!(rep_dd.verdict, "FAIL_NO_INPUT");
+            assert_eq!(rep_dd.strict_verdict, "NO_INPUT");
+            assert_eq!(rep_dd.assurance_tier, "NO_INPUT");
+            assert!(!rep_dd.missing_targets.is_empty());
+
+            let rep_rel = s3_audit_path_with_mode(Path::new("../kintsugi-harness"), strict);
+            assert_eq!(rep_rel.files_scanned, 0);
+            assert_eq!(rep_rel.verdict, "FAIL_NO_INPUT");
+            assert_eq!(rep_rel.strict_verdict, "NO_INPUT");
+            assert_eq!(rep_rel.assurance_tier, "NO_INPUT");
+            assert_eq!(rep_rel.missing_targets, vec!["../kintsugi-harness".to_string()]);
+
+            // Empty directory with 0 auditable files must ALSO fail closed (NO_INPUT), never PASS_S3_PROVEN!
+            let rep_empty = s3_audit_path_with_mode(&sub, strict);
+            assert_eq!(rep_empty.files_scanned, 0);
+            assert_eq!(rep_empty.verdict, "FAIL_NO_INPUT");
+            assert_eq!(rep_empty.strict_verdict, "NO_INPUT");
+            assert_eq!(rep_empty.assurance_tier, "NO_INPUT");
+            assert!(!rep_empty.missing_targets.is_empty());
+        }
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn nested_unguarded_read_inside_path_confine_write_is_never_suppressed() {
+        let base = scratch_dir("nested_read_inside_write");
+
+        // Round-2 HIGH #4 (Python): inner `open(evil_p)` inside `open(safe_p, "w", encoding=open(evil_p)...)` MUST remain flagged!
+        let py_nested = base.join("nested_py.py");
+        fs::write(
+            &py_nested,
+            "import os\ndef save(root, rel, evil_p, d):\n    r = os.path.realpath(root)\n    safe_p = os.path.realpath(os.path.join(r, rel))\n    if not safe_p.startswith(r + os.sep) or os.path.islink(safe_p): raise ValueError()\n    with open(safe_p, \"w\", encoding=open(evil_p).read().strip()) as f:\n        f.write(d)\n",
+        )
+        .unwrap();
+        let r_py = s3_audit_path_with_mode(&py_nested, true);
+        assert_ne!(r_py.strict_verdict, "PASS_S3_PROVEN", "inner open(evil_p) must never be hidden");
+        assert!(
+            r_py.files[0].failing_seams.iter().any(|f| f.seam_kind == "PATH_LFI" && f.seam_line == 6),
+            "expected failing PATH_LFI seam for inner open(evil_p) on line 6: {:?}",
+            r_py.files[0].failing_seams
+        );
+
+        // Round-2 HIGH #4 (JS/TS): inner `fs.readFileSync(evil_p)` inside `fs.writeFileSync(safe_p, ...)` MUST remain flagged!
+        let ts_nested = base.join("nested_ts.ts");
+        fs::write(
+            &ts_nested,
+            "import fs from 'fs';\nimport path from 'path';\nfunction save(root: string, rel: string, evil_p: string) {\n  const r = fs.realpathSync(root);\n  const safe_p = fs.realpathSync(path.join(r, rel));\n  if (!safe_p.startsWith(r + path.sep) || fs.lstatSync(safe_p).isSymbolicLink()) throw new Error('esc');\n  fs.writeFileSync(safe_p, fs.readFileSync(evil_p));\n}\n",
+        )
+        .unwrap();
+        let r_ts = s3_audit_path_with_mode(&ts_nested, true);
+        assert_ne!(r_ts.strict_verdict, "PASS_S3_PROVEN", "inner fs.readFileSync(evil_p) must never be hidden");
+        assert!(
+            r_ts.files[0].failing_seams.iter().any(|f| f.seam_kind == "PATH_LFI" && f.seam_line == 7),
+            "expected failing PATH_LFI seam for inner fs.readFileSync(evil_p) on line 7: {:?}",
+            r_ts.files[0].failing_seams
         );
 
         let _ = fs::remove_dir_all(&base);

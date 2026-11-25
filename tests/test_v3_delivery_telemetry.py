@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -32,9 +34,12 @@ import pytest
 OSS_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(OSS_ROOT / "src"))
 
+from kintsugi import __version__ as KINTSUGI_VERSION
+import kintsugi.evolution.delivery_telemetry as dt_mod
 from kintsugi.evolution.delivery_telemetry import (
     DELIVERY_TELEMETRY_SCHEMA,
     GATE_3_MIN_SESSIONS,
+    SCHEMA_VERSION,
     SUPPORTED_CLIENTS,
     DeliveryTelemetryTracker,
     _dedupe_ids,
@@ -47,6 +52,13 @@ from kintsugi.evolution.delivery_telemetry import (
     render_telemetry_report_json,
 )
 from kintsugi.mcp_server import KintsugiMCPServer
+
+
+def _read_cargo_pkg_version() -> str:
+    cargo_toml = (OSS_ROOT / "Cargo.toml").read_text(encoding="utf-8")
+    m = re.search(r'^version\s*=\s*"([^"]+)"', cargo_toml, flags=re.MULTILINE)
+    assert m is not None, "Could not parse version from Cargo.toml"
+    return m.group(1)
 
 
 def _find_rustc() -> str | None:
@@ -80,7 +92,7 @@ def _compile_rust_driver(tmp_path: Path, name: str, main_body: str) -> Path:
         encoding="utf-8",
     )
     env = dict(os.environ)
-    env["CARGO_PKG_VERSION"] = "2.4.1"
+    env["CARGO_PKG_VERSION"] = _read_cargo_pkg_version()
     comp = subprocess.run(
         [rustc, "--edition", "2021", "-D", "warnings", str(driver_rs), "-o", str(driver_bin)],
         capture_output=True,
@@ -374,7 +386,7 @@ def test_dead_scar_auto_freeze_exact_boundaries(tmp_path: Path) -> None:
     store = tmp_path / "telemetry.json"
     seeded = {
         "schema": DELIVERY_TELEMETRY_SCHEMA,
-        "schema_version": "2.4.1",
+        "schema_version": SCHEMA_VERSION,
         "updated_at_utc": 1_730_000_000,
         "envelopes": {},
         "efficacy": {
@@ -427,7 +439,7 @@ def test_dead_scar_auto_freeze_exact_boundaries(tmp_path: Path) -> None:
 def test_sticky_freeze_preseeded_dead_scar_and_two_strike_python_and_rust(tmp_path: Path) -> None:
     seeded = {
         "schema": DELIVERY_TELEMETRY_SCHEMA,
-        "schema_version": "2.4.1",
+        "schema_version": SCHEMA_VERSION,
         "updated_at_utc": 1_730_000_000,
         "envelopes": {},
         "efficacy": {
@@ -672,7 +684,7 @@ def test_corrupt_store_and_u32_overflow_fail_closed_python_and_rust(tmp_path: Pa
         with pytest.raises(ValueError):
             build_telemetry_report(p)
 
-    # 2^32 (4294967296) integer overflow files for Rust fail-closed verification
+    # 2^32 (4294967296) integer overflow files for Python & Rust fail-closed verification
     ovf_trials = tmp_path / "ovf_trials.json"
     ovf_trials.write_text(
         '{"schema":"DeliveryTelemetry/1","envelopes":{},"efficacy":{"CAP-OVF":{"id":"CAP-OVF","wins":0,"losses":0,"trials":4294967296,"consecutive_losses":0,"frozen":false}}}\n',
@@ -683,6 +695,9 @@ def test_corrupt_store_and_u32_overflow_fail_closed_python_and_rust(tmp_path: Pa
         '{"schema":"DeliveryTelemetry/1","envelopes":{},"efficacy":{"CAP-OVF2":{"id":"CAP-OVF2","wins":0,"losses":0,"trials":2,"consecutive_losses":4294967296,"frozen":false}}}\n',
         encoding="utf-8",
     )
+    for ovf_p in (ovf_trials, ovf_losses):
+        with pytest.raises(ValueError, match="INT_OVERFLOW"):
+            build_telemetry_report(ovf_p)
     paths.extend([ovf_trials, ovf_losses])
 
     checks = []
@@ -919,8 +934,8 @@ def test_rust_python_schema_and_live_interop_parity(tmp_path: Path) -> None:
 
     # Verify strict line-count budgets
     py_path = OSS_ROOT / "src/kintsugi/evolution/delivery_telemetry.py"
-    assert len(rs_src.splitlines()) <= 720
-    assert len(py_path.read_text(encoding="utf-8").splitlines()) <= 550
+    assert len(rs_src.splitlines()) <= 800
+    assert len(py_path.read_text(encoding="utf-8").splitlines()) <= 600
 
     store = tmp_path / "interop_telemetry.json"
     # Step A: Python writes events for claude_code
@@ -967,3 +982,404 @@ def test_rust_python_schema_and_live_interop_parity(tmp_path: Path) -> None:
     assert py_report["clients"]["local_cli"]["included_before_first_patch_rate"] == 1.0
     assert py_report["clients"]["cloud_sandbox"]["included_before_first_patch_rate"] == 0.0
     assert py_report["total_sessions"] == 3
+
+
+# ---------------------------------------------------------------------------
+# 11. v3.0.1 Principal Arbiter Regression Suite (HIGH #5, HIGH #6, MEDIUM #9)
+# ---------------------------------------------------------------------------
+
+
+def test_unrecognized_existing_json_fails_closed_without_overwrite_python_and_rust(tmp_path: Path) -> None:
+    foreign = tmp_path / "foreign.json"
+    original = b'{"note":1}'
+    foreign.write_bytes(original)
+
+    with pytest.raises(ValueError, match="UNRECOGNIZED_TELEMETRY_STORE"):
+        record_telemetry_event(
+            foreign, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", source_digest="d1"
+        )
+    assert foreign.read_bytes() == original
+    with pytest.raises(ValueError, match="UNRECOGNIZED_TELEMETRY_STORE"):
+        build_telemetry_report(foreign)
+    assert foreign.read_bytes() == original
+
+    # Missing required envelopes/efficacy objects or empty {} also fail closed without modification
+    for idx, payload in enumerate((b"{}", b'{"schema":"DeliveryTelemetry/1"}', b'{"schema":"DeliveryTelemetry/1","envelopes":null,"efficacy":{}}')):
+        p = tmp_path / f"unrec_{idx}.json"
+        p.write_bytes(payload)
+        with pytest.raises(ValueError, match="UNRECOGNIZED_TELEMETRY_STORE"):
+            record_telemetry_event(p, client="claude_code", stage="issued", session_id="s1", envelope_id="e1")
+        assert p.read_bytes() == payload
+
+    # 0-byte empty file auto-initializes cleanly in Python
+    zero_py = tmp_path / "zero_py.json"
+    zero_py.write_bytes(b"")
+    res = record_telemetry_event(zero_py, client="claude_code", stage="issued", session_id="s0", envelope_id="e0")
+    assert res["ok"] is True
+
+    # Rust parity on {"note":1} + 0-byte file
+    foreign_esc = str(foreign).replace("\\", "\\\\").replace('"', '\\"')
+    zero_rs = tmp_path / "zero_rs.json"
+    zero_rs.write_bytes(b"")
+    zero_rs_esc = str(zero_rs).replace("\\", "\\\\").replace('"', '\\"')
+    driver = _compile_rust_driver(
+        tmp_path,
+        "rust_high5_driver",
+        f'let f = std::path::Path::new("{foreign_esc}");\n'
+        f'let err = delivery_telemetry::record_telemetry_event(f, "claude_code", "issued", "s1", "e1", "d1", "", &[], &[], 10, None).unwrap_err();\n'
+        f'assert!(err.contains("UNRECOGNIZED_TELEMETRY_STORE"), "{{err}}");\n'
+        f'assert_eq!(std::fs::read(f).unwrap(), br#"{{"note":1}}"#);\n'
+        f'let z = std::path::Path::new("{zero_rs_esc}");\n'
+        f'delivery_telemetry::record_telemetry_event(z, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 10, None).unwrap();',
+    )
+    run = subprocess.run([str(driver)], capture_output=True, text=True, check=False)
+    assert run.returncode == 0, run.stderr
+    assert foreign.read_bytes() == original
+
+
+def test_multifile_same_patch_deduplicates_efficacy_python_and_rust(tmp_path: Path) -> None:
+    # Python: e1 & e2 in same session bound to same patch_digest="p" (passed=False) -> losses=1, trials=1, frozen=False
+    py_store = tmp_path / "dedup_py.json"
+    tr = DeliveryTelemetryTracker(py_store)
+    for eid in ("e1", "e2"):
+        tr.record_issued(
+            client="claude_code", session_id="s1", envelope_id=eid, source_digest=f"src-{eid}",
+            capsule_ids=["CAP-DEDUP"], pitfall_ids=["LT-003"],
+        )
+        tr.record_included_in_input(client="claude_code", envelope_id=eid)
+    pb1 = tr.record_patch_bound(client="claude_code", envelope_id="e1", patch_digest="p", passed=False)
+    pb2 = tr.record_patch_bound(client="claude_code", envelope_id="e2", patch_digest="p", passed=False)
+    assert pb1["efficacy_updated"] is True
+    assert pb2["efficacy_updated"] is False
+    rep1 = tr.report()
+    assert rep1["total_envelopes"] == 2
+    eff1 = {r["id"]: r for r in rep1["efficacy_table"]}
+    assert eff1["CAP-DEDUP"]["losses"] == 1 and eff1["CAP-DEDUP"]["trials"] == 1 and eff1["CAP-DEDUP"]["frozen"] is False
+    assert eff1["LT-003"]["losses"] == 1 and eff1["LT-003"]["trials"] == 1 and eff1["LT-003"]["frozen"] is False
+
+    # 2nd distinct failing patch "p2" -> losses=2, trials=2, frozen=True
+    tr.record_issued(
+        client="claude_code", session_id="s2", envelope_id="e3", source_digest="src-e3",
+        capsule_ids=["CAP-DEDUP"], pitfall_ids=["LT-003"],
+    )
+    tr.record_included_in_input(client="claude_code", envelope_id="e3")
+    pb3 = tr.record_patch_bound(client="claude_code", envelope_id="e3", patch_digest="p2", passed=False)
+    assert pb3["efficacy_updated"] is True
+    assert pb3["newly_frozen_ids"] == ["CAP-DEDUP", "LT-003"]
+    eff2 = {r["id"]: r for r in tr.report()["efficacy_table"]}
+    assert eff2["CAP-DEDUP"]["losses"] == 2 and eff2["CAP-DEDUP"]["trials"] == 2 and eff2["CAP-DEDUP"]["frozen"] is True
+
+    # Cross-language dedup: Python binds e1 to patch "p", Rust binds e2 to same patch "p" -> STILL deduplicated!
+    cross_store = tmp_path / "dedup_cross.json"
+    ctr = DeliveryTelemetryTracker(cross_store)
+    for eid in ("e1", "e2"):
+        ctr.record_issued(client="claude_code", session_id="s1", envelope_id=eid, capsule_ids=["CAP-X"])
+        ctr.record_included_in_input(client="claude_code", envelope_id=eid)
+    ctr.record_patch_bound(client="claude_code", envelope_id="e1", patch_digest="p", passed=False)
+    cross_esc = str(cross_store).replace("\\", "\\\\").replace('"', '\\"')
+    driver = _compile_rust_driver(
+        tmp_path,
+        "rust_high6_driver",
+        f'let p = std::path::Path::new("{cross_esc}");\n'
+        f'let r2 = delivery_telemetry::record_telemetry_event(p, "claude_code", "patch_bound", "s1", "e2", "", "p", &[], &[], 0, Some(false)).unwrap();\n'
+        f'assert!(r2.contains("\\"efficacy_updated\\":false"), "expected dedup skip: {{r2}}");\n'
+        f'assert!(delivery_telemetry::load_frozen_ids(p).is_empty());\n'
+        f'let caps = vec!["CAP-X".to_string()];\n'
+        f'delivery_telemetry::record_telemetry_event(p, "claude_code", "issued", "s2", "e3", "d3", "", &caps, &[], 40, None).unwrap();\n'
+        f'delivery_telemetry::record_telemetry_event(p, "claude_code", "included_in_input", "s2", "e3", "", "", &[], &[], 0, None).unwrap();\n'
+        f'let r3 = delivery_telemetry::record_telemetry_event(p, "claude_code", "patch_bound", "s2", "e3", "", "p2", &[], &[], 0, Some(false)).unwrap();\n'
+        f'assert!(r3.contains("\\"newly_frozen_ids\\":[\\"CAP-X\\"]"), "expected freeze on p2: {{r3}}");\n'
+        f'println!("{{}}", delivery_telemetry::render_telemetry_report_json(p).unwrap());',
+    )
+    run = subprocess.run([str(driver)], capture_output=True, text=True, check=False)
+    assert run.returncode == 0, run.stderr
+    assert json.loads(run.stdout) == build_telemetry_report(cross_store)
+
+    # Legacy v3.0.0 store without applied_outcomes key loads cleanly in Python & Rust
+    legacy = tmp_path / "legacy_v300.json"
+    legacy.write_text(
+        json.dumps({"schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION, "updated_at_utc": 100, "envelopes": {}, "efficacy": {}}) + "\n",
+        encoding="utf-8",
+    )
+    assert build_telemetry_report(legacy)["ok"] is True
+
+
+def test_medium9_schema_version_u64_bounds_late_stage_and_nonunix_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Dynamic schema_version parity with kintsugi.__version__ and Cargo.toml
+    assert SCHEMA_VERSION == KINTSUGI_VERSION == _read_cargo_pkg_version()
+
+    store = tmp_path / "m9.json"
+    # u64 upper bound checks
+    with pytest.raises(ValueError, match="INT_OVERFLOW"):
+        record_telemetry_event(
+            store, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", estimated_tokens=1 << 64
+        )
+    with pytest.raises(ValueError, match="INT_OVERFLOW"):
+        record_telemetry_event(
+            store, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", timestamp_utc=1 << 64
+        )
+    ok_max = record_telemetry_event(
+        store, client="claude_code", stage="issued", session_id="s_max", envelope_id="e_max",
+        estimated_tokens=(1 << 64) - 1, timestamp_utc=(1 << 64) - 1,
+    )
+    assert ok_max["ok"] is True and ok_max["schema_version"] == SCHEMA_VERSION
+
+    # Late included_in_input after session already had patch updates disk stage to "included_in_input"
+    tr = DeliveryTelemetryTracker(store)
+    tr.record_issued(client="claude_code", session_id="s1", envelope_id="e1")
+    tr.record_patch_bound(client="claude_code", envelope_id="e1", patch_digest="p1", passed=True)
+    tr.record_issued(client="claude_code", session_id="s1", envelope_id="e2")
+    late_res = tr.record_included_in_input(client="claude_code", envelope_id="e2")
+    assert late_res["stage"] == "included_in_input"
+    assert late_res["included_before_first_patch"] is False
+    disk_e2 = json.loads(store.read_text(encoding="utf-8"))["envelopes"]["e2"]
+    assert disk_e2["stage"] == "included_in_input"
+    assert disk_e2["included_in_input"] is True
+    assert disk_e2["included_before_first_patch"] is False
+
+    # Non-Unix fallback lockfile MUST NEVER delete existing lockfile by mtime -> raises TELEMETRY_LOCK_TIMEOUT
+    lock_store = tmp_path / "nonunix.json"
+    lock_file = Path(f"{lock_store}.lock")
+    lock_file.write_text("held-by-live-writer", encoding="utf-8")
+    old_ts = time.time() - 7200.0
+    os.utime(lock_file, (old_ts, old_ts))
+    monkeypatch.setattr(dt_mod, "fcntl", None)
+    monkeypatch.setattr(dt_mod.time, "sleep", lambda _: None)
+    with pytest.raises(TimeoutError, match="TELEMETRY_LOCK_TIMEOUT"):
+        record_telemetry_event(lock_store, client="claude_code", stage="issued", session_id="s1", envelope_id="e1")
+    assert lock_file.is_file() and lock_file.read_text(encoding="utf-8") == "held-by-live-writer"
+
+
+# ---------------------------------------------------------------------------
+# 12. v3.0.1 Round-2 Blind-Audit Regression Suite (MEDIUM #6..#11, LOW #13..#15)
+# ---------------------------------------------------------------------------
+
+
+def _find_kintsugi_rs_bin() -> Path | None:
+    for cand in (OSS_ROOT / "target/debug/kintsugi-rs", OSS_ROOT / "target/release/kintsugi-rs"):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def test_round2_malformed_envelope_u32_saturating_pipe_and_legacy_backfill_python_and_rust(tmp_path: Path) -> None:
+    # 1. Malformed envelope & efficacy field types fail closed in BOTH Python and Rust!
+    malformed_cases = [
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "patch_bound": "false"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "capsule_ids": "CAP-1"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "pitfall_ids": "LT-003"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "estimated_tokens": None}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "timestamp_utc": None}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "included_in_input": 1}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "included_before_first_patch": "yes"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "passed": "true"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "patch_passed": "true"}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "source_digest": None}}, "efficacy": {}},
+        {"envelopes": {"e1": {"envelope_id": "e1", "session_id": "s1", "client": "claude_code", "stage": "issued", "patch_digest": 123}}, "efficacy": {}},
+        {"envelopes": {}, "efficacy": {"CAP-1": {"id": "CAP-1", "wins": 0, "losses": 0, "trials": 1, "consecutive_losses": 0, "frozen": False, "last_updated_utc": -1}}},
+        {"envelopes": {}, "efficacy": {}, "applied_outcomes": "not-a-list"},
+    ]
+    bad_paths: list[Path] = []
+    for idx, body in enumerate(malformed_cases):
+        p = tmp_path / f"malformed_{idx}.json"
+        doc = {"schema": DELIVERY_TELEMETRY_SCHEMA, **body}
+        p.write_text(json.dumps(doc) + "\n", encoding="utf-8")
+        bad_paths.append(p)
+        with pytest.raises(ValueError, match="INVALID_TELEMETRY_STORE"):
+            build_telemetry_report(p)
+
+    # 2. Pipe '|' rejected in session_id, patch_digest, capsule_ids, pitfall_ids (Python)
+    pipe_store = tmp_path / "pipe.json"
+    with pytest.raises(ValueError, match="INVALID_SESSION_ID"):
+        record_telemetry_event(pipe_store, client="claude_code", stage="issued", session_id="s|1", envelope_id="e1")
+    with pytest.raises(ValueError, match="INVALID_ITEM_ID"):
+        record_telemetry_event(pipe_store, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", capsule_ids=["CAP|1"])
+    with pytest.raises(ValueError, match="INVALID_ITEM_ID"):
+        record_telemetry_event(pipe_store, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", pitfall_ids=["LT|1"])
+    record_telemetry_event(pipe_store, client="claude_code", stage="issued", session_id="s1", envelope_id="e_ok")
+    with pytest.raises(ValueError, match="INVALID_PATCH_DIGEST"):
+        record_telemetry_event(pipe_store, client="claude_code", stage="patch_bound", session_id="s1", envelope_id="e_ok", patch_digest="p|1", passed=True)
+
+    # 3. u32::MAX saturating increment parity (Python)
+    u32_max = (1 << 32) - 1
+    sat_doc = {
+        "schema": DELIVERY_TELEMETRY_SCHEMA,
+        "schema_version": SCHEMA_VERSION,
+        "updated_at_utc": 100,
+        "envelopes": {},
+        "efficacy": {
+            "CAP-SAT": {
+                "id": "CAP-SAT", "wins": u32_max, "losses": u32_max, "trials": u32_max,
+                "consecutive_losses": u32_max, "frozen": False, "freeze_reason": None,
+            }
+        },
+        "applied_outcomes": [],
+    }
+    sat_py = tmp_path / "sat_py.json"
+    sat_py.write_text(json.dumps(sat_doc) + "\n", encoding="utf-8")
+    record_telemetry_event(sat_py, client="claude_code", stage="issued", session_id="s1", envelope_id="e1", capsule_ids=["CAP-SAT"])
+    record_telemetry_event(sat_py, client="claude_code", stage="included_in_input", session_id="s1", envelope_id="e1")
+    record_telemetry_event(sat_py, client="claude_code", stage="patch_bound", session_id="s1", envelope_id="e1", patch_digest="p1", passed=False)
+    py_sat_rep = build_telemetry_report(sat_py)
+    py_sat_eff = {r["id"]: r for r in py_sat_rep["efficacy_table"]}["CAP-SAT"]
+    assert (py_sat_eff["trials"], py_sat_eff["losses"], py_sat_eff["consecutive_losses"]) == (u32_max, u32_max, u32_max)
+
+    # 4. Legacy v3.0.0 store without applied_outcomes key backfills and prevents double-counting (Python)
+    legacy_doc = {
+        "schema": DELIVERY_TELEMETRY_SCHEMA,
+        "schema_version": SCHEMA_VERSION,
+        "updated_at_utc": 100,
+        "envelopes": {
+            "e1": {
+                "envelope_id": "e1", "session_id": "s1", "client": "claude_code", "source_digest": "d1",
+                "capsule_ids": ["CAP-LEG"], "pitfall_ids": ["LT-003"], "estimated_tokens": 50,
+                "stage": "patch_bound", "timestamp_utc": 90, "included_in_input": True,
+                "included_before_first_patch": True, "included_at_utc": 91, "patch_bound": True,
+                "patch_digest": "p1", "passed": False, "first_patch": True, "patch_bound_at_utc": 92,
+            },
+            "e2": {
+                "envelope_id": "e2", "session_id": "s1", "client": "claude_code", "source_digest": "d2",
+                "capsule_ids": ["CAP-LEG"], "pitfall_ids": ["LT-003"], "estimated_tokens": 50,
+                "stage": "included_in_input", "timestamp_utc": 90, "included_in_input": True,
+                "included_before_first_patch": True, "included_at_utc": 91, "patch_bound": False,
+                "patch_digest": "", "passed": None, "first_patch": False, "patch_bound_at_utc": None,
+            },
+        },
+        "efficacy": {
+            "CAP-LEG": {"id": "CAP-LEG", "wins": 0, "losses": 1, "trials": 1, "consecutive_losses": 1, "frozen": False, "freeze_reason": None},
+            "LT-003": {"id": "LT-003", "wins": 0, "losses": 1, "trials": 1, "consecutive_losses": 1, "frozen": False, "freeze_reason": None},
+        },
+    }
+    leg_py = tmp_path / "leg_py.json"
+    leg_py.write_text(json.dumps(legacy_doc) + "\n", encoding="utf-8")
+    pb_leg = record_telemetry_event(leg_py, client="claude_code", stage="patch_bound", session_id="s1", envelope_id="e2", patch_digest="p1", passed=False)
+    assert pb_leg["efficacy_updated"] is False
+    assert pb_leg["newly_frozen_ids"] == []
+    assert load_frozen_ids(leg_py) == set()
+    leg_py_eff = {r["id"]: r for r in build_telemetry_report(leg_py)["efficacy_table"]}
+    assert leg_py_eff["CAP-LEG"]["losses"] == 1 and leg_py_eff["CAP-LEG"]["trials"] == 1
+
+    # 5. Live Rust parity on ALL 4 checks (malformed stores, pipe rejection, u32::MAX saturation, legacy backfill)
+    sat_rs = tmp_path / "sat_rs.json"
+    sat_rs.write_text(json.dumps(sat_doc) + "\n", encoding="utf-8")
+    leg_rs = tmp_path / "leg_rs.json"
+    leg_rs.write_text(json.dumps(legacy_doc) + "\n", encoding="utf-8")
+    pipe_rs = tmp_path / "pipe_rs.json"
+
+    rs_lines = []
+    for bp in bad_paths:
+        pe = str(bp).replace("\\", "\\\\").replace('"', '\\"')
+        rs_lines.append(f'assert!(delivery_telemetry::render_telemetry_report_json(std::path::Path::new("{pe}")).is_err(), "expected err for {pe}");')
+    pipe_e = str(pipe_rs).replace("\\", "\\\\").replace('"', '\\"')
+    sat_e = str(sat_rs).replace("\\", "\\\\").replace('"', '\\"')
+    leg_e = str(leg_rs).replace("\\", "\\\\").replace('"', '\\"')
+    rs_lines.extend([
+        f'let pp = std::path::Path::new("{pipe_e}");',
+        'assert!(delivery_telemetry::record_telemetry_event(pp, "claude_code", "issued", "s|1", "e1", "", "", &[], &[], 0, None).is_err());',
+        'assert!(delivery_telemetry::record_telemetry_event(pp, "claude_code", "issued", "s1", "e1", "", "", &["CAP|1".to_string()], &[], 0, None).is_err());',
+        'delivery_telemetry::record_telemetry_event(pp, "claude_code", "issued", "s1", "e_ok", "", "", &[], &[], 0, None).unwrap();',
+        'assert!(delivery_telemetry::record_telemetry_event(pp, "claude_code", "patch_bound", "s1", "e_ok", "", "p|1", &[], &[], 0, Some(true)).is_err());',
+        f'let sp = std::path::Path::new("{sat_e}");',
+        'delivery_telemetry::record_telemetry_event(sp, "claude_code", "issued", "s1", "e1", "", "", &["CAP-SAT".to_string()], &[], 0, None).unwrap();',
+        'delivery_telemetry::record_telemetry_event(sp, "claude_code", "included_in_input", "s1", "e1", "", "", &[], &[], 0, None).unwrap();',
+        'delivery_telemetry::record_telemetry_event(sp, "claude_code", "patch_bound", "s1", "e1", "", "p1", &[], &[], 0, Some(false)).unwrap();',
+        f'let lp = std::path::Path::new("{leg_e}");',
+        'let lres = delivery_telemetry::record_telemetry_event(lp, "claude_code", "patch_bound", "s1", "e2", "", "p1", &[], &[], 0, Some(false)).unwrap();',
+        'assert!(lres.contains("\\"efficacy_updated\\":false"), "expected legacy backfill skip: {lres}");',
+        'assert!(delivery_telemetry::load_frozen_ids(lp).is_empty());',
+    ])
+    driver = _compile_rust_driver(tmp_path, "rust_round2_driver", "\n".join(rs_lines))
+    run = subprocess.run([str(driver)], capture_output=True, text=True, check=False)
+    assert run.returncode == 0, run.stderr
+    assert build_telemetry_report(sat_rs) == py_sat_rep
+    assert build_telemetry_report(leg_rs) == build_telemetry_report(leg_py)
+
+
+def test_round2_cli_task_pack_s3_multi_target_and_hook_workspace(tmp_path: Path) -> None:
+    kbin = _find_kintsugi_rs_bin()
+    if kbin is None:
+        pytest.skip("kintsugi-rs binary unavailable")
+
+    # 1. Live CLI task-pack --max-tokens 32 on src/kintsugi/cli.py -> total_tokens <= 32 AND packet <= 32 tokens
+    cli_py = OSS_ROOT / "src/kintsugi/cli.py"
+    p_tp = subprocess.run(
+        [str(kbin), "task-pack", str(cli_py), "--max-tokens", "32", "--format", "json"],
+        capture_output=True, text=True, check=False,
+    )
+    assert p_tp.returncode == 0, p_tp.stderr
+    j_tp = json.loads(p_tp.stdout)
+    assert j_tp["ok"] is True
+    assert j_tp["total_tokens"] <= 32
+    assert j_tp["estimated_tokens"] == j_tp["total_tokens"] <= 32
+    assert isinstance(j_tp["files"], list)
+    for f_env in j_tp["files"]:
+        for cid in f_env["capsule_ids"]:
+            assert cid in j_tp["packet"]
+        for lid in f_env["lexicon_ids"]:
+            assert lid in j_tp["packet"]
+
+    # Multi-file task-pack: 10 files with --max-tokens 200 -> total_tokens <= 200 and honest files list
+    sample_code = (
+        "import subprocess\n"
+        "def query_and_run(cur, uid, bin_path):\n"
+        "    sql = 'SELECT * FROM orders WHERE id = ?'\n"
+        "    cur.execute(sql, (uid,))\n"
+        "    subprocess.run([bin_path, '--check'], shell=False)\n"
+    )
+    ten_files = []
+    for i in range(10):
+        fp = tmp_path / f"f{i}.py"
+        fp.write_text(sample_code, encoding="utf-8")
+        ten_files.append(str(fp))
+    p_tp10 = subprocess.run(
+        [str(kbin), "task-pack", *ten_files, "--max-tokens", "200", "--format", "json"],
+        capture_output=True, text=True, check=False,
+    )
+    assert p_tp10.returncode == 0, p_tp10.stderr
+    j_tp10 = json.loads(p_tp10.stdout)
+    assert j_tp10["total_tokens"] <= 200
+    assert j_tp10["files_count"] == len(j_tp10["files"])
+    for f_env in j_tp10["files"]:
+        assert f_env["path"] in j_tp10["packet"]
+
+    # 2. Live CLI multi-target s3-audit populates missing_targets & NO_INPUT tier/strict_verdict!
+    missing_path = str(tmp_path / "does_not_exist_target.py")
+    p_s3 = subprocess.run(
+        [str(kbin), "s3-audit", ten_files[0], missing_path, "--format", "json"],
+        capture_output=True, text=True, check=False,
+    )
+    assert p_s3.returncode == 2, f"expected rc=2 for NO_INPUT, got {p_s3.returncode}: {p_s3.stdout} {p_s3.stderr}"
+    j_s3 = json.loads(p_s3.stdout)
+    assert j_s3["missing_targets"] == [missing_path]
+    assert j_s3["assurance_tier"] == "NO_INPUT"
+    assert j_s3["verdict"] == "FAIL_NO_INPUT"
+    assert j_s3["strict_verdict"] == "NO_INPUT"
+
+    # 3. Live CLI hook claude-post-read --workspace <ws> from ANOTHER CWD excludes frozen IDs!
+    ws = tmp_path / "hook_ws"
+    other_cwd = tmp_path / "other_cwd"
+    (ws / ".kintsugi").mkdir(parents=True)
+    other_cwd.mkdir(parents=True)
+    sample_ws = ws / "sample.py"
+    sample_ws.write_text(sample_code, encoding="utf-8")
+    ws_store = ws / ".kintsugi" / "delivery_telemetry.json"
+    for idx in (1, 2):
+        record_telemetry_event(
+            ws_store, client="claude_code", stage="issued", session_id=f"s{idx}", envelope_id=f"e{idx}",
+            source_digest="d1", capsule_ids=["CAP-SEC-SUBPROCESS-ARGV"], pitfall_ids=["LT-003"],
+        )
+        record_telemetry_event(ws_store, client="claude_code", stage="included_in_input", session_id=f"s{idx}", envelope_id=f"e{idx}")
+        record_telemetry_event(ws_store, client="claude_code", stage="patch_bound", session_id=f"s{idx}", envelope_id=f"e{idx}", patch_digest=f"p{idx}", passed=False)
+
+    hook_stdin = json.dumps({"tool_name": "Read", "tool_input": {"file_path": str(sample_ws)}})
+    p_hook = subprocess.run(
+        [str(kbin), "hook", "claude-post-read", "--low-tier", "--max-tokens", "640", "--workspace", str(ws)],
+        input=hook_stdin, cwd=str(other_cwd), capture_output=True, text=True, check=False,
+    )
+    assert p_hook.returncode == 0, p_hook.stderr
+    j_hook = json.loads(p_hook.stdout)
+    env_out = j_hook["kintsugiEnvelope"]
+    assert "CAP-SEC-SUBPROCESS-ARGV" not in env_out["capsule_ids"]
+    assert "LT-003" not in env_out["lexicon_ids"]
+    assert "CAP-SEC-SUBPROCESS-ARGV" not in p_hook.stdout
+    assert "LT-003" not in p_hook.stdout

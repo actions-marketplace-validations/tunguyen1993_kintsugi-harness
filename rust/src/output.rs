@@ -551,7 +551,7 @@ mod tests {
         let sarif_mid = render_findings_sarif(&[b.clone(), c.clone(), a.clone()]);
         assert_eq!(sarif_fwd, sarif_rev);
         assert_eq!(sarif_fwd, sarif_mid);
-        assert!(sarif_fwd.contains("\"automationDetails\":{\"id\":\"kintsugi-rs/v3.0.0\"}"));
+        assert!(sarif_fwd.contains("\"automationDetails\":{\"id\":\"kintsugi-rs/v3.0.1\"}"));
         assert!(sarif_fwd.contains("\"helpUri\":\"https://github.com/tunguyen1993/kintsugi-harness#rules\""));
         assert!(sarif_fwd.contains("\"partialFingerprints\":{\"primaryLocationLineHash\":\""));
         assert!(sarif_fwd.contains("\"ruleId\":\"KS-002\",\"ruleIndex\":0"));

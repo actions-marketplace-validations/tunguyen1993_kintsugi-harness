@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kintsugi-harness"
-version = "3.0.0"
-description = "Kintsugi Harness v3.0.0 — 7-Domain Typed Obligation Prover (PROVEN/VIOLATED/UNKNOWN/UNSUPPORTED across Python, TS/TSX, Rust, Solidity), 80-Entry Low-Tier Model Failure Lexicon (LT-001..LT-080), 9 Signature-Guarded Capsules, Universal Truth Gate & DeliveryTelemetry/1, Sovereign CRS, and KMI/1 Compression (Apache-2.0)."
+version = "3.0.1"
+description = "Kintsugi Harness v3.0.1 — 7-Domain Typed Obligation Prover (PROVEN/VIOLATED/UNKNOWN/UNSUPPORTED across Python, TS/TSX, Rust, Solidity), 80-Entry Low-Tier Model Failure Lexicon (LT-001..LT-080), 9 Signature-Guarded Capsules, Universal Truth Gate & DeliveryTelemetry/1, Sovereign CRS, and KMI/1 Compression (Apache-2.0)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"

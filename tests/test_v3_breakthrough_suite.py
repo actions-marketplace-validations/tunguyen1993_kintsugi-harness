@@ -508,6 +508,407 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertEqual(mcp_data["envelope"]["receipt_stage"], "included_in_input")
         self.assertEqual(mcp_data["envelope"]["source_digest"], j_ctx["source_digest"])
 
+    def test_04_mcp_cli_v3_profile_stdio_end_to_end(self) -> None:
+        scars_p = self.tmp / "scars_v3_stdio.json"
+        env = dict(os.environ)
+        existing_py = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{OSS / 'src'}{os.pathsep}{existing_py}" if existing_py else str(OSS / "src")
+        requests = "\n".join([
+            json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+        ]) + "\n"
+        proc = subprocess.run(
+            [sys.executable, "-m", "kintsugi", "mcp", "--profile", "v3", "--ledger", str(scars_p)],
+            input=requests,
+            capture_output=True,
+            text=True,
+            shell=False,
+            env=env,
+            timeout=20,
+            check=True,
+        )
+        lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]
+        self.assertEqual(len(lines), 2, f"Expected 2 JSON-RPC responses, got: {proc.stdout!r}")
+        init_resp = json.loads(lines[0])
+        tools_resp = json.loads(lines[1])
+        self.assertEqual(init_resp["result"]["serverInfo"]["version"], "3.0.1")
+        tools = tools_resp["result"]["tools"]
+        self.assertEqual(len(tools), 26)
+        tool_by_name = {t["name"]: t for t in tools}
+        self.assertTrue(
+            {"kintsugi_read_with_context", "kintsugi_low_tier_lexicon", "kintsugi_delivery_telemetry"}
+            <= set(tool_by_name.keys())
+        )
+        self.assertIn(
+            "telemetry_store",
+            tool_by_name["kintsugi_read_with_context"]["inputSchema"]["properties"],
+        )
+
+    def test_05_mcp_read_with_context_crlf_and_snapshot_toctou(self) -> None:
+        from unittest import mock
+
+        scars_p = self.tmp / "scars_crlf.json"
+        crlf_file = self.tmp / "crlf_sample.py"
+        crlf_bytes = b"x = 1\r\ny = 2\r\n"
+        crlf_file.write_bytes(crlf_bytes)
+
+        srv_v3 = KintsugiMCPServer(scars_p, profile="v3")
+        mcp_resp = srv_v3.handle_request({
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": "kintsugi_read_with_context",
+                "arguments": {"file_path": str(crlf_file), "low_tier": True},
+            },
+        })
+        self.assertFalse(mcp_resp["result"]["isError"], mcp_resp)
+        mcp_data = json.loads(mcp_resp["result"]["content"][0]["text"])
+        self.assertIn("\r\n", mcp_data["content"])
+        self.assertEqual(mcp_data["content"].encode("utf-8"), crlf_bytes)
+        digest = mcp_data["envelope"]["source_digest"]
+        self.assertEqual(len(digest), 16)
+        self.assertEqual(
+            hashlib.sha256(mcp_data["content"].encode("utf-8")).hexdigest()[:len(digest)],
+            digest,
+        )
+
+        # Concurrent mutation TOCTOU MUST retry once and then fail closed with SNAPSHOT_DIGEST_MISMATCH
+        tel_store = self.tmp / "telemetry_store.json"
+        fake_mismatch = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps({"ok": True, "source_digest": "0000000000000000", "receipt_stage": "issued"}),
+            stderr="",
+        )
+        with mock.patch("subprocess.run", return_value=fake_mismatch) as mock_run:
+            err_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 11,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {
+                        "file_path": str(crlf_file),
+                        "low_tier": True,
+                        "telemetry_store": str(tel_store),
+                    },
+                },
+            })
+        self.assertTrue(err_resp["result"]["isError"])
+        self.assertIn("SNAPSHOT_DIGEST_MISMATCH: file changed during read", err_resp["result"]["content"][0]["text"])
+        self.assertEqual(mock_run.call_count, 2)
+        forwarded_cmd = mock_run.call_args_list[0].args[0]
+        self.assertIn("--telemetry-store", forwarded_cmd)
+        self.assertIn(str(tel_store), forwarded_cmd)
+
+        # Transient mismatch on attempt 1 + clean match on attempt 2 MUST succeed
+        fake_match = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps({"ok": True, "source_digest": digest, "receipt_stage": "issued"}),
+            stderr="",
+        )
+        with mock.patch("subprocess.run", side_effect=[fake_mismatch, fake_match]) as mock_retry:
+            ok_retry = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 12,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(crlf_file), "low_tier": True},
+                },
+            })
+        self.assertFalse(ok_retry["result"]["isError"], ok_retry)
+        self.assertEqual(mock_retry.call_count, 2)
+        retry_data = json.loads(ok_retry["result"]["content"][0]["text"])
+        self.assertEqual(retry_data["envelope"]["source_digest"], digest)
+        self.assertEqual(retry_data["content"].encode("utf-8"), crlf_bytes)
+
+    def test_06_mcp_read_with_context_and_lexicon_reject_symlinks_invalid_tokens_and_oversize(self) -> None:
+        from unittest import mock
+        import kintsugi.mcp_server as mcp_mod
+
+        scars_p = self.tmp / "scars_sec.json"
+        srv_v3 = KintsugiMCPServer(scars_p, profile="v3")
+
+        sentinel_marker = "do_not_read_link_target"
+        real_dir = self.tmp / "real_dir"
+        real_dir.mkdir(parents=True, exist_ok=True)
+        real_file = real_dir / "target.py"
+        real_file.write_text(f"marker = '{sentinel_marker}'\n", encoding="utf-8")
+
+        # (a) Direct symlink file MUST be refused with REFUSING_SYMLINK without reading target or spawning Rust
+        sym_file = self.tmp / "link_to_target.py"
+        os.symlink(real_file, sym_file)
+        with mock.patch("subprocess.run") as mock_run:
+            sym_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 20,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(sym_file), "low_tier": True},
+                },
+            })
+            lex_sym_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 21,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_low_tier_lexicon",
+                    "arguments": {"file_path": str(sym_file)},
+                },
+            })
+        self.assertTrue(sym_resp["result"]["isError"])
+        sym_err = sym_resp["result"]["content"][0]["text"]
+        self.assertIn("REFUSING_SYMLINK", sym_err)
+        self.assertNotIn(sentinel_marker, sym_err)
+        self.assertTrue(lex_sym_resp["result"]["isError"])
+        self.assertIn("REFUSING_SYMLINK", lex_sym_resp["result"]["content"][0]["text"])
+        self.assertEqual(mock_run.call_count, 0)
+
+        # Symlink ancestor directory MUST be refused with REFUSING_SYMLINK_ANCESTOR via kernel dir_fd O_NOFOLLOW
+        sym_dir = self.tmp / "sym_ancestor"
+        os.symlink(real_dir, sym_dir)
+        with mock.patch("subprocess.run") as mock_run_anc:
+            anc_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 22,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(sym_dir / "target.py")},
+                },
+            })
+        self.assertTrue(anc_resp["result"]["isError"])
+        self.assertIn("REFUSING_SYMLINK_ANCESTOR", anc_resp["result"]["content"][0]["text"])
+        self.assertNotIn(sentinel_marker, anc_resp["result"]["content"][0]["text"])
+        self.assertEqual(mock_run_anc.call_count, 0)
+
+        # Non-regular file (directory) MUST be refused with NOT_REGULAR_FILE
+        dir_resp = srv_v3.handle_request({
+            "jsonrpc": "2.0",
+            "id": 23,
+            "method": "tools/call",
+            "params": {
+                "name": "kintsugi_read_with_context",
+                "arguments": {"file_path": str(real_dir)},
+            },
+        })
+        self.assertTrue(dir_resp["result"]["isError"])
+        self.assertIn("NOT_REGULAR_FILE", dir_resp["result"]["content"][0]["text"])
+
+        # Verify POSIX dir_fd traversal does not depend on pre-open pathname lstat check (no ancestor-swap TOCTOU)
+        if os.open in getattr(os, "supports_dir_fd", set()) and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+            with mock.patch.object(mcp_mod, "_reject_symlink_ancestors", side_effect=AssertionError("must use dir_fd")):
+                _, ok_bytes = mcp_mod._read_regular_file_bytes_secure(str(real_file))
+                self.assertIn(sentinel_marker.encode("utf-8"), ok_bytes)
+                with self.assertRaises(PermissionError) as anc_err:
+                    mcp_mod._read_regular_file_bytes_secure(str(sym_dir / "target.py"))
+                self.assertIn("REFUSING_SYMLINK_ANCESTOR", str(anc_err.exception))
+
+        # (b) Invalid max_tokens (0, -5, True, False, "320") MUST fail closed with INVALID_MAX_TOKENS
+        for idx, bad_tokens in enumerate((0, -5, True, False, "320"), start=30):
+            with mock.patch("subprocess.run") as mock_run_tok:
+                tok_resp = srv_v3.handle_request({
+                    "jsonrpc": "2.0",
+                    "id": idx,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "kintsugi_read_with_context",
+                        "arguments": {"file_path": str(real_file), "max_tokens": bad_tokens},
+                    },
+                })
+            self.assertTrue(tok_resp["result"]["isError"], f"Expected error for max_tokens={bad_tokens!r}")
+            self.assertIn("INVALID_MAX_TOKENS", tok_resp["result"]["content"][0]["text"])
+            self.assertEqual(mock_run_tok.call_count, 0)
+
+        # Invalid max_entries on kintsugi_low_tier_lexicon MUST fail closed with INVALID_MAX_ENTRIES
+        for idx, bad_entries in enumerate((0, -2, True), start=40):
+            with mock.patch("subprocess.run") as mock_run_ent:
+                ent_resp = srv_v3.handle_request({
+                    "jsonrpc": "2.0",
+                    "id": idx,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "kintsugi_low_tier_lexicon",
+                        "arguments": {"file_path": str(real_file), "max_entries": bad_entries},
+                    },
+                })
+            self.assertTrue(ent_resp["result"]["isError"])
+            self.assertIn("INVALID_MAX_ENTRIES", ent_resp["result"]["content"][0]["text"])
+            self.assertEqual(mock_run_ent.call_count, 0)
+
+        # (c) Oversized source file MUST fail closed with SOURCE_FILE_TOO_LARGE (helper + MCP handler)
+        big_file = self.tmp / "oversized.py"
+        big_file.write_bytes(b"x = 1\n" * 64)  # 384 bytes
+        with self.assertRaises(ValueError) as ctx_err:
+            mcp_mod._read_regular_file_bytes_secure(str(big_file), max_bytes=32)
+        self.assertIn("SOURCE_FILE_TOO_LARGE", str(ctx_err.exception))
+
+        with mock.patch.object(mcp_mod, "MAX_MCP_READ_BYTES", 32), mock.patch("subprocess.run") as mock_run_big:
+            big_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 50,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(big_file)},
+                },
+            })
+        self.assertTrue(big_resp["result"]["isError"])
+        self.assertIn("SOURCE_FILE_TOO_LARGE", big_resp["result"]["content"][0]["text"])
+        self.assertEqual(mock_run_big.call_count, 0)
+
+    def test_07_mcp_read_with_context_defaults_telemetry_store_to_ledger_dir_and_auto_freezes(self) -> None:
+        from unittest import mock
+
+        outside_ledger_dir = self.tmp / "outside_cwd_ledger"
+        outside_ledger_dir.mkdir(parents=True, exist_ok=True)
+        scars_p = outside_ledger_dir / "scars.json"
+        expected_store = outside_ledger_dir / "delivery_telemetry.json"
+        self.assertNotEqual(outside_ledger_dir.resolve(), (Path.cwd() / ".kintsugi").resolve())
+
+        target_file = self.tmp / "vault_autofreeze.py"
+        target_file.write_text(
+            "def deposit_erc4626(assets: int, total_shares: int, total_assets: int) -> int:\n"
+            "    return (assets * (total_shares + 10**6)) // (total_assets + 1)\n\n"
+            "def query_user(cursor, user_id):\n"
+            "    sql = 'SELECT * FROM users WHERE id = ?'\n"
+            "    cursor.execute(sql, (user_id,))\n"
+            "    return cursor.fetchall()\n",
+            encoding="utf-8",
+        )
+
+        srv_v3 = KintsugiMCPServer(scars_p, profile="v3")
+
+        # Baseline read (no delivery_telemetry.json yet) -> collect matched capsule/lexicon IDs
+        base_resp = srv_v3.handle_request({
+            "jsonrpc": "2.0",
+            "id": 60,
+            "method": "tools/call",
+            "params": {
+                "name": "kintsugi_read_with_context",
+                "arguments": {"file_path": str(target_file), "low_tier": True},
+            },
+        })
+        self.assertFalse(base_resp["result"]["isError"], base_resp)
+        base_data = json.loads(base_resp["result"]["content"][0]["text"])
+        base_env = base_data["envelope"]
+        base_caps = list(base_env.get("capsule_ids") or [])
+        base_lexs = list(base_env.get("lexicon_ids") or [])
+        self.assertTrue(base_caps or base_lexs, f"Expected matched capsule/lexicon IDs, got: {base_env}")
+        target_is_capsule = bool(base_caps)
+        target_id = base_caps[0] if target_is_capsule else base_lexs[0]
+        src_digest = base_env["source_digest"]
+
+        # Record 2 consecutive failing patches via kintsugi_delivery_telemetry (OMITTING store_path!)
+        for strike in (1, 2):
+            env_id = f"env-autofreeze-{strike}"
+            sess_id = f"sess-autofreeze-{strike}"
+            issued_args = {
+                "action": "record",
+                "client": "antigravity",
+                "stage": "issued",
+                "session_id": sess_id,
+                "envelope_id": env_id,
+                "source_digest": src_digest,
+                "capsule_ids": [target_id] if target_is_capsule else [],
+                "pitfall_ids": [] if target_is_capsule else [target_id],
+                "estimated_tokens": 120,
+            }
+            for step_idx, step_args in enumerate((
+                issued_args,
+                {
+                    "action": "record",
+                    "client": "antigravity",
+                    "stage": "included_in_input",
+                    "session_id": sess_id,
+                    "envelope_id": env_id,
+                },
+                {
+                    "action": "record",
+                    "client": "antigravity",
+                    "stage": "patch_bound",
+                    "session_id": sess_id,
+                    "envelope_id": env_id,
+                    "patch_digest": f"patch-fail-{strike}",
+                    "passed": False,
+                },
+            )):
+                rec_resp = srv_v3.handle_request({
+                    "jsonrpc": "2.0",
+                    "id": 70 + strike * 10 + step_idx,
+                    "method": "tools/call",
+                    "params": {"name": "kintsugi_delivery_telemetry", "arguments": step_args},
+                })
+                self.assertFalse(rec_resp["result"]["isError"], rec_resp)
+
+        self.assertTrue(expected_store.is_file())
+        rep_resp = srv_v3.handle_request({
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "tools/call",
+            "params": {"name": "kintsugi_delivery_telemetry", "arguments": {"action": "report"}},
+        })
+        self.assertFalse(rep_resp["result"]["isError"], rep_resp)
+        rep_data = json.loads(rep_resp["result"]["content"][0]["text"])
+        self.assertIn(target_id, rep_data.get("frozen_ids", []))
+
+        # Call kintsugi_read_with_context OMITTING telemetry_store -> MUST forward <ledger_dir>/delivery_telemetry.json and exclude frozen target_id!
+        real_sp_run = subprocess.run
+        captured_cmds: List[List[str]] = []
+
+        def _spy_run(cmd, *a, **kw):
+            captured_cmds.append(list(cmd))
+            return real_sp_run(cmd, *a, **kw)
+
+        with mock.patch("subprocess.run", side_effect=_spy_run):
+            after_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 100,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(target_file), "low_tier": True},
+                },
+            })
+        self.assertFalse(after_resp["result"]["isError"], after_resp)
+        self.assertTrue(captured_cmds)
+        forwarded = captured_cmds[0]
+        self.assertIn("--telemetry-store", forwarded)
+        idx_flag = forwarded.index("--telemetry-store")
+        self.assertEqual(forwarded[idx_flag + 1], str(expected_store))
+
+        after_data = json.loads(after_resp["result"]["content"][0]["text"])
+        after_env = after_data["envelope"]
+        self.assertNotIn(target_id, after_env.get("capsule_ids") or [])
+        self.assertNotIn(target_id, after_env.get("lexicon_ids") or [])
+
+        # Dangling symlink at <ledger_dir>/delivery_telemetry.json MUST still be forwarded via os.path.lexists (fail-closed)
+        expected_store.unlink()
+        os.symlink(self.tmp / "nonexistent_target.json", expected_store)
+        captured_dangling: List[List[str]] = []
+
+        def _spy_dangling(cmd, *a, **kw):
+            captured_dangling.append(list(cmd))
+            return real_sp_run(cmd, *a, **kw)
+
+        with mock.patch("subprocess.run", side_effect=_spy_dangling):
+            dangling_resp = srv_v3.handle_request({
+                "jsonrpc": "2.0",
+                "id": 101,
+                "method": "tools/call",
+                "params": {
+                    "name": "kintsugi_read_with_context",
+                    "arguments": {"file_path": str(target_file), "low_tier": True},
+                },
+            })
+        self.assertTrue(captured_dangling)
+        self.assertIn("--telemetry-store", captured_dangling[0])
+        self.assertTrue(dangling_resp["result"]["isError"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

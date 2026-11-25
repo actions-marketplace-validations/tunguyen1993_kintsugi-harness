@@ -541,7 +541,7 @@ class TestNextGenDemos234AndCliMcp(unittest.TestCase):
             schema_hash="sha256:" + "2" * 64,
             oracle_ref="oracle.latency.v1",
             oracle_hash="sha256:" + "3" * 64,
-            runtime_version="3.0.0",
+            runtime_version="3.0.1",
             tool_attestation_digests={
                 core_spec.tool_id: core_spec.verification_attestation["verification_digest"]
             },
@@ -556,7 +556,7 @@ class TestNextGenDemos234AndCliMcp(unittest.TestCase):
             current_schema_hash="sha256:" + "2" * 64,
             current_oracle_ref="oracle.latency.v1",
             current_oracle_hash="sha256:" + "3" * 64,
-            current_runtime_version="3.0.0",
+            current_runtime_version="3.0.1",
             current_tool_attestations={core_spec.tool_id: core_spec.verification_attestation},
         )
         self.assertTrue(hit.hit)
@@ -582,7 +582,7 @@ class TestNextGenDemos234AndCliMcp(unittest.TestCase):
             current_schema_hash="sha256:" + "2" * 64,
             current_oracle_ref="oracle.latency.v1",
             current_oracle_hash="sha256:" + "3" * 64,
-            current_runtime_version="3.0.0",
+            current_runtime_version="3.0.1",
             current_tool_attestations={core_spec.tool_id: core_spec.verification_attestation},
         )
         self.assertFalse(miss_drift.hit)

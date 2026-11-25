@@ -615,10 +615,11 @@ pub fn load_custom_capsules_json(path: &Path) -> Result<Vec<InvariantCapsule>, S
     Ok(out)
 }
 
-pub fn match_capsules_for_source(
+pub fn match_capsules_for_source_excluding(
     target_label: &str,
     code: &str,
     extra_capsules: &[InvariantCapsule],
+    excluded_ids: &BTreeSet<String>,
     max_capsules: usize,
 ) -> CapsuleMatchReport {
     let t0 = Instant::now();
@@ -636,6 +637,7 @@ pub fn match_capsules_for_source(
         .into_iter()
         .filter(|cap| {
             !cap.is_auto_frozen()
+                && !excluded_ids.contains(&cap.id)
                 && cap
                     .trigger_groups
                     .iter()
@@ -659,6 +661,15 @@ pub fn match_capsules_for_source(
         compact_text,
         estimated_tokens,
     }
+}
+
+pub fn match_capsules_for_source(
+    target_label: &str,
+    code: &str,
+    extra_capsules: &[InvariantCapsule],
+    max_capsules: usize,
+) -> CapsuleMatchReport {
+    match_capsules_for_source_excluding(target_label, code, extra_capsules, &BTreeSet::new(), max_capsules)
 }
 
 pub fn match_capsules_for_file(
@@ -789,5 +800,18 @@ def fn_c(data):
         let erc = builtin_invariant_capsules().into_iter().find(|c| c.id == "CAP-FIN-ERC4626").unwrap();
         assert!(erc.invariant.contains("PRECONDITION"));
         assert!(erc.invariant.contains("total_assets + V_ASSETS <= assets * (total_shares + V_SHARES)"));
+    }
+
+    #[test]
+    fn match_capsules_excluding_prunes_frozen_ids_before_ranking_and_tokens() {
+        let code = "import subprocess\ndef run(cmd):\n    return subprocess.run(cmd, shell=False)\n";
+        let full = match_capsules_for_source("run.py", code, &[], 4);
+        assert!(full.matched_capsules.iter().any(|c| c.id == "CAP-SEC-SUBPROCESS-ARGV"));
+        assert!(full.estimated_tokens > 0);
+        let mut excluded = BTreeSet::new();
+        excluded.insert("CAP-SEC-SUBPROCESS-ARGV".to_string());
+        let pruned = match_capsules_for_source_excluding("run.py", code, &[], &excluded, 4);
+        assert!(!pruned.matched_capsules.iter().any(|c| c.id == "CAP-SEC-SUBPROCESS-ARGV"));
+        assert!(pruned.estimated_tokens < full.estimated_tokens);
     }
 }

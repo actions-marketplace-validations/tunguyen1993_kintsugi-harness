@@ -22,13 +22,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
+from kintsugi import __version__
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - non-Unix fallback
     fcntl = None  # type: ignore[assignment]
 
 DELIVERY_TELEMETRY_SCHEMA = "DeliveryTelemetry/1"
-SCHEMA_VERSION = "2.4.1"
+SCHEMA_VERSION = __version__
 SUPPORTED_CLIENTS: Tuple[str, ...] = ("claude_code", "antigravity", "local_cli", "cloud_sandbox")
 SUPPORTED_STAGES: Tuple[str, ...] = ("issued", "included_in_input", "patch_bound")
 MAX_TELEMETRY_FILE_BYTES = 8 * 1024 * 1024
@@ -37,6 +39,8 @@ TWO_STRIKE_LOSS_LIMIT = 2
 DEAD_SCAR_MIN_TRIALS = 30
 DEAD_SCAR_MIN_WIN_PCT = 15
 _MAX_ID_LEN = 256
+_U32_MAX = (1 << 32) - 1
+_U64_MAX = (1 << 64) - 1
 
 
 def is_supported_client(client: str) -> bool:
@@ -55,8 +59,8 @@ def _validate_id_token(field: str, raw: str, *, required: bool) -> str:
         if required:
             raise ValueError(f"MISSING_{field.upper()}")
         return ""
-    if len(trimmed) > _MAX_ID_LEN or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in trimmed):
-        raise ValueError(f"INVALID_{field.upper()}: control chars or length > {_MAX_ID_LEN}")
+    if len(trimmed) > _MAX_ID_LEN or any(ord(ch) < 0x20 or ord(ch) == 0x7F or ch == "|" for ch in trimmed):
+        raise ValueError(f"INVALID_{field.upper()}: control chars, '|', or length > {_MAX_ID_LEN}")
     return trimmed
 
 
@@ -150,7 +154,7 @@ def _telemetry_file_lock(store_path: Path) -> Iterator[None]:
         finally:
             os.close(lock_fd)
         return
-    # Non-Unix fallback: bounded atomic O_CREAT|O_EXCL lockfile with stale (>60s) recovery
+    # Non-Unix fallback: bounded atomic O_CREAT|O_EXCL lockfile (fail-closed; never unlink by mtime)
     acquired = False
     for _ in range(200):
         try:
@@ -163,14 +167,11 @@ def _telemetry_file_lock(store_path: Path) -> Iterator[None]:
                 st = os.lstat(str(lock_path))
                 if stat.S_ISLNK(st.st_mode):
                     raise PermissionError(f"REFUSING_SYMLINK: {lock_path}")
-                if (time.time() - st.st_mtime) > 60.0:
-                    lock_path.unlink(missing_ok=True)
-                    continue
             except FileNotFoundError:
                 continue
             time.sleep(0.01)
     if not acquired:
-        raise TimeoutError(f"LOCK_TIMEOUT: {lock_path}")
+        raise TimeoutError(f"TELEMETRY_LOCK_TIMEOUT: {lock_path}")
     try:
         yield
     finally:
@@ -277,11 +278,11 @@ def _apply_efficacy_outcome(rec: Dict[str, Any], passed: bool) -> bool:
         if not rec.get("freeze_reason"):
             rec["freeze_reason"] = _effective_freeze_reason(rec)
         rec["frozen"] = True
-    rec["trials"] = int(rec.get("trials", 0)) + 1
+    rec["trials"] = min(_U32_MAX, int(rec.get("trials", 0)) + 1)
     if passed:
-        rec["wins"], rec["consecutive_losses"] = int(rec.get("wins", 0)) + 1, 0
+        rec["wins"], rec["consecutive_losses"] = min(_U32_MAX, int(rec.get("wins", 0)) + 1), 0
     else:
-        rec["losses"], rec["consecutive_losses"] = int(rec.get("losses", 0)) + 1, int(rec.get("consecutive_losses", 0)) + 1
+        rec["losses"], rec["consecutive_losses"] = min(_U32_MAX, int(rec.get("losses", 0)) + 1), min(_U32_MAX, int(rec.get("consecutive_losses", 0)) + 1)
     if not bool(rec.get("frozen", False)):
         if int(rec["consecutive_losses"]) >= TWO_STRIKE_LOSS_LIMIT:
             rec["frozen"], rec["freeze_reason"] = True, "two_strike_consecutive_losses"
@@ -292,48 +293,96 @@ def _apply_efficacy_outcome(rec: Dict[str, Any], passed: bool) -> bool:
 
 def _load_store(store_path: Path) -> Dict[str, Any]:
     raw = read_regular_text_secure(store_path, MAX_TELEMETRY_FILE_BYTES)
-    if raw is None or not raw.strip():
-        return {"schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION, "updated_at_utc": 0, "envelopes": {}, "efficacy": {}}
+    if raw is None or len(raw) == 0:
+        return {
+            "schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION,
+            "updated_at_utc": 0, "envelopes": {}, "efficacy": {}, "applied_outcomes": set(),
+        }
     doc = _strict_json_loads(raw.strip())
     if not isinstance(doc, dict):
-        raise ValueError("TELEMETRY_STORE_ROOT_NOT_OBJECT")
-    schema = doc.get("schema")
-    if schema is not None and (not isinstance(schema, str) or schema != DELIVERY_TELEMETRY_SCHEMA):
-        raise ValueError(f"UNSUPPORTED_SCHEMA: expected {DELIVERY_TELEMETRY_SCHEMA}, got {schema!r}")
+        raise ValueError("UNRECOGNIZED_TELEMETRY_STORE: root must be object")
+    if "schema" not in doc or not isinstance(doc["schema"], str):
+        raise ValueError("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid schema")
+    if doc["schema"] != DELIVERY_TELEMETRY_SCHEMA:
+        raise ValueError(f"UNRECOGNIZED_TELEMETRY_STORE: UNSUPPORTED_SCHEMA: expected {DELIVERY_TELEMETRY_SCHEMA}, got {doc['schema']!r}")
     raw_updated = doc.get("updated_at_utc")
     if raw_updated is None:
         updated_at_utc = 0
     elif not _is_nonneg_int(raw_updated):
         raise ValueError(f"CORRUPT_STORE_UPDATED_AT: expected non-negative int or null, got {raw_updated!r}")
+    elif raw_updated > _U64_MAX:
+        raise ValueError(f"INT_OVERFLOW: 'updated_at_utc'={raw_updated} exceeds u64::MAX")
     else:
         updated_at_utc = raw_updated
-    envelopes = {} if doc.get("envelopes") is None else doc["envelopes"]
-    efficacy = {} if doc.get("efficacy") is None else doc["efficacy"]
-    if not isinstance(envelopes, dict) or not isinstance(efficacy, dict):
-        raise ValueError("TELEMETRY_STORE_CORRUPT_SECTIONS")
+    if "envelopes" not in doc or not isinstance(doc["envelopes"], dict):
+        raise ValueError("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid 'envelopes' object")
+    if "efficacy" not in doc or not isinstance(doc["efficacy"], dict):
+        raise ValueError("UNRECOGNIZED_TELEMETRY_STORE: missing or invalid 'efficacy' object")
+    envelopes, efficacy = doc["envelopes"], doc["efficacy"]
+    needs_backfill = "applied_outcomes" not in doc
+    if needs_backfill:
+        applied_outcomes: Set[str] = set()
+    elif isinstance(doc["applied_outcomes"], list) and all(isinstance(x, str) for x in doc["applied_outcomes"]):
+        applied_outcomes = set(doc["applied_outcomes"])
+    else:
+        raise ValueError("INVALID_TELEMETRY_STORE: CORRUPT_STORE_APPLIED_OUTCOMES")
+
+    def _chk_int(val: Any, cap: int, label: str, key: str) -> None:
+        if not _is_nonneg_int(val) or val > cap:
+            tag = "INT_OVERFLOW" if _is_nonneg_int(val) else label
+            raise ValueError(f"INVALID_TELEMETRY_STORE: {tag}: {key}")
+
     for k, env in envelopes.items():
         if not isinstance(env, dict):
-            raise ValueError(f"ENVELOPE_NOT_OBJECT: {k}")
+            raise ValueError(f"INVALID_TELEMETRY_STORE: ENVELOPE_NOT_OBJECT: {k}")
         for req_fld in ("session_id", "stage", "client", "envelope_id"):
             val = env.get(req_fld)
             if not isinstance(val, str) or not val.strip():
-                raise ValueError(f"CORRUPT_ENVELOPE_{req_fld.upper()}: {k}")
-        if not is_supported_client(env["client"]):
-            raise ValueError(f"UNSUPPORTED_CLIENT_IN_STORE: {env['client']}")
-        if env["stage"] not in SUPPORTED_STAGES:
-            raise ValueError(f"UNSUPPORTED_STAGE_IN_STORE: {env['stage']}")
+                raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_{req_fld.upper()}: {k}")
+        if not is_supported_client(env["client"]) or env["stage"] not in SUPPORTED_STAGES:
+            raise ValueError(f"INVALID_TELEMETRY_STORE: UNSUPPORTED_CLIENT_OR_STAGE: {k}")
+        if "source_digest" in env and not isinstance(env["source_digest"], str):
+            raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_SOURCE_DIGEST: {k}")
+        if env.get("patch_digest") is not None and not isinstance(env["patch_digest"], str):
+            raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_PATCH_DIGEST: {k}")
+        for arr_fld in ("capsule_ids", "pitfall_ids"):
+            if arr_fld in env and (not isinstance(env[arr_fld], list) or not all(isinstance(x, str) for x in env[arr_fld])):
+                raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_{arr_fld.upper()}: {k}")
+        for req_u64 in ("estimated_tokens", "timestamp_utc"):
+            if req_u64 in env:
+                _chk_int(env[req_u64], _U64_MAX, f"CORRUPT_ENVELOPE_{req_u64.upper()}", k)
+        for opt_u64 in ("included_at_utc", "patch_bound_at_utc"):
+            if env.get(opt_u64) is not None:
+                _chk_int(env[opt_u64], _U64_MAX, f"CORRUPT_ENVELOPE_{opt_u64.upper()}", k)
+        for b_fld in ("included_in_input", "included_before_first_patch", "patch_bound", "first_patch"):
+            if b_fld in env and not isinstance(env[b_fld], bool):
+                raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_{b_fld.upper()}: {k}")
+        for opt_b in ("passed", "patch_passed"):
+            if env.get(opt_b) is not None and not isinstance(env[opt_b], bool):
+                raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_ENVELOPE_{opt_b.upper()}: {k}")
     for k, rec in efficacy.items():
         if not isinstance(rec, dict):
-            raise ValueError(f"EFFICACY_NOT_OBJECT: {k}")
+            raise ValueError(f"INVALID_TELEMETRY_STORE: EFFICACY_NOT_OBJECT: {k}")
+        for opt_s in ("id", "freeze_reason"):
+            if rec.get(opt_s) is not None and not isinstance(rec[opt_s], str):
+                raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_EFFICACY_{opt_s.upper()}: {k}")
         for cnt_fld in ("wins", "losses", "trials", "consecutive_losses"):
-            val = rec.get(cnt_fld, 0)
-            if not _is_nonneg_int(val):
-                raise ValueError(f"CORRUPT_EFFICACY_{cnt_fld.upper()}: {k}")
+            _chk_int(rec.get(cnt_fld, 0), _U32_MAX, f"CORRUPT_EFFICACY_{cnt_fld.upper()}", k)
         if "frozen" in rec and not isinstance(rec["frozen"], bool):
-            raise ValueError(f"CORRUPT_EFFICACY_FROZEN: {k}")
-        if rec.get("freeze_reason") is not None and not isinstance(rec["freeze_reason"], str):
-            raise ValueError(f"CORRUPT_EFFICACY_FREEZE_REASON: {k}")
-    return {"schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION, "updated_at_utc": updated_at_utc, "envelopes": envelopes, "efficacy": efficacy}
+            raise ValueError(f"INVALID_TELEMETRY_STORE: CORRUPT_EFFICACY_FROZEN: {k}")
+        if "last_updated_utc" in rec:
+            _chk_int(rec["last_updated_utc"], _U64_MAX, "CORRUPT_EFFICACY_LAST_UPDATED_UTC", k)
+    if needs_backfill:
+        for env in envelopes.values():
+            p_dig = env.get("patch_digest") or ""
+            if env.get("patch_bound") is True and env.get("included_before_first_patch") is True and p_dig:
+                for item_id in (*env.get("capsule_ids", ()), *env.get("pitfall_ids", ())):
+                    applied_outcomes.add(f"{env['client']}|{env['session_id']}|{p_dig}|{item_id}")
+    return {
+        "schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION,
+        "updated_at_utc": updated_at_utc, "envelopes": envelopes, "efficacy": efficacy,
+        "applied_outcomes": applied_outcomes,
+    }
 
 
 def _save_store(store_path: Path, store: Dict[str, Any]) -> None:
@@ -343,7 +392,12 @@ def _save_store(store_path: Path, store: Dict[str, Any]) -> None:
         rec = dict(store["efficacy"][k])
         rec["id"], rec["frozen"], rec["freeze_reason"] = str(rec.get("id") or k), _is_efficacy_frozen(rec), _effective_freeze_reason(rec)
         ordered_eff[k] = rec
-    payload = {"schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION, "updated_at_utc": int(store.get("updated_at_utc", 0)), "envelopes": ordered_envs, "efficacy": ordered_eff}
+    payload = {
+        "schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION,
+        "updated_at_utc": int(store.get("updated_at_utc", 0)),
+        "envelopes": ordered_envs, "efficacy": ordered_eff,
+        "applied_outcomes": sorted(store.get("applied_outcomes", ())),
+    }
     atomic_write_text_secure(store_path, json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", mode=0o600)
 
 
@@ -374,11 +428,15 @@ def record_telemetry_event(
         raise ValueError(f"UNSUPPORTED_STAGE: '{stage}' not in {SUPPORTED_STAGES}")
     if not _is_nonneg_int(estimated_tokens):
         raise ValueError("INVALID_ESTIMATED_TOKENS: expected non-negative int")
+    if estimated_tokens > _U64_MAX:
+        raise ValueError(f"INT_OVERFLOW: estimated_tokens={estimated_tokens} exceeds u64::MAX")
     if timestamp_utc is None:
         now = int(time.time())
     else:
         if not _is_nonneg_int(timestamp_utc):
             raise ValueError("INVALID_TIMESTAMP_UTC: expected non-negative int")
+        if timestamp_utc > _U64_MAX:
+            raise ValueError(f"INT_OVERFLOW: timestamp_utc={timestamp_utc} exceeds u64::MAX")
         now = timestamp_utc
     env_id = _validate_id_token("envelope_id", envelope_id, required=True)
     sess_in = _validate_id_token("session_id", session_id, required=(stage == "issued"))
@@ -411,8 +469,10 @@ def record_telemetry_event(
             session_has_patch = any(e["client"] == client and e["session_id"] == env["session_id"] and bool(e.get("patch_bound")) for e in envelopes.values())
             if not bool(env.get("included_in_input")):
                 env["included_in_input"], env["included_at_utc"] = True, now
+                if env.get("stage") == "issued":
+                    env["stage"] = "included_in_input"
                 if not bool(env.get("patch_bound")) and not session_has_patch:
-                    env["included_before_first_patch"], env["stage"] = True, "included_in_input"
+                    env["included_before_first_patch"] = True
         else:
             env = _validate_existing_envelope(envelopes, env_id, client, sess_in, src_dig)
             if bool(env.get("patch_bound")):
@@ -430,8 +490,13 @@ def record_telemetry_event(
             env["first_patch"], env["patch_bound_at_utc"], env["stage"] = is_first, now, "patch_bound"
             tracked_ids = sorted(set(env.get("capsule_ids", [])) | set(env.get("pitfall_ids", [])))
             if bool(env["included_before_first_patch"]) and tracked_ids:
-                efficacy_updated = True
+                applied_outcomes: Set[str] = store["applied_outcomes"]
                 for item_id in tracked_ids:
+                    dedup_key = f"{client}|{env['session_id']}|{p_dig}|{item_id}"
+                    if dedup_key in applied_outcomes:
+                        continue
+                    applied_outcomes.add(dedup_key)
+                    efficacy_updated = True
                     rec = efficacy.setdefault(item_id, {"id": item_id, "wins": 0, "losses": 0, "trials": 0, "consecutive_losses": 0, "frozen": False, "freeze_reason": None})
                     if _apply_efficacy_outcome(rec, bool(passed)):
                         newly_frozen.append(item_id)
