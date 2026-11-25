@@ -80,18 +80,24 @@ $ kintsugi integrate . --mount
 $ kintsugi integrate --eject HARNESS-DEFAULT
 ```
 
-### ☁️ Cloud Sandbox & Zero-Upload Cloud Self-Updating Edition (`Cloud-Sandbox/`)
+### ☁️ Cloud Sandbox & Zero-Upload Cloud Self-Updating Edition (`Cloud-Sandbox/` · `v3.1`)
 
-Cloud agents with Python stdlib (no Rust toolchain) can pull, SHA-256 verify, self-update, and run the Truth-Gated self-evolution loop (`evolve learn` → live `brief` → `2-Strike Auto-Freeze` → `evolve export-patch`) directly from GitHub:
+Cloud agents with Python `3.9+` stdlib (no Rust toolchain) can pull, SHA-256 verify, atomically self-update, and run the 5-gate Truth-Gated self-evolution loop directly from GitHub via a clean modular architecture (`security_io.py`, `bootstrap.py`, `truth_gate.py`, `evolution_loop.py`, `scanner_sandbox.py`, `kintsugi_sandbox.py`, and 16-sample `data/canary_corpus_v3.json`):
 
 ```bash
+# Standard TOFU GitHub install (or add --ref <40-hex> --expected-manifest-sha256 <64-hex> --require-pin --require-full-sha):
 curl -fsSL https://raw.githubusercontent.com/tunguyen1993/kintsugi-harness/main/Cloud-Sandbox/bootstrap.py -o /tmp/k_boot.py \
   && python3 /tmp/k_boot.py --ref main --dest /tmp/kintsugi_sandbox \
   && python3 /tmp/kintsugi_sandbox/kintsugi_sandbox.py boot \
   && python3 /tmp/kintsugi_sandbox/kintsugi_sandbox.py self-test
 ```
 
-See [`Cloud-Sandbox/README_GPT_DOT.md`](Cloud-Sandbox/README_GPT_DOT.md) and [`Cloud-Sandbox/TASKS.md`](Cloud-Sandbox/TASKS.md) for the complete 1-command `update` and closed-loop `evolve` workflow.
+Highlights in `v3.1`:
+- **Safe `.tar.gz` & `.zip` offline fallback:** `bootstrap.py --source-archive /mnt/data/<archive>` verifies Tar/Zip-Slip, symlinks, SHA-256 `manifest.json`, and clean-env `boot` smoke test before atomic swap.
+- **1-Command Delivery & Hygiene Gates:** `brief --state-dir` issues `< 500`-token JIT context with an `envelope_id`, `verify-delivery` auto-records `DeliveryTelemetry/1` (2-Strike Auto-Freeze), and `audit-deliverable` enforces `LT-053`/`LT-054`/`LT-055`/`LT-062`.
+- **Multi-Runner Self-Evolution & Patch Import:** `evolve learn --spec` validates scars through isolated Python/Node/SQLite Truth Gate + Matcher-on-Broken + 16-sample Canary; `evolve export-patch` and `evolve import-patch` (`--quarantine` or apply) round-trip SHA-256 attested patches back upstream (with `17/17 PASS_100` self-test).
+
+See [`Cloud-Sandbox/README_GPT_DOT.md`](Cloud-Sandbox/README_GPT_DOT.md) and [`Cloud-Sandbox/TASKS.md`](Cloud-Sandbox/TASKS.md) for the complete `update`, `verify-delivery`, `audit-deliverable`, and closed-loop `evolve` workflow.
 
 ---
 
