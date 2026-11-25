@@ -80,6 +80,19 @@ $ kintsugi integrate . --mount
 $ kintsugi integrate --eject HARNESS-DEFAULT
 ```
 
+### ☁️ Cloud Sandbox & Zero-Upload Cloud Self-Updating Edition (`Cloud-Sandbox/`)
+
+Cloud agents with Python stdlib (no Rust toolchain) can pull, SHA-256 verify, self-update, and run the Truth-Gated self-evolution loop (`evolve learn` → live `brief` → `2-Strike Auto-Freeze` → `evolve export-patch`) directly from GitHub:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tunguyen1993/kintsugi-harness/main/Cloud-Sandbox/bootstrap.py -o /tmp/k_boot.py \
+  && python3 /tmp/k_boot.py --ref main --dest /tmp/kintsugi_sandbox \
+  && python3 /tmp/kintsugi_sandbox/kintsugi_sandbox.py boot \
+  && python3 /tmp/kintsugi_sandbox/kintsugi_sandbox.py self-test
+```
+
+See [`Cloud-Sandbox/README_GPT_DOT.md`](Cloud-Sandbox/README_GPT_DOT.md) and [`Cloud-Sandbox/TASKS.md`](Cloud-Sandbox/TASKS.md) for the complete 1-command `update` and closed-loop `evolve` workflow.
+
 ---
 
 ## 🔌 Model Context Protocol (MCP) Server — `kintsugi mcp`
