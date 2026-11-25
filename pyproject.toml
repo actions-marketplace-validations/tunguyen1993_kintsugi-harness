@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kintsugi-harness"
-version = "2.4.1"
-description = "Hybrid Rust + Python PreToolUse guardrail engine (~16 µs/call), Sovereign Tier-1 DARPA AIxCC CRS (v2.4.1), 5-Pillar Autopoietic Evolution Creed (@CREED/1), Universal Drop-In Harness Integrator (@HARNESS_BRIDGE/1), OpenMontage Cinema Extension (@OPENMONTAGE_CINEMA/1), and KMI/1 + Domain-Partitioned skill compressor (93.8%-99.96% token savings; Apache-2.0)."
+version = "3.0.0"
+description = "Kintsugi Harness v3.0.0 — 7-Domain Typed Obligation Prover (PROVEN/VIOLATED/UNKNOWN/UNSUPPORTED across Python, TS/TSX, Rust, Solidity), 80-Entry Low-Tier Model Failure Lexicon (LT-001..LT-080), 9 Signature-Guarded Capsules, Universal Truth Gate & DeliveryTelemetry/1, Sovereign CRS, and KMI/1 Compression (Apache-2.0)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.9"

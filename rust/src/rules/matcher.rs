@@ -20,13 +20,16 @@ fn is_valid_ident(s: &str) -> bool {
 }
 
 pub fn detect_language(path: &Path) -> Option<&'static str> {
-    if path.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.eq_ignore_ascii_case("Dockerfile") || n.starts_with("Dockerfile.")) {
+    if path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+        n.eq_ignore_ascii_case("Dockerfile")
+            || n.get(..11).is_some_and(|p| p.eq_ignore_ascii_case("dockerfile."))
+    }) {
         return Some("dockerfile");
     }
     match path.extension().and_then(|e| e.to_str())?.to_ascii_lowercase().as_str() {
         "py" | "pyi" => Some("python"), "js" | "mjs" | "cjs" | "jsx" => Some("javascript"),
-        "ts" | "tsx" => Some("typescript"), "sol" => Some("solidity"), "go" => Some("go"), "rs" => Some("rust"), "sql" => Some("sql"),
-        "sh" | "bash" | "zsh" => Some("shell"), "dockerfile" => Some("dockerfile"),
+        "ts" | "tsx" => Some("typescript"), "vue" => Some("vue"), "sol" => Some("solidity"), "go" => Some("go"), "rs" => Some("rust"), "sql" => Some("sql"),
+        "sh" | "bash" | "zsh" => Some("shell"), "yml" | "yaml" => Some("yaml"), "dockerfile" => Some("dockerfile"),
         "md" | "markdown" | "mdc" => Some("markdown"), _ => None,
     }
 }
@@ -848,5 +851,30 @@ mod tests {
         assert!(check_ks013_with_lines(&wrong_py, 1, "python"));
         let right_py: Vec<&str> = "def s(p):\n    br = p.chromium.launch()\n    try:\n        work()\n    finally:\n        br.close()\n".lines().collect();
         assert!(!check_ks013_with_lines(&right_py, 1, "python"));
+    }
+
+    #[test]
+    fn detect_language_covers_polyglot_fe_systems_and_ci_extensions() {
+        for (path, expected) in [
+            ("main.go", Some("go")),
+            ("lib.rs", Some("rust")),
+            ("app.ts", Some("typescript")),
+            ("App.tsx", Some("typescript")),
+            ("app.js", Some("javascript")),
+            ("Card.jsx", Some("javascript")),
+            ("Panel.vue", Some("vue")),
+            ("Vault.sol", Some("solidity")),
+            (".github/workflows/ci.yml", Some("yaml")),
+            ("deploy.yaml", Some("yaml")),
+            ("Dockerfile", Some("dockerfile")),
+            ("Dockerfile.prod", Some("dockerfile")),
+            ("dockerfile.dev", Some("dockerfile")),
+            ("image.dockerfile", Some("dockerfile")),
+            ("ci/check.sh", Some("shell")),
+            ("worker.py", Some("python")),
+            ("weights.bin", None),
+        ] {
+            assert_eq!(detect_language(Path::new(path)), expected, "path={path}");
+        }
     }
 }

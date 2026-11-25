@@ -1,6 +1,6 @@
 //! Low-Tier / Budget Model Failure Lexicon (`rust/src/audit/low_tier_lexicon.rs`).
 //!
-//! Compact, symbol-scoped, zero-bloat dictionary of the 18 highest-frequency failure modes
+//! Compact, symbol-scoped, zero-bloat dictionary of the 80 highest-frequency failure modes
 //! committed by budget / fast / low-tier LLMs (`GLM-4-Flash`, `DeepSeek Flash`, `Budget-Reasoning-Model`,
 //! `Haiku`, `Mini`, `Qwen`), distilled from empirical blind A/B runs and real production scars.
 //!
@@ -49,7 +49,10 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         slug: "signature_drift",
         category: "api",
         languages: &["*"],
-        trigger_groups: &[&["verify", "validate", "check", "parse", "bool", "return"]],
+        trigger_groups: &[
+            &["verify", "validate", "parse", "verifier", "validator", "kwargs"],
+            &["bool", "boolean", "false", "valueerror", "raise", "kwargs", "signature", "proof", "token", "hmac", "mac", "digest", "schema", "payload"],
+        ],
         bad_pattern: "Inventing nonexistent kwargs or raising ValueError inside a `-> bool` verifier",
         good_pattern: "Preserve exact method/kwarg signatures; for `-> bool` verifiers return False on malformed input",
         precondition: "Function signature or interface contract is specified by caller/tests",
@@ -96,8 +99,8 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         category: "security",
         languages: &["python", "typescript", "javascript"],
         trigger_groups: &[&["@struct_subprocess_exec", "subprocess", "popen", "spawn", "exec", "command"]],
-        bad_pattern: "`subprocess.run(f\"{bin} {arg}\", shell=True)` or omitting `shell=False` / `timeout` / metachar check",
-        good_pattern: "Pass argv list `[bin_real, flag, arg]` with explicit `shell=False`, `timeout=N`, and reject `;|&$><`\\n\\r\\x00`",
+        bad_pattern: "`subprocess.run(f\"{bin} {arg}\", shell=True)`, hanging argv without `timeout=5`, or omitting `shell=False` / `TimeoutExpired` handling / metachar check",
+        good_pattern: "Pass fast non-hanging argv list `[bin_real, flag, arg]` with explicit `shell=False, timeout=5`, handle `subprocess.TimeoutExpired` cleanly, and reject `;|&$><`\\n\\r\\x00`",
         precondition: "Spawning any external binary or CLI subprocess",
     },
     PitfallEntry {
@@ -128,7 +131,7 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         slug: "mutable_default_arg",
         category: "python",
         languages: &["python"],
-        trigger_groups: &[&["def", "init", "class"], &["list", "dict", "set", "cache", "items", "opts", "config"]],
+        trigger_groups: &[&["def", "init", "class"], &["list", "dict", "seen", "frozenset", "cache", "items", "opts", "config", "default"]],
         bad_pattern: "`def fn(items=[], seen={}):` or shared mutable class attributes leaking across calls/tests",
         good_pattern: "Default to `None` (`items: list | None = None`) and initialize fresh container inside function/`__init__`",
         precondition: "Python functions or classes accepting optional containers",
@@ -139,9 +142,9 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         category: "algo",
         languages: &["*"],
         trigger_groups: &[&["@struct_halving_hash_tree", "merkle", "len", "range", "slice", "index", "items", "nodes"]],
-        bad_pattern: "Indexing `items[0]` on empty input, duplicating odd trailing Merkle node (`[A,B,C]==[A,B,C,C]`), or `<` vs `<=` off-by-one",
-        good_pattern: "Guard empty/single-item inputs explicitly; promote odd Merkle trailing node unchanged without duplication",
-        precondition: "Loop indexing, tree reduction, pagination, or inclusive/exclusive bounds",
+        bad_pattern: "Indexing `items[0]` on empty input, leaving `nodes.append(nodes[-1])` odd-node duplication (`[A,B,C]==[A,B,C,C]`), or `<` vs `<=` off-by-one",
+        good_pattern: "Explicitly reject empty `items` (`if not items: raise ValueError(...)`), REMOVE any `nodes.append(nodes[-1])` odd-node duplication, and promote the trailing odd node unchanged",
+        precondition: "Loop indexing, Merkle/tree reduction, pagination, or inclusive/exclusive bounds",
     },
     PitfallEntry {
         id: "LT-010",
@@ -179,9 +182,9 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         category: "algo",
         languages: &["*"],
         trigger_groups: &[&["dag", "graph", "edges", "prereq", "ancestor", "topological", "cycle", "node", "tree"]],
-        bad_pattern: "Recursive DFS (hits Python 1000-frame `RecursionError`) or summing ancestor weights twice in Diamond DAGs",
-        good_pattern: "Use iterative Kahn topological sort + `set` union `anc[v] |= anc[u] | {u}` for distinct transitive ancestors",
-        precondition: "Graph/DAG traversal, dependency resolution, or critical-path makespan",
+        bad_pattern: "Recursive DFS (hits Python 1000-frame `RecursionError`), summing shared ancestors twice in Diamond DAGs, or `class CycleError(Exception)` breaking `except ValueError`",
+        good_pattern: "Use iterative Kahn topological sort, `set` union `anc[v] |= anc[u] | {u}` for distinct transitive ancestors, and subclass `class CycleError(ValueError): pass` so `except ValueError` catches cycles",
+        precondition: "Graph/DAG traversal, cycle detection, dependency resolution, or critical-path makespan",
     },
     PitfallEntry {
         id: "LT-014",
@@ -767,8 +770,8 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
             &["git_stdout", "splitlines", "markdown_text", "section_heading"],
             &["paths", "section_body", "markdown", "split"],
         ],
-        bad_pattern: "Using `str.splitlines()` on git paths (corrupts Unicode `U+2028`/`U+2029`/`U+0085` filenames) or `markdown_text.split(heading, 1)` (falsely matches headings inside fenced code blocks)",
-        good_pattern: "Split `git_stdout` strictly on `'\\n'` (never `.splitlines()`), strip only trailing `'\\r'`, and parse markdown line-by-line toggling fenced-block state on triple-backtick/tilde fences so headings inside code blocks are ignored",
+        bad_pattern: "Using `str.splitlines()` on git paths (corrupts Unicode `U+2028`/`U+2029`/`U+0085` filenames) or `.split(heading)` on markdown (falsely matches headings inside fenced code blocks)",
+        good_pattern: "Split `git_stdout` strictly on `'\\n'` + strip trailing `'\\r'` only; scan markdown line-by-line with `in_fence = not in_fence` on `line.lstrip().startswith((\"```\", \"~~~\"))` and ignore headings while `in_fence` (never `.split(heading)`)",
         precondition: "Parsing git file path output or extracting sections from Markdown documents",
     },
     PitfallEntry {
@@ -796,6 +799,253 @@ pub const LOW_TIER_PITFALL_LEXICON: &[PitfallEntry] = &[
         bad_pattern: "Allowing `.env`/`.DS_Store`/`__pycache__`/`.coverage`, PEM private-key blocks, `sk-live-`/`ghp_`/`AKIA` tokens, or RFC-1918 LAN IPs (`192.168.x.x`/`10.x.x.x`) & local `/Users/<name>/` paths into public releases — OR false-flagging benign `EXAMPLE_PLACEHOLDER_0000` constants",
         good_pattern: "Flag dirty paths (`.env`, `.DS_Store`, `__pycache__`, `.coverage`), PEM private-key headers, concrete token prefixes (`sk-live-`, `ghp_`, `AKIA`), and RFC-1918 LAN IPs / `/Users/<user>/` host paths, while NOT flagging benign `EXAMPLE_PLACEHOLDER` fixtures",
         precondition: "Scanning public PR/export file maps for secret leaks, internal paths, and dirty build artifacts",
+    },
+    // === ROUND 5: FRONTEND REACT / NEXT.JS / VUE V2 (LT-063..LT-070) ===
+    PitfallEntry {
+        id: "LT-063",
+        slug: "fe_xss_innerhtml_and_url_scheme",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["dangerouslysetinnerhtml", "innerhtml", "outerhtml", "dompurify", "href", "srcdoc", "html"],
+            &["dangerouslysetinnerhtml", "innerhtml", "outerhtml", "dompurify", "srcdoc", "url", "link", "sanitize", "template", "component", "props", "render", "jsx", "tsx", "div"],
+        ],
+        bad_pattern: "Rendering untrusted markup via `dangerouslySetInnerHTML`/`v-html`/`.innerHTML` without `DOMPurify.sanitize`, or binding `href={userUrl}` allowing `javascript:`/`data:` schemes",
+        good_pattern: "Render plain text by default, sanitize unavoidable HTML via `DOMPurify.sanitize(raw)`, and validate `new URL(userUrl)` protocol is strictly `'https:'` or `'http:'` (or same-origin `/path`)",
+        precondition: "Rendering user-supplied HTML snippets or dynamic navigation URLs in React, Next.js, or Vue",
+    },
+    PitfallEntry {
+        id: "LT-064",
+        slug: "fe_effect_abort_race_and_stale_state",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["useeffect", "uselayouteffect", "watcheffect", "onmounted", "abortcontroller", "abortsignal", "usestate"],
+            &["fetch", "fetcher", "axios", "async", "await", "then", "promise", "abort", "signal", "settimeout", "setinterval", "prev", "setstate"],
+        ],
+        bad_pattern: "Running async `fetch` inside `useEffect` without `AbortController` cleanup (out-of-order stale response overwrite) or calling `setState(val + 1)` with a stale closure",
+        good_pattern: "Create `const ac = new AbortController()`, pass `{ signal: ac.signal }`, return `() => ac.abort()` in cleanup (ignoring `AbortError`), and use functional updaters `setState(prev => prev + 1)`",
+        precondition: "Async data fetching, subscriptions, or state updates inside React `useEffect`/Vue watchers",
+    },
+    PitfallEntry {
+        id: "LT-065",
+        slug: "fe_ssr_hydration_nondeterministic",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["localstorage", "sessionstorage", "window", "navigator", "random", "now", "tolocaledatestring", "tolocalestring"],
+            &["ssr", "hydrate", "hydration", "nextjs", "useeffect", "usestate", "component", "props", "jsx", "tsx", "div", "span", "template", "onmounted", "getserversideprops", "page", "isclient", "render"],
+        ],
+        bad_pattern: "Reading `Date.now()`, `Math.random()`, `window`, or `localStorage` directly in an SSR render body (causes hydration mismatch or server `ReferenceError`)",
+        good_pattern: "Keep initial SSR render deterministic from props/server data; read browser globals and non-deterministic clocks only inside `useEffect`/`onMounted` after client mount",
+        precondition: "Authoring SSR-rendered React, Next.js App/Pages Router, or Vue components",
+    },
+    PitfallEntry {
+        id: "LT-066",
+        slug: "fe_list_index_key_and_inplace_sort",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["sort", "reverse", "splice", "push", "unshift", "key"],
+            &["usestate", "usememo", "reactive", "computed", "jsx", "tsx", "li", "div", "idx", "index", "items", "rows", "list", "keys"],
+        ],
+        bad_pattern: "Using array index `key={idx}` on dynamic lists (corrupts DOM/input state on reorder/filter) or mutating React/Vue state arrays in place (`items.sort()`/`push()`/`splice()`)",
+        good_pattern: "Key list items by stable unique entity ID (`key={item.id}`) and clone before sorting/updating (`[...items].sort(...)`, `[...items, next]`) so state reconciliation detects changes",
+        precondition: "Rendering dynamic lists or sorting/mutating array state in React or Vue",
+    },
+    PitfallEntry {
+        id: "LT-067",
+        slug: "fe_checkout_double_submit_idempotency",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["checkout", "payment", "placeorder", "submitorder", "onsubmit", "handlesubmit", "handlecheckout", "handlepayment", "issubmitting", "submitting"],
+            &["fetch", "axios", "post", "async", "await", "idempotency", "disabled", "order", "pay", "button", "form"],
+        ],
+        bad_pattern: "Checkout/payment submit handlers lacking an in-flight `isSubmitting` guard and `Idempotency-Key` header, causing duplicate orders/charges on rapid double-clicks",
+        good_pattern: "Guard with a synchronous in-flight ref/flag (`if (submittingRef.current) return; submittingRef.current = true`), disable the submit button while pending, send a per-attempt `Idempotency-Key` header, and reset in `finally`",
+        precondition: "Implementing checkout, payment, transfer, or order-creation submit handlers in FE apps",
+    },
+    PitfallEntry {
+        id: "LT-068",
+        slug: "fe_cart_currency_float_and_intl",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["cart", "subtotal", "discount", "vat", "currency", "formatprice", "formatcurrency", "numberformat", "intl", "coupon"],
+            &["price", "total", "tax", "amount", "cents", "vnd", "usd", "tofixed", "number", "reduce", "qty", "quantity", "intl", "numberformat"],
+        ],
+        bad_pattern: "Computing cart subtotal/discount/tax with JS floating-point `Number` (`0.1 + 0.2 !== 0.3`) or hand-formatting money with `.toFixed(2)` string concatenation",
+        good_pattern: "Compute all cart totals, discounts, and taxes in exact integer minor units (cents or integer VND), and format display strings via `new Intl.NumberFormat(locale, { style: 'currency', currency })`",
+        precondition: "Calculating or formatting cart totals, discounts, taxes, or prices in frontend JS/TS/Vue",
+    },
+    PitfallEntry {
+        id: "LT-069",
+        slug: "fe_open_redirect_and_postmessage_origin",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["postmessage", "onmessage", "addeventlistener", "location", "router", "redirect", "returnurl", "nexturl"],
+            &["postmessage", "onmessage", "origin", "push", "replace", "assign", "href", "next", "redirect", "searchparams", "query", "contentwindow", "iframe", "opener", "message", "msg"],
+        ],
+        bad_pattern: "Passing unvalidated params to `router.push(next)`/`window.location = next` (allows `//evil.com` or external URLs), sending `postMessage(data, '*')`, or skipping `event.origin` validation",
+        good_pattern: "Allow only same-origin relative paths (`/^\\/(?!\\/|\\\\)/`) for redirects, pass an explicit target origin to `postMessage`, and enforce strict `event.origin === ALLOWED_ORIGIN` in every `message` listener",
+        precondition: "Client-side post-login redirects or cross-window/iframe `postMessage` handlers",
+    },
+    PitfallEntry {
+        id: "LT-070",
+        slug: "fe_server_action_authz_and_zod",
+        category: "frontend",
+        languages: &["typescript", "javascript", "vue"],
+        trigger_groups: &[
+            &["formdata", "nextrequest", "nextresponse", "serveraction", "getserversession", "cookies", "headers", "route", "handler", "action", "zod", "safeparse"],
+            &["userid", "role", "price", "isadmin", "admin", "tenantid", "ownerid", "session", "auth", "amount", "status"],
+        ],
+        bad_pattern: "Trusting client-supplied `userId`, `role`, `isAdmin`, or `price` in Next.js Server Actions / API routes without server session authz and schema validation",
+        good_pattern: "Derive actor identity/role strictly from verified server session (never client payload), validate input types/bounds fail-closed (using existing validator or explicit runtime checks; NEVER invent uninstalled imports like `zod`), and recompute authoritative prices from server catalog",
+        precondition: "Implementing Next.js Server Actions, BFF endpoints, or API route handlers",
+    },
+    // === ROUND 6: GO / RUST SYSTEMS & DOCKER / CI SUPPLY-CHAIN (LT-071..LT-080) ===
+    PitfallEntry {
+        id: "LT-071",
+        slug: "go_loop_goroutine_capture_and_defer",
+        category: "go",
+        languages: &["go"],
+        trigger_groups: &[
+            &["go", "defer", "goroutine", "waitgroup", "wg"],
+            &["for", "range", "ctx", "context", "done", "chan", "select", "go"],
+        ],
+        bad_pattern: "Spawning `go func()` in loops capturing loop vars / ignoring `<-ctx.Done()` (races & leaks), or calling `defer f.Close()` inside a loop (leaks FDs until outer function exits)",
+        good_pattern: "Pass loop values explicitly `go func(v T) { ... }(v)`, select on `<-ctx.Done()` for cancellation, and move loop-body resource cleanup into a helper function so `defer f.Close()` runs per iteration",
+        precondition: "Writing Go loops that launch goroutines or open per-iteration files/connections",
+    },
+    PitfallEntry {
+        id: "LT-072",
+        slug: "go_http_body_close_limit_timeout",
+        category: "go",
+        languages: &["go"],
+        trigger_groups: &[
+            &["http", "resp", "response", "readall", "defaultclient", "limitreader"],
+            &["get", "post", "do", "body", "readall", "client", "timeout", "transport"],
+        ],
+        bad_pattern: "Calling `http.Get` (uses `http.DefaultClient` with zero timeout), omitting `defer resp.Body.Close()`, or calling unbounded `io.ReadAll(resp.Body)` (OOM DoS)",
+        good_pattern: "Use `&http.Client{Timeout: 10 * time.Second}` (or `http.NewRequestWithContext`), `defer resp.Body.Close()` right after `err == nil`, and cap reads with `io.LimitReader(resp.Body, maxBytes)`",
+        precondition: "Making outbound HTTP requests or reading HTTP response bodies in Go",
+    },
+    PitfallEntry {
+        id: "LT-073",
+        slug: "go_sql_rows_err_and_tx_rollback",
+        category: "go",
+        languages: &["go"],
+        trigger_groups: &[
+            &["rows", "sql", "tx", "begintx", "queryrow", "querycontext"],
+            &["next", "scan", "query", "exec", "begin", "begintx", "commit", "rollback", "close", "err"],
+        ],
+        bad_pattern: "Iterating Go `database/sql` `rows.Next()` without `defer rows.Close()` and post-loop `rows.Err()`, or starting a `tx` without `defer tx.Rollback()` on error paths",
+        good_pattern: "Call `defer rows.Close()` immediately after `db.Query`, check `if err := rows.Err(); err != nil` after `rows.Next()`, and always `defer tx.Rollback()` right after `db.BeginTx` (safe no-op after `Commit`)",
+        precondition: "Querying rows or running SQL transactions via Go `database/sql`",
+    },
+    PitfallEntry {
+        id: "LT-074",
+        slug: "rust_unchecked_index_unwrap_overflow",
+        category: "rust",
+        languages: &["rust"],
+        trigger_groups: &[&[
+            "unwrap",
+            "expect",
+            "split_at",
+            "index",
+            "indexed",
+            "slice",
+            "from_be_bytes",
+            "from_le_bytes",
+            "checked_add",
+            "checked_mul",
+            "saturating_add",
+            "try_from",
+            "unchecked",
+        ]],
+        bad_pattern: "Panicking on untrusted input via `slice[i]`/`.unwrap()`/`.expect()`, silently wrapping `a + b` in release builds, or truncating integers via `val as usize`/`as u32`",
+        good_pattern: "Use bounds-checked `.get(i)` + `?` propagation, checked arithmetic (`checked_add`/`checked_mul`/`saturating_sub`), and fallible `usize::try_from(val)?` instead of `as` casts",
+        precondition: "Indexing slices, unwrapping `Option`/`Result`, or doing arithmetic/casts on untrusted input in Rust",
+    },
+    PitfallEntry {
+        id: "LT-075",
+        slug: "rust_mutex_across_await_and_poison",
+        category: "rust",
+        languages: &["rust"],
+        trigger_groups: &[
+            &["mutex", "rwlock", "mutexguard", "lock"],
+            &["await", "async", "tokio", "unwrap_or_default", "into_inner", "poison", "poisoned", "guard"],
+        ],
+        bad_pattern: "Holding `std::sync::MutexGuard` across `.await`/callbacks (deadlocks or fails `!Send`) or silently swallowing lock-poison errors via `.unwrap_or_else(|e| e.into_inner())`/`.unwrap_or_default()`",
+        good_pattern: "Drop `std::sync::MutexGuard` inside a tight synchronous `{ ... }` scope BEFORE `.await` or external callbacks, and return `Err(...)` fail-closed on poisoned locks instead of `.into_inner()`/`.unwrap_or_default()`",
+        precondition: "Using `Mutex`/`RwLock` in async Rust tasks or handling fallible lock/parse results",
+    },
+    PitfallEntry {
+        id: "LT-076",
+        slug: "rust_path_join_abs_override_and_nofollow",
+        category: "rust",
+        languages: &["rust"],
+        trigger_groups: &[
+            &["join", "canonicalize", "openoptions", "o_nofollow", "nofollow", "pathbuf"],
+            &["path", "pathbuf", "root", "base", "dir", "rel", "fs", "file", "open", "read", "write", "starts_with"],
+        ],
+        bad_pattern: "Calling `root.join(user_rel)` (Rust `Path::join` SILENTLY REPLACES `root` when `user_rel` starts with `/`!) or skipping `canonicalize()` + `starts_with(&canon_root)` + `O_NOFOLLOW`",
+        good_pattern: "Reject absolute paths and `Component::ParentDir`/`RootDir`/`Prefix` via `Path::components()` before joining (and canonicalize existing root/paths + check `starts_with(&canon_root)` + `O_NOFOLLOW` when opening files on Unix)",
+        precondition: "Resolving user-controlled relative paths under a confined root directory in Rust",
+    },
+    PitfallEntry {
+        id: "LT-077",
+        slug: "gha_unpinned_action_and_run_injection",
+        category: "ci",
+        languages: &["yaml", "shell"],
+        trigger_groups: &[
+            &["uses", "github", "workflow_dispatch", "pull_request_target", "runs"],
+            &["actions", "checkout", "steps", "jobs", "event", "run"],
+        ],
+        bad_pattern: "Pinning GitHub Actions to mutable refs (`uses: org/action@main` or `@v4`) or interpolating `${{ github.event.* }}` directly into `run:` shell commands (command injection)",
+        good_pattern: "Pin third-party actions to immutable 40-hex commit SHAs (`uses: actions/checkout@<40-hex-sha> # v4`) and pass `${{ github.event.* }}` through `env:` + quoted `\"$VAR\"` inside `run:`",
+        precondition: "Authoring or auditing GitHub Actions `.github/workflows/*.yml` workflows",
+    },
+    PitfallEntry {
+        id: "LT-078",
+        slug: "gha_excessive_perms_and_pr_target",
+        category: "ci",
+        languages: &["yaml"],
+        trigger_groups: &[
+            &["pull_request_target", "workflow_run", "permissions", "github_token", "secrets"],
+            &["pull_request_target", "workflow_run", "jobs", "steps", "checkout", "github", "runs"],
+        ],
+        bad_pattern: "Omitting top-level least-privilege `permissions:` (or using `write-all`), or checking out untrusted PR head code inside a `pull_request_target` workflow with secrets exposed",
+        good_pattern: "Declare top-level `permissions: contents: read` (or `{}`), scope write permissions per job only, and NEVER checkout/execute untrusted PR head code under `pull_request_target`",
+        precondition: "Configuring GitHub Actions triggers, `GITHUB_TOKEN` permissions, or PR workflows",
+    },
+    PitfallEntry {
+        id: "LT-079",
+        slug: "docker_root_latest_and_secret_arg",
+        category: "docker",
+        languages: &["dockerfile", "shell"],
+        trigger_groups: &[
+            &["dockerfile", "workdir", "entrypoint", "from", "docker"],
+            &["dockerfile", "workdir", "entrypoint", "latest", "alpine", "slim", "distroless", "bookworm", "bullseye", "nonroot", "adduser", "useradd", "healthcheck"],
+        ],
+        bad_pattern: "Running containers as `root` (missing non-root `USER`), pinning mutable `:latest` base images, or passing secrets via `ARG`/`ENV` baked into image layers",
+        good_pattern: "Pin base images to an immutable `@sha256:...` digest, switch to a non-root `USER` before `CMD`/`ENTRYPOINT`, and pass build secrets via `RUN --mount=type=secret` (never `ARG`/`ENV`)",
+        precondition: "Writing Dockerfiles or container image build definitions",
+    },
+    PitfallEntry {
+        id: "LT-080",
+        slug: "ci_pipefail_brokenpipe_and_runner",
+        category: "ci",
+        languages: &["shell", "yaml", "rust"],
+        trigger_groups: &[
+            &["pipefail", "brokenpipe", "epipe", "sigpipe", "macos", "bash", "errexit", "nounset", "runner"],
+            &["pipefail", "brokenpipe", "epipe", "sigpipe", "runs", "shell", "set", "pipe", "spawn", "child", "ci", "workflow", "steps", "latest", "stdout", "stderr", "script"],
+        ],
+        bad_pattern: "Omitting `set -euo pipefail` in CI shell scripts (silently masks upstream pipe failures), pinning retired CI runners (`macos-14`), or testing `BrokenPipe`/`EPIPE` without confirming reader closure before child spawn",
+        good_pattern: "Begin CI shell scripts with `set -euo pipefail`, use supported runners (`macos-15`/`ubuntu-24.04`), and confirm reader FD closure (drop reader before child spawn/write) when testing `BrokenPipe`/`EPIPE`",
+        precondition: "Writing CI shell scripts, runner matrices, or `BrokenPipe`/`EPIPE` subprocess tests",
     },
 ];
 
@@ -935,19 +1185,59 @@ mod tests {
     use crate::json_dom::parse_json_value;
 
     #[test]
-    fn lexicon_has_18_unique_ids_and_jit_matches_cheap_model_pitfalls_with_zero_bloat() {
+    fn lexicon_has_80_unique_ids_and_jit_matches_cheap_model_pitfalls_with_zero_bloat() {
         let mut ids = BTreeSet::new();
-        for e in LOW_TIER_PITFALL_LEXICON {
+        for (idx, e) in LOW_TIER_PITFALL_LEXICON.iter().enumerate() {
+            let expected_id = format!("LT-{:03}", idx + 1);
+            assert_eq!(e.id, expected_id, "lexicon id sequence mismatch at index {idx}");
             assert!(ids.insert(e.id), "duplicate lexicon id {}", e.id);
+            assert!(!e.slug.is_empty() && !e.category.is_empty() && !e.languages.is_empty());
+            assert!(!e.trigger_groups.is_empty(), "empty trigger_groups for {}", e.id);
+            for grp in e.trigger_groups {
+                assert!(!grp.is_empty(), "empty trigger group for {}", e.id);
+                for tok in *grp {
+                    assert!(!tok.is_empty() && *tok == tok.to_ascii_lowercase(), "non-lowercase trigger `{tok}` in {}", e.id);
+                }
+            }
             assert!(!e.bad_pattern.is_empty() && !e.good_pattern.is_empty() && !e.precondition.is_empty());
         }
-        assert_eq!(LOW_TIER_PITFALL_LEXICON.len(), 62);
+        assert_eq!(LOW_TIER_PITFALL_LEXICON.len(), 80);
+
+        // Verify the 4 sharpened edge-case entries carry their exact invariants
+        let by_id = |id: &str| LOW_TIER_PITFALL_LEXICON.iter().find(|e| e.id == id).unwrap();
+        assert!(by_id("LT-005").good_pattern.contains("timeout=5") && by_id("LT-005").good_pattern.contains("TimeoutExpired"));
+        assert!(by_id("LT-009").good_pattern.contains("if not items: raise ValueError") && by_id("LT-009").good_pattern.contains("nodes.append(nodes[-1])"));
+        assert!(by_id("LT-013").good_pattern.contains("class CycleError(ValueError): pass"));
+        assert!(by_id("LT-060").good_pattern.contains("in_fence = not in_fence") && by_id("LT-060").good_pattern.contains(".split(heading)"));
 
         // Clean unrelated dataclass -> 0 lexicon bloat!
         let benign = "from dataclasses import dataclass\n@dataclass\nclass Point:\n    x: int\n    y: int\n";
         let r0 = match_low_tier_lexicon_for_source("point.py", benign, "python", 4);
         assert_eq!(r0.matched_entries.len(), 0);
         assert_eq!(r0.estimated_tokens, 0);
+
+        // Clean unrelated Rust, Go & TypeScript data types -> 0 lexicon bloat!
+        let benign_rs = "pub struct Point { pub x: i32, pub y: i32 }\n";
+        let r0_rs = match_low_tier_lexicon_for_source("point.rs", benign_rs, "rust", 4);
+        assert_eq!(r0_rs.matched_entries.len(), 0);
+        assert_eq!(r0_rs.estimated_tokens, 0);
+
+        let benign_go = "package geom\ntype Point struct { X int; Y int }\n";
+        let r0_go = match_low_tier_lexicon_for_source("geom.go", benign_go, "go", 4);
+        assert_eq!(r0_go.matched_entries.len(), 0);
+        assert_eq!(r0_go.estimated_tokens, 0);
+
+        let benign_ts = "export interface Label { readonly tag: string; }\n";
+        let r0_ts = match_low_tier_lexicon_for_source("label.ts", benign_ts, "typescript", 4);
+        assert_eq!(r0_ts.matched_entries.len(), 0);
+        assert_eq!(r0_ts.estimated_tokens, 0);
+        let r0_ts_num = match_low_tier_lexicon_for_source(
+            "point.ts",
+            "export interface Point { readonly x: number; readonly y: number; }\n",
+            "typescript",
+            8,
+        );
+        assert!(!r0_ts_num.matched_entries.iter().any(|e| e.id >= "LT-063"));
 
         // Fintech SQL + Decimal code -> fires LT-002 & LT-003 cleanly within tight token cap
         let fin = "from decimal import Decimal\ndef settle_invoice(cursor, amount, vnd_rate):\n    total = Decimal(str(amount)) * Decimal(str(vnd_rate))\n    sql = 'SELECT id FROM invoices WHERE total = ?'\n    cursor.execute(sql, (str(total),))\n";
@@ -957,5 +1247,127 @@ mod tests {
         assert!(r1.estimated_tokens <= 220, "lexicon tokens bloated: {}", r1.estimated_tokens);
         assert!(parse_json_value(&render_lexicon_report_json(&r1)).is_ok());
         assert!(parse_json_value(&render_all_lexicon_json()).is_ok());
+    }
+
+    #[test]
+    fn lexicon_matches_fe_go_rust_gha_docker_and_ci_pitfalls_precisely() {
+        // React .tsx with dangerouslySetInnerHTML + useEffect -> LT-063 & LT-064
+        let react_tsx = r#"
+import { useEffect, useState } from 'react';
+export function PreviewCard({ apiUrl }: { apiUrl: string }) {
+  const [markup, setMarkup] = useState('');
+  useEffect(() => {
+    fetch(apiUrl).then((r) => r.text()).then(setMarkup);
+  }, [apiUrl]);
+  return <div dangerouslySetInnerHTML={{ __html: markup }} />;
+}
+"#;
+        let r_fe = match_low_tier_lexicon_for_source("PreviewCard.tsx", react_tsx, "typescript", 6);
+        assert!(r_fe.matched_entries.iter().any(|e| e.id == "LT-063"), "expected LT-063 in {:?}", r_fe.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+        assert!(r_fe.matched_entries.iter().any(|e| e.id == "LT-064"), "expected LT-064 in {:?}", r_fe.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // Vue SFC with v-html -> LT-063
+        let vue_sfc = "<template><div v-html=\"userBio\"></div></template>\n";
+        let r_vue = match_low_tier_lexicon_for_source("Profile.vue", vue_sfc, "vue", 4);
+        assert!(r_vue.matched_entries.iter().any(|e| e.id == "LT-063"), "expected LT-063 for vue");
+
+        // Go with http.Get + io.ReadAll + rows.Next -> LT-072 & LT-073
+        let go_src = r#"
+package syncer
+import ("database/sql"; "io"; "net/http")
+func SyncFeed(db *sql.DB, feedURL string) error {
+    resp, err := http.Get(feedURL)
+    if err != nil { return err }
+    _, _ = io.ReadAll(resp.Body)
+    rows, err := db.Query("SELECT id FROM feeds")
+    if err != nil { return err }
+    for rows.Next() {
+        var id int
+        _ = rows.Scan(&id)
+    }
+    return nil
+}
+"#;
+        let r_go = match_low_tier_lexicon_for_source("syncer.go", go_src, "go", 6);
+        assert!(r_go.matched_entries.iter().any(|e| e.id == "LT-072"), "expected LT-072 in {:?}", r_go.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+        assert!(r_go.matched_entries.iter().any(|e| e.id == "LT-073"), "expected LT-073 in {:?}", r_go.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // Rust with root.join(user_rel) + .unwrap() -> LT-074 & LT-076
+        let rust_src = r#"
+use std::path::Path;
+pub fn read_asset(root: &Path, user_rel: &str) -> String {
+    let target = root.join(user_rel);
+    std::fs::read_to_string(target).unwrap()
+}
+"#;
+        let r_rs = match_low_tier_lexicon_for_source("asset.rs", rust_src, "rust", 6);
+        assert!(r_rs.matched_entries.iter().any(|e| e.id == "LT-074"), "expected LT-074 in {:?}", r_rs.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+        assert!(r_rs.matched_entries.iter().any(|e| e.id == "LT-076"), "expected LT-076 in {:?}", r_rs.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // GitHub Actions YAML with pull_request_target + ${{ github.event.issue.title }} -> LT-077 & LT-078
+        let gha_yml = r#"
+on:
+  pull_request_target:
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: echo ${{ github.event.issue.title }}
+"#;
+        let r_gha = match_low_tier_lexicon_for_source(".github/workflows/triage.yml", gha_yml, "yaml", 6);
+        assert!(r_gha.matched_entries.iter().any(|e| e.id == "LT-077"), "expected LT-077 in {:?}", r_gha.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+        assert!(r_gha.matched_entries.iter().any(|e| e.id == "LT-078"), "expected LT-078 in {:?}", r_gha.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // Dockerfile with :latest + secret ARG/ENV -> LT-079
+        let dockerfile = "FROM python:latest\nWORKDIR /app\nARG API_SECRET\nENV API_SECRET=$API_SECRET\nCMD [\"python\", \"app.py\"]\n";
+        let r_dkr = match_low_tier_lexicon_for_source("Dockerfile", dockerfile, "dockerfile", 4);
+        assert!(r_dkr.matched_entries.iter().any(|e| e.id == "LT-079"), "expected LT-079 in {:?}", r_dkr.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // CI shell / runner / BrokenPipe -> LT-080
+        let ci_sh = "#!/usr/bin/env bash\nset -e\nruns_on=macos-14\n";
+        let r_ci = match_low_tier_lexicon_for_source("ci.sh", ci_sh, "shell", 4);
+        assert!(r_ci.matched_entries.iter().any(|e| e.id == "LT-080"), "expected LT-080 in {:?}", r_ci.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>());
+
+        // Remaining new FE/Go/Rust entries (LT-065..LT-071, LT-075)
+        for (file, lang, code, expected_id) in [
+            ("ClockPage.tsx", "typescript", "export default function ClockPage() { return <div>{Date.now()} {localStorage.getItem('tz')}</div>; }", "LT-065"),
+            ("List.tsx", "typescript", "const sorted = items.sort((a, b) => a.id - b.id); return sorted.map((it, idx) => <li key={idx}>{it.name}</li>);", "LT-066"),
+            ("Checkout.tsx", "typescript", "async function handleCheckout() { await fetch('/api/orders', { method: 'POST' }); }", "LT-067"),
+            ("Cart.ts", "typescript", "const subtotal = cart.reduce((acc, i) => acc + i.price * i.qty, 0); console.log(subtotal.toFixed(2));", "LT-068"),
+            ("AuthRedirect.tsx", "typescript", "router.push(next); window.addEventListener('message', (msg) => handle(msg.data));", "LT-069"),
+            ("route.ts", "typescript", "export async function POST(req: NextRequest) { const { userId, role, price } = await req.json(); }", "LT-070"),
+            ("worker.go", "go", "package w\nfunc run(items []string) { for _, it := range items { go func() { work(it) }() } }", "LT-071"),
+            ("lock.rs", "rust", "async fn step(m: &std::sync::Mutex<u32>) { let mut g = m.lock().unwrap(); io().await; *g += 1; }", "LT-075"),
+        ] {
+            let rep = match_low_tier_lexicon_for_source(file, code, lang, 8);
+            assert!(
+                rep.matched_entries.iter().any(|e| e.id == expected_id),
+                "expected {expected_id} for {file}, got {:?}",
+                rep.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn benign_repros_emit_zero_matches_and_zero_tokens() {
+        for (file, lang, code) in [
+            ("count.rs", "rust", "pub fn count(n: usize) -> usize { n }"),
+            ("latest.py", "python", "from pathlib import Path\ndef get_latest(): return Path('.')"),
+            ("jobs.py", "python", "def run_jobs(max_runs: int): return max_runs"),
+            ("perms.py", "python", "def check_checkout_permissions(user): return bool(user)"),
+            ("runner.py", "python", "class TaskRunner:\n    def set_state(self): pass"),
+            ("map_get.ts", "typescript", "export function get(m: Map<string, string>, key: string) { return m.get(key); }"),
+            ("inc.go", "go", "func Inc(mu *sync.Mutex, n *int) { mu.Lock(); defer mu.Unlock(); *n++ }"),
+        ] {
+            let rep = match_low_tier_lexicon_for_source(file, code, lang, 10);
+            assert_eq!(
+                rep.matched_entries.len(),
+                0,
+                "expected 0 matches for benign {file}, got {:?}",
+                rep.matched_entries.iter().map(|e| e.id).collect::<Vec<_>>()
+            );
+            assert_eq!(rep.estimated_tokens, 0, "expected 0 tokens for benign {file}");
+        }
     }
 }

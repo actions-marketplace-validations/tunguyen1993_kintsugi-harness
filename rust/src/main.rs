@@ -13,7 +13,7 @@ use kintsugi_core::io_json::{write_stdout_ln, ENGINE_VERSION};
 use crate::cli::audit_cmds::{
     run_capsule_cmd, run_compress_cmd, run_context_cmd, run_creed_cmd, run_hook_cmd,
     run_lexicon_cmd, run_memories_verify_cmd, run_s3_audit_cmd, run_step_audit_cmd,
-    run_swarm_plan_cmd, run_task_pack_cmd,
+    run_swarm_plan_cmd, run_task_pack_cmd, run_telemetry_cmd,
 };
 use crate::cli::rule_kml_cmds::{
     run_kml_cmd, run_rule_ir_check_cmd, run_rule_ir_eval_cmd, run_scan_bytes_cmd,
@@ -53,6 +53,7 @@ fn dispatch_cli() {
         "context" => run_context_cmd(&args),
         "task-pack" => run_task_pack_cmd(&args),
         "lexicon" => run_lexicon_cmd(&args),
+        "telemetry" => run_telemetry_cmd(&args),
         "kml" => run_kml_cmd(&args),
         "compress" => run_compress_cmd(&args),
         "rule-ir-check" => run_rule_ir_check_cmd(&args),

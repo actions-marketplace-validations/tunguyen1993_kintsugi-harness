@@ -195,6 +195,7 @@ pub fn print_help() {
          \x20 kintsugi-rs context <FILE_PATH> [--low-tier] [--capsules-file PATH] [--max-tokens N] [--format json|compact]\n\
          \x20 kintsugi-rs task-pack <FILE_PATH...> [--low-tier|--no-low-tier] [--max-tokens N] [--format compact|json]\n\
          \x20 kintsugi-rs lexicon [FILE_PATH] [--all] [--lang LANG] [--max-entries N] [--format compact|json]\n\
+         \x20 kintsugi-rs telemetry [record|report] [--client NAME] [--stage issued|included_in_input|patch_bound] [--session-id ID] [--envelope-id ID] [--passed true|false] [--store PATH]\n\
          \x20 kintsugi-rs creed | swarm-plan [TASK_DESC] | compress [--kml [--lang LANG|--for-file PATH]] | kml [PATH_TO_SCARS_KML]\n\
          \x20 kintsugi-rs rule-ir-check [PATH|-] [--strict-hash]\n\
          \x20 kintsugi-rs rule-ir-eval --rule PATH|- [--lang LANG] [CODE_PATH|-]\n\

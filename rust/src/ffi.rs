@@ -585,7 +585,7 @@ mod tests {
             KINTSUGI_FFI_OK
         );
         let json_str = std::str::from_utf8(&full[..out_len]).unwrap();
-        assert!(json_str.contains("KS-020") && json_str.contains("\"truncated\":false") && json_str.contains("\"schema_version\":\"2.4.1\""));
+        assert!(json_str.contains("KS-020") && json_str.contains("\"truncated\":false") && json_str.contains("\"schema_version\":\"3.0.0\""));
 
         let bad_utf8 = [0xFFu8, 0xFEu8];
         out_len = 777;

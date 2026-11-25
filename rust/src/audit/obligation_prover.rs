@@ -6,7 +6,9 @@
 //!
 //! Covers Python (`.py`/`.pyi`) and TypeScript/JavaScript (`.ts`/`.js`/`.mjs`/`.cjs`) for
 //! `CMD_EXEC` and `SQL_EXEC` (plus Rust `Command::new`), while explicitly returning `UNSUPPORTED`
-//! for `.tsx`/`.jsx`. Never uses lexical fallback or comment markers to promote `UNKNOWN` to `PROVEN`.
+//! for `.tsx`/`.jsx` `CMD_EXEC`/`SQL_EXEC` and delegating extended obligations (`TSX_XSS`,
+//! `PATH_CONFINE`, `CRYPTO_MAC_BIDI`, `SOL_REENTRANCY_CEI`, `SOL_SAFE_ERC20`) to
+//! `prover_extensions`. Never uses lexical fallback or comment markers to promote `UNKNOWN` to `PROVEN`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -143,12 +145,18 @@ fn extract_balanced_call(
         let start_c = if li == start_line { open_paren_col } else { 0 };
         let r_bytes = rl.as_bytes();
         let m_bytes = ml.as_bytes();
-        let lim = m_bytes.len().min(r_bytes.len());
+        let mut lim = m_bytes.len().min(r_bytes.len());
+        while lim > 0 && (!rl.is_char_boundary(lim) || !ml.is_char_boundary(lim)) {
+            lim -= 1;
+        }
         if li > start_line {
             raw_buf.push('\n');
             mask_buf.push('\n');
         }
         let mut bi = start_c;
+        while bi < lim && (!rl.is_char_boundary(bi) || !ml.is_char_boundary(bi)) {
+            bi += 1;
+        }
         while bi < lim {
             let mb = m_bytes[bi];
             if mb == b'(' {
@@ -170,14 +178,25 @@ fn extract_balanced_call(
                 mask_buf.push(')');
                 bi += 1;
             } else {
-                let rch = rl[bi..].chars().next().unwrap_or(' ');
-                let mch = ml[bi..].chars().next().unwrap_or(' ');
-                let step = rch.len_utf8().min(mch.len_utf8()).max(1);
-                if depth >= 1 {
-                    raw_buf.push_str(&rl[bi..bi + step]);
-                    mask_buf.push_str(&ml[bi..bi + step]);
+                let r_step = rl[bi..].chars().next().map_or(1, char::len_utf8);
+                let next_bi = (bi + r_step).min(lim);
+                if rl.is_char_boundary(next_bi) && ml.is_char_boundary(next_bi) {
+                    if depth >= 1 {
+                        raw_buf.push_str(&rl[bi..next_bi]);
+                        mask_buf.push_str(&ml[bi..next_bi]);
+                    }
+                    bi = next_bi;
+                } else {
+                    let mut sync = (bi + 1).min(lim);
+                    while sync < lim && (!rl.is_char_boundary(sync) || !ml.is_char_boundary(sync)) {
+                        sync += 1;
+                    }
+                    if depth >= 1 && rl.is_char_boundary(sync) && ml.is_char_boundary(sync) {
+                        raw_buf.push_str(&rl[bi..sync]);
+                        mask_buf.push_str(&ml[bi..sync]);
+                    }
+                    bi = sync;
                 }
-                bi += step;
             }
         }
         // If raw line extended past masked line (e.g. inline comment stripped), ignore trailing comment safely.
@@ -205,7 +224,10 @@ fn split_top_level_args(raw: &str, masked: &str, base_line: usize) -> Vec<(usize
     let mut args = Vec::new();
     let rb = raw.as_bytes();
     let mb = masked.as_bytes();
-    let n = rb.len().min(mb.len());
+    let mut n = rb.len().min(mb.len());
+    while n > 0 && (!raw.is_char_boundary(n) || !masked.is_char_boundary(n)) {
+        n -= 1;
+    }
     let (mut depth_p, mut depth_b, mut depth_c) = (0usize, 0usize, 0usize);
     let mut seg_start = 0usize;
     let mut cur_line = base_line;
@@ -223,7 +245,12 @@ fn split_top_level_args(raw: &str, masked: &str, base_line: usize) -> Vec<(usize
             b']' => depth_b = depth_b.saturating_sub(1),
             b'{' => depth_c += 1,
             b'}' => depth_c = depth_c.saturating_sub(1),
-            b',' if depth_p == 0 && depth_b == 0 && depth_c == 0 => {
+            b',' if depth_p == 0 && depth_b == 0 && depth_c == 0
+                && raw.is_char_boundary(seg_start)
+                && raw.is_char_boundary(i)
+                && masked.is_char_boundary(seg_start)
+                && masked.is_char_boundary(i) =>
+            {
                 let raw_slice = &raw[seg_start..i];
                 let leading_ws = raw_slice.len() - raw_slice.trim_start().len();
                 let leading_nl = raw_slice[..leading_ws].bytes().filter(|&x| x == b'\n').count();
@@ -238,7 +265,12 @@ fn split_top_level_args(raw: &str, masked: &str, base_line: usize) -> Vec<(usize
             _ => {}
         }
     }
-    if seg_start < n {
+    if seg_start < n
+        && raw.is_char_boundary(seg_start)
+        && raw.is_char_boundary(n)
+        && masked.is_char_boundary(seg_start)
+        && masked.is_char_boundary(n)
+    {
         let raw_slice = &raw[seg_start..n];
         let leading_ws = raw_slice.len() - raw_slice.trim_start().len();
         let leading_nl = raw_slice[..leading_ws].bytes().filter(|&x| x == b'\n').count();
@@ -463,8 +495,10 @@ fn try_parse_assignment(
     idx: usize,
     lang: LangKind,
 ) -> Option<(String, String, String, bool)> {
-    let ml = masked_lines[idx].trim();
-    let rl = raw_lines[idx].trim();
+    let ml_line = masked_lines[idx].as_str();
+    let rl_line = raw_lines[idx];
+    let ml = ml_line.trim();
+    let rl = rl_line.trim();
     if ml.is_empty()
         || ml.starts_with("if ")
         || ml.starts_with("elif ")
@@ -478,35 +512,42 @@ fn try_parse_assignment(
 
     // Augmented assignment `sql += ...` is always a mutation!
     for aug in ["+=", "-=", "%="] {
-        if let Some(pos) = ml.find(aug) {
-            let lhs = ml[..pos].trim();
+        if let Some(abs_pos) = ml_line.find(aug) {
+            let lhs = ml_line[..abs_pos].trim();
             if is_ident_str(lhs) {
-                return Some((lhs.to_string(), rl[pos + 2..].trim().to_string(), ml[pos + 2..].trim().to_string(), true));
+                let raw_rhs = rl_line
+                    .get(abs_pos + 2..)
+                    .or_else(|| rl.find(aug).and_then(|p| rl.get(p + 2..)))
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                let mask_rhs = ml_line.get(abs_pos + 2..).unwrap_or("").trim().to_string();
+                return Some((lhs.to_string(), raw_rhs, mask_rhs, true));
             }
         }
     }
 
-    let (lhs_raw, eq_col) = if lang == LangKind::TypeScript {
+    let (lhs_raw, eq_col_abs) = if lang == LangKind::TypeScript {
         let stripped = ml.strip_prefix("const ").or_else(|| ml.strip_prefix("let ")).or_else(|| ml.strip_prefix("var "))?;
         let eq_rel = stripped.find('=')?;
         if stripped.as_bytes().get(eq_rel + 1) == Some(&b'=') || stripped.as_bytes().get(eq_rel + 1) == Some(&b'>') {
             return None;
         }
         let lhs = stripped[..eq_rel].split(':').next()?.trim();
-        let eq_abs = ml.find('=')?;
+        let eq_abs = ml_line.find('=')?;
         (lhs, eq_abs)
     } else {
         // Python: `name = expr` or `name: str = expr` (exclude `==`, `!=`, `<=`, `>=`, keyword args inside calls)
-        let eq_pos = ml.find('=')?;
+        let eq_pos = ml_line.find('=')?;
         if eq_pos == 0 {
             return None;
         }
-        let prev = ml.as_bytes()[eq_pos - 1];
-        let next = ml.as_bytes().get(eq_pos + 1).copied().unwrap_or(b' ');
+        let prev = ml_line.as_bytes()[eq_pos - 1];
+        let next = ml_line.as_bytes().get(eq_pos + 1).copied().unwrap_or(b' ');
         if matches!(prev, b'!' | b'<' | b'>' | b'=') || next == b'=' {
             return None;
         }
-        let lhs_part = ml[..eq_pos].trim();
+        let lhs_part = ml_line[..eq_pos].trim();
         if lhs_part.contains('(') || lhs_part.contains(',') || lhs_part.contains('.') || lhs_part.contains('[') {
             return None;
         }
@@ -517,9 +558,12 @@ fn try_parse_assignment(
     if !is_ident_str(lhs_raw) {
         return None;
     }
-    let eq_raw = rl.find('=')?;
-    let mut rhs_raw = rl[eq_raw + 1..].trim().to_string();
-    let mut rhs_mask = ml[eq_col + 1..].trim().to_string();
+    let mut rhs_raw = rl_line
+        .get(eq_col_abs + 1..)
+        .or_else(|| rl.find('=').and_then(|p| rl.get(p + 1..)))?
+        .trim()
+        .to_string();
+    let mut rhs_mask = ml_line.get(eq_col_abs + 1..)?.trim().to_string();
 
     // Handle parenthesized multi-line assignment like `sql = (\n "SELECT ... "\n "WHERE id = ?"\n)`
     let mut paren_d: i32 = rhs_mask.bytes().map(|b| if b == b'(' { 1 } else if b == b')' { -1 } else { 0 }).sum();
@@ -793,6 +837,41 @@ fn eval_cmd_obligation(
     // TypeScript / JavaScript spawnSync / execFileSync / execFile / spawn
     let raw_all = call.raw_args.as_str();
     let mask_all = call.masked_args.as_str();
+
+    // Shell trampoline check (`sh`/`/bin/sh`/`bash`/`zsh`/`cmd`/`powershell` + `-c`/`/c`)
+    let raw_lo = raw_all.to_ascii_lowercase();
+    let invokes_shell_bin = [
+        "\"sh\"", "'sh'", "`sh`",
+        "\"/bin/sh\"", "'/bin/sh'", "`/bin/sh`",
+        "\"bash\"", "'bash'", "`bash`",
+        "\"/bin/bash\"", "'/bin/bash'", "`/bin/bash`",
+        "\"zsh\"", "'zsh'", "`zsh`",
+        "\"/bin/zsh\"", "'/bin/zsh'", "`/bin/zsh`",
+        "\"cmd\"", "'cmd'", "`cmd`",
+        "\"cmd.exe\"", "'cmd.exe'", "`cmd.exe`",
+        "\"powershell\"", "'powershell'", "`powershell`",
+        "\"powershell.exe\"", "'powershell.exe'", "`powershell.exe`",
+        "\"pwsh\"", "'pwsh'", "`pwsh`",
+    ]
+    .iter()
+    .any(|s| raw_lo.contains(s));
+    let has_shell_flag = [
+        "\"-c\"", "'-c'", "`-c`",
+        "\"/c\"", "'/c'", "`/c`",
+        "\"-command\"", "'-command'", "`-command`",
+    ]
+    .iter()
+    .any(|f| raw_lo.contains(f));
+    if invokes_shell_bin && has_shell_flag {
+        return mk(
+            ObligationState::Violated,
+            Some(call.span),
+            None,
+            "child_process argv invokes shell -c / /c trampoline",
+            "Invoke target binary directly without sh/bash/zsh/cmd/powershell trampoline",
+        );
+    }
+
     if mask_all.contains("...") {
         return mk(
             ObligationState::Unknown,
@@ -802,22 +881,65 @@ fn eval_cmd_obligation(
             "Pass explicit options object { shell: false } without untrusted spread",
         );
     }
-    if mask_all.contains("shell: true") || mask_all.contains("shell:true") {
+    if let Some(shell_state) = inspect_ts_shell_option(raw_all, mask_all) {
+        return match shell_state {
+            "true" | "string" => mk(
+                ObligationState::Violated,
+                Some(call.span),
+                None,
+                "explicit shell: true or shell path in child_process options",
+                "Pass { shell: false } and argv array",
+            ),
+            "false" => mk(
+                ObligationState::Proven,
+                Some(call.span),
+                None,
+                "explicit { shell: false } verified",
+                "",
+            ),
+            _ => mk(
+                ObligationState::Unknown,
+                None,
+                None,
+                "dynamic shell option in child_process options",
+                "Pass literal { shell: false } explicitly",
+            ),
+        };
+    }
+    if matches!(
+        sink.callee.as_str(),
+        "execFile" | "execFileSync" | "child_process.execFile" | "child_process.execFileSync"
+    ) {
+        let safe_default = call.arg_line_offsets.len() <= 2
+            || call.arg_line_offsets.get(2).is_some_and(|(_, _, m_opt)| {
+                let mt = m_opt.trim();
+                mt.starts_with('{') && mt.ends_with('}') && !mt.contains("...") && !has_ts_shell_prop(mt)
+            });
+        if safe_default {
+            return mk(
+                ObligationState::Proven,
+                Some(call.span),
+                None,
+                "execFile/execFileSync default shell=false verified",
+                "",
+            );
+        }
         return mk(
-            ObligationState::Violated,
-            Some(call.span),
+            ObligationState::Unknown,
             None,
-            "explicit shell: true in child_process options",
-            "Pass { shell: false } and argv array",
+            None,
+            "opaque options argument on execFile/execFileSync may enable shell: true",
+            "Pass inline options object literal with explicit { shell: false }",
         );
     }
-    if mask_all.contains("shell: false") || mask_all.contains("shell:false") {
-        return mk(ObligationState::Proven, Some(call.span), None, "explicit { shell: false } verified", "");
-    }
-    if matches!(sink.callee.as_str(), "execFile" | "execFileSync" | "child_process.execFile" | "child_process.execFileSync" | "authorizeCommand")
-        && !raw_all.contains("shell:")
-    {
-        return mk(ObligationState::Proven, Some(call.span), None, "execFile/execFileSync default shell=false verified", "");
+    if sink.callee == "authorizeCommand" && !has_ts_shell_prop(mask_all) {
+        return mk(
+            ObligationState::Proven,
+            Some(call.span),
+            None,
+            "authorizeCommand verified without shell override",
+            "",
+        );
     }
     mk(
         ObligationState::Unknown,
@@ -826,6 +948,60 @@ fn eval_cmd_obligation(
         "missing explicit shell: false in child_process options",
         "Pass { shell: false } explicitly",
     )
+}
+
+fn has_ts_shell_prop(mask: &str) -> bool {
+    let mb = mask.as_bytes();
+    let mut from = 0usize;
+    while from < mask.len() {
+        let Some(rel) = mask[from..].find("shell") else { break };
+        let idx = from + rel;
+        let left_ok = idx == 0 || !is_ident_byte(mb[idx - 1]);
+        let after = idx + 5;
+        let right_ok = after >= mb.len() || !is_ident_byte(mb[after]);
+        if left_ok && right_ok && mask[after..].trim_start().starts_with(':') {
+            return true;
+        }
+        from = after;
+    }
+    false
+}
+
+fn inspect_ts_shell_option(raw_all: &str, mask_all: &str) -> Option<&'static str> {
+    let mb = mask_all.as_bytes();
+    let mut from = 0usize;
+    let mut found: Option<&'static str> = None;
+    while from < mask_all.len() {
+        let Some(rel) = mask_all[from..].find("shell") else { break };
+        let idx = from + rel;
+        let left_ok = idx == 0 || !is_ident_byte(mb[idx - 1]);
+        let after = idx + 5;
+        let right_ok = after >= mb.len() || !is_ident_byte(mb[after]);
+        if left_ok && right_ok {
+            let tail_m = &mask_all[after..];
+            let ws_len = tail_m.len() - tail_m.trim_start().len();
+            if tail_m[ws_len..].starts_with(':') {
+                let val_off = after + ws_len + 1;
+                let mv = mask_all.get(val_off..).unwrap_or("").trim_start();
+                let rv = raw_all.get(val_off..).unwrap_or("").trim_start();
+                let state = if mv.starts_with("true") && !mv.as_bytes().get(4).is_some_and(|&b| is_ident_byte(b)) {
+                    "true"
+                } else if mv.starts_with("false") && !mv.as_bytes().get(5).is_some_and(|&b| is_ident_byte(b)) {
+                    "false"
+                } else if rv.starts_with('"') || rv.starts_with('\'') || rv.starts_with('`') {
+                    "string"
+                } else {
+                    "dynamic"
+                };
+                if matches!(state, "true" | "string") {
+                    return Some(state);
+                }
+                found = Some(state);
+            }
+        }
+        from = after;
+    }
+    found
 }
 
 fn eval_sql_obligation(
@@ -1053,6 +1229,12 @@ pub fn prove_file_obligations(file: &Path, content: &str, masked_lines: &[String
             }
         }
     }
+    obligations.extend(crate::audit::prover_extensions::prove_extended_obligations(
+        file,
+        &raw_lines,
+        masked_lines,
+        &source_hash,
+    ));
     obligations
 }
 
@@ -1148,5 +1330,32 @@ mod tests {
         // N12: `.tsx` explicitly returns UNSUPPORTED (honest boundary!)
         let n12 = prove("Widget.tsx", "export function W(db: any, id: string) { db.query(\"SELECT 1 WHERE id = ?\", [id]); }\n");
         assert_eq!(n12[0].state, ObligationState::Unsupported);
+    }
+
+    #[test]
+    fn ts_cmd_exec_trampoline_opaque_opts_and_utf8_sql_regression() {
+        // PoC #13a: TS shell trampoline `spawnSync('/bin/sh', ['-c', userCmd], { shell: false })` -> VIOLATED
+        let t1 = prove("tramp.ts", "import { spawnSync } from 'child_process';\nfunction run(userCmd: string) {\n  spawnSync('/bin/sh', ['-c', userCmd], { shell: false });\n}\n");
+        assert_eq!((t1.len(), t1[0].rule, t1[0].state), (1, "CMD_EXEC", ObligationState::Violated));
+
+        // PoC #13a2: Windows cmd /c and powershell -c trampoline -> VIOLATED
+        let t1b = prove("tramp_win.ts", "import { execFileSync } from 'child_process';\nfunction run(u: string) {\n  execFileSync('cmd', ['/c', u]);\n}\n");
+        assert_eq!(t1b[0].state, ObligationState::Violated);
+
+        // PoC #13b: Opaque `opts` on `execFileSync('ls', [userArg], opts)` -> UNKNOWN (NEVER PROVEN!)
+        let t2 = prove("opaque_opts.ts", "import { execFileSync } from 'child_process';\nfunction run(userArg: string) {\n  const opts = { shell: true };\n  execFileSync('ls', [userArg], opts);\n}\n");
+        assert_eq!((t2.len(), t2[0].rule, t2[0].state), (1, "CMD_EXEC", ObligationState::Unknown));
+
+        // Positive: `execFileSync` with <= 2 args OR inline `{ encoding: 'utf8' }` without spread/shell -> PROVEN
+        let t3 = prove("safe_ef.ts", "import { execFileSync } from 'child_process';\nfunction run(userArg: string) {\n  execFileSync('ls', [userArg]);\n  execFileSync('ls', [userArg], { encoding: 'utf8' });\n}\n");
+        assert_eq!(t3.len(), 2);
+        assert!(t3.iter().all(|o| o.rule == "CMD_EXEC" && o.state == ObligationState::Proven));
+
+        // PoC #2: Multi-byte UTF-8 (2-byte `café` and 4-byte `🚀`) in `extract_balanced_call` & `try_parse_assignment`
+        let u1 = prove("utf8_sql.py", "def q(cur, uid):\n    cur.execute(\"SELECT 'café 🚀' FROM u WHERE id = ?\", (uid,))\n");
+        assert_eq!((u1.len(), u1[0].rule, u1[0].state), (1, "SQL_EXEC", ObligationState::Proven));
+
+        let u2 = prove("utf8_aug.ts", "function f(db: any, id: string) {\n  /* 🚀🚀🚀 */ let sql = \"SELECT 'café' FROM u WHERE id = ?\";\n  db.query(sql, [id]);\n}\n");
+        assert_eq!((u2.len(), u2[0].rule, u2[0].state), (1, "SQL_EXEC", ObligationState::Proven));
     }
 }

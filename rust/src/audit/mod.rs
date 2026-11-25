@@ -3,12 +3,14 @@
 pub mod capsules;
 pub mod context_envelope;
 pub mod ct2_seams;
+pub mod delivery_telemetry;
 pub mod kmi_benchmark;
 pub mod low_tier_lexicon;
 pub mod memories;
 pub mod obligation_prover;
 pub mod pre_tool;
 pub mod pre_tool_fields;
+pub mod prover_extensions;
 pub mod s3;
 pub mod step_economics;
 
@@ -27,6 +29,12 @@ pub use ct2_seams::{
     classify_seam, classify_seams_for_file, classify_seams_in_line_masked, extract_identifiers,
     grade_transform_line, is_ct2_stopword, is_ct2_supported_ext, mask_strings_and_comments,
     strip_inline_comment, LexMode, StatefulMasker,
+};
+pub use delivery_telemetry::{
+    atomic_write_file_secure, is_supported_client, load_frozen_ids, record_telemetry_event,
+    render_telemetry_report_json, try_load_frozen_ids, EfficacyRecord, EnvelopeTelemetryRecord,
+    DEAD_SCAR_MIN_TRIALS, DEAD_SCAR_MIN_WIN_PCT, DELIVERY_TELEMETRY_SCHEMA, GATE_3_MIN_SESSIONS,
+    MAX_TELEMETRY_FILE_BYTES, SUPPORTED_CLIENTS, SUPPORTED_STAGES, TWO_STRIKE_LOSS_LIMIT,
 };
 pub use low_tier_lexicon::{
     match_low_tier_lexicon_for_file, match_low_tier_lexicon_for_source, render_all_lexicon_json,

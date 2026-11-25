@@ -2,11 +2,11 @@
 
 <img src="assets/hero-banner.jpg" alt="Kintsugi Harness — Native Rust PreToolUse Guardrails & KMI/1 Ultra-Low-Token Skills for AI Coding Agents" width="100%" />
 
-# Kintsugi Harness (`kintsugi-harness` · `v2.4.1` · `Apache-2.0`)
+# Kintsugi Harness (`kintsugi-harness` · `v3.0.0` · `Apache-2.0`)
 
-### ⚡ Stop burning Claude Code & Cursor context windows—and block destructive agent tool calls in `16.2 µs`.
+### ⚡ Stop burning agent context windows—prove security obligations in Rust (`PROVEN/VIOLATED/UNKNOWN/UNSUPPORTED`) and boost budget LLMs by `+46.4 pp` (`49.4% → 95.8%`).
 
-**Drop-in Rust + Python `PreToolUse` guardrails & Model Context Protocol (`MCP`) Server featuring the Sovereign Tier-1 DARPA AIxCC Cyber Reasoning System (`kintsugi.crs_engine` `v2.4.0`: Microsoft `Z3 5.3.3` `QF_BV32/64` + Bit-Blasted Tseitin CNF, 3-TU LLVM SSA `.ll` IR CPG + Path-Sensitive Branch Refinement + Andersen Points-To Indirect Call Resolution, `-O2` Stripped Binary `Capstone 5.0` ARM64 CFG + `LLDB` + `Z3 QF_BV8` Lifter, `10,000`-Iter `0x00`-Seed `trace-pc-guard,trace-cmp` In-Process Fuzzer & Dual-Model Z3 Symbolic Patch Equivalence Proof, `12x12` Exact Rational Gram-Schmidt `LLL` Lattice Crypto Solver, and `n=240` 6-Language Held-Out Suite), the 5-Pillar Autopoietic Evolution Creed (`@CREED/1 v2.1`), Subscription-Aware Parallel Swarm Dispatcher & 6-Tier Model Capability Matrix (`@SWARM_DISPATCH/1` & `@MODEL_MATRIX/1`), 2-Tier Multi-Agent Council & Never-Solo Gate (`@DUAL_COUNCIL/1` & `@NEVER_SOLO_GATE/1`), Zero-Token SHA-256 Live Sync Hook (`@HARNESS_HOT_RELOAD/1`), Synthesized Empirical Cortex (`972` Cognitive Axioms + `1,581` Causal Atoms + `63` `KS-EMP-*` Empirical Engineering Scars across `48` completed suites & `85` research topics), 1-Command Third-Party Harness Integration (`kintsugi integrate` with Joint `SAT+DL` verification), and `93.8%–99.96%` Domain-Partitioned `KMI/1` skill context compression (`3,641` → `226 tokens` Global `KMI/1` [`93.8%`] / `80.5 tokens` Domain Shard [`97.79%`]; `414,267` → `24,967 tokens` Global [`94.0%`] / `175.7 tokens` Domain Shard [`99.96%`]).**
+**Zero-dependency Rust (`MSRV 1.75.0`) + Python (`3.9+ stdlib`) agent guardrail, 7-Domain Typed Obligation Prover (`CMD_EXEC`, `SQL_EXEC`, `PATH_CONFINE`, `CRYPTO_MAC_BIDI`, `TSX_XSS`, `SOL_REENTRANCY_CEI`, `SOL_SAFE_ERC20` with `0` false `PROVEN`), 9 Symbol-Scoped Signature-Guarded Invariant Capsules, 80-Entry Low-Tier Model Failure Lexicon (`LT-001..LT-080` across Python, OWASP Security, TypeScript/React/Next/Vue, MySQL, Solidity 0.8.24/DeFi, Go, Rust, Docker, GitHub Actions & Online Bounty/Audit Scars), Universal Truth Gate + 4 Falsifiable Domain Contracts, Multi-Client `ContextEnvelope/3` + `DeliveryTelemetry/1` (2-Strike & Dead-Scar Auto-Freeze), Sovereign CRS (`Z3` + `LLVM` + `Capstone` + `LLL`), and `93.8%–99.96%` Domain-Partitioned `KMI/1` skill compression.**
 
 [![GitHub Stars](https://img.shields.io/github/stars/tunguyen1993/kintsugi-harness?style=social)](https://github.com/tunguyen1993/kintsugi-harness/stargazers)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -19,16 +19,35 @@
 [![Security Policy: RFC 9116 & OpenSSF](https://img.shields.io/badge/Security_Policy-RFC_9116_%26_OpenSSF-success)](SECURITY.md)
 [![Glama MCP Server](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness/badge)](https://glama.ai/mcp/servers/tunguyen1993/kintsugi-harness)
 [![M8ven Score](https://m8ven.ai/badge/mcp/tunguyen1993-kintsugi-harness-63r6eu?v=d87df8708272650e30986e1a3ce790a6)](https://m8ven.ai/mcp/tunguyen1993-kintsugi-harness-63r6eu?s=readme)
-[![Release: v2.4.1](https://img.shields.io/badge/Release-v2.4.1-blue)](CHANGELOG.md)
+[![Release: v3.0.0](https://img.shields.io/badge/Release-v3.0.0-blue)](CHANGELOG.md)
+[![Low-Tier Blind A/B: +46.4 pp (49.4% -> 95.8%)](https://img.shields.io/badge/Low--Tier_Blind_A%2FB-%2B46.4_pp_%2849.4%25_%E2%86%92_95.8%25%29-00C853)](rust/src/audit/low_tier_lexicon.rs)
+[![Obligation Prover: 7 Domains (0 False PROVEN)](https://img.shields.io/badge/Obligation_Prover-7_Domains_%280_False_PROVEN%29-007EC6)](rust/src/audit/prover_extensions.rs)
 [![Kintsugi Posture: A+](https://img.shields.io/badge/kintsugi_posture-A%2B%20%28100/100%29-brightgreen)](https://github.com/tunguyen1993/kintsugi-harness)
 [![Token Savings: 93.8% - 99.96%](https://img.shields.io/badge/KMI%2F1_Token_Savings-93.8%25--99.96%25-00C853)](src/kintsugi/compressor.py)
 [![Rust Engine: 16.2 µs](https://img.shields.io/badge/Rust_Core-16.2_%C2%B5s%2Fcall_%2836_rules%29-DEA584?logo=rust)](Cargo.toml)
-[![Tests: 60 Py + 18 Rust (Local & CI)](https://img.shields.io/badge/Tests-60_Py_%2B_18_Rust_%28CI%29-brightgreen)](tests/test_kintsugi.py)
+[![Tests: 125 Rust + 340+ Py (CI 5/5)](https://img.shields.io/badge/Tests-125_Rust_%2B_340%2B_Py_%28CI%29-brightgreen)](tests/test_v3_breakthrough_suite.py)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(stdlib)-success.svg)](Cargo.toml)
 
-> ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, and MCP developers discover zero-overhead guardrails.
+> ⭐ **If Kintsugi saves your context window or catches a bug before commit, please [Star this repository on GitHub](https://github.com/tunguyen1993/kintsugi-harness)!** Stars help more Claude Code, Cursor, Windsurf, Cloud Sandbox, and MCP developers discover zero-overhead guardrails.
 
 </div>
+
+---
+
+## 🚀 What's New in Kintsugi Harness `v3.0.0`
+
+1. **7-Domain Typed Obligation Prover (`rust/src/audit/{obligation_prover,prover_extensions}.rs`):** Honest 4-way verdicts (`PROVEN | VIOLATED | UNKNOWN | UNSUPPORTED`, `0` false `PROVEN`) across `CMD_EXEC`, `SQL_EXEC`, `TSX_XSS` (React `.tsx`/`.jsx`), `PATH_CONFINE` (Python/TS/JS/Rust), `CRYPTO_MAC_BIDI` (Python/TS/JS), `SOL_REENTRANCY_CEI` & `SOL_SAFE_ERC20` (Solidity `.sol`), backed by UTF-8 byte-aligned `StatefulMasker`.
+2. **80-Entry Low-Tier Model Failure Lexicon (`LT-001..LT-080`, `rust/src/audit/low_tier_lexicon.rs`):** Zero-bloat JIT injection (`0` tokens on benign files) across Python, OWASP Security, TypeScript/React/Next/Vue, MySQL, Solidity 0.8.24/DeFi, Go, Rust, Docker, GitHub Actions & Online Bounty/Audit Scars — lifting budget models **`49.4% → 95.8%` (`+46.4 pp`)** across `168` blind runs (`56` tasks × `3` models) plus **`0/7 → 6/7` (`+85.7 pp`)** on Go/Docker/CI.
+3. **Universal Truth Gate & 9 Signature-Guarded Capsules (`src/kintsugi/evolution/contract_ledger.py`, `rust/src/audit/capsules.rs`):** No model (not even frontier) self-certifies lessons; every candidate must pass runtime `BROKEN` → `FIXED` verification + positive/negative/near-miss/conservation controls + 2-Strike Auto-Freeze.
+4. **Multi-Client `ContextEnvelope/3` + `DeliveryTelemetry/1` (`rust/src/audit/delivery_telemetry.rs`, `src/kintsugi/evolution/delivery_telemetry.py`):** Honest 3-stage receipt tracking (`issued → included_in_input → patch_bound`) across `claude_code`, `antigravity`, `local_cli`, `cloud_sandbox`, cross-process `<store>.lock` `0o600` persistence, unshown-capsule efficacy protection, and MCP profile `v3` (`26` tools).
+
+```bash
+kintsugi-rs s3-audit src/ --strict-proven --format json
+kintsugi-rs context src/vault.py --low-tier --format json
+kintsugi-rs lexicon src/App.tsx --format compact
+kintsugi-rs telemetry record --client antigravity --stage issued --session-id s1 --envelope-id e1 --capsule-ids CAP-FIN-ERC4626
+kintsugi-rs telemetry report
+```
 
 ---
 

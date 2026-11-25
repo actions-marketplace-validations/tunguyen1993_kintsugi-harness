@@ -485,16 +485,58 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
     let mut evidence_chains = Vec::new();
     let mut failing_seams = Vec::new();
 
-    // Kintsugi v3.0 Typed Obligation Prover handles CMD_EXEC and SQL_EXEC with full multi-line
-    // call spans, intra-function scope/alias resolution, and multi-sink-per-line precision.
+    // Kintsugi v3.0 Typed Obligation Prover handles CMD_EXEC, SQL_EXEC, and extended obligations
+    // (TSX_XSS, PATH_CONFINE, CRYPTO_MAC_BIDI, SOL_REENTRANCY_CEI, SOL_SAFE_ERC20).
     let obligations = prove_file_obligations(file, &content, &masked_lines);
-    let mut ob_covered_lines: BTreeSet<(usize, &'static str)> = BTreeSet::new();
+    let mut ob_suppressed_legacy: BTreeSet<(usize, &'static str)> = BTreeSet::new();
     for ob in &obligations {
         let line_idx0 = ob.sink_span.start_line.saturating_sub(1);
-        ob_covered_lines.insert((line_idx0, ob.rule));
+        match ob.rule {
+            "CMD_EXEC" | "SQL_EXEC" => {
+                ob_suppressed_legacy.insert((line_idx0, ob.rule));
+            }
+            "PATH_CONFINE" => {
+                ob_suppressed_legacy.insert((line_idx0, "PATH_LFI"));
+                // Only suppress legacy STATE_MUTATION when atomic write or 0o600 confinement is genuinely proven.
+                let sink_raw = lines.get(line_idx0).copied().unwrap_or("");
+                let sink_mask = masked_lines.get(line_idx0).map(|s| s.as_str()).unwrap_or("");
+                let atomic_proven = is_intrinsic_safe_seam_call("STATE_MUTATION", sink_raw, sink_mask)
+                    || (line_idx0.saturating_sub(6)..=line_idx0).any(|l| {
+                        let rl = lines.get(l).copied().unwrap_or("");
+                        let ml = masked_lines.get(l).map(|s| s.as_str()).unwrap_or("");
+                        line_matches_guard("STATE_MUTATION", rl, ml)
+                    });
+                if atomic_proven {
+                    ob_suppressed_legacy.insert((line_idx0, "STATE_MUTATION"));
+                }
+                // Suppress ONLY exact canonicalize/lstat supporting lines, NEVER intermediate open() lines.
+                let lo = ob.witness_span.map(|w| w.start_line.saturating_sub(1)).unwrap_or(line_idx0).min(line_idx0);
+                let scan_lo = lo.min(line_idx0.saturating_sub(8));
+                for l in scan_lo..line_idx0 {
+                    let lm = masked_lines.get(l).map(|s| s.as_str()).unwrap_or("");
+                    if ["realpathSync(", "lstatSync(", "canonicalize(", "symlink_metadata("].iter().any(|k| lm.contains(k))
+                        && !has_bare_call(lm, "open(")
+                        && !lm.contains("os.open(")
+                    {
+                        ob_suppressed_legacy.insert((l, "PATH_LFI"));
+                    }
+                }
+            }
+            "CRYPTO_MAC_BIDI" => {
+                // Suppress ONLY the exact sink and witness lines, never intermediate lines between them.
+                ob_suppressed_legacy.insert((line_idx0, "CRYPTO_VERIFY"));
+                if let Some(w) = ob.witness_span {
+                    let w0 = w.start_line.saturating_sub(1);
+                    ob_suppressed_legacy.insert((w0, "CRYPTO_VERIFY"));
+                }
+            }
+            _ => {}
+        }
         total_seams += 1;
+        let win_lo = line_idx0.saturating_sub(2).min(lines.len());
+        let win_hi = (line_idx0 + 2).min(lines.len());
         let line_ignored = file_ignored
-            || lines[line_idx0.saturating_sub(2)..(line_idx0 + 2).min(lines.len())]
+            || lines[win_lo..win_hi]
                 .iter()
                 .any(|wl| wl.to_ascii_lowercase().contains("kintsugi: ignore"));
         if line_ignored {
@@ -558,10 +600,10 @@ pub fn s3_audit_file_with_mode(file: &Path, display_root: Option<&Path>, strict_
     for (idx, line) in lines.iter().enumerate() {
         let (t, mt) = (line.trim(), masked_lines[idx].trim());
         if ["def ", "async def ", "function ", "async function ", "export function ", "export async function ", "pub fn ", "fn "].iter().any(|p| mt.starts_with(p)) { fn_count += 1; }
-        if ["class ", "export class ", "pub struct ", "struct "].iter().any(|p| mt.starts_with(p)) { cls_count += 1; }
+        if ["class ", "export class ", "pub struct ", "struct ", "contract ", "library ", "interface "].iter().any(|p| mt.starts_with(p)) { cls_count += 1; }
         if let Some(seam_kind) = classify_s3_seam_line(t, mt) {
-            // Skip CMD_EXEC / SQL_EXEC lines already graded by the v3 Typed Obligation Prover
-            if matches!(seam_kind, "CMD_EXEC" | "SQL_EXEC") && ob_covered_lines.contains(&(idx, seam_kind)) {
+            // Skip legacy seams already graded by the v3 Typed Obligation Prover
+            if ob_suppressed_legacy.contains(&(idx, seam_kind)) {
                 continue;
             }
             total_seams += 1;
@@ -810,6 +852,95 @@ mod tests {
             assert!(parse_json_value(&json).is_ok());
             assert!(json.contains("\"ok\":false"), "quarantined report must never be ok");
         }
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn extended_obligations_grade_seamlessly_in_s3_with_zero_double_count() {
+        let base = scratch_dir("ext_obs");
+        let safe_hmac = base.join("safe_hmac.py");
+        fs::write(&safe_hmac, "import hmac, hashlib\ndef verify(k, m, sig):\n    mac = hmac.new(k, m, hashlib.sha256).hexdigest()\n    return hmac.compare_digest(sig, mac)\n").unwrap();
+        let r_h = s3_audit_path_with_mode(&safe_hmac, true);
+        assert_eq!((r_h.proven_s3_seams, r_h.unguarded_s0_seams, r_h.unproven_seams), (1, 0, 0));
+        assert_eq!(r_h.strict_verdict, "PASS_S3_PROVEN");
+
+        let bad_hmac = base.join("bad_hmac.py");
+        fs::write(&bad_hmac, "import hmac, hashlib\ndef verify(k, m, sig):\n    mac = hmac.new(k, m, hashlib.sha256).hexdigest()\n    return sig == mac\n").unwrap();
+        let r_bh = s3_audit_path_with_mode(&bad_hmac, true);
+        assert_eq!((r_bh.proven_s3_seams, r_bh.unguarded_s0_seams), (0, 1));
+        assert_eq!(r_bh.verdict, "FAIL_S0_EXPOSED");
+
+        let bad_sib = base.join("sib_write.py");
+        fs::write(&bad_sib, "import os\ndef save(root, rel, d):\n    r = os.path.realpath(root)\n    t = os.path.realpath(os.path.join(r, rel))\n    if not t.startswith(r): raise ValueError()\n    with open(t, 'w') as f: f.write(d)\n").unwrap();
+        let r_sib = s3_audit_path_with_mode(&bad_sib, true);
+        assert_eq!((r_sib.proven_s3_seams, r_sib.unguarded_s0_seams), (0, 1));
+        assert_eq!(r_sib.verdict, "FAIL_S0_EXPOSED");
+
+        let sol_bad = base.join("Vault.sol");
+        fs::write(&sol_bad, "contract V {\n  function withdraw(uint256 a) external {\n    (bool ok, ) = msg.sender.call{value: a}(\"\");\n    require(ok);\n    balances[msg.sender] -= a;\n  }\n}\n").unwrap();
+        let r_sol = s3_audit_path_with_mode(&sol_bad, true);
+        assert_eq!((r_sol.proven_s3_seams, r_sol.unguarded_s0_seams), (0, 1));
+        assert_eq!(r_sol.verdict, "FAIL_S0_EXPOSED");
+
+        let tsx_mixed = base.join("App.tsx");
+        fs::write(&tsx_mixed, "import DOMPurify from 'dompurify';\nexport function App({ h, db, id }: any) {\n  db.query('SELECT 1 WHERE id = ?', [id]);\n  return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(h) }} />;\n}\n").unwrap();
+        let r_tsx = s3_audit_path_with_mode(&tsx_mixed, true);
+        assert_eq!(r_tsx.proven_s3_seams, 1);
+        assert_eq!(r_tsx.files[0].unsupported_seams, 1);
+        assert!(parse_json_value(&render_s3_audit_json(&r_tsx)).is_ok());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn legacy_suppression_does_not_hide_intermediate_lfi_state_mutation_or_secret_eq() {
+        let base = scratch_dir("suppression_soundness");
+
+        // PoC #7a: Intermediate unguarded open(evil_read) inside a PATH_CONFINE function MUST NOT be suppressed!
+        let mid_open = base.join("mid_open.py");
+        fs::write(
+            &mid_open,
+            "import os\ndef save(root, rel, evil_read, d):\n    r = os.path.realpath(root)\n    leaked = open(evil_read).read()\n    t = os.path.realpath(os.path.join(r, rel))\n    if not t.startswith(r + os.sep) or os.path.islink(t): raise ValueError()\n    with open(t, 'w') as f: f.write(d + leaked)\n",
+        )
+        .unwrap();
+        let r_open = s3_audit_path_with_mode(&mid_open, true);
+        assert!(
+            r_open.files[0].failing_seams.iter().any(|f| f.seam_kind == "PATH_LFI" && f.seam_line == 4),
+            "intermediate open(evil_read) on line 4 must not be suppressed: {:?}",
+            r_open.files[0].failing_seams
+        );
+        assert_ne!(r_open.strict_verdict, "PASS_S3_PROVEN");
+
+        // PoC #7b: Bare writeFileSync without atomic write / 0o600 MUST keep STATE_MUTATION unsuppressed!
+        let bare_wfs = base.join("bare_wfs.ts");
+        fs::write(
+            &bare_wfs,
+            "import fs from 'fs';\nimport path from 'path';\nfunction save(root: string, rel: string, data: string) {\n  const r = fs.realpathSync(root);\n  const t = fs.realpathSync(path.join(r, rel));\n  if (!t.startsWith(r + path.sep) || fs.lstatSync(t).isSymbolicLink()) throw new Error('esc');\n  fs.writeFileSync(t, data);\n}\n",
+        )
+        .unwrap();
+        let r_wfs = s3_audit_path_with_mode(&bare_wfs, true);
+        assert!(
+            r_wfs.files[0].failing_seams.iter().any(|f| f.seam_kind == "STATE_MUTATION" && f.seam_line == 7),
+            "writeFileSync without atomic write / 0o600 must still report STATE_MUTATION: {:?}",
+            r_wfs.files[0].failing_seams
+        );
+        assert_ne!(r_wfs.strict_verdict, "PASS_S3_PROVEN");
+
+        // PoC #7c: Intermediate `if caller_token == api_secret:` between hmac.new() and compare_digest() MUST be caught as S0_EXPOSED!
+        let mid_sec = base.join("mid_secret.py");
+        fs::write(
+            &mid_sec,
+            "import hmac, hashlib\ndef verify(k, m, sig, caller_token, api_secret):\n    mac = hmac.new(k, m, hashlib.sha256).hexdigest()\n    if caller_token == api_secret:\n        return True\n    return hmac.compare_digest(sig, mac)\n",
+        )
+        .unwrap();
+        let r_sec = s3_audit_path_with_mode(&mid_sec, true);
+        assert!(r_sec.unguarded_s0_seams >= 1, "intermediate caller_token == api_secret must be S0_EXPOSED");
+        assert_eq!(r_sec.verdict, "FAIL_S0_EXPOSED");
+        assert!(
+            r_sec.files[0].failing_seams.iter().any(|f| f.tier == "S0_EXPOSED" && f.seam_line == 4),
+            "line 4 must be reported as S0_EXPOSED: {:?}",
+            r_sec.files[0].failing_seams
+        );
+
         let _ = fs::remove_dir_all(&base);
     }
 }

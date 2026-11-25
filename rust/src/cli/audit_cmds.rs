@@ -546,3 +546,91 @@ pub fn run_lexicon_cmd(args: &[String]) {
         require_audit_feature("lexicon");
     }
 }
+
+pub fn run_telemetry_cmd(args: &[String]) {
+    let mut cur = ArgCursor::for_subcommand(args);
+    let mut action: Option<&str> = None;
+    let mut store: &str = ".kintsugi/delivery_telemetry.json";
+    let mut client: &str = "";
+    let mut stage: &str = "";
+    let mut session_id: &str = "";
+    let mut envelope_id: &str = "";
+    let mut source_digest: &str = "";
+    let mut patch_digest: &str = "";
+    let mut capsule_ids_raw: &str = "";
+    let mut pitfall_ids_raw: &str = "";
+    let mut estimated_tokens: usize = 0;
+    let mut passed: Option<bool> = None;
+
+    while let Some(tok) = cur.next_item() {
+        match tok {
+            CliToken::Flag("--store") => store = cur.require_value("--store"),
+            CliToken::Flag("--client") => client = cur.require_value("--client"),
+            CliToken::Flag("--stage") => stage = cur.require_value("--stage"),
+            CliToken::Flag("--session-id") => session_id = cur.require_value("--session-id"),
+            CliToken::Flag("--envelope-id") => envelope_id = cur.require_value("--envelope-id"),
+            CliToken::Flag("--source-digest") => source_digest = cur.require_value("--source-digest"),
+            CliToken::Flag("--patch-digest") => patch_digest = cur.require_value("--patch-digest"),
+            CliToken::Flag("--capsule-ids") => capsule_ids_raw = cur.require_value("--capsule-ids"),
+            CliToken::Flag("--pitfall-ids") => pitfall_ids_raw = cur.require_value("--pitfall-ids"),
+            CliToken::Flag("--tokens") => estimated_tokens = cur.parse_usize("--tokens"),
+            CliToken::Flag("--passed") => {
+                let raw = cur.require_value("--passed");
+                passed = match raw {
+                    "true" | "1" | "yes" => Some(true),
+                    "false" | "0" | "no" => Some(false),
+                    _ => emit_cli_error_json("INVALID_BOOL", &format!("Invalid --passed value '{raw}' (expected true|false)"), 2),
+                };
+            }
+            CliToken::Positional(pos) if action.is_none() && matches!(pos, "record" | "report") => {
+                action = Some(pos);
+            }
+            CliToken::Flag(f) => reject_unknown_flag(f),
+            CliToken::Positional(p) => reject_unknown_flag(p),
+        }
+    }
+
+    let act = action.unwrap_or("report");
+    #[cfg(feature = "audit")]
+    {
+        use kintsugi_core::audit::{record_telemetry_event, render_telemetry_report_json};
+        let split_csv = |s: &str| -> Vec<String> {
+            s.split(',')
+                .map(str::trim)
+                .filter(|x| !x.is_empty())
+                .map(str::to_string)
+                .collect()
+        };
+        if act == "record" {
+            let caps = split_csv(capsule_ids_raw);
+            let pits = split_csv(pitfall_ids_raw);
+            let out = record_telemetry_event(
+                Path::new(store),
+                client,
+                stage,
+                session_id,
+                envelope_id,
+                source_digest,
+                patch_digest,
+                &caps,
+                &pits,
+                estimated_tokens,
+                passed,
+            )
+            .unwrap_or_else(|e| emit_cli_error_json("TELEMETRY_ERROR", &e, 2));
+            write_stdout_ln(&out);
+            return;
+        }
+        let out = render_telemetry_report_json(Path::new(store))
+            .unwrap_or_else(|e| emit_cli_error_json("TELEMETRY_ERROR", &e, 2));
+        write_stdout_ln(&out);
+    }
+    #[cfg(not(feature = "audit"))]
+    {
+        let _ = (
+            act, store, client, stage, session_id, envelope_id, source_digest, patch_digest,
+            capsule_ids_raw, pitfall_ids_raw, estimated_tokens, passed,
+        );
+        require_audit_feature("telemetry");
+    }
+}

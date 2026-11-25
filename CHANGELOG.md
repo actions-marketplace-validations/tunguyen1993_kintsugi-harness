@@ -2,6 +2,27 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [3.0.0] - 2026-11-25
+
+### Added
+- **7-Domain Typed Obligation Prover (`rust/src/audit/{obligation_prover,prover_extensions}.rs`, `s3.rs`):**
+  - Expanded honest 4-way static verification (`PROVEN | VIOLATED | UNKNOWN | UNSUPPORTED`, `0` false `PROVEN`) beyond `CMD_EXEC` and `SQL_EXEC` to five new high-impact security domains: `TSX_XSS` (React `.tsx`/`.jsx`), `PATH_CONFINE` (Python/TS/JS/Rust), `CRYPTO_MAC_BIDI` (Python/TS/JS), `SOL_REENTRANCY_CEI` (Solidity `.sol`), and `SOL_SAFE_ERC20` (Solidity `.sol`).
+  - Hardened TypeScript `CMD_EXEC` against shell trampolines (`spawnSync('/bin/sh', ['-c', ...])`) and opaque options variables, and narrowed `s3.rs` legacy seam dedup so intermediate unguarded reads/comparisons are never suppressed.
+- **80-Entry Low-Tier Model Failure Lexicon (`LT-001..LT-080`, `rust/src/audit/low_tier_lexicon.rs`, `rules/matcher.rs`):**
+  - Added symbol-scoped, zero-bloat JIT failure lexicon (`kintsugi-rs lexicon`) spanning Python, OWASP Security, TypeScript/NestJS/MySQL (`LT-035..LT-042`), Solidity 0.8.24/DeFi (`LT-043..LT-050`), Online Bounty/Audit Scars (`LT-051..LT-062`), React/Next.js/Vue FE V2 (`LT-063..LT-070`), and Go/Rust/Docker/GitHub Actions Supply-Chain (`LT-071..LT-080`).
+  - Added polyglot extension detection (`.sol`, `.vue`, `.yml`/`.yaml`, `Dockerfile.*`) and verified `0` matches / `0` tokens on benign unrelated code across Python, TS, Rust, and Go.
+- **Universal Truth Gate, 9 Signature-Guarded Capsules & Transactional Patch Controller (`src/kintsugi/evolution/{contract_ledger,fast_learner,patch_transaction}.py`, `rust/src/audit/capsules.rs`):**
+  - Enforced fail-closed teacher provenance (`ALLOWED_FIRST_PARTY_HOSTS` + cryptographic thinking signature verification), explicit mathematical precondition on `CAP-FIN-ERC4626`, 4 falsifiable domain contracts (`CONTRACT-CM-IDEMPOTENCY`, `CONTRACT-CM-DECIMAL-FX`, `CONTRACT-MM-ERC4626-BOUNDED`, `CONTRACT-MM-LEDGER-CONSERVATION`), and 2-Strike / Dead-Scar Auto-Freeze.
+- **Multi-Client `ContextEnvelope/3` & `DeliveryTelemetry/1` (`rust/src/audit/{context_envelope,delivery_telemetry}.rs`, `src/kintsugi/evolution/delivery_telemetry.py`, `src/kintsugi/mcp_server.py`):**
+  - Added `kintsugi-rs context`, `kintsugi-rs task-pack`, `kintsugi-rs hook claude-post-read`, `kintsugi-rs telemetry record|report`, and MCP `v3` profile (`26` tools: `kintsugi_read_with_context`, `kintsugi_low_tier_lexicon`, `kintsugi_delivery_telemetry`) while preserving backward-compatible counts for `default=9`, `nextgen=19`, `build3=23`.
+  - Enforced cross-process `<store>.lock` (`flock` on Unix + atomic fallback), top-down ancestor symlink rejection, 8 MiB pre-write cap, `try_load_frozen_ids` fail-closed loader, sticky-freeze latching, and unshown-capsule efficacy protection (`efficacy_updated` only when `included_before_first_patch == true`).
+
+### Fixed
+- **UTF-8 Byte Alignment in `StatefulMasker` & Call Extractors (`rust/src/audit/{ct2_seams,obligation_prover,prover_extensions}.rs`):**
+  - Emitted `ch.len_utf8()` ASCII spaces per masked multi-byte UTF-8 character and stepped balanced extractors by `rch.len_utf8()` with `.get(...)` bounds checking, eliminating UTF-8 char-boundary panics and offset drift on Unicode/emoji strings and comments.
+- **Cross-Platform CI Hardening (`.github/workflows/ci-and-arena-verification.yml`, `tests/security/test_hermetic_worker.py`, `rust/tests/c_abi_and_mutation_suite.rs`):**
+  - Upgraded `macos-14` → `macos-15` (`aarch64-apple-darwin`), caught Linux Landlock/seccomp `PermissionError` on `socket.socket()`, guaranteed kernel `EPIPE` confirmation prior to `BrokenPipe` tests, and constructed synthetic redaction fixtures dynamically.
+
 ## [2.4.1] - 2026-11-21
 
 ### Security & Guardrails Hardening

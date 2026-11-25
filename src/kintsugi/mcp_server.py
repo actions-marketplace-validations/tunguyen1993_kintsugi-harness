@@ -455,11 +455,11 @@ def _v3_envelope_tool_definitions() -> list[Dict[str, Any]]:
         {
             "name": "kintsugi_low_tier_lexicon",
             "description": (
-                "Query the 18-entry Low-Tier Model Failure Lexicon (`LT-001`..`LT-018`) JIT-matched to a target file "
-                "or in full (`show_all=true`) so budget/fast models avoid common coding & security traps."
+                "Query the 80-entry Low-Tier Model Failure Lexicon (`LT-001`..`LT-080`) JIT-matched to a target file "
+                "or in full (`show_all=true`) so budget/fast models avoid common Python, TS/React, Solidity, Go, Rust & CI traps."
             ),
             "annotations": {
-                "title": "Low-Tier Model Failure Lexicon (LT-001..LT-018)",
+                "title": "Low-Tier Model Failure Lexicon (LT-001..LT-080)",
                 "readOnlyHint": True,
                 "destructiveHint": False,
                 "idempotentHint": True,
@@ -469,8 +469,39 @@ def _v3_envelope_tool_definitions() -> list[Dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "file_path": {"type": "string", "description": "Optional target source file for JIT symbol-scoped matching"},
-                    "show_all": {"type": "boolean", "default": False, "description": "Return the full 18-entry lexicon"},
+                    "show_all": {"type": "boolean", "default": False, "description": "Return the full 80-entry lexicon"},
                     "max_entries": {"type": "integer", "default": 4},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_delivery_telemetry",
+            "description": (
+                "Record or inspect Kintsugi v3.0 Delivery Gate Telemetry (`DeliveryTelemetry/1`: honest "
+                "`issued -> included_in_input -> patch_bound` tracking & 2-Strike / Dead-Scar Auto-Freeze)."
+            ),
+            "annotations": {
+                "title": "Kintsugi v3 Delivery Gate Telemetry",
+                "readOnlyHint": False,
+                "destructiveHint": False,
+                "idempotentHint": False,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["report", "record"], "default": "report"},
+                    "store_path": {"type": "string", "description": "Optional telemetry JSON path (defaults to .kintsugi/delivery_telemetry.json)"},
+                    "client": {"type": "string", "enum": ["claude_code", "antigravity", "local_cli", "cloud_sandbox"]},
+                    "stage": {"type": "string", "enum": ["issued", "included_in_input", "patch_bound"]},
+                    "session_id": {"type": "string"},
+                    "envelope_id": {"type": "string"},
+                    "source_digest": {"type": "string", "default": ""},
+                    "patch_digest": {"type": "string", "default": ""},
+                    "capsule_ids": {"type": "array", "items": {"type": "string"}},
+                    "pitfall_ids": {"type": "array", "items": {"type": "string"}},
+                    "estimated_tokens": {"type": "integer", "default": 0},
+                    "passed": {"type": "boolean"},
                 },
             },
         },
@@ -1005,6 +1036,41 @@ class KintsugiMCPServer:
                 "openmontage_package": pkg_meta,
                 "qa_report": qa_rep,
             }
+
+        if self.profile == "v3" and name == "kintsugi_delivery_telemetry":
+            from kintsugi.evolution.delivery_telemetry import (
+                build_telemetry_report as _tel_rep,
+                record_telemetry_event as _rec_tel,
+            )
+
+            raw_store = args.get("store_path")
+            store_p = Path(str(raw_store)) if raw_store else (self.ledger.path.parent / "delivery_telemetry.json")
+            raw_action = args.get("action", "report")
+            action = "report" if raw_action is None else str(raw_action).strip().lower()
+            if action not in {"record", "report"}:
+                raise ValueError(f"Unsupported telemetry action: {action!r}")
+            if action == "record":
+                raw_caps = args.get("capsule_ids")
+                if raw_caps is not None and not isinstance(raw_caps, list):
+                    raise ValueError("INVALID_CAPSULE_IDS: expected list of strings")
+                raw_pits = args.get("pitfall_ids")
+                if raw_pits is not None and not isinstance(raw_pits, list):
+                    raise ValueError("INVALID_PITFALL_IDS: expected list of strings")
+                est_tokens = 0 if args.get("estimated_tokens") is None else args["estimated_tokens"]
+                return _rec_tel(
+                    store_path=store_p,
+                    client=str(args.get("client") or ""),
+                    stage=str(args.get("stage") or ""),
+                    session_id=str(args.get("session_id") or ""),
+                    envelope_id=str(args.get("envelope_id") or ""),
+                    source_digest=str(args.get("source_digest") or ""),
+                    patch_digest=str(args.get("patch_digest") or ""),
+                    capsule_ids=raw_caps if raw_caps is not None else [],
+                    pitfall_ids=raw_pits if raw_pits is not None else [],
+                    estimated_tokens=est_tokens,
+                    passed=args.get("passed") if "passed" in args else None,
+                )
+            return _tel_rep(store_p)
 
         if self.profile == "v3" and name in {"kintsugi_read_with_context", "kintsugi_low_tier_lexicon"}:
             import shutil as _shutil

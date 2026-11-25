@@ -97,6 +97,13 @@ fn is_py_floor_div(line: &str, bytes: &[u8], i: usize) -> bool {
         || ["if ", "else ", "and ", "or ", "in ", "is ", "not ", "for "].iter().any(|kw| line[k..].starts_with(kw))
 }
 
+#[inline]
+fn push_spaces(out: &mut String, count: usize) {
+    for _ in 0..count {
+        out.push(' ');
+    }
+}
+
 impl StatefulMasker {
     pub fn new() -> Self {
         Self { mode: LexMode::Code, template_expr_stack: Vec::new() }
@@ -164,8 +171,13 @@ impl StatefulMasker {
                 LexMode::SingleQuote | LexMode::DoubleQuote => {
                     let q = if self.mode == LexMode::SingleQuote { b'\'' } else { b'"' };
                     if b == b'\\' {
-                        out.push_str("  ");
-                        i = (i + 2).min(bytes.len());
+                        let step = if i + 1 < bytes.len() {
+                            1 + line[i + 1..].chars().next().map_or(1, char::len_utf8)
+                        } else {
+                            1
+                        };
+                        push_spaces(&mut out, step);
+                        i += step;
                     } else if b == q {
                         out.push(' ');
                         i += 1;
@@ -174,15 +186,21 @@ impl StatefulMasker {
                             None => LexMode::Code,
                         };
                     } else {
-                        out.push(' ');
-                        i += line[i..].chars().next().map_or(1, char::len_utf8);
+                        let step = line[i..].chars().next().map_or(1, char::len_utf8);
+                        push_spaces(&mut out, step);
+                        i += step;
                     }
                 }
                 LexMode::PyTripleSingle | LexMode::PyTripleDouble => {
                     let pat: &[u8] = if self.mode == LexMode::PyTripleSingle { b"'''" } else { b"\"\"\"" };
                     if b == b'\\' {
-                        out.push_str("  ");
-                        i = (i + 2).min(bytes.len());
+                        let step = if i + 1 < bytes.len() {
+                            1 + line[i + 1..].chars().next().map_or(1, char::len_utf8)
+                        } else {
+                            1
+                        };
+                        push_spaces(&mut out, step);
+                        i += step;
                     } else if bytes[i..].starts_with(pat) {
                         out.push_str("   ");
                         i += 3;
@@ -191,14 +209,20 @@ impl StatefulMasker {
                             None => LexMode::Code,
                         };
                     } else {
-                        out.push(' ');
-                        i += line[i..].chars().next().map_or(1, char::len_utf8);
+                        let step = line[i..].chars().next().map_or(1, char::len_utf8);
+                        push_spaces(&mut out, step);
+                        i += step;
                     }
                 }
                 LexMode::JsTemplate { expr_brace_depth: 0 } => {
                     if b == b'\\' {
-                        out.push_str("  ");
-                        i = (i + 2).min(bytes.len());
+                        let step = if i + 1 < bytes.len() {
+                            1 + line[i + 1..].chars().next().map_or(1, char::len_utf8)
+                        } else {
+                            1
+                        };
+                        push_spaces(&mut out, step);
+                        i += step;
                     } else if b == b'`' {
                         out.push(' ');
                         i += 1;
@@ -212,8 +236,9 @@ impl StatefulMasker {
                         self.mode = LexMode::JsTemplate { expr_brace_depth: 1 };
                         i += 2;
                     } else {
-                        out.push(' ');
-                        i += line[i..].chars().next().map_or(1, char::len_utf8);
+                        let step = line[i..].chars().next().map_or(1, char::len_utf8);
+                        push_spaces(&mut out, step);
+                        i += step;
                     }
                 }
                 LexMode::BlockComment => {
@@ -225,11 +250,13 @@ impl StatefulMasker {
                             None => LexMode::Code,
                         };
                         if line[i..].trim().is_empty() {
+                            push_spaces(&mut out, bytes.len() - i);
                             return (out, block_start);
                         }
                     } else {
-                        out.push(' ');
-                        i += line[i..].chars().next().map_or(1, char::len_utf8);
+                        let step = line[i..].chars().next().map_or(1, char::len_utf8);
+                        push_spaces(&mut out, step);
+                        i += step;
                     }
                 }
             }
@@ -466,5 +493,33 @@ mod tests {
         let ml_js = StatefulMasker::mask_file_lines("const s = `hello\n${os.system(x)}\nworld`;");
         assert!(!ml_js[0].contains("hello") && !ml_js[2].contains("world"));
         assert!(ml_js[1].contains("${os.system(x)}"));
+    }
+
+    #[test]
+    fn stateful_masker_preserves_utf8_byte_alignment_across_quotes_escapes_and_comments() {
+        let cases = [
+            "cur.execute(\"SELECT 'café' FROM u WHERE id = ?\", (uid,))",
+            "open(\"café\", \"w\")",
+            "function f() { /* 🚀🚀🚀 */ x=1; fs.writeFileSync(x, \"a\"); }",
+            "export const X = () => <a title=\"🚀\" href=\"javascript:alert(1)\">click</a>;",
+            "const s = \"escaped \\é and \\🚀\"; const y = 2;",
+            "const t = `prefix 🚀 ${danger(x)} café`;",
+        ];
+        for raw in cases {
+            let masked = mask_strings_and_comments(raw);
+            assert_eq!(masked.len(), raw.len(), "byte length mismatch for: {raw}");
+            for (idx, ch) in masked.char_indices() {
+                if ch != ' ' {
+                    assert!(raw.is_char_boundary(idx), "misaligned boundary at {idx} in: {raw}");
+                    assert_eq!(raw[idx..].chars().next(), Some(ch), "char mismatch at byte {idx} in: {raw}");
+                }
+            }
+        }
+        // Line comment preserves exact byte alignment up to comment start without leaking comment text
+        let with_comment = "const a = \"café\"; // trailing 🚀 comment";
+        let masked_c = mask_strings_and_comments(with_comment);
+        assert!(masked_c.len() < with_comment.len());
+        assert!(with_comment.is_char_boundary(masked_c.len()));
+        assert_eq!(&with_comment[masked_c.len()..], "// trailing 🚀 comment");
     }
 }

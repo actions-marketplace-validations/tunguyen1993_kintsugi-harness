@@ -1,6 +1,6 @@
 [package]
 name = "kintsugi-harness"
-version = "2.4.1"
+version = "3.0.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Sub-millisecond Rust native PreToolUse guardrail scanner, @CT2 Grade-S3 Seam Auditor, Zero-Loss Memory Verifier, and @KML/1 ultra-low-token compressor for coding agents."

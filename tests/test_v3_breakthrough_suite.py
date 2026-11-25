@@ -442,10 +442,10 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertLessEqual(j_ctx["estimated_tokens"], 320)
         self.assertTrue(len(j_ctx["lexicon_ids"]) >= 1)
 
-        # 3. Native Rust lexicon --all returns 62 pitfalls (LT-001..LT-062)
+        # 3. Native Rust lexicon --all returns 80 pitfalls (LT-001..LT-080)
         p_lex = subprocess.run([str(KBIN), "lexicon", "--all", "--format", "json"], capture_output=True, text=True, shell=False, check=True)
         j_lex = json.loads(p_lex.stdout)
-        self.assertEqual(j_lex["total_lexicon_entries"], 62)
+        self.assertEqual(j_lex["total_lexicon_entries"], 80)
 
         # 4. Claude Code PostToolUse(Read) hook emits additionalContext + bound source_digest
         hook_payload = json.dumps({"tool_name": "Read", "tool_input": {"file_path": str(sample)}})
@@ -454,13 +454,47 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertEqual(j_hook["hookSpecificOutput"]["hookEventName"], "PostToolUse")
         self.assertEqual(j_hook["kintsugiEnvelope"]["source_digest"], j_ctx["source_digest"])
 
-        # 5. MCP profile backward compatibility (downstream pins default=9, nextgen=19, build3=23) + v3=25!
+        # 5. Native Rust telemetry record/report + extended Solidity/TSX obligation proving
+        tel_store = self.tmp / "delivery_telemetry.json"
+        subprocess.run(
+            [
+                str(KBIN), "telemetry", "record", "--store", str(tel_store),
+                "--client", "antigravity", "--stage", "issued",
+                "--session-id", "sess-1", "--envelope-id", "env-1",
+                "--source-digest", j_ctx["source_digest"],
+                "--capsule-ids", "CAP-FIN-ERC4626", "--pitfall-ids", "LT-063", "--tokens", "180",
+            ],
+            capture_output=True, text=True, shell=False, check=True,
+        )
+        subprocess.run(
+            [
+                str(KBIN), "telemetry", "record", "--store", str(tel_store),
+                "--client", "antigravity", "--stage", "included_in_input",
+                "--session-id", "sess-1", "--envelope-id", "env-1",
+            ],
+            capture_output=True, text=True, shell=False, check=True,
+        )
+        subprocess.run(
+            [
+                str(KBIN), "telemetry", "record", "--store", str(tel_store),
+                "--client", "antigravity", "--stage", "patch_bound",
+                "--session-id", "sess-1", "--envelope-id", "env-1",
+                "--patch-digest", "p1234", "--passed", "true",
+            ],
+            capture_output=True, text=True, shell=False, check=True,
+        )
+        p_tel = subprocess.run([str(KBIN), "telemetry", "report", "--store", str(tel_store)], capture_output=True, text=True, shell=False, check=True)
+        j_tel = json.loads(p_tel.stdout)
+        self.assertEqual(j_tel["schema"], "DeliveryTelemetry/1")
+        self.assertEqual(j_tel["clients"]["antigravity"]["patch_bound_count"], 1)
+
+        # 6. MCP profile backward compatibility (downstream pins default=9, nextgen=19, build3=23) + v3=26!
         scars_p = self.tmp / "scars.json"
         counts = {}
         for prof in ("default", "nextgen", "build3", "v3"):
             srv = KintsugiMCPServer(scars_p, profile=prof)
             counts[prof] = len(srv.handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"])
-        self.assertEqual(counts, {"default": 9, "nextgen": 19, "build3": 23, "v3": 25})
+        self.assertEqual(counts, {"default": 9, "nextgen": 19, "build3": 23, "v3": 26})
 
         srv_v3 = KintsugiMCPServer(scars_p, profile="v3")
         mcp_resp = srv_v3.handle_request({
