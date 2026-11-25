@@ -2915,9 +2915,9 @@ class TestTieredMultiModelCoExecutionAndBYOKCouncil(unittest.TestCase):
             scars_16,
         )
         rep = compute_token_savings_report(scars_16, verbose_md, turns_per_session=50, active_domain="security")
-        self.assertEqual(rep["verbose_tokens_per_turn"], 3641)
+        self.assertEqual(rep["verbose_tokens_per_turn"], 3644)
         self.assertEqual(rep["kmi_tokens_per_turn"], 226)
-        self.assertEqual(rep["tokens_saved_per_turn"], 3415)
+        self.assertEqual(rep["tokens_saved_per_turn"], 3418)
         self.assertEqual(rep["reduction_percent"], 93.8)
         self.assertEqual(rep["avg_domain_kmi_tokens_per_turn"], 80.5)
         self.assertEqual(rep["avg_domain_reduction_percent"], 97.79)
@@ -3755,9 +3755,9 @@ class TestRound5IndependentRemediations(unittest.TestCase):
         env = FailureEnvelope.create(
             task_id="evo2-yaml-loader",
             language="python",
-            offending_snippet='cfg = yaml.load(raw_payload, Loader=yaml.Loader)\ntoken = "sk-test-secret-1234567890abcdef"',
+            offending_snippet='cfg = yaml.load(raw_payload, Loader=yaml.Loader)\ntoken = "sk-proj-EXAMPLE_PLACEHOLDER_00000000000000"',
             fixed_snippet="cfg = yaml.load(raw_payload, Loader=yaml.SafeLoader)",
-            error_summary="Unsafe PyYAML Loader used on /Users/example/work",
+            error_summary="Unsafe PyYAML Loader used on /workspace/project",
         )
         self.assertTrue(env.trace_id.startswith("sha256:"))
         self.assertIn("[REDACTED_API_KEY]", env.offending_snippet)

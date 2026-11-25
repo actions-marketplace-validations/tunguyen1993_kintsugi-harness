@@ -106,7 +106,7 @@ class TestBlindEvolutionTransfer(unittest.TestCase):
                 cost_ms=1.0 + idx * 0.01,
                 task_id="train-single-task",
                 source_family="train-single-task",
-                failure_reason=f"note /Users/alice/secret_{fake_tok}",
+                failure_reason=f"note /workspace/project{fake_tok}",
             )
 
         # Unverified outcomes MUST NOT grant verified passes or transfer credit
@@ -159,7 +159,7 @@ class TestBlindEvolutionTransfer(unittest.TestCase):
         self.assertEqual(mode, 0o600)
         raw_text = mem_path.read_text(encoding="utf-8")
         self.assertNotIn(fake_tok, raw_text)
-        self.assertNotIn("/Users/alice", raw_text)
+        self.assertNotIn("/workspace/project", raw_text)
 
         reloaded = StrategyMemory(mem_path, workspace_root=self.ws)
         self.assertEqual(reloaded.best_strategy("python_kwarg_policy").synthesis_strategy, "ast_kwarg_policy")
@@ -424,7 +424,7 @@ class TestBlindEvolutionTransfer(unittest.TestCase):
                 "language": "python",
                 "severity": "HIGH",
                 "file_path": "train/http_client.py",
-                "error_summary": f"Disabled TLS verification for /Users/dev/project ({fake_api_key})",
+                "error_summary": f"Disabled TLS verification for /workspace/project ({fake_api_key})",
                 "offending_snippet": (
                     "import logging\n"
                     "logging.info('fetching')\n"
@@ -685,7 +685,7 @@ class TestBlindEvolutionTransfer(unittest.TestCase):
         self.assertTrue(strat_file.is_file())
         strat_raw = strat_file.read_text(encoding="utf-8")
         self.assertNotIn(fake_api_key, strat_raw)
-        self.assertNotIn("/Users/dev", strat_raw)
+        self.assertNotIn("/workspace/project", strat_raw)
         self.assertTrue(self.engine.verify_hooks_integrity())
 
         # Corpus leakage guard refuses any shared train/blind heldout snippet

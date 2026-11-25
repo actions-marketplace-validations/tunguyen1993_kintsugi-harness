@@ -88,7 +88,7 @@ fn compress_block_scalar(state: &mut [u32; 8], block: &[u8; 64]) {
 }
 
 #[inline]
-fn finish_padding_and_finalize<F>(total_len: usize, rem: &[u8], mut compress_fn: F) -> [u8; 32]
+fn finish_padding_and_finalize<F>(total_len: usize, rem: &[u8], mut compress_fn: F)
 where
     F: FnMut(&[u8; 64]),
 {
@@ -107,7 +107,6 @@ where
         let b1: &[u8; 64] = tail[64..128].try_into().expect("fixed 64-byte block");
         compress_fn(b1);
     }
-    [0u8; 32]
 }
 
 #[inline]
@@ -128,7 +127,7 @@ pub fn sha256_bytes_scalar(data: &[u8]) -> [u8; 32] {
         let block: &[u8; 64] = chunk.try_into().expect("chunks_exact(64)");
         compress_block_scalar(&mut state, block);
     }
-    let _ = finish_padding_and_finalize(data.len(), rem, |block| {
+    finish_padding_and_finalize(data.len(), rem, |block| {
         compress_block_scalar(&mut state, block);
     });
     words_to_digest(&state)
@@ -236,7 +235,7 @@ pub unsafe fn sha256_bytes_aarch64_hw(data: &[u8]) -> [u8; 32] {
         unsafe { sha256_block_hw(&mut state0, &mut state1, chunk.as_ptr()) };
     }
 
-    let _ = finish_padding_and_finalize(data.len(), rem, |block| {
+    finish_padding_and_finalize(data.len(), rem, |block| {
         // SAFETY: `block` is `[u8; 64]`.
         unsafe { sha256_block_hw(&mut state0, &mut state1, block.as_ptr()) };
     });
@@ -250,14 +249,21 @@ pub unsafe fn sha256_bytes_aarch64_hw(data: &[u8]) -> [u8; 32] {
     words_to_digest(&words)
 }
 
+#[cfg(target_arch = "aarch64")]
+fn has_aarch64_sha2() -> bool {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<bool> = OnceLock::new();
+    *CACHE.get_or_init(|| std::arch::is_aarch64_feature_detected!("sha2"))
+}
+
 /// Compute SHA-256 32-byte digest using hardware `FEAT_SHA256` when available (unless `disable_hw_sha256` is true).
 #[inline]
 pub fn sha256_bytes_with_mode(data: &[u8], disable_hw_sha256: bool) -> [u8; 32] {
     if !disable_hw_sha256 {
         #[cfg(target_arch = "aarch64")]
         {
-            if std::arch::is_aarch64_feature_detected!("sha2") {
-                // SAFETY: `is_aarch64_feature_detected!("sha2")` verified hardware FEAT_SHA256 support.
+            if has_aarch64_sha2() {
+                // SAFETY: `has_aarch64_sha2()` verified hardware FEAT_SHA256 support.
                 return unsafe { sha256_bytes_aarch64_hw(data) };
             }
         }
@@ -296,10 +302,11 @@ pub fn sha256_hex_fast(data: &[u8]) -> String {
 /// Compute SHA-256 lowercase hex digest with explicit hardware acceleration toggle.
 #[inline]
 pub fn sha256_hex_with_mode(data: &[u8], disable_hw_sha256: bool) -> String {
-    let mut hex_bytes = [0u8; 64];
-    sha256_hex_into(data, &mut hex_bytes, disable_hw_sha256);
-    // SAFETY: `HEX_LOWER` consists strictly of ASCII hex digits `0-9`, `a-f`.
-    String::from_utf8(hex_bytes.to_vec()).expect("valid ASCII hex")
+    let mut hex = vec![0u8; 64];
+    let out: &mut [u8; 64] = hex.as_mut_slice().try_into().expect("64-byte hex buffer");
+    sha256_hex_into(data, out, disable_hw_sha256);
+    // SAFETY: `sha256_hex_into` populates all 64 bytes strictly from `HEX_LOWER` (`0-9`, `a-f`).
+    unsafe { String::from_utf8_unchecked(hex) }
 }
 
 /// Timing summary for one SHA-256 backend.
@@ -339,9 +346,10 @@ where
     for _ in 0..warmup {
         black_box(f(black_box(data)));
     }
-    let mut samples = Vec::with_capacity(iters.max(1));
+    let run_iters = iters.max(1);
+    let mut samples = Vec::with_capacity(run_iters);
     let mut last = [0u8; 32];
-    for _ in 0..iters.max(1) {
+    for _ in 0..run_iters {
         let t0 = Instant::now();
         let d = f(black_box(data));
         let us = (t0.elapsed().as_nanos() as f64) / 1000.0;
@@ -361,20 +369,9 @@ where
     let p95_us = samples[p95_idx.saturating_sub(1).min(n - 1)];
     let mean_us = samples.iter().sum::<f64>() / (n as f64);
     let secs = median_us * 1e-6;
-    let throughput_gbps = if secs > 0.0 {
-        (data.len() as f64) / secs / 1e9
-    } else {
-        0.0
-    };
+    let throughput_gbps = if secs > 0.0 { (data.len() as f64) / secs / 1e9 } else { 0.0 };
     (
-        Sha256BenchStats {
-            backend,
-            min_us,
-            median_us,
-            p95_us,
-            mean_us,
-            throughput_gbps,
-        },
+        Sha256BenchStats { backend, min_us, median_us, p95_us, mean_us, throughput_gbps },
         last,
     )
 }
@@ -393,22 +390,14 @@ pub fn run_sha256_benchmark(size_bytes: usize, warmup: usize, iters: usize, seed
 
     let (hw_stats, hw_digest) =
         measure_sha256_stats(active_sha256_backend(false), &data, warmup, iters, sha256_bytes);
-    let (sc_stats, sc_digest) = measure_sha256_stats(
-        active_sha256_backend(true),
-        &data,
-        warmup,
-        iters,
-        sha256_bytes_scalar,
-    );
+    let (sc_stats, sc_digest) =
+        measure_sha256_stats(active_sha256_backend(true), &data, warmup, iters, sha256_bytes_scalar);
 
-    let mut hex_buf = [0u8; 64];
-    digest_to_hex_into(&hw_digest, &mut hex_buf);
-    let digest_hex = String::from_utf8(hex_buf.to_vec()).expect("valid hex");
-    let speedup = if hw_stats.median_us > 0.0 {
-        sc_stats.median_us / hw_stats.median_us
-    } else {
-        1.0
-    };
+    let mut hex_vec = vec![0u8; 64];
+    digest_to_hex_into(&hw_digest, hex_vec.as_mut_slice().try_into().expect("64-byte hex"));
+    // SAFETY: `digest_to_hex_into` emits strictly lowercase ASCII hex digits (`0-9`, `a-f`).
+    let digest_hex = unsafe { String::from_utf8_unchecked(hex_vec) };
+    let speedup = if hw_stats.median_us > 0.0 { sc_stats.median_us / hw_stats.median_us } else { 1.0 };
 
     Sha256BenchReport {
         size_bytes,
@@ -429,14 +418,8 @@ mod tests {
     #[test]
     fn nist_fips_180_4_vectors_match_hw_and_scalar() {
         let cases: [(&[u8], &str); 4] = [
-            (
-                b"",
-                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            ),
-            (
-                b"abc",
-                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-            ),
+            (b"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+            (b"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
             (
                 b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
                 "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -426,6 +427,56 @@ def _nextgen_tool_definitions() -> list[Dict[str, Any]]:
     ]
 
 
+def _v3_envelope_tool_definitions() -> list[Dict[str, Any]]:
+    return [
+        {
+            "name": "kintsugi_read_with_context",
+            "description": (
+                "Read a source file alongside its Kintsugi v3.0 `ContextEnvelope` (bound `source_digest`, "
+                "symbol-scoped invariant capsules, typed obligation warnings, and optional Low-Tier Model Failure Lexicon)."
+            ),
+            "annotations": {
+                "title": "Read File With Kintsugi v3 ContextEnvelope",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "required": ["file_path"],
+                "properties": {
+                    "file_path": {"type": "string", "description": "Path to source file to read with JIT envelope"},
+                    "low_tier": {"type": "boolean", "default": True, "description": "Include matched Low-Tier Model Failure Lexicon entries"},
+                    "max_tokens": {"type": "integer", "default": 320, "description": "Strict token cap for compact context"},
+                },
+            },
+        },
+        {
+            "name": "kintsugi_low_tier_lexicon",
+            "description": (
+                "Query the 18-entry Low-Tier Model Failure Lexicon (`LT-001`..`LT-018`) JIT-matched to a target file "
+                "or in full (`show_all=true`) so budget/fast models avoid common coding & security traps."
+            ),
+            "annotations": {
+                "title": "Low-Tier Model Failure Lexicon (LT-001..LT-018)",
+                "readOnlyHint": True,
+                "destructiveHint": False,
+                "idempotentHint": True,
+                "openWorldHint": False,
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Optional target source file for JIT symbol-scoped matching"},
+                    "show_all": {"type": "boolean", "default": False, "description": "Return the full 18-entry lexicon"},
+                    "max_entries": {"type": "integer", "default": 4},
+                },
+            },
+        },
+    ]
+
+
 class KintsugiMCPServer:
     """Line-delimited JSON-RPC 2.0 MCP server over stdio."""
 
@@ -477,7 +528,7 @@ class KintsugiMCPServer:
 
     def active_tools(self) -> list[Dict[str, Any]]:
         tools = list(_tool_definitions())
-        if self.profile in {"nextgen", "coding", "build3", "cognitive"}:
+        if self.profile in {"nextgen", "coding", "build3", "cognitive", "v3"}:
             from kintsugi.mcp_nextgen import (
                 nextgen_build2_tool_definitions,
                 nextgen_build3_tool_definitions,
@@ -485,8 +536,10 @@ class KintsugiMCPServer:
 
             tools.extend(_nextgen_tool_definitions())
             tools.extend(nextgen_build2_tool_definitions())
-            if self.profile in {"build3", "cognitive"}:
+            if self.profile in {"build3", "cognitive", "v3"}:
                 tools.extend(nextgen_build3_tool_definitions())
+            if self.profile == "v3":
+                tools.extend(_v3_envelope_tool_definitions())
         return tools
 
     def handle_request(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -953,7 +1006,51 @@ class KintsugiMCPServer:
                 "qa_report": qa_rep,
             }
 
-        if self.profile in {"nextgen", "coding", "build3", "cognitive"}:
+        if self.profile == "v3" and name in {"kintsugi_read_with_context", "kintsugi_low_tier_lexicon"}:
+            import shutil as _shutil
+            import subprocess as _sp
+
+            env_bin = os.environ.get("KINTSUGI_RS_BIN", "").strip()
+            which_bin = _shutil.which("kintsugi-rs")
+            kbin_candidates = [
+                *( [Path(env_bin)] if env_bin else [] ),
+                Path(__file__).resolve().parents[2] / "target" / "release" / "kintsugi-rs",
+                Path(__file__).resolve().parents[2] / "target" / "debug" / "kintsugi-rs",
+                Path.cwd() / ".kintsugi" / "bin" / "kintsugi-rs",
+                *( [Path(which_bin)] if which_bin else [] ),
+            ]
+            kbin = next((p for p in kbin_candidates if p.is_file()), None)
+            if kbin is None:
+                raise FileNotFoundError("kintsugi-rs release binary not found for v3 ContextEnvelope tool")
+
+            if name == "kintsugi_read_with_context":
+                fp = Path(str(args["file_path"])).resolve()
+                cmd = [str(kbin), "context", str(fp), "--format", "json", "--max-tokens", str(int(args.get("max_tokens") or 320))]
+                if bool(args.get("low_tier", True)):
+                    cmd.append("--low-tier")
+                proc = _sp.run(cmd, capture_output=True, text=True, shell=False, timeout=15)
+                if proc.returncode != 0:
+                    raise RuntimeError(f"kintsugi-rs context failed: {proc.stderr or proc.stdout}")
+                env_obj = json.loads(proc.stdout.strip())
+                env_obj["receipt_stage"] = "included_in_input"
+                return {
+                    "ok": True,
+                    "file_path": str(fp),
+                    "content": fp.read_text(encoding="utf-8"),
+                    "envelope": env_obj,
+                }
+
+            cmd = [str(kbin), "lexicon", "--format", "json"]
+            if bool(args.get("show_all", False)) or not args.get("file_path"):
+                cmd.append("--all")
+            else:
+                cmd.extend([str(Path(str(args["file_path"])).resolve()), "--max-entries", str(int(args.get("max_entries") or 4))])
+            proc = _sp.run(cmd, capture_output=True, text=True, shell=False, timeout=15)
+            if proc.returncode != 0:
+                raise RuntimeError(f"kintsugi-rs lexicon failed: {proc.stderr or proc.stdout}")
+            return json.loads(proc.stdout.strip())
+
+        if self.profile in {"nextgen", "coding", "build3", "cognitive", "v3"}:
             if name == "kintsugi_tools_discover":
                 from kintsugi.capability import SecurityContext, ToolRegistry
 
@@ -1018,7 +1115,7 @@ class KintsugiMCPServer:
 
             if name in NEXTGEN_BUILD2_TOOL_NAMES:
                 return dispatch_nextgen_build2_mcp_tool(name, args)
-            if self.profile in {"build3", "cognitive"} and name in NEXTGEN_BUILD3_TOOL_NAMES:
+            if self.profile in {"build3", "cognitive", "v3"} and name in NEXTGEN_BUILD3_TOOL_NAMES:
                 if self._authority_key_file is not None and args.get("workspace_root") is not None:
                     ws_req = Path(str(args.get("workspace_root") or ".")).resolve()
                     if self._authority_key_file.is_relative_to(ws_req):

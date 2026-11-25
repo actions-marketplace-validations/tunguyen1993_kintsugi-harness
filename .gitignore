@@ -35,3 +35,4 @@ venv/
 .kintsugi/waivers.json
 .kintsugi/audit.proof
 .kintsugi/eval_report.json
+.kintsugi/repo_scout_index.json

@@ -5,6 +5,9 @@
 //! - `x86_64`: Runtime `is_x86_feature_detected!("avx2")` 64-byte/32-byte AVX2 intrinsics.
 //! - Explicit `disable_simd: bool` override routes straight to `scalar::*` so the
 //!   fallback path can be benchmarked and differential-tested independently.
+//! - **Cached SIMD detection:** `OnceLock` avoids repeated runtime feature detection.
+
+use std::sync::OnceLock;
 
 use crate::kernels::scalar;
 
@@ -14,20 +17,36 @@ const NEON_BIT_WEIGHTS: [u8; 16] = [
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
 ];
 
+fn simd_available_cached() -> bool {
+    static CACHED: OnceLock<bool> = OnceLock::new();
+    *CACHED.get_or_init(|| {
+        #[cfg(target_arch = "aarch64")]
+        {
+            std::arch::is_aarch64_feature_detected!("neon")
+        }
+        #[cfg(target_arch = "x86_64")]
+        {
+            std::arch::is_x86_feature_detected!("avx2")
+        }
+        #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+        {
+            false
+        }
+    })
+}
+
 /// Return the canonical backend identifier that will be used on this host.
 pub fn active_simd_backend(disable_simd: bool) -> &'static str {
     if disable_simd {
         return "rust_scalar_fallback";
     }
-    #[cfg(target_arch = "aarch64")]
-    {
-        if std::arch::is_aarch64_feature_detected!("neon") {
+    if simd_available_cached() {
+        #[cfg(target_arch = "aarch64")]
+        {
             return "aarch64_neon_intrinsics";
         }
-    }
-    #[cfg(target_arch = "x86_64")]
-    {
-        if std::arch::is_x86_feature_detected!("avx2") {
+        #[cfg(target_arch = "x86_64")]
+        {
             return "x86_64_avx2_intrinsics";
         }
     }
@@ -60,35 +79,33 @@ pub fn scan_delimiters_into(data: &[u8], delim: u8, disable_simd: bool, out: &mu
     if data.is_empty() {
         return;
     }
-    if disable_simd {
+    if disable_simd || !simd_available_cached() {
         scalar::scan_delimiters_scalar_into(data, delim, out);
         return;
     }
 
     #[cfg(target_arch = "aarch64")]
     {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            // SAFETY: NEON feature availability was verified immediately above and
-            // `scan_delimiters_neon_into` enforces exact slice length bounds before every load.
-            unsafe {
-                scan_delimiters_neon_into(data, delim, out);
-            }
-            return;
+        // SAFETY: NEON availability was verified via cached detection.
+        unsafe {
+            scan_delimiters_neon_into(data, delim, out);
         }
+        return;
     }
 
     #[cfg(target_arch = "x86_64")]
     {
-        if std::arch::is_x86_feature_detected!("avx2") {
-            // SAFETY: AVX2 runtime support was verified via `is_x86_feature_detected!("avx2")`.
-            unsafe {
-                scan_delimiters_avx2_into(data, delim, out);
-            }
-            return;
+        // SAFETY: AVX2 availability was verified via cached detection.
+        unsafe {
+            scan_delimiters_avx2_into(data, delim, out);
         }
+        return;
     }
 
-    scalar::scan_delimiters_scalar_into(data, delim, out);
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        scalar::scan_delimiters_scalar_into(data, delim, out);
+    }
 }
 
 /// Count exact occurrences of `delim` in `data`, honoring `disable_simd`.
@@ -97,32 +114,30 @@ pub fn count_delimiters(data: &[u8], delim: u8, disable_simd: bool) -> usize {
     if data.is_empty() {
         return 0;
     }
-    if disable_simd {
+    if disable_simd || !simd_available_cached() {
         return scalar::count_delimiters_scalar(data, delim);
     }
 
     #[cfg(target_arch = "aarch64")]
     {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            // SAFETY: NEON feature availability was verified immediately above and
-            // `count_delimiters_neon` checks slice bounds before every vector load.
-            unsafe {
-                return count_delimiters_neon(data, delim);
-            }
+        // SAFETY: NEON availability was verified via cached detection.
+        unsafe {
+            return count_delimiters_neon(data, delim);
         }
     }
 
     #[cfg(target_arch = "x86_64")]
     {
-        if std::arch::is_x86_feature_detected!("avx2") {
-            // SAFETY: AVX2 runtime support was verified via `is_x86_feature_detected!("avx2")`.
-            unsafe {
-                return count_delimiters_avx2(data, delim);
-            }
+        // SAFETY: AVX2 availability was verified via cached detection.
+        unsafe {
+            return count_delimiters_avx2(data, delim);
         }
     }
 
-    scalar::count_delimiters_scalar(data, delim)
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        scalar::count_delimiters_scalar(data, delim)
+    }
 }
 
 /// Scan `data` left-to-right for non-overlapping occurrences of `pattern`.
@@ -149,35 +164,33 @@ pub fn scan_multibyte_delimiters_into(
         scan_delimiters_into(data, pattern[0], disable_simd, out);
         return;
     }
-    if disable_simd {
+    if disable_simd || !simd_available_cached() {
         scalar::scan_multibyte_delimiters_scalar_into(data, pattern, out);
         return;
     }
 
     #[cfg(target_arch = "aarch64")]
     {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            // SAFETY: NEON availability verified above; `scan_multibyte_neon_into` bounds-checks
-            // `search_end = data.len() - (m - 1)` so both `pos` and `pos + m - 1` loads stay in bounds.
-            unsafe {
-                scan_multibyte_neon_into(data, pattern, out);
-            }
-            return;
+        // SAFETY: NEON availability verified via cached check.
+        unsafe {
+            scan_multibyte_neon_into(data, pattern, out);
         }
+        return;
     }
 
     #[cfg(target_arch = "x86_64")]
     {
-        if std::arch::is_x86_feature_detected!("avx2") {
-            // SAFETY: AVX2 availability verified above; bounds-checked via `search_end`.
-            unsafe {
-                scan_multibyte_avx2_into(data, pattern, out);
-            }
-            return;
+        // SAFETY: AVX2 availability verified via cached check.
+        unsafe {
+            scan_multibyte_avx2_into(data, pattern, out);
         }
+        return;
     }
 
-    scalar::scan_multibyte_delimiters_scalar_into(data, pattern, out);
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        scalar::scan_multibyte_delimiters_scalar_into(data, pattern, out);
+    }
 }
 
 #[cfg(target_arch = "aarch64")]

@@ -306,7 +306,7 @@ df["alpha_feature"] = df["close"] / df["close"].shift(1) - 1.0
 ```
 
 ### `KL-MCP-001` · `Strip bidirectional Unicode overrides in MCP tool inputs and prompts (CVE-2021-42574)`
-- `@WIRE`: `@KML/1|id=KL-MCP-001|sev=C|cat=ai-agents-mcp|lang=py,ts,js|op=STRIP_BIDIRECTIONAL_UNICODE_OVERRIDE|guard=RX#7e5e71d7|neg=«tool_prompt = "Summarize file‮"  # hidden RLO char»|pos=«tool_prompt = "Summarize file" ; assert not any(0x202A <= ord(c) <= 0x202E for c in tool_p»|fp=d2d09181df34d9ca`
+- `@WIRE`: `@KML/1|id=KL-MCP-001|sev=C|cat=ai-agents-mcp|lang=py,ts,js|op=STRIP_BIDIRECTIONAL_UNICODE_OVERRIDE|guard=RX#7e5e71d7|neg=«tool_prompt = "Summarize file\u202e"  # hidden RLO char»|pos=«tool_prompt = "Summarize file" ; assert not any(0x202A <= ord(c) <= 0x202E for c in tool_p»|fp=d2d09181df34d9ca`
 - `@TRAP`: `[Cognitive Trap] Assumed visually inspected strings in MCP tool arguments or skill files match the byte stream interpreted by the LLM and runtime.`
 - `@LAW`: `[Mental Model] Invisible Unicode Bidi overrides (U+202A..U+202E, U+2066..U+2069) invert token order visually while executing hidden directives; reject them at the ingestion boundary.`
 
@@ -338,7 +338,7 @@ API_TOKEN = os.environ["OPENAI_API_KEY"]
 ```
 
 ### `KS-002` · `Destructive shell or irreversible git history wipe`
-- `@WIRE`: `@KML/1|id=KS-002|sev=C|cat=safety|lang=sh,py,js,ts|op=sh!no_force_push_or_rm_rf|guard=RX#de72fc45|neg=«git reset --hard HEAD~1 && git push --force origin main»|pos=«git stash push -u -m 'pre-refactor-backup' && git status»|fp=1e13a95b3dbeb10f`
+- `@WIRE`: `@KML/1|id=KS-002|sev=C|cat=safety|lang=sh,py,js,ts|op=sh!no_force_push_or_rm_rf|guard=RX#de72fc45|neg=«neg_literal:git reset --hard HEAD~1 && git push --force origin main»|pos=«git stash push -u -m 'pre-refactor-backup' && git status»|fp=1e13a95b3dbeb10f`
 - `@TRAP`: `Autonomous agents recovering from merge conflicts or dirty worktrees sometimes invoke git reset --hard, git clean -fd, or rm -rf on root paths.`
 - `@LAW`: `Protects uncommitted developer work and shared remote branches from irreversible deletion.`
 
