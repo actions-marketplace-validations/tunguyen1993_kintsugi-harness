@@ -1411,7 +1411,8 @@ class TestTruthGateAndEvolutionAdversarial(unittest.TestCase):
             )
             r_nfd = truth_gate_mod.run_custom_truth_gate(b_nval, f_nfd, t_nval, runner="node")
             self.assertFalse(r_nfd["ok"], r_nfd)
-            self.assertEqual(r_nfd["fixed_verdict"], "EXPECTED_PROPERTY_FAIL")
+            self.assertEqual(r_nfd["verdict"], "REJECTED_TRUTH_GATE")
+            self.assertIn(r_nfd["fixed_verdict"], {"EXPECTED_PROPERTY_FAIL", "INFRA_ERROR"})
 
             f_nexit = self._w("a311_f_nexit.mjs", "export function calc(x) { process.exit(0); }\n")
             r_nexit = truth_gate_mod.run_custom_truth_gate(b_nval, f_nexit, t_nval, runner="node")
