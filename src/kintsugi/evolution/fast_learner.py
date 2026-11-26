@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kintsugi Production Fast-Learner & Dual-Pincer Compiler (`src/kintsugi/evolution/fast_learner.py`).
 
-Closes all 4 Red-Team gaps identified with Claude Opus 4:
+Closes all 4 Red-Team verification gaps:
   1. Generalized `Failure-to-Artifact` Compiler: combines fast deterministic AST-delta extraction
      with an offline LLM proposer callback (`Callable[[str], str]`) to compile ANY novel `(broken -> fixed)`
      diff into EITHER a SHA-256-signed `RuleIR/1` OR a structural/sub-token `InvariantCapsule`.
@@ -27,9 +27,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Un
 from urllib.parse import urlparse
 
 
-# Fail-closed teacher provenance sets (Owner directive R133 / R137 / CM-108):
+# Fail-closed teacher provenance sets:
 # Only modern high-tier models on verified first-party endpoints qualify as Frontier Teachers.
-# Per Kintsugi v3.0 (GPT-5.4 Arbiter): NO model — not even Frontier — may self-certify
+# Per Kintsugi v3.0 Universal Truth Gate: NO model — not even Frontier — may self-certify
 # lessons without an independent Truth Gate (minimized counterexample + pinned oracle check).
 GENUINE_FIRST_PARTY_ORIGINS: Set[str] = {
     "antigravity_native",
@@ -58,29 +58,26 @@ ORIGIN_TO_EXPECTED_HOSTS: Dict[str, Tuple[str, ...]] = {
 GENUINE_FRONTIER_TEACHER_MODELS: Set[str] = {
     "claude-opus-4-6-thinking",
     "claude-opus-4-6",
+    "claude-opus-4",
     "claude-sonnet-4-6",
-    "gemini-4-neon-high",
-    "gemini-4-neon-xhigh",
-    "gemini-4-Frontier-high",
-    "gemini-4-carbon-high",
-    "gemini-4-hydrogen-high",
-    "gemini-4-hydrogen-xhigh",
-    "gpt-5.4-mini",
-    "GPT-5.4",
-    "GPT-5.4",
+    "claude-sonnet-4",
+    "gemini-2.5-pro",
+    "gemini-2.5-pro-preview",
     "gpt-5.4",
-    "gpt-5.4",
-    "Grok-3",
+    "gpt-5.4-pro",
+    "o3",
+    "o3-pro",
+    "grok-3",
+    "grok-3-thinking",
 }
 
 UNTRUSTED_RELAY_HOST_MARKERS: Tuple[str, ...] = (
-    "oneapi",
-    "new-api",
+    "untrusted-relay.example",
+    "third-party-proxy.example",
     "relay",
     "proxy",
     "mirror",
     "openrouter",
-    "oss_provider_h",
     "localhost",
     "127.0.0.1",
 )
@@ -98,7 +95,7 @@ LOW_TIER_MODEL_MARKERS: Tuple[str, ...] = (
     "kimi",
     "llama",
     "mistral",
-    "open-weights-verifier",
+    "small",
 )
 
 
@@ -135,7 +132,7 @@ def validate_teacher_provenance(
       - Enforces strict `origin <-> expected_host` binding (rejects empty host for remote API origins).
       - Rejects unsigned thinking blocks (`thinking_signature_verified is not True`) for `anthropic_official`
         or any `-thinking` model variant.
-      - Prevents low-tier models AND 3rd-party NewAPI/OneAPI relay proxies from passing as Frontier.
+      - Prevents low-tier models AND third-party relay proxies from passing as Frontier.
     """
     model_norm = (teacher_model or "").strip().lower()
     origin_norm = (teacher_origin or "").strip().lower()
@@ -149,8 +146,7 @@ def validate_teacher_provenance(
     if (
         any(marker in host for marker in UNTRUSTED_RELAY_HOST_MARKERS)
         or "relay" in origin_norm
-        or "new-api" in origin_norm
-        or "oneapi" in origin_norm
+        or "proxy" in origin_norm
     ):
         reasons.append(f"untrusted_third_party_relay:{host or origin_norm}")
     if origin_norm and origin_norm not in GENUINE_FIRST_PARTY_ORIGINS:

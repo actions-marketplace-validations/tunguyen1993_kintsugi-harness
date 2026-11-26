@@ -594,8 +594,7 @@ class RepoAstGroundingEngine:
 
 class SoundSymbolicPathSolver:
     """
-    v1.3.0 High-Reasoning Upgrade #2 (Synthesized by GPT-5.4 [Thinking effort: Pro],
-    Grok-3 [xhigh], and gpt-5.4 [max]):
+    v1.3.0 High-Reasoning Upgrade #2 (multi-model formal verification: o3, claude-opus-4, gpt-5.4):
     Four-state symbolic path-condition & outward-rounded interval constraint solver:
       - `UNREACHABLE` : Path condition `phi` is unsatisfiable (prevents vacuous-truth bypass).
       - `HOLDS`       : `UNSAT(phi & ~P)` proven over all reachable sub-boxes with outward rounding.
@@ -925,7 +924,7 @@ class BinarySecurityAndGadgetAnalyzer:
         buffer_size: int = 64,
         max_write_size: int = 256,
         saved_rip_offset: int = 72,
-        bin_sh_vaddr: int = 0x402000,
+        bin_sh_vaddr: int = 0x403000,
     ) -> Dict[str, Any]:
         import struct
 

@@ -1,10 +1,10 @@
 """
-External & Premium Skill Pack Manager (`kintsugi install-pack` / `kintsugi list-packs`).
+Skill Pack Manager (`kintsugi install-pack` / `kintsugi list-packs`).
 
-Allows developers using the open-source Kintsugi CLI to install standalone or
-commercial Skill Packs (`.zip` or `.json`, such as Kintsugi Pro packs from Agensi.io)
-into `.kintsugi/packs/`, automatically unlocking additional Golden Scars,
-deterministic Auto-Fix playbooks, and `.claude/commands/` workflows.
+Allows developers using the Apache-2.0 open-source Kintsugi CLI to install community or
+authenticated Skill Packs (`.kpack`, `.zip`, or `.json`) into `.kintsugi/packs/`,
+adding verified Golden Scars, deterministic Auto-Fix playbooks, and `.claude/commands/`
+workflows. All multi-model co-execution features are 100% unlocked under Apache-2.0.
 """
 
 from __future__ import annotations
@@ -50,17 +50,17 @@ def encrypt_pro_kpack_bytes(
     zip_bytes: bytes,
     license_key: str,
     *,
-    pack_id: str = "kintsugi-pro-complete-bundle",
-    tier: str = "pro-encrypted",
+    pack_id: str = "kintsugi-oss-bundle",
+    tier: str = "authenticated",
 ) -> bytes:
     """
-    Encrypts a commercial Pro Skill Pack `.zip` archive into an authenticated `.kpack`
-    envelope (`PBKDF2-HMAC-SHA256` 200k iterations + `SHA256-CTR` + `Encrypt-then-HMAC-SHA256`).
-    Only customers holding the matching `license_key` can decrypt or install the `.kpack`.
+    Encrypts a Skill Pack `.zip` archive into an authenticated `.kpack` envelope
+    (`PBKDF2-HMAC-SHA256` 200k iterations + `SHA256-CTR` + `Encrypt-then-HMAC-SHA256`)
+    for cryptographic bundle integrity and private team distribution.
     """
     clean_key = (license_key or "").strip()
     if len(clean_key) < 12:
-        raise ValueError("Pro license key must be at least 12 characters long.")
+        raise ValueError("Pack signing/encryption key must be at least 12 characters long.")
 
     salt = secrets.token_bytes(16)
     nonce = secrets.token_bytes(16)
@@ -89,13 +89,13 @@ def encrypt_pro_kpack_bytes(
 def decrypt_pro_kpack_bytes(kpack_bytes: bytes, license_key: Optional[str]) -> bytes:
     """
     Verifies the Encrypt-then-MAC tag in constant time (`hmac.compare_digest`) and decrypts
-    an encrypted `.kpack` Skill Pack back into its in-memory `.zip` bytes.
+    an authenticated `.kpack` Skill Pack back into its in-memory `.zip` bytes.
     """
     clean_key = (license_key or os.environ.get("KINTSUGI_LICENSE_KEY") or "").strip()
     if not clean_key:
         raise PermissionError(
-            "KINTSUGI_PRO_LICENSE_REQUIRED: This is an encrypted Kintsugi Pro Skill Pack (.kpack). "
-            "Pass your customer unlock key via `--license-key <KEY>` or set `KINTSUGI_LICENSE_KEY`."
+            "KINTSUGI_KPACK_KEY_REQUIRED: This `.kpack` archive is encrypted. "
+            "Pass your decryption key via `--license-key <KEY>` or set `KINTSUGI_LICENSE_KEY`."
         )
 
     try:
@@ -107,7 +107,7 @@ def decrypt_pro_kpack_bytes(kpack_bytes: bytes, license_key: Optional[str]) -> b
         raise ValueError("Unsupported .kpack format version.")
 
     pack_id = str(envelope.get("pack_id", ""))
-    tier = str(envelope.get("tier", "pro-encrypted"))
+    tier = str(envelope.get("tier", "authenticated"))
     iterations = int(envelope.get("kdf_iterations", PBKDF2_ITERATIONS))
     salt = base64.b64decode(envelope["salt_b64"])
     nonce = base64.b64decode(envelope["nonce_b64"])
@@ -121,8 +121,8 @@ def decrypt_pro_kpack_bytes(kpack_bytes: bytes, license_key: Optional[str]) -> b
 
     if not hmac.compare_digest(computed_mac_hex, expected_mac_hex):
         raise PermissionError(
-            "KINTSUGI_PRO_LICENSE_INVALID: License key verification failed (HMAC-SHA256 mismatch). "
-            "Please verify your customer license key from Agensi.io / Gumroad."
+            "KINTSUGI_KPACK_KEY_INVALID: Pack key verification failed (HMAC-SHA256 mismatch). "
+            "Verify the key used to encrypt this `.kpack` bundle."
         )
 
     return _xor_keystream(ciphertext, enc_key, nonce)
@@ -196,7 +196,7 @@ def install_skill_pack(
     license_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Install a `.kpack` (encrypted Pro bundle), `.zip`, or `.json` Skill Pack into `.kintsugi/packs/`,
+    Install a `.kpack` (AEAD-encrypted Apache-2.0 Skill Pack bundle), `.zip`, or `.json` Skill Pack into `.kintsugi/packs/`,
     merge its verified Golden Scars into the active ledger, and extract any slash commands.
     """
     src = Path(pack_source)
@@ -212,7 +212,7 @@ def install_skill_pack(
         ]
         resolved_candidate = next((c for c in candidates if c.exists()), None)
         if resolved_candidate is not None and (
-            str(pack_source) in {"free-skill-pack", "kintsugi-complete-pro-1688", "starter"}
+            str(pack_source) in {"free-skill-pack", "kintsugi-complete-corpus", "starter"}
             or resolved_candidate.stem == str(pack_source)
         ):
             src = resolved_candidate
@@ -273,7 +273,7 @@ def install_skill_pack(
                 "name": pack_slug,
                 "title": manifest_data.get("title", pack_slug),
                 "version": manifest_data.get("version", "1.3.0"),
-                "tier": manifest_data.get("tier", "premium"),
+                "tier": manifest_data.get("tier", "open-source"),
                 "machine_language_format": manifest_data.get("machine_language_format", "KML/1"),
                 "co_execution_tier": manifest_data.get("co_execution_tier"),
                 "max_free_co_runners": manifest_data.get("max_free_co_runners"),
@@ -332,92 +332,36 @@ def install_skill_pack(
 
 def resolve_workspace_co_execution_entitlement(workspace_root: str | Path = ".") -> Dict[str, Any]:
     """
-    Resolve the workspace's 3-Tier Multi-Model Co-Execution entitlement from `.kintsugi/packs/`:
+    Resolve the workspace's Apache-2.0 Open Source Multi-Model Co-Execution configuration.
 
-    1. `APACHE_2_OPEN_SOURCE` ($0 Open Source / Free Starter Pack):
-       - Hard-locked to `Primary Anchor + 1 Free Model` (`max_free_co_runners = 1`).
-       - Multi-Model Free Swarm (`>=2` free co-runners) and Paid Frontier Council are locked.
-    2. `APACHE_2_OPEN_SOURCE` (Apache-2.0 Agent FinOps Pro / Apache-2.0 Zero-Trust AppSec Pro):
-       - Unlocks `Primary Anchor + Multi-Model Free Swarm` (`max_free_co_runners = 5` independent free models
-         running in parallel with automatic 429 round-robin failover).
-       - Paid Frontier Council remains locked (requires Apache-2.0 Complete Corpus Pack).
-    3. `APACHE_2_OPEN_SOURCE` (Apache-2.0 Complete Corpus Pack):
-       - Unlocks `Primary Anchor + Multi-Model Free Swarm (up to 5 free models) + BYOK Paid Frontier Agent Council`
-         (`paid_council_byok_unlocked = True`, up to 6 paid frontier seats configured with the user's own API keys).
+    All Kintsugi Harness capabilities are 100% unlocked under Apache-2.0 with zero paywalls:
+      - Primary Anchor + up to 5 parallel co-runners (official BYOK APIs or offline local Ollama)
+      - Full BYOK Multi-Model Council (up to 6 official provider seats configured with user API keys)
+      - Multi-pack federation and deterministic offline verification.
     """
     packs_dir = get_packs_dir(workspace_root)
-    highest_rank = 0
-    matched_pack_id = "kintsugi-core-guard-free"
+    matched_pack_id = "kintsugi-apache2-oss"
 
     if packs_dir.exists():
         for manifest_file in sorted(packs_dir.glob("*.json")):
             try:
                 data = json.loads(manifest_file.read_text(encoding="utf-8"))
+                matched_pack_id = str(data.get("name", manifest_file.stem))
             except Exception:
                 continue
-            slug = str(data.get("name", manifest_file.stem)).lower()
-            tier_val = str(data.get("tier", "community")).lower()
-            co_tier = str(data.get("co_execution_tier") or "").upper()
-            paid_flag = bool(data.get("paid_council_byok_unlocked", False))
 
-            if (
-                "enterprise-complete-pro" in slug
-                or co_tier == "APACHE_2_OPEN_SOURCE"
-                or paid_flag
-                or tier_val == "enterprise"
-            ):
-                if highest_rank < 2:
-                    highest_rank = 2
-                    matched_pack_id = str(data.get("name", manifest_file.stem))
-            elif (
-                "security-pro" in slug
-                or "finops-reliability-pro" in slug
-                or co_tier == "APACHE_2_OPEN_SOURCE"
-                or tier_val in {"premium", "pro", "pro-encrypted", "pro-encrypted-v1.3.0-kml1"}
-            ):
-                if highest_rank < 1:
-                    highest_rank = 1
-                    matched_pack_id = str(data.get("name", manifest_file.stem))
-
-    if highest_rank == 2:
-        return {
-            "tier_id": "APACHE_2_OPEN_SOURCE",
-            "tier_rank": 2,
-            "tier_label": "Complete Corpus Pack (Apache-2.0)",
-            "unlocked_by_pack": matched_pack_id,
-            "primary_anchor_always_on": True,
-            "min_free_co_runners": 1,
-            "max_free_co_runners": 5,
-            "multi_free_unlocked": True,
-            "paid_council_byok_unlocked": True,
-            "max_paid_council_seats": 6,
-            "paid_council_key_policy": "USER_BYOK_REQUIRED",
-        }
-    if highest_rank == 1:
-        return {
-            "tier_id": "APACHE_2_OPEN_SOURCE",
-            "tier_rank": 1,
-            "tier_label": "Pro Multi-Model Free (Apache-2.0 FinOps Pro / Apache-2.0 AppSec Pro)",
-            "unlocked_by_pack": matched_pack_id,
-            "primary_anchor_always_on": True,
-            "min_free_co_runners": 1,
-            "max_free_co_runners": 5,
-            "multi_free_unlocked": True,
-            "paid_council_byok_unlocked": False,
-            "max_paid_council_seats": 0,
-            "paid_council_key_policy": "LOCKED_UPGRADE_TO_ENTERPRISE_29",
-        }
     return {
         "tier_id": "APACHE_2_OPEN_SOURCE",
-        "tier_rank": 0,
-        "tier_label": "Free Open-Source Starter ($0)",
+        "co_execution_tier": "APACHE_2_OPEN_SOURCE",
+        "tier_rank": 2,
+        "tier_label": "Apache-2.0 Open Source (All Features Unlocked)",
         "unlocked_by_pack": matched_pack_id,
         "primary_anchor_always_on": True,
         "min_free_co_runners": 1,
-        "max_free_co_runners": 1,
-        "multi_free_unlocked": False,
-        "paid_council_byok_unlocked": False,
-        "max_paid_council_seats": 0,
-        "paid_council_key_policy": "LOCKED_UPGRADE_TO_ENTERPRISE_29",
+        "max_free_co_runners": 5,
+        "multi_free_unlocked": True,
+        "paid_council_byok_unlocked": True,
+        "max_paid_council_seats": 6,
+        "paid_council_key_policy": "USER_BYOK_OPTIONAL",
     }
 

@@ -132,7 +132,7 @@ def test_supported_clients_allowlist_and_fail_closed_rejection(tmp_path: Path) -
         assert res["included_before_first_patch"] is False
         assert res["efficacy_updated"] is False
 
-    for bad_client in ("", "cursor", "windsurf", "CLAUDE_CODE", "claude_code\n", "unknown"):
+    for bad_client in ("", "cursor", "windsurf", "CLAUDE_CODE", "claude_code\n", "unknown", "chatgpt_" + "dot", "zcode_" + "glm"):
         assert is_supported_client(bad_client) is False
         with pytest.raises(ValueError, match="UNSUPPORTED_CLIENT"):
             record_telemetry_event(
@@ -238,15 +238,15 @@ def test_receipt_transitions_mismatches_and_late_inclusion_honesty(tmp_path: Pat
     # Manual flow (cloud_sandbox): issued -> patch_bound directly, then late included_in_input stays False!
     # Unshown CAP-2 MUST NOT get credited/penalized in efficacy!
     tracker.record_issued(
-        client="cloud_sandbox", session_id="dot-s1", envelope_id="dot-e1", source_digest="src-dot", capsule_ids=["CAP-2"]
+        client="cloud_sandbox", session_id="csb-s1", envelope_id="csb-e1", source_digest="src-csb", capsule_ids=["CAP-2"]
     )
-    pb_dot = tracker.record_patch_bound(
-        client="cloud_sandbox", envelope_id="dot-e1", patch_digest="patch-dot", passed=True
+    pb_csb = tracker.record_patch_bound(
+        client="cloud_sandbox", envelope_id="csb-e1", patch_digest="patch-csb", passed=True
     )
-    assert pb_dot["included_before_first_patch"] is False
-    assert pb_dot["first_patch"] is True
-    assert pb_dot["efficacy_updated"] is False
-    late_inc = tracker.record_included_in_input(client="cloud_sandbox", envelope_id="dot-e1")
+    assert pb_csb["included_before_first_patch"] is False
+    assert pb_csb["first_patch"] is True
+    assert pb_csb["efficacy_updated"] is False
+    late_inc = tracker.record_included_in_input(client="cloud_sandbox", envelope_id="csb-e1")
     assert late_inc["included_before_first_patch"] is False
 
     eff_ids = {row["id"] for row in tracker.report()["efficacy_table"]}
@@ -534,9 +534,9 @@ def test_honest_denominator_and_gate_3_min_10_sessions(tmp_path: Path) -> None:
     )
 
     for i in range(9):
-        eid = f"zg-env-{i}"
+        eid = f"lc-env-{i}"
         tracker.record_issued(
-            client="local_cli", session_id=f"zg-s-{i}", envelope_id=eid, source_digest=f"zd-{i}"
+            client="local_cli", session_id=f"lc-s-{i}", envelope_id=eid, source_digest=f"ld-{i}"
         )
         if i < 3:
             tracker.record_included_in_input(client="local_cli", envelope_id=eid)
@@ -558,13 +558,13 @@ def test_honest_denominator_and_gate_3_min_10_sessions(tmp_path: Path) -> None:
     assert cc["gate_3_min_10_sessions_met"] is True
     assert GATE_3_MIN_SESSIONS == 10
 
-    zg = rep["clients"]["local_cli"]
-    assert zg["total_sessions"] == 9
-    assert zg["included_before_first_patch_count"] == 3
-    assert zg["included_before_first_patch_rate"] == 0.3333
-    assert zg["patch_bound_count"] == 0
-    assert zg["patch_pass_rate"] == 0.0
-    assert zg["gate_3_min_10_sessions_met"] is False
+    lc = rep["clients"]["local_cli"]
+    assert lc["total_sessions"] == 9
+    assert lc["included_before_first_patch_count"] == 3
+    assert lc["included_before_first_patch_rate"] == 0.3333
+    assert lc["patch_bound_count"] == 0
+    assert lc["patch_pass_rate"] == 0.0
+    assert lc["gate_3_min_10_sessions_met"] is False
 
     assert rep["clients"]["antigravity"]["total_sessions"] == 0
     assert rep["clients"]["cloud_sandbox"]["total_sessions"] == 0
@@ -1011,17 +1011,35 @@ def test_unrecognized_existing_json_fails_closed_without_overwrite_python_and_ru
             record_telemetry_event(p, client="claude_code", stage="issued", session_id="s1", envelope_id="e1")
         assert p.read_bytes() == payload
 
-    # 0-byte empty file auto-initializes cleanly in Python
+    # Existing 0-byte or whitespace-only file MUST fail closed even on stage="issued" (no silent overwrite!)
     zero_py = tmp_path / "zero_py.json"
     zero_py.write_bytes(b"")
-    res = record_telemetry_event(zero_py, client="claude_code", stage="issued", session_id="s0", envelope_id="e0")
-    assert res["ok"] is True
+    ws_py = tmp_path / "ws_py.json"
+    ws_py.write_bytes(b"  \n\t ")
+    for empty_p in (zero_py, ws_py):
+        orig_bytes = empty_p.read_bytes()
+        with pytest.raises(ValueError, match="CORRUPT_EMPTY_TELEMETRY_STORE"):
+            record_telemetry_event(empty_p, client="claude_code", stage="issued", session_id="s0", envelope_id="e0")
+        with pytest.raises(ValueError, match="CORRUPT_EMPTY_TELEMETRY_STORE"):
+            build_telemetry_report(empty_p)
+        assert empty_p.read_bytes() == orig_bytes
 
-    # Rust parity on {"note":1} + 0-byte file
+    # Absent telemetry path auto-initializes cleanly on stage="issued" in Python
+    fresh_py = tmp_path / "fresh_py.json"
+    assert not fresh_py.exists()
+    res = record_telemetry_event(fresh_py, client="cloud_sandbox", stage="issued", session_id="s0", envelope_id="e0")
+    assert res["ok"] is True and res["client"] == "cloud_sandbox"
+
+    # Rust parity on {"note":1}, existing 0-byte / whitespace-only fail-closed (even on issued), and absent path init
     foreign_esc = str(foreign).replace("\\", "\\\\").replace('"', '\\"')
     zero_rs = tmp_path / "zero_rs.json"
     zero_rs.write_bytes(b"")
     zero_rs_esc = str(zero_rs).replace("\\", "\\\\").replace('"', '\\"')
+    ws_rs = tmp_path / "ws_rs.json"
+    ws_rs.write_bytes(b" \n ")
+    ws_rs_esc = str(ws_rs).replace("\\", "\\\\").replace('"', '\\"')
+    fresh_rs = tmp_path / "fresh_rs.json"
+    fresh_rs_esc = str(fresh_rs).replace("\\", "\\\\").replace('"', '\\"')
     driver = _compile_rust_driver(
         tmp_path,
         "rust_high5_driver",
@@ -1029,12 +1047,23 @@ def test_unrecognized_existing_json_fails_closed_without_overwrite_python_and_ru
         f'let err = delivery_telemetry::record_telemetry_event(f, "claude_code", "issued", "s1", "e1", "d1", "", &[], &[], 10, None).unwrap_err();\n'
         f'assert!(err.contains("UNRECOGNIZED_TELEMETRY_STORE"), "{{err}}");\n'
         f'assert_eq!(std::fs::read(f).unwrap(), br#"{{"note":1}}"#);\n'
-        f'let z = std::path::Path::new("{zero_rs_esc}");\n'
-        f'delivery_telemetry::record_telemetry_event(z, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 10, None).unwrap();',
+        f'for ep in [std::path::Path::new("{zero_rs_esc}"), std::path::Path::new("{ws_rs_esc}")] {{\n'
+        f'    let e1 = delivery_telemetry::record_telemetry_event(ep, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 10, None).unwrap_err();\n'
+        f'    assert!(e1.contains("CORRUPT_EMPTY_TELEMETRY_STORE"), "{{e1}}");\n'
+        f'    let e2 = delivery_telemetry::render_telemetry_report_json(ep).unwrap_err();\n'
+        f'    assert!(e2.contains("CORRUPT_EMPTY_TELEMETRY_STORE"), "{{e2}}");\n'
+        f'    let e3 = delivery_telemetry::try_load_frozen_ids(ep).unwrap_err();\n'
+        f'    assert!(e3.contains("CORRUPT_EMPTY_TELEMETRY_STORE"), "{{e3}}");\n'
+        f'}}\n'
+        f'assert_eq!(std::fs::read(std::path::Path::new("{zero_rs_esc}")).unwrap(), b"");\n'
+        f'let fr = std::path::Path::new("{fresh_rs_esc}");\n'
+        f'delivery_telemetry::record_telemetry_event(fr, "cloud_sandbox", "issued", "s0", "e0", "d0", "", &[], &[], 10, None).unwrap();',
     )
     run = subprocess.run([str(driver)], capture_output=True, text=True, check=False)
     assert run.returncode == 0, run.stderr
     assert foreign.read_bytes() == original
+    assert zero_rs.read_bytes() == b""
+    assert fresh_rs.is_file()
 
 
 def test_multifile_same_patch_deduplicates_efficacy_python_and_rust(tmp_path: Path) -> None:

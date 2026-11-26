@@ -19,12 +19,12 @@
   "good_code": "MESSAGE_ACTION: HOLD_COMPOSURED_SILENCE(consecutive_unanswered=1, focus='personal_mission_and_reciprocity')",
   "regex_pattern": "SEND_NEEDY_TRIPLE_TEXT|anxious_validation_seeking",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
-    "meta-muse-spark"
+    "grok-3",
+    "open-weights-frontier"
   ],
   "reinforcement_count": 21,
   "source_repo": "local-episodic",

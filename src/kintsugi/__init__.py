@@ -1,6 +1,6 @@
 """Kintsugi Harness — Self-evolving failure-to-skill, Rust/Python PreToolUse guardrail engine, and KMI/1 token compressor."""
 
-__version__ = "3.0.1"
+__version__ = "3.1.1"
 
 from kintsugi.auditor import render_audit_markdown, run_posture_audit
 from kintsugi.capability import (
@@ -122,9 +122,9 @@ from kintsugi.logic import (
     FormalFallacyAndCoTAuditor,
     LoginAuthLogicVerifier,
     StratifiedDatalogEngine,
-    forage_github_star_harnesses_with_gemini_grok,
-    run_multi_model_luna_vs_free_council_logic_arena,
+    forage_github_star_harnesses,
     run_logical_reasoning_benchmark,
+    run_neuro_symbolic_vs_raw_council_logic_arena,
 )
 from kintsugi.compliance import (
     EvalBenchmarkCase,
@@ -136,9 +136,9 @@ from kintsugi.compiler import SkillCompiler
 from kintsugi.compressor import compute_token_savings_report, render_jit_stub, render_kmi_index
 from kintsugi.council import (
     PAID_FRONTIER_COUNCIL_CATALOG,
+    CoRunnerSlot,
     EvolutionCouncil,
     FreeCoRunnerPoolRegistry,
-    BYOKPoolSlot,
     PaidFrontierCouncilBYOKRegistry,
     PrimaryPlusFreeCoExecutor,
     answer_user_multi_model_question,
@@ -172,19 +172,18 @@ from kintsugi.packs import (
 )
 from kintsugi.scanner import KintsugiScanner
 from kintsugi.swarm import (
-    FREE_ZERO_CARD_PROVIDER_CATALOG,
+    OFFICIAL_PROVIDER_CATALOG,
     AIProviderBenchmarkSuite,
     BrierMomentShrinkagePool,
+    BYOKProviderPoolManager,
     CloneEpisodicReport,
     ClonePropositionVote,
     ClosedLoopEvolutionArena,
-    ConsentGatedBYOKPoolManager,
     ControlledInternetForager,
     PlaybookStep,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
     enforce_kl_high_001_promotion_guard,
-    configure_byok_provider,
 )
 
 __all__ = [
@@ -206,10 +205,11 @@ __all__ = [
     "run_autofix",
     "install_skill_pack",
     "list_installed_packs",
-    "FREE_ZERO_CARD_PROVIDER_CATALOG",
+    "OFFICIAL_PROVIDER_CATALOG",
+    "BYOKProviderPoolManager",
+    "CoRunnerSlot",
     "CloneEpisodicReport",
     "ClonePropositionVote",
-    "ConsentGatedBYOKPoolManager",
     "PlaybookStep",
     "ShadowCloneSwarmOrchestrator",
     "SoundSymbolicPathSolver",
@@ -218,7 +218,6 @@ __all__ = [
     "BrierMomentShrinkagePool",
     "RedBlueAdversarialArena",
     "enforce_kl_high_001_promotion_guard",
-    "configure_byok_provider",
     "build_multi_model_agent_guide",
     "answer_user_multi_model_question",
     "resolve_workspace_co_execution_entitlement",

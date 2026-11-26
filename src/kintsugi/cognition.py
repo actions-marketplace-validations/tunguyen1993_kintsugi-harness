@@ -144,12 +144,12 @@ class ModelTier(str, Enum):
 # Explicit allowlist of high-reasoning Frontier models permitted to push to the Collective Pool
 FRONTIER_MODEL_PATTERNS: Tuple[Tuple[str, str], ...] = (
     (r"^claude-(?:opus|3-5-opus|3-7-sonnet|sonnet-4)", "claude-frontier"),
-    (r"^(?:GPT-5.4|gpt-5\.6-extra-high|o3|o1-pro)", "openai-frontier"),
-    (r"^deepseek-(?:r1|v4)", "deepseek-r1"),
-    (r"^gemini-(?:3\.8-pro|2\.5-pro)", "gemini-pro"),
-    (r"^qwen(?:3\.8-max|-max)", "qwen-max"),
-    (r"^grok-4", "grok-frontier"),
-    (r"^meta-muse-spark", "open-weights-frontier"),
+    (r"^(?:gpt-5\.4|gpt-5|o3|o1-pro)", "openai-frontier"),
+    (r"^deepseek-r1", "deepseek-r1"),
+    (r"^gemini-2\.5-pro", "gemini-pro"),
+    (r"^qwen(?:-2\.5-coder|-max)", "qwen-max"),
+    (r"^grok-3", "grok-frontier"),
+    (r"^(?:llama-3\.3|open-weights)", "open-weights-frontier"),
 )
 
 LOW_TIER_DENY_PATTERNS = re.compile(
@@ -160,7 +160,7 @@ LOW_TIER_DENY_PATTERNS = re.compile(
 DLP_PRIVATE_PATTERN = re.compile(
     r"(?:/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\\\Users\\\\|"
     r"[a-zA-Z0-9._%+-]+@(?!([a-zA-Z0-9-]+\.)*example\.(?:com|org|net)\b)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|"
-    r"192\.168\.\d+\.\d+|0x[a-fA-F0-9]{40})",
+    r"192\.16[8]\.\d+\.\d+|0x[a-fA-F0-9]{40})",
     re.IGNORECASE,
 )
 
@@ -350,8 +350,8 @@ def verify_frontier_sync_gate(
         return (
             False,
             f"REJECTED_LOW_TIER_MODEL: Model '{lesson.synthesized_by_model}' is classified as "
-            f"{lesson.model_tier.value}. Only Tier-1 Frontier models (Claude Opus/Sonnet-4, GPT-5.4, "
-            f"DeepSeek-R1/V4, Gemini-2.5-Pro, Qwen-2.5-Coder, Grok-4, Meta-Muse-Spark) may publish to the Collective Pool.",
+            f"{lesson.model_tier.value}. Only Tier-1 Frontier models (Claude Opus/Sonnet-4, GPT-5.4/o3, "
+            f"DeepSeek-R1, Gemini-2.5-Pro, Qwen-2.5-Coder, Grok-3, Llama-3.3) may publish to the Collective Pool.",
             None,
         )
 
@@ -750,7 +750,7 @@ class CognitiveMemoryManager:
             bytes_fetched = 0
             if fetch_live_github:
                 try:
-                    req = urllib.request.Request(src["url"], headers={"User-Agent": "kintsugi-Collector/0.5.0"})
+                    req = urllib.request.Request(src["url"], headers={"User-Agent": "kintsugi-collector/3.1.1"})
                     with urllib.request.urlopen(req, timeout=8) as resp:
                         content = resp.read().decode("utf-8", errors="replace")
                         bytes_fetched = len(content)
@@ -1121,8 +1121,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code='ckpt = torch.load("weights.pt")',
             good_code='ckpt = torch.load("weights.pt", weights_only=True)',
             regex_pattern=r"\btorch\.load\s*\([^)\n]*(?<!weights_only=True)\)",
-            synthesized_by_model="Gemini-2.5-Pro",
-            endorsed_by_models=["Gemini-2.5-Pro", "deepseek-r1-0528"],
+            synthesized_by_model="gemini-2.5-pro",
+            endorsed_by_models=["gemini-2.5-pro", "deepseek-r1-0528"],
             reinforcement_count=9,
             source_repo="local-episodic",
         ),
@@ -1139,7 +1139,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code='df["alpha_feature"] = df["close"] / df["close"].shift(1) - 1.0',
             regex_pattern=r'df\[\s*["\']alpha_feature["\']\s*\]\s*=[^\n]*\.shift\(\s*-\d+\s*\)',
             synthesized_by_model="deepseek-r1-0528",
-            endorsed_by_models=["deepseek-r1-0528", "Qwen-2.5-Coder"],
+            endorsed_by_models=["deepseek-r1-0528", "qwen-2.5-coder"],
             reinforcement_count=8,
             source_repo="github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
         ),
@@ -1155,8 +1155,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code='claims = jwt.decode(token, options={"verify_signature": False})',
             good_code='claims = jwt.decode(token, public_key, algorithms=["RS256"])',
             regex_pattern=r'["\']verify_signature["\']\s*:\s*False',
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "claude-opus-4"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "claude-opus-4"],
             reinforcement_count=12,
             source_repo="local-episodic",
         ),
@@ -1172,8 +1172,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="if webhook_signature == expected_hmac_digest:\n    credit_ledger()",
             good_code="import hmac\nif hmac.compare_digest(webhook_signature, expected_hmac_digest):\n    credit_ledger()",
             regex_pattern=r"\b(?:webhook_signature|hmac_sig|expected_hmac_digest)\s*==\s*(?:expected_hmac_digest|webhook_signature|computed_hmac)\b",
-            synthesized_by_model="Qwen-2.5-Coder",
-            endorsed_by_models=["Qwen-2.5-Coder", "gpt-5.4"],
+            synthesized_by_model="qwen-2.5-coder",
+            endorsed_by_models=["qwen-2.5-coder", "gpt-5.4"],
             reinforcement_count=8,
             source_repo="local-episodic",
         ),
@@ -1189,8 +1189,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code='ssh -o StrictHostKeyChecking=no deploy@edge.example.com "systemctl restart api"',
             good_code='ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/ssh/known_hosts deploy@edge.example.com "systemctl restart api"',
             regex_pattern=r"(?:StrictHostKeyChecking=no|AutoAddPolicy\s*\(\s*\))",
-            synthesized_by_model="meta-muse-spark",
-            endorsed_by_models=["meta-muse-spark", "deepseek-r1-0528"],
+            synthesized_by_model="llama-3.3-70b",
+            endorsed_by_models=["llama-3.3-70b", "deepseek-r1-0528"],
             reinforcement_count=10,
             source_repo="local-episodic",
         ),
@@ -1207,7 +1207,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code='page.goto("http://localhost:3000")\npage.wait_for_load_state("networkidle")',
             regex_pattern=r"page\.wait_for_timeout\s*\(\s*\d+\s*\)\s*#\s*BLIND_PLAYWRIGHT_SLEEP",
             synthesized_by_model="claude-opus-4",
-            endorsed_by_models=["claude-opus-4", "Gemini-2.5-Pro"],
+            endorsed_by_models=["claude-opus-4", "gemini-2.5-pro"],
             reinforcement_count=7,
             source_repo="github:anthropics/skills/webapp-testing",
         ),
@@ -1244,7 +1244,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="STRATEGY: position_size = min(account_equity * 0.01, max_risk_cap)",
             regex_pattern=r"MARTINGALE_DOUBLE_DOWN|previous_losing_size\s*\*\s*[2-9]",
             synthesized_by_model="gpt-5.4",
-            endorsed_by_models=["gpt-5.4", "Qwen-2.5-Coder"],
+            endorsed_by_models=["gpt-5.4", "qwen-2.5-coder"],
             reinforcement_count=15,
             source_repo="local-episodic",
         ),
@@ -1277,8 +1277,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="PITCH: UNILATERAL_PREEMPTIVE_DISCOUNT(discount_pct=40, counter_commitment=None)",
             good_code="PITCH: ANCHOR_VALUE_WITH_QUID_PRO_QUO(discount_pct=15, counter_commitment='annual_upfront_and_case_study')",
             regex_pattern=r"UNILATERAL_PREEMPTIVE_DISCOUNT",
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "claude-opus-4"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "claude-opus-4"],
             reinforcement_count=10,
             source_repo="local-episodic",
         ),
@@ -1294,8 +1294,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="MESSAGE_ACTION: SEND_NEEDY_TRIPLE_TEXT(consecutive_unanswered=3, tone='anxious_validation_seeking')",
             good_code="MESSAGE_ACTION: HOLD_COMPOSURED_SILENCE(consecutive_unanswered=1, focus='personal_mission_and_reciprocity')",
             regex_pattern=r"SEND_NEEDY_TRIPLE_TEXT|anxious_validation_seeking",
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "meta-muse-spark"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "llama-3.3-70b"],
             reinforcement_count=16,
             source_repo="local-episodic",
         ),
@@ -1312,7 +1312,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="CONFLICT_REPLY: PAUSE_AND_STATE_OBSERVATION(cooldown_minutes=30, phrasing='When X happened, it impacted Y; let us align on Z')",
             regex_pattern=r"SEND_IMMEDIATELY_WHILE_ANGRY",
             synthesized_by_model="claude-opus-4",
-            endorsed_by_models=["claude-opus-4", "Gemini-2.5-Pro"],
+            endorsed_by_models=["claude-opus-4", "gemini-2.5-pro"],
             reinforcement_count=9,
             source_repo="local-episodic",
         ),
@@ -1345,14 +1345,14 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="IP_CLAUSE: ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT()",
             good_code="IP_CLAUSE: RETAIN_BACKGROUND_IP_AND_ASSIGN_CUSTOM_DELIVERABLES_ONLY(license='non_exclusive_perpetual')",
             regex_pattern=r"ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT",
-            synthesized_by_model="Gemini-2.5-Pro",
-            endorsed_by_models=["Gemini-2.5-Pro", "deepseek-r1-0528"],
+            synthesized_by_model="gemini-2.5-pro",
+            endorsed_by_models=["gemini-2.5-pro", "deepseek-r1-0528"],
             reinforcement_count=10,
             source_repo="local-episodic",
         ),
         CognitiveLesson(
             id="KL-HLT-001",
-            title="Circadian & Cognitive Recovery Guard: Block late caffeine and连续 >4h unpaused deep-work marathons",
+            title="Circadian & Cognitive Recovery Guard: Block late caffeine and continuous >4h unpaused deep-work marathons",
             domain="health-longevity",
             severity=Severity.HIGH,
             languages=["decision", "markdown"],
@@ -1362,8 +1362,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="HABIT_LOG: INTAKE_CAFFEINE_LATE_NIGHT(hour_24=20, continuous_sitting_hours=6)",
             good_code="HABIT_LOG: RESPECT_CIRCADIAN_CUTOFF(last_caffeine_hour=14, ultradian_break_every_minutes=90)",
             regex_pattern=r"INTAKE_CAFFEINE_LATE_NIGHT",
-            synthesized_by_model="meta-muse-spark",
-            endorsed_by_models=["meta-muse-spark", "Gemini-2.5-Pro"],
+            synthesized_by_model="llama-3.3-70b",
+            endorsed_by_models=["llama-3.3-70b", "gemini-2.5-pro"],
             reinforcement_count=11,
             source_repo="local-episodic",
         ),
@@ -1413,8 +1413,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="OUTREACH_POST: BLAST_PROMO_LINK_ON_NEW_ACCOUNT(account_age_days=2, outbound_urls=3)",
             good_code="OUTREACH_POST: NATIVE_VALUE_CONTRIBUTION(account_age_days=14, karma=250, value_to_promo_ratio='95:5')",
             regex_pattern=r"BLAST_PROMO_LINK_ON_NEW_ACCOUNT",
-            synthesized_by_model="Qwen-2.5-Coder",
-            endorsed_by_models=["Qwen-2.5-Coder", "Grok-3"],
+            synthesized_by_model="qwen-2.5-coder",
+            endorsed_by_models=["qwen-2.5-coder", "grok-3"],
             reinforcement_count=11,
             source_repo="local-episodic",
         ),
@@ -1448,7 +1448,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code='ws["B10"] = "=SUM(B2:B9)"',
             regex_pattern=r"HARDCODED_XLSX_TOTAL",
             synthesized_by_model="claude-opus-4",
-            endorsed_by_models=["claude-opus-4", "Qwen-2.5-Coder"],
+            endorsed_by_models=["claude-opus-4", "qwen-2.5-coder"],
             reinforcement_count=8,
             source_repo="github:anthropics/skills/xlsx",
         ),
@@ -1535,8 +1535,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="user_record.update(request_json)  # UNFILTERED_PRIVILEGE_MASS_ASSIGNMENT",
             good_code="ALLOWED = {'display_name', 'bio'}\nuser_record.update({k: request_json[k] for k in ALLOWED if k in request_json})",
             regex_pattern=r"UNFILTERED_PRIVILEGE_MASS_ASSIGNMENT|\buser_record\.update\(\s*request_json\s*\)",
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "gpt-5.4"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "gpt-5.4"],
             reinforcement_count=13,
             source_repo="local-episodic",
         ),
@@ -1586,8 +1586,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code='model_used = response_data.get("model") or target_frontier_model  # SILENT_MODEL_DOWNGRADE_MASK',
             good_code='reported = str(response_data.get("model") or "")\nassert reported.startswith(expected_family), f"Unexpected routed model: {reported}"',
             regex_pattern=r"SILENT_MODEL_DOWNGRADE_MASK|response_data\.get\(\s*[\"']model[\"']\s*\)\s+or\s+target_frontier_model",
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "deepseek-r1-0528"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "deepseek-r1-0528"],
             reinforcement_count=11,
             source_repo="local-episodic",
         ),
@@ -1621,7 +1621,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\nwait_for_reactive_event_notification()",
             regex_pattern=r"UNLOCKED_BUSY_POLL_LOOP",
             synthesized_by_model="deepseek-r1-0528",
-            endorsed_by_models=["deepseek-r1-0528", "meta-muse-spark"],
+            endorsed_by_models=["deepseek-r1-0528", "llama-3.3-70b"],
             reinforcement_count=10,
             source_repo="local-episodic",
         ),
@@ -1637,8 +1637,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="await client.send('Network.clearBrowserCookies');  // MISSING_INDEXEDDB_ORIGIN_CLEAR",
             good_code="await client.send('Page.navigate', { url: 'about:blank' });\nawait client.send('Storage.clearDataForOrigin', { origin, storageTypes: 'indexeddb,local_storage,cache_storage,service_workers' });",
             regex_pattern=r"MISSING_INDEXEDDB_ORIGIN_CLEAR",
-            synthesized_by_model="meta-muse-spark",
-            endorsed_by_models=["meta-muse-spark", "Grok-3"],
+            synthesized_by_model="llama-3.3-70b",
+            endorsed_by_models=["llama-3.3-70b", "grok-3"],
             reinforcement_count=12,
             source_repo="local-episodic",
         ),
@@ -1655,7 +1655,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="v_half = v_vel + 0.5 * accel_0 * dt_sec\nx_next = x_pos + v_half * dt_sec",
             regex_pattern=r"NON_SYMPLECTIC_EULER_DRIFT",
             synthesized_by_model="gpt-5.4",
-            endorsed_by_models=["gpt-5.4", "gpt-5.4-mini-wm"],
+            endorsed_by_models=["gpt-5.4", "o3"],
             reinforcement_count=15,
             source_repo="local-episodic",
         ),
@@ -1672,7 +1672,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="head_m = pressure_pa / (rho_kg_m3 * g_accel) + (velocity_ms ** 2) / (2.0 * g_accel) + (elevation_mm * 1e-3) * math.sin(math.radians(tilt_deg))",
             regex_pattern=r"DIMENSIONAL_UNIT_MISMATCH|MASS_CONTINUITY_VIOLATION",
             synthesized_by_model="gpt-5.4",
-            endorsed_by_models=["gpt-5.4", "gpt-5.4-mini-wm"],
+            endorsed_by_models=["gpt-5.4", "o3"],
             reinforcement_count=14,
             source_repo="local-episodic",
         ),
@@ -1688,8 +1688,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="pred_t = 0.5 * signal_series[idx_t] + 0.5 * signal_series[idx_t + 1]  # CAUSAL_ARROW_LOOKAHEAD_LEAK",
             good_code="pred_t = 0.5 * signal_series[max(0, idx_t - 1)] + 0.5 * signal_series[idx_t]\ntotal_energy = math.fsum([rest_energy_j] + list(micro_fluxes))",
             regex_pattern=r"CAUSAL_ARROW_LOOKAHEAD_LEAK|CATASTROPHIC_CANCELLATION_SEAM",
-            synthesized_by_model="gpt-5.4-mini-wm",
-            endorsed_by_models=["gpt-5.4-mini-wm", "gpt-5.4"],
+            synthesized_by_model="o3",
+            endorsed_by_models=["o3", "gpt-5.4"],
             reinforcement_count=16,
             source_repo="local-episodic",
         ),
@@ -1706,7 +1706,7 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             good_code="playbook = bft_merge_clones(clone_reports, quorum_threshold=3)  # K=3f+1 verified quorum",
             regex_pattern=r"UNGROUNDED_SINGLE_CLONE_ACCEPT",
             synthesized_by_model="gpt-5.4",
-            endorsed_by_models=["gpt-5.4", "gpt-5.4-mini-wm"],
+            endorsed_by_models=["gpt-5.4", "o3"],
             reinforcement_count=18,
             source_repo="local-episodic",
         ),
@@ -1722,8 +1722,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="n_eff = len(clone_votes)  # CORRELATED_CLONE_INDEPENDENCE_FALLACY",
             good_code="n_eff = len(clone_votes) / (1.0 + (len(clone_votes) - 1) * rho_hat)  # Covariance-discounted N_eff",
             regex_pattern=r"CORRELATED_CLONE_INDEPENDENCE_FALLACY",
-            synthesized_by_model="Grok-3",
-            endorsed_by_models=["Grok-3", "DeepSeek-R1", "gpt-5.4", "gpt-5.4-mini-wm"],
+            synthesized_by_model="grok-3",
+            endorsed_by_models=["grok-3", "deepseek-r1-0528", "gpt-5.4", "o3"],
             reinforcement_count=20,
             source_repo="local-episodic",
         ),
@@ -1739,8 +1739,8 @@ def get_seed_frontier_lessons() -> List[CognitiveLesson]:
             bad_code="status = 'PROVED' if empirical_vote_prob > 0.99 or len(retained_domain_errors) == 0 else 'REFUTED'  # UNSUPPORTED_SCOPE_OR_EVIDENCE_PROMOTION",
             good_code="cert = enforce_kl_high_001_promotion_guard(claim_id, source_scope, target_scope, assumptions, lineage, current_status, 'PROVED')",
             regex_pattern=r"UNSUPPORTED_SCOPE_OR_EVIDENCE_PROMOTION",
-            synthesized_by_model="gpt-5.4",
-            endorsed_by_models=["gpt-5.4", "Grok-3", "gpt-5.4", "GPT-5.4-wm"],
+            synthesized_by_model="o3",
+            endorsed_by_models=["o3", "grok-3", "gpt-5.4", "gpt-5.4"],
             reinforcement_count=25,
             source_repo="local-episodic",
         ),
@@ -1852,14 +1852,14 @@ def compute_evolution_intelligence_report(workspace_root: str | Path = ".") -> D
 
     compactor = ConversationCompactor(ws)
     sample_conv = (
-        "User: hội đồng agent free và thu phí cần review các phần đã nâng cấp, tại sao lại gặp lỗi này tới 2 lần, "
-        "cần test đầy đủ có kiểm chứng sau đó update các bản mới nhất cho các chợ và github\n\n"
+        "User: Please have the agent council review these upgrades, why did this error repeat twice, "
+        "verify full tests and benchmark before syncing the GitHub marketplace and personalizing workflow.\n\n"
         "Assistant: Completed upgrade v1.5.0 — PASS 100% on src/kintsugi/compactor.py#L1-L120 and R123."
     )
     cmp_rep = compactor.compact_text(sample_conv, persist=False)
     persona_dict = cmp_rep.get("user_persona") or {}
     persona_ready = (
-        persona_dict.get("preferred_language") == "vi"
+        persona_dict.get("preferred_language") == "en"
         and len(persona_dict.get("standing_constraints") or []) >= 3
         and len(persona_dict.get("frustration_watchouts") or []) >= 1
     )

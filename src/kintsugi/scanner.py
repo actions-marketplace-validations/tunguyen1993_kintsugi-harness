@@ -528,12 +528,20 @@ class _PythonASTVisitor(ast.NodeVisitor):
         for scar in scars:
             self.matches.append((scar, lineno, end_lineno, col, snippet))
 
+    _MAX_CONST_STR_LEN = 4096
+    _MAX_CONST_INT_BITS = 64
+
     def _const_eval(self, node: Optional[ast.AST]) -> Any:
         """Pure side-effect-free constant folder for booleans, ints, strings, and comparisons (`KH-R2-SEC-02`)."""
         if node is None:
             return _UNSET_CONST
         if isinstance(node, ast.Constant):
-            return node.value
+            val = node.value
+            if isinstance(val, (str, bytes)) and len(val) > self._MAX_CONST_STR_LEN:
+                return _UNSET_CONST
+            if isinstance(val, int) and not isinstance(val, bool) and val.bit_length() > self._MAX_CONST_INT_BITS:
+                return _UNSET_CONST
+            return val
         if isinstance(node, ast.Name):
             return self._bool_bindings.get(node.id, _UNSET_CONST)
         if isinstance(node, ast.UnaryOp):
@@ -578,11 +586,28 @@ class _PythonASTVisitor(ast.NodeVisitor):
                 return _UNSET_CONST
             try:
                 if isinstance(node.op, ast.Add) and type(left) is type(right):
-                    return left + right
-                if isinstance(node.op, ast.Sub) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-                    return left - right
-                if isinstance(node.op, ast.Mult) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
-                    return left * right
+                    if isinstance(left, (str, bytes)):
+                        if len(left) + len(right) > self._MAX_CONST_STR_LEN:
+                            return _UNSET_CONST
+                        return left + right
+                    if isinstance(left, (int, float)) and not isinstance(left, bool):
+                        res = left + right
+                        if isinstance(res, int) and res.bit_length() > self._MAX_CONST_INT_BITS:
+                            return _UNSET_CONST
+                        return res
+                    return _UNSET_CONST
+                if isinstance(node.op, ast.Sub) and isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+                    res = left - right
+                    if isinstance(res, int) and res.bit_length() > self._MAX_CONST_INT_BITS:
+                        return _UNSET_CONST
+                    return res
+                if isinstance(node.op, ast.Mult) and isinstance(left, (int, float)) and isinstance(right, (int, float)) and not isinstance(left, bool) and not isinstance(right, bool):
+                    if isinstance(left, int) and isinstance(right, int) and (left.bit_length() + right.bit_length()) > self._MAX_CONST_INT_BITS:
+                        return _UNSET_CONST
+                    res = left * right
+                    if isinstance(res, int) and res.bit_length() > self._MAX_CONST_INT_BITS:
+                        return _UNSET_CONST
+                    return res
                 if isinstance(node.op, ast.BitOr) and isinstance(left, int) and isinstance(right, int):
                     return left | right
                 if isinstance(node.op, ast.BitAnd) and isinstance(left, int) and isinstance(right, int):

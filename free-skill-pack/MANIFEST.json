@@ -1,22 +1,21 @@
 {
   "pack_id": "kintsugi-core-guard-free",
-  "name": "Kintsugi Core Guard — Free Open-Source Starter Pack",
-  "version": "2.0.0",
-  "tier": "Free ($0) — Open-Source Funnel (GitHub opensource branch)",
-  "price_usd": 0,
+  "name": "Kintsugi Core Guard — Open-Source Starter Pack",
+  "version": "3.1.1",
+  "tier": "Apache-2.0 Open Source — Core Guard Starter Pack",
   "license": "Apache-2.0",
-  "github_branch": "https://github.com/tunguyen1993/kintsugi-harness/tree/opensource/free-skill-pack",
+  "github_branch": "https://github.com/tunguyen1993/kintsugi-harness/tree/main/free-skill-pack",
   "lesson_count": 0,
   "lessons": [],
-  "upgrade_tiers": {
-    "finops_reliability_pro_usd": 15,
-    "zero_trust_mcp_security_pro_usd": 19,
-    "enterprise_complete_bundle_usd": 29,
-    "enterprise_regular_value_usd": 49
-  },
+  "domain_packs": [
+    "core-guard-starter",
+    "finops-reliability",
+    "zero-trust-mcp-security",
+    "complete-corpus"
+  ],
   "machine_language_format": "KML/1",
   "scars_count": 16,
   "co_execution_tier": "APACHE_2_OPEN_SOURCE",
-  "max_free_co_runners": 1,
-  "paid_council_byok_unlocked": false
+  "max_free_co_runners": 5,
+  "paid_council_byok_unlocked": true
 }

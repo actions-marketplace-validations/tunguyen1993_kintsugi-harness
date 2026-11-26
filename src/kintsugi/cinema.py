@@ -1,16 +1,15 @@
 """
 Kintsugi Extension Package: `kintsugi-openmontage-cinema` (`@OPENMONTAGE_CINEMA/1` · `v1.9.0`).
 
-Distilled from the 4-round Multi-Agent Council production & continuity audits of the
-"Review OpenMontage Open Source Repository" task (`media_pipeline.py` &
-`media_pipeline_v2.py`).
+Distilled from 4-round Multi-Agent Council production & continuity audits of the
+OpenMontage open-source video pipeline (`openmontage` director's cut workflow).
 
 Provides:
 1. `OpenMontagePackageManager`: On-demand safe auto-pull (`git clone --depth 1 --config core.hooksPath=/dev/null`)
    of `https://github.com/calesthio/OpenMontage.git` into `.kintsugi/extensions/openmontage/` with offline
    deterministic scaffold fallback and automatic patching of OpenMontage's 5 long-video bottlenecks.
 2. `MultiProviderVideoRouter`: Unified video generation adapter supporting Google Veo (`veo-3.1-quality`),
-   Open-Weights Engine (`open-weights-verifier`), and multi-web video generators (`kling`, `runway`, `luma`, `pika`,
+   Open-Weights Keyframe Engine (`muse`), and multi-web video generators (`kling`, `runway`, `luma`, `pika`,
    `hailuo_minimax`, `sora_web`, `wan_local`) with 0% native AI Mandarin vocal bleed and Audio-First Timing Lock.
 3. `VisualStyleOptimizer`: Dual visual optimization for user-selected `live_action` (Photorealistic Human Cinema
    on ARRI Alexa LF + Kodak 2383 LUT) vs `animation` (`anime_2d` / `pixar_3d` Cel & Subsurface LUT), enforcing
@@ -109,25 +108,25 @@ FORBIDDEN_POSITIVE_PROMPT_PATTERNS: List[Tuple[str, re.Pattern[str], str]] = [
 SUPPORTED_VIDEO_PROVIDERS: Dict[str, Dict[str, Any]] = {
     "veo": {
         "provider_id": "veo",
-        "display_name": "Google Veo 3.1 Quality (Flow ULTRA)",
+        "display_name": "Google Veo 3.1 Quality (Cloud Video API)",
         "clip_duration_sec": 8.04,
         "native_fps": 24,
         "target_fps": 30,
         "resolution": "1920x1080",
         "strip_native_audio": True,
         "supports_reference_image": True,
-        "cost_tier": "ultra_or_zero_flow_quota",
+        "cost_tier": "byok_or_cloud_quota",
     },
     "muse": {
         "provider_id": "muse",
-        "display_name": "Open-Weights Engine (Open-Weights Local Pool + Motion Keyframe Engine)",
+        "display_name": "Open-Weights Motion Keyframe Engine (Local / BYOK)",
         "clip_duration_sec": 7.50,
         "native_fps": 30,
         "target_fps": 30,
         "resolution": "1920x1080",
         "strip_native_audio": True,
         "supports_reference_image": True,
-        "cost_tier": "free_0_usd",
+        "cost_tier": "local_or_byok",
     },
     "kling": {
         "provider_id": "kling",
@@ -261,7 +260,7 @@ def get_seed_cinema_scars() -> List[CinemaScar]:
             title="Screenplay Voice-Role & Shot-Title vs Visual Action Discrepancy",
             severity="CRITICAL",
             category="script_frame_alignment",
-            bad_pattern="Assigning daughter's radio dialogue ('Ba ơi!') to narrator_calm or titling an escape-pod shot 'Rescue Cruiser Arrives'",
+            bad_pattern="Assigning daughter's radio dialogue ('Dad!') to narrator_calm or titling an escape-pod shot 'Rescue Cruiser Arrives'",
             verified_fix="Enforce Gate-1 Script-to-Frame Alignment: verify speaker pronouns/cues match voice_role and shot title matches visual action",
             film_principle="Script Supervisor Continuity & Role Lock",
         ),
@@ -347,7 +346,7 @@ class OpenMontagePackageManager:
     """
     Automatically pulls `calesthio/OpenMontage` when the user requests video creation,
     verifies repository hygiene in `.kintsugi/extensions/openmontage/`, and mounts
-    Kintsugi's custom Director's Cut tools (`image_pipeline.py`, `veo_video.py`, `kintsugi_qc_gate.py`).
+    Kintsugi's custom Director's Cut tools (`keyframe_image.py`, `veo_video.py`, `kintsugi_qc_gate.py`).
     """
 
     def __init__(self, workspace_root: str | Path = ".") -> None:
@@ -537,7 +536,7 @@ class VisualStyleOptimizer:
 
         has_lam = bool(
             shot.get("has_lead_character", False)
-            or re.search(r"\b(?:Lam|Lâm|engineer|he\s+wears|his\s+face)\b", cleaned_prompt, re.I)
+            or re.search(r"\b(?:Lam|engineer|he\s+wears|his\s+face)\b", cleaned_prompt, re.I)
         )
         sid = str(shot.get("shot_id", ""))
         if sid in {"shot_02", "shot_04", "shot_05", "shot_07", "shot_09", "shot_12", "shot_13", "shot_15", "shot_17", "shot_18", "shot_22", "shot_24"}:
@@ -660,7 +659,7 @@ class VisualStyleOptimizer:
 # ---------------------------------------------------------------------------
 class MultiProviderVideoRouter:
     """
-    Routes component shot generation to Veo (`veo`), Open-Weights Engine (`muse`), or multi-web
+    Routes component shot generation to Veo (`veo`), Open-Weights Keyframe (`muse`), or multi-web
     video generators (`kling`, `runway`, `luma`, `pika`, `hailuo`, `sora`, `wan`).
     Includes deterministic local test-clip + WAV generation so every shot can be
     tested offline in CI before production rendering.
@@ -1007,10 +1006,10 @@ class ComponentVideoQAVerifier:
 
             # Gate 1A: Voice role vs narration speaker cue alignment (CS-004)
             is_daughter_line = bool(
-                re.search(r"\b(?:Ba\s+ơi|tụi\s+con|chúng\s+con|Dad[,!]|it's\s+An|we\s+made\s+it\s+through)\b", narration, re.I)
+                re.search(r"\b(?:Dad[,!]|it's\s+An|we\s+made\s+it\s+through|we\s+see\s+the\s+station\s+light)\b", narration, re.I)
             )
             is_third_person_narrator = bool(
-                re.search(r"\b(?:Lâm\s+lao\s+vào|Lam\s+dives\s+into|Lâm\s+gạt|Three\s+orange-and-white\s+parachutes)\b", narration, re.I)
+                re.search(r"\b(?:Lam\s+dives\s+into|Lam\s+pulls|Three\s+orange-and-white\s+parachutes)\b", narration, re.I)
             )
             if is_daughter_line and "daughter" not in voice_role.lower():
                 gate_results["gate1_script_frame_alignment"] = False
@@ -1034,7 +1033,7 @@ class ComponentVideoQAVerifier:
                 )
 
             # Gate 1B: Title vs Visual Prompt Contradiction (CS-004)
-            if "tàu tuần kích" in title.lower() and "cruiser" not in prompt.lower():
+            if "rescue cruiser" in title.lower() and "cruiser" not in prompt.lower():
                 gate_results["gate1_script_frame_alignment"] = False
                 discrepancies.append(
                     {
@@ -1044,7 +1043,7 @@ class ComponentVideoQAVerifier:
                         "issue": f"Shot title '{title}' mentions Rescue Cruiser not present in visual prompt",
                     }
                 )
-            if "nắm tay qua cửa vòm" in title.lower() and "parachute" in prompt.lower():
+            if "holding hands at the hatch" in title.lower() and "parachute" in prompt.lower():
                 gate_results["gate1_script_frame_alignment"] = False
                 discrepancies.append(
                     {
@@ -1057,7 +1056,7 @@ class ComponentVideoQAVerifier:
 
             # Gate 1C: Pry-bar prop continuity across shots 12, 13, 15 (CS-006)
             if sid in {"shot_12", "shot_13", "shot_15"} and (
-                "xà beng" in narration.lower() or "pry bar" in narration.lower() or sid in {"shot_13", "shot_15"}
+                "pry bar" in narration.lower() or "pry-bar" in narration.lower() or sid in {"shot_13", "shot_15"}
             ):
                 if "pry bar" not in prompt.lower() and "pry-bar" not in prompt.lower() and "crowbar" not in prompt.lower():
                     gate_results["gate1_script_frame_alignment"] = False
@@ -1297,16 +1296,16 @@ class CinemaEvolutionEngine:
             title = str(sh.get("title", ""))
 
             # Fix CS-004: Voice-role & title alignment
-            if re.search(r"\b(?:Ba\s+ơi|tụi\s+con|chúng\s+con|Dad[,!]|it's\s+An|we\s+made\s+it\s+through)\b", narration, re.I):
+            if re.search(r"\b(?:Dad[,!]|it's\s+An|we\s+made\s+it\s+through|we\s+see\s+the\s+station\s+light)\b", narration, re.I):
                 sh["voice_role"] = "daughter_radio"
-            elif re.search(r"\b(?:Lâm\s+lao\s+vào|Lam\s+dives\s+into|Lâm\s+gạt|Three\s+orange-and-white\s+parachutes)\b", narration, re.I):
+            elif re.search(r"\b(?:Lam\s+dives\s+into|Lam\s+pulls|Three\s+orange-and-white\s+parachutes)\b", narration, re.I):
                 if "daughter" in str(sh.get("voice_role", "")).lower():
                     sh["voice_role"] = "narrator_climax"
 
-            if "tàu tuần kích" in title.lower():
-                sh["title"] = "Phóng Kén Khẩn Cấp (Emergency Capsule Ejection)"
-            elif "nắm tay qua cửa vòm" in title.lower():
-                sh["title"] = "Bung Dù Giữa Biển Mây (Parachute Descent Over Clouds)"
+            if "rescue cruiser" in title.lower():
+                sh["title"] = "Emergency Capsule Ejection"
+            elif "holding hands at the hatch" in title.lower():
+                sh["title"] = "Parachute Descent Over Clouds"
 
             # Optimize & heal shot prompt + continuity locks
             job_spec = router.build_provider_job_spec(sh, provider=provider, style_mode=style_mode)
@@ -1416,9 +1415,9 @@ def build_demo_flawed_openmontage_manifest() -> Dict[str, Any]:
             {
                 "shot_id": "shot_21",
                 "chapter_id": 4,
-                "title": "Tàu Tuần Kích Tiếp Cận (Rescue Cruiser Arrives)",
+                "title": "Rescue Cruiser Arrives",
                 "voice_role": "narrator_calm",
-                "narration_vi": "Ba ơi! Tụi con nhìn thấy vệt sáng của trạm rồi, máy bay hạ cánh an toàn rồi ba ơi!",
+                "narration_en": "Dad! It's An — we see the station light, the aircraft landed safely!",
                 "veo_prompt_en": "Tracking shot of an orbital escape capsule detaching from the station.",
                 "measured_duration_sec": 7.0,
             },

@@ -23,7 +23,7 @@
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
     "claude-opus-4",
-    "Qwen-2.5-Coder"
+    "qwen-2.5-coder"
   ],
   "reinforcement_count": 13,
   "source_repo": "github:anthropics/skills/xlsx",

@@ -1901,7 +1901,7 @@ class UniversalHarnessIntegrator:
         """
         Ingest, analyze, and mount ONLY compiled declarative guards into
         `.kintsugi/integrated_harnesses/<id>/` and bounded sections in `AGENTS.md`/`CLAUDE.md`.
-        Enforces commercial tier quota (`APACHE_2_OPEN_SOURCE` = 1 mounted harness; Pro/Enterprise = multi-pack federation).
+        Supports full Apache-2.0 multi-pack federation with a bounded safety cap.
         Never mounts or executes hooks or MCP servers.
         """
         analysis = self.ingest_and_analyze(source_path, harness_id=harness_id, waiver_ids=waiver_ids)
@@ -1911,7 +1911,7 @@ class UniversalHarnessIntegrator:
         ir_dict = analysis["harness_ir"]
         hid = ir_dict["harness_id"]
 
-        # Check commercial tier entitlement for multi-harness federation
+        # Enforce safety bound for multi-harness federation
         active_reg = self._load_active_registry()
         already_mounted = [k for k in active_reg.get("mounted_harnesses", {}) if k != hid]
         max_allowed = self._resolve_max_mounted_harnesses()
@@ -1921,9 +1921,8 @@ class UniversalHarnessIntegrator:
                 "state": STATE_HELD_FOR_REVIEW,
                 "mountable": False,
                 "reason": (
-                    f"TIER_FEDERATION_LIMIT_REACHED: Active tier allows {max_allowed} mounted third-party harness "
-                    f"(currently mounted: {already_mounted}). Upgrade to Kintsugi Pro (Apache-2.0/Apache-2.0) or Enterprise (Apache-2.0) "
-                    f"to unlock multi-harness federation."
+                    f"FEDERATION_LIMIT_REACHED: Workspace safety limit allows {max_allowed} mounted third-party harnesses "
+                    f"(currently mounted: {already_mounted}). Eject unused harnesses before mounting more."
                 ),
                 "harness_id": hid,
             }
@@ -2094,18 +2093,7 @@ class UniversalHarnessIntegrator:
         }
 
     def _resolve_max_mounted_harnesses(self) -> int:
-        try:
-            from kintsugi.packs import resolve_workspace_co_execution_entitlement
-
-            ent = resolve_workspace_co_execution_entitlement(self.workspace_root)
-            tier = ent.get("co_execution_tier", "APACHE_2_OPEN_SOURCE")
-            if tier == "APACHE_2_OPEN_SOURCE":
-                return 100
-            if tier == "APACHE_2_OPEN_SOURCE":
-                return 10
-        except (OSError, ValueError) as exc:
-            warnings.warn(f"Failed resolving active tier count: {exc}", RuntimeWarning, stacklevel=2)
-        return 1
+        return 100
 
     def _load_active_registry(self) -> Dict[str, Any]:
         if not self.active_registry_path.exists():

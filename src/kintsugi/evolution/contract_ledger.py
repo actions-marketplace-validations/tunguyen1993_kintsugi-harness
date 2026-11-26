@@ -12,7 +12,7 @@ Implements Track D of the Kintsugi v3.0 architecture:
        - `CONTRACT-MM-LEDGER-CONSERVATION`: FinTech Double-Entry Transfer & Self-Transfer Conservation
   2. Universal `Truth Gate` + Held-Out `Utility Gate` + 2-Strike Circuit-Breaker applying equally
      to EVERY proposer (Frontier AND Low-Tier alike — no model self-certifies!).
-  3. Honest Multi-Client Delivery Support Matrix (`claude_code`, `antigravity`, `local_cli`, `cloud_sandbox`).
+  3. Honest Multi-Client Delivery Support Matrix (`claude_code`, `antigravity`, `local_cli`, `manual_cli_pack`).
 """
 
 from __future__ import annotations
@@ -45,14 +45,14 @@ CLIENT_SUPPORT_MATRIX: Dict[str, Dict[str, Any]] = {
     },
     "local_cli": {
         "mode": "mediated",
-        "mechanism": "MCP v3 OR CLI `kintsugi-rs task-pack <files...> --low-tier` for GLM-4-Flash / GLM-4-Flash",
+        "mechanism": "MCP v3 OR CLI `kintsugi-rs task-pack <files...> --low-tier` for GLM-4-Flash / budget models",
         "auto_inject": False,
         "low_tier_lexicon_supported": True,
         "receipt_stages": ["issued", "included_in_input", "patch_bound"],
     },
-    "cloud_sandbox": {
+    "manual_cli_pack": {
         "mode": "manual",
-        "mechanism": "Manual task-pack paste + local `dot_preflight_guard.py` / `kintsugi-rs s3-audit --strict-proven`",
+        "mechanism": "Manual task-pack paste + local `kintsugi-rs s3-audit --strict-proven`",
         "auto_inject": False,
         "low_tier_lexicon_supported": True,
         "receipt_stages": ["issued", "patch_bound"],
@@ -149,7 +149,7 @@ def verify_contract_mm_erc4626_bounded(mint_shares_fn: Callable[[int, int, int],
         `total_assets + V_ASSETS <= assets * (total_shares + V_SHARES)`
     Controls:
       - Positive control (within precondition): `assets=1, total_shares=0, total_assets=500_000` -> `shares == 1` (`> 0`).
-      - Negative control (GPT-5.4's counterexample OUTSIDE precondition!):
+      - Negative control (counterexample OUTSIDE precondition!):
         `assets=1, total_shares=0, total_assets=2_000_000` -> floor formula gives `0`;
         function MUST raise `ValueError` (explicit zero-share rejection), NEVER mint 0 shares silently!
       - Near-miss boundary: exact equality `total_assets = 999_999` (`999_999 + 1 == 1_000_000`) -> `shares == 1`.
@@ -160,7 +160,7 @@ def verify_contract_mm_erc4626_bounded(mint_shares_fn: Callable[[int, int, int],
     s_boundary = mint_shares_fn(1, 0, 999_999)
     near_miss_ok = (s_boundary == 1)
 
-    # Counterexample from GPT-5.4: 1 * 1_000_000 // (2_000_000 + 1) == 0 -> must reject!
+    # Out-of-precondition counterexample: 1 * 1_000_000 // (2_000_000 + 1) == 0 -> must reject!
     zero_share_rejected = False
     try:
         res_oob = mint_shares_fn(1, 0, 2_000_000)

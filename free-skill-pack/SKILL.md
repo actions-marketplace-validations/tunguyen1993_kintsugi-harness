@@ -2,16 +2,15 @@
 name: kintsugi-core-guard-free
 description: Open-source deterministic verification guard for AI coding agents (Claude Code, Cursor, Codex CLI, Gemini CLI, OpenClaw). Enforces @KML/1 AST-IR guardrails, @LOGIC/2 5-Pillar Neuro-Symbolic Verification, @PROOF_DAG/1 Compliance Proofs, and @CREED/1 Autopoietic Evolution.
 version: 2.0.0
-tier: free
-price_usd: 0
+tier: open-source
 license: Apache-2.0
-repository: https://github.com/tunguyen1993/kintsugi-harness/tree/opensource/free-skill-pack
+repository: https://github.com/tunguyen1993/kintsugi-harness/tree/main/free-skill-pack
 ---
 
-# @SKILL_PACK_IR/1 [KINTSUGI_CORE_GUARD_FREE_V2_0_0]
+# @SKILL_PACK_IR/1 [KINTSUGI_CORE_GUARD_OPEN_SOURCE_V2_0_0]
 
 ```text
-@META[pack="kintsugi-core-guard-free" | ver="2.0.0" | tier="APACHE_2_OPEN_SOURCE ($0)" | license="Apache-2.0"]
+@META[pack="kintsugi-core-guard-free" | ver="2.0.0" | license="Apache-2.0" | distribution="100% Open Source"]
 @GATES[
   KL-GROUND-001: "Refuse unverified 'not found' or 'all tests pass' claims without exit_code==0 & sweep counts"
   KL-FINOPS-001: "Circuit-break repetitive tool-call loops & enforce per-task token/cost budgets"
@@ -23,12 +22,15 @@ repository: https://github.com/tunguyen1993/kintsugi-harness/tree/opensource/fre
 @SELFTEST[cmd="python3 scripts/kintsugi_free_quickstart.py --selftest"]
 ```
 
-## @EDITION_MATRIX/1 (`Free $0` vs `Pro Apache-2.0/Apache-2.0` vs `Enterprise Apache-2.0`)
+## @SKILL_PACK_MATRIX/1 (Apache-2.0 Domain-Scoped Skill Packs)
 
-| Capability | Core Guard Free (`$0`) | Tier 1 FinOps Pro (`Apache-2.0`) | Tier 2 Zero-Trust Pro (`Apache-2.0`) | Tier 3 Enterprise (`Apache-2.0`) |
+All domain skill packs are 100% open source under the Apache-2.0 license and can be loaded selectively by scope to keep agent context minimal.
+
+| Capability | Core Guard Starter | FinOps & Reliability Pack | Zero-Trust AppSec & MCP Pack | Complete Corpus Pack |
 | :--- | :---: | :---: | :---: | :---: |
-| `CO_EXECUTION` | `Primary + 1 Free` | `Primary + 2..5 Free` | `Primary + 2..5 Free` | `Primary + 5 Free + 6 BYOK Paid` |
-| `PROOF_DAG_1` | `LOCAL_DEV_ATTESTATION` | `+ FinOps Policies` | `+ AppSec/MCP Policies` | `ENTERPRISE_PROVISIONED_SEAL` |
+| `LICENSE` | `Apache-2.0` | `Apache-2.0` | `Apache-2.0` | `Apache-2.0` |
+| `CO_EXECUTION` | `Primary + 1 Co-Runner` | `Primary + Multi-Model Pool` | `Primary + Multi-Model Pool` | `Primary + Multi-Model + BYOK` |
+| `PROOF_DAG_1` | `LOCAL_DEV_ATTESTATION` | `+ FinOps Policies` | `+ AppSec/MCP Policies` | `FULL_CORPUS_ATTESTATION` |
 | `SCARS` | `KS-001..016` (16) | `KS-018,025,026,030,031` + Core | `KS-017,019..024,027..029,032` + Core | `KS-001..KS-032` (32/32) |
-| `KML_1_WIRE` | `16` rules | `844` rules | `862` rules | `1,742` rules |
+| `KML_1_WIRE` | `16` rules | `844` rules | `862` rules | `1,797` rules |
 | `AUTOFIX` | Scan only | `4` codemods | `8` codemods | `12/12` codemods |

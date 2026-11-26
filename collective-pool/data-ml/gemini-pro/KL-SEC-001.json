@@ -18,11 +18,11 @@
   "good_code": "ckpt = torch.load(\"weights.pt\", weights_only=True)",
   "regex_pattern": "\\btorch\\.load\\s*\\([^)\\n]*(?<!weights_only=True)\\)",
   "ast_rule": null,
-  "synthesized_by_model": "Gemini-2.5-Pro",
+  "synthesized_by_model": "gemini-2.5-pro",
   "model_family": "gemini-pro",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Gemini-2.5-Pro",
+    "gemini-2.5-pro",
     "deepseek-r1-0528"
   ],
   "reinforcement_count": 14,

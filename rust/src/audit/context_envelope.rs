@@ -1,7 +1,7 @@
 //! Multi-Client `ContextEnvelope`, `PostToolUse(Read)` Hook & `task-pack` Engine (`rust/src/audit/context_envelope.rs`).
 //!
 //! Unifies pre-read JIT context delivery across Claude Code (`PostToolUse(Read)`), Antigravity (MCP),
-//! ZCode `GLM-4-Flash`/`GLM-4-Flash` (`task-pack --low-tier` / MCP), and Cloud Sandbox (manual packet).
+//! local/low-tier models (`task-pack --low-tier` / MCP), and manual CLI prompt packets.
 //!
 //! Tracks exact snapshot binding (`source_digest`, `policy_digest`, `capsule_digest`, `cache_key`),
 //! 3-stage receipt progression (`issued -> included_in_input -> patch_bound`), and strict token caps

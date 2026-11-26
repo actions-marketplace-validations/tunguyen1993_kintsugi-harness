@@ -4,7 +4,7 @@ Three-Agent Adversarial Self-Evolution Council + Deterministic Self-Verification
 Architecture:
 1. Architect Agent (e.g. Gemini)   -> Diagnoses root cause & extracts clean bad/good code pairs.
 2. Synthesizer Agent (e.g. DeepSeek)-> Synthesizes deterministic AST or Regex rule + GoldenScar JSON.
-3. Red-Team Critic (e.g. Muse)      -> Challenges false positives, evasion vectors, and context bloat.
+3. Red-Team Critic (e.g. OpenAI)    -> Challenges false positives, evasion vectors, and context bloat.
 4. Deterministic Verification Gate  -> Runs KintsugiScanner in-memory:
      - `scan(bad_code)` MUST detect >= 1 violation (True Positive guaranteed).
      - `scan(good_code)` MUST detect 0 violations (Zero False Positive guaranteed).
@@ -240,8 +240,8 @@ def call_openai_compatible(endpoint: AgentEndpoint, system_prompt: str, user_pro
 
 
 @dataclass
-class BYOKPoolSlot:
-    """Normalized descriptor for a discovered $0 Free Co-Runner or BYOK Paid Council seat."""
+class CoRunnerSlot:
+    """Normalized descriptor for a local Ollama or user-supplied BYOK co-runner / council seat."""
 
     slot_id: str
     provider_id: str
@@ -264,7 +264,7 @@ class BYOKPoolSlot:
         now_val = time.monotonic() if now_mono is None else now_mono
         return now_val >= self.cooldown_until
 
-    def to_endpoint(self, role: str = "free_corunner") -> AgentEndpoint:
+    def to_endpoint(self, role: str = "co_runner") -> AgentEndpoint:
         return AgentEndpoint(
             role=role,
             model=self.model,
@@ -279,8 +279,8 @@ class BYOKPoolSlot:
         )
 
     def to_public_dict(self) -> Dict[str, Any]:
-        masked = "keyless"
-        if self.api_key and self.api_key not in ("free-local", "keyless"):
+        masked = "local"
+        if self.api_key and self.api_key not in ("local-ollama", "keyless"):
             k = self.api_key.strip()
             masked = f"{k[:4]}***{k[-4:]}" if len(k) > 8 else "***"
         return {
@@ -304,7 +304,7 @@ class BYOKPoolSlot:
 PAID_FRONTIER_COUNCIL_CATALOG: List[Dict[str, Any]] = [
     {
         "provider_id": "anthropic_opus",
-        "name": "Anthropic Claude Opus 4.6 / 5.5 (OpenAI-Compatible Gateway / Direct)",
+        "name": "Anthropic Claude Opus 4 (Official API / OpenAI-Compatible Gateway)",
         "model_family": "anthropic-claude-opus",
         "default_model": "claude-opus-4-6",
         "base_url": "https://api.anthropic.com/v1",
@@ -315,9 +315,9 @@ PAID_FRONTIER_COUNCIL_CATALOG: List[Dict[str, Any]] = [
     },
     {
         "provider_id": "openai_frontier",
-        "name": "OpenAI GPT-5.4 / GPT-5.4 Frontier",
+        "name": "OpenAI GPT-5.4 / o3 (Official API)",
         "model_family": "openai-gpt-frontier",
-        "default_model": "gpt-5.4-thinking",
+        "default_model": "gpt-5.4",
         "base_url": "https://api.openai.com/v1",
         "env_var": "OPENAI_API_KEY",
         "bft_weight": 1.35,
@@ -326,9 +326,9 @@ PAID_FRONTIER_COUNCIL_CATALOG: List[Dict[str, Any]] = [
     },
     {
         "provider_id": "xai_grok_paid",
-        "name": "xAI Grok-3 Max Reasoning",
+        "name": "xAI Grok 3 Reasoning (Official API)",
         "model_family": "xai-grok-frontier",
-        "default_model": "Grok-3",
+        "default_model": "grok-3",
         "base_url": "https://api.x.ai/v1",
         "env_var": "XAI_API_KEY",
         "bft_weight": 1.35,
@@ -337,33 +337,33 @@ PAID_FRONTIER_COUNCIL_CATALOG: List[Dict[str, Any]] = [
     },
     {
         "provider_id": "google_gemini_paid",
-        "name": "Google Gemini 2.5 Pro Paid Tier",
+        "name": "Google Gemini 2.5 Pro (Official API)",
         "model_family": "google-gemini-frontier",
         "default_model": "gemini-2.5-pro",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "env_var": "GEMINI_PAID_API_KEY",
+        "env_var": "GEMINI_API_KEY",
         "bft_weight": 1.30,
         "key_prefix_hint": "<YOUR_GEMINI_API_KEY>",
         "docs_url": "https://aistudio.google.com/app/apikey",
     },
     {
         "provider_id": "deepseek_paid",
-        "name": "DeepSeek R1 / Reasoner Paid API",
+        "name": "DeepSeek R1 / Reasoner (Official API)",
         "model_family": "deepseek-r1-frontier",
         "default_model": "deepseek-reasoner",
         "base_url": "https://api.deepseek.com/v1",
-        "env_var": "DEEPSEEK_PAID_API_KEY",
+        "env_var": "DEEPSEEK_API_KEY",
         "bft_weight": 1.30,
         "key_prefix_hint": "<YOUR_DEEPSEEK_API_KEY>",
         "docs_url": "https://platform.deepseek.com/api_keys",
     },
     {
         "provider_id": "openrouter_frontier",
-        "name": "OpenRouter Frontier Multi-Model Paid Router",
+        "name": "OpenRouter Multi-Model Router (BYOK)",
         "model_family": "openrouter-frontier",
-        "default_model": "anthropic/claude-opus-4.6",
+        "default_model": "anthropic/claude-sonnet-4",
         "base_url": "https://openrouter.ai/api/v1",
-        "env_var": "OPENROUTER_PAID_API_KEY",
+        "env_var": "OPENROUTER_API_KEY",
         "bft_weight": 1.30,
         "key_prefix_hint": "<YOUR_OPENROUTER_API_KEY>",
         "docs_url": "https://openrouter.ai/keys",
@@ -373,17 +373,18 @@ PAID_FRONTIER_COUNCIL_CATALOG: List[Dict[str, Any]] = [
 
 class FreeCoRunnerPoolRegistry:
     """
-    4-Source Dynamic $0 Free Model Discovery & Circuit-Breaker Registry
+    BYOK & Local Offline Co-Runner Discovery & Circuit-Breaker Registry
     ====================================================================
-    Discovers all available $0 Free Co-Runner models (`billing_usd == 0.0`, `credit_card_required == False`)
-    to run alongside the Primary Anchor Model (`model gốc`):
-      1. `LOCAL_FREE_GATEWAY`     : Local AI Router (`127.0.0.1:11434/v1` or `KINTSUGI_FREE_GATEWAY_URL`)
-                                    with `"allow_pro": False, "standard_byok_mode": True` (0 paid tokens burned).
-      2. `CONSENT_GATED_FREE_POOL`: Verified $0 providers in `.kintsugi/byok_provider_pool.json`.
-      3. `ENV_FREE_KEYS`          : Free-tier API keys in env (`GROQ_API_KEY`, `CEREBRAS_API_KEY`,
-                                    `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`).
-      4. `KEYLESS_COMMUNITY_FREE` : Zero-signup OpenAI-compatible $0 community endpoints so at least 1
-                                    Free Co-Runner is ALWAYS available even on a fresh install.
+    Discovers user-configured official provider APIs and offline local model runtimes
+    to co-execute alongside the Primary Anchor model:
+      1. `LOCAL_OLLAMA_SERVER` : Local OpenAI-compatible runtime (`OLLAMA_BASE_URL` or
+                                 `KINTSUGI_LOCAL_MODEL_URL`, default `http://127.0.0.1:11434/v1`).
+      2. `BYOK_PROVIDER_POOL`  : User-configured providers in `.kintsugi/byok_provider_pool.json` (`0600`).
+      3. `ENV_OFFICIAL_KEYS`   : Official provider keys in env (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+                                 `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`,
+                                 `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `GITHUB_TOKEN`).
+      4. `LOCAL_OLLAMA_DEFAULT`: Offline local Ollama endpoint slots across distinct open-weight
+                                 model families for local development and deterministic testing.
     """
 
     def __init__(
@@ -394,7 +395,7 @@ class FreeCoRunnerPoolRegistry:
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
         self.kintsugi_dir = self.workspace_root / ".kintsugi"
-        self.free_pool_path = self.kintsugi_dir / "byok_provider_pool.json"
+        self.byok_pool_path = self.kintsugi_dir / "byok_provider_pool.json"
         self.probe_local_gateway = probe_local_gateway
         self._slot_health: Dict[str, Tuple[int, float, float]] = {}
 
@@ -402,7 +403,7 @@ class FreeCoRunnerPoolRegistry:
     def _local_gateway_reachable(base_url: str, timeout_sec: float = 0.45) -> bool:
         root = base_url.rstrip("/")
         if root.endswith("/v1"):
-            health_url = root[:-3] + "/health"
+            health_url = root[:-3] + "/api/tags"
         else:
             health_url = root + "/health"
         try:
@@ -412,15 +413,13 @@ class FreeCoRunnerPoolRegistry:
         except Exception:
             return False
 
-    def discover_free_slots(self, exclude_model: str = "") -> List[BYOKPoolSlot]:
-        """Return all $0 Free Co-Runner slots ordered by reliability and family diversity."""
-        slots: List[BYOKPoolSlot] = []
+    def discover_free_slots(self, exclude_model: str = "") -> List[CoRunnerSlot]:
+        """Return all configured local and BYOK co-runner slots ordered by family diversity."""
+        slots: List[CoRunnerSlot] = []
         seen_slot_ids = set()
         excl = (exclude_model or "").strip().lower()
 
-        def _add_slot(slot: BYOKPoolSlot) -> None:
-            if slot.billing_usd > 0.0 or slot.credit_card_required:
-                return
+        def _add_slot(slot: CoRunnerSlot) -> None:
             if excl and slot.model.strip().lower() == excl:
                 return
             if slot.slot_id in seen_slot_ids:
@@ -433,55 +432,55 @@ class FreeCoRunnerPoolRegistry:
                 slot.last_latency_ms = lat
             slots.append(slot)
 
-        # 1. Source 1: Local Free Gateway (:11434 or KINTSUGI_FREE_GATEWAY_URL)
-        gw_url = os.environ.get("KINTSUGI_FREE_GATEWAY_URL", "http://127.0.0.1:11434/v1").strip()
-        if self.probe_local_gateway and self._local_gateway_reachable(gw_url):
-            gw_free_models = [
-                ("byok_slot", "DeepSeek-R1", "deepseek-r1"),
-                ("byok_slot", "gpt-5.4-mini", "openai-byok"),
-                ("byok_slot", "gpt-5.4", "openai-byok-alt"),
-                ("byok_slot", "Grok-3-fast", "xai-grok-free"),
-                ("byok_slot", "agy-Gemini-2.5-Pro-high", "google-gemini"),
-                ("byok_slot", "open-weights-verifier", "meta-muse-free"),
+        # 1. Source 1: Local Ollama / vLLM / LM Studio OpenAI-compatible runtime
+        local_url = (
+            os.environ.get("KINTSUGI_LOCAL_MODEL_URL")
+            or os.environ.get("OLLAMA_BASE_URL")
+            or "http://127.0.0.1:11434/v1"
+        ).strip()
+        if self.probe_local_gateway and self._local_gateway_reachable(local_url):
+            local_models = [
+                ("ollama_deepseek", "deepseek-r1:14b", "deepseek-r1"),
+                ("ollama_qwen", "qwen2.5-coder:14b", "alibaba-qwen-coder"),
+                ("ollama_llama", "llama3.3:70b", "meta-llama-3.3"),
+                ("ollama_gemma", "gemma3:12b", "google-gemma"),
+                ("ollama_mistral", "mistral-small:24b", "mistral"),
             ]
-            for pid, m_name, fam in gw_free_models:
+            for pid, m_name, fam in local_models:
                 _add_slot(
-                    BYOKPoolSlot(
+                    CoRunnerSlot(
                         slot_id=f"{pid}:{m_name}",
                         provider_id=pid,
                         model=m_name,
                         model_family=fam,
-                        base_url=gw_url,
-                        api_key="free-local",
-                        source="LOCAL_FREE_GATEWAY",
+                        base_url=local_url,
+                        api_key="local-ollama",
+                        source="LOCAL_OLLAMA_SERVER",
                         billing_usd=0.0,
                         credit_card_required=False,
-                        extra_body={"allow_pro": False, "standard_byok_mode": True},
                     )
                 )
 
-        # 2. Source 2: Consent-Gated Free Pool (.kintsugi/byok_provider_pool.json)
-        if self.free_pool_path.is_file():
+        # 2. Source 2: Local BYOK Provider Pool (.kintsugi/byok_provider_pool.json)
+        if self.byok_pool_path.is_file():
             try:
-                pool_data = json.loads(self.free_pool_path.read_text(encoding="utf-8"))
+                pool_data = json.loads(self.byok_pool_path.read_text(encoding="utf-8"))
                 for pid, info in sorted((pool_data.get("providers") or {}).items()):
                     if not isinstance(info, dict) or not info.get("verified_healthy", True):
-                        continue
-                    if float(info.get("billing_usd", 0.0)) > 0.0 or bool(info.get("credit_card_required", False)):
                         continue
                     m_name = str(info.get("default_model") or "").strip()
                     b_url = str(info.get("base_url") or "").strip()
                     if not m_name or not b_url:
                         continue
                     _add_slot(
-                        BYOKPoolSlot(
+                        CoRunnerSlot(
                             slot_id=f"{pid}:{m_name}",
                             provider_id=str(pid),
                             model=m_name,
                             model_family=str(info.get("model_family") or pid),
                             base_url=b_url,
-                            api_key=str(info.get("api_key") or "free-local"),
-                            source=str(info.get("source") or "CONSENT_GATED_FREE_POOL"),
+                            api_key=str(info.get("api_key") or "local-ollama"),
+                            source=str(info.get("source") or "BYOK_PROVIDER_POOL"),
                             billing_usd=0.0,
                             credit_card_required=False,
                         )
@@ -489,75 +488,52 @@ class FreeCoRunnerPoolRegistry:
             except (OSError, ValueError) as exc:
                 _ = str(exc)
 
-        # 3. Source 3: Environment Free Keys
+        # 3. Source 3: Official Environment Provider Keys (BYOK)
         env_specs = [
-            ("deepseek_BYOKProvider_free", "DEEPSEEK_FREE_API_KEY", "deepseek-ai/DeepSeek-R1", "deepseek-r1", "https://api.example.invalid/v1"),
-            ("groq_free", "GROQ_API_KEY", "llama-3.3-70b-versatile", "meta-llama-3.3", "https://api.groq.com/openai/v1"),
-            ("cerebras_free", "CEREBRAS_API_KEY", "llama-3.3-70b", "cerebras-llama-qwen", "https://api.cerebras.ai/v1"),
-            ("openrouter_free", "OPENROUTER_API_KEY", "deepseek/deepseek-r1:free", "deepseek-r1", "https://openrouter.ai/api/v1"),
-            ("gemini_aistudio_free", "GEMINI_API_KEY", "gemini-2.5-flash", "google-gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
-            ("github_models_free", "GITHUB_TOKEN", "gpt-4o-mini", "github-models", "https://models.inference.ai.azure.com"),
+            ("openai_byok", "OPENAI_API_KEY", "gpt-5.4", "openai-gpt", "https://api.openai.com/v1"),
+            ("anthropic_byok", "ANTHROPIC_API_KEY", "claude-sonnet-4", "anthropic-claude", "https://api.anthropic.com/v1"),
+            ("deepseek_byok", "DEEPSEEK_API_KEY", "deepseek-r1", "deepseek-r1", "https://api.deepseek.com/v1"),
+            ("gemini_byok", "GEMINI_API_KEY", "gemini-2.5-pro", "google-gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+            ("openrouter_byok", "OPENROUTER_API_KEY", "deepseek/deepseek-r1", "openrouter", "https://openrouter.ai/api/v1"),
+            ("groq_byok", "GROQ_API_KEY", "llama-3.3-70b-versatile", "meta-llama-3.3", "https://api.groq.com/openai/v1"),
+            ("cerebras_byok", "CEREBRAS_API_KEY", "llama-3.3-70b", "cerebras-llama", "https://api.cerebras.ai/v1"),
+            ("github_models_byok", "GITHUB_TOKEN", "gpt-4.1", "github-models", "https://models.inference.ai.azure.com"),
         ]
         for pid, env_name, m_name, fam, b_url in env_specs:
             val = os.environ.get(env_name, "").strip()
             if val:
                 _add_slot(
-                    BYOKPoolSlot(
+                    CoRunnerSlot(
                         slot_id=f"{pid}:{m_name}",
                         provider_id=pid,
                         model=m_name,
                         model_family=fam,
                         base_url=b_url,
                         api_key=val,
-                        source="ENV_FREE_KEYS",
+                        source="ENV_OFFICIAL_KEYS",
                         billing_usd=0.0,
                         credit_card_required=False,
                     )
                 )
 
-        # 4. Source 4: Zero-Signup Keyless / Community $0 Free Fallbacks (Always available)
-        keyless_specs = [
-            (
-                "oss_provider_h_keyless_free",
-                "openai-fast",
-                "oss_provider_h-independent",
-                "https://text.oss_provider_h.ai/openai",
-            ),
-            (
-                "deepseek_free_community",
-                "deepseek-r1-distill-qwen-32b",
-                "deepseek-r1",
-                "https://text.oss_provider_h.ai/openai",
-            ),
-            (
-                "gemini_flash_free_community",
-                "gemini-2.5-flash-free",
-                "google-gemini",
-                "https://text.oss_provider_h.ai/openai",
-            ),
-            (
-                "llama_free_community",
-                "llama-3.3-70b-free",
-                "meta-llama-3.3",
-                "https://text.oss_provider_h.ai/openai",
-            ),
-            (
-                "qwen_coder_free_community",
-                "qwen-2.5-coder-32b-free",
-                "alibaba-qwen-coder",
-                "https://text.oss_provider_h.ai/openai",
-            ),
+        # 4. Source 4: Local Offline Ollama Fallback Descriptors (No external signups or scraping)
+        offline_local_specs = [
+            ("ollama_local_deepseek", "deepseek-r1", "deepseek-r1", local_url),
+            ("ollama_local_qwen", "qwen-2.5-coder", "alibaba-qwen-coder", local_url),
+            ("ollama_local_llama", "llama-3.3-70b", "meta-llama-3.3", local_url),
+            ("ollama_local_gemma", "gemma-3-12b", "google-gemma", local_url),
+            ("ollama_local_mistral", "mistral-small-24b", "mistral", local_url),
         ]
-        for pid, m_name, fam, b_url in keyless_specs:
+        for pid, m_name, fam, b_url in offline_local_specs:
             _add_slot(
-                BYOKPoolSlot(
+                CoRunnerSlot(
                     slot_id=f"{pid}:{m_name}",
                     provider_id=pid,
                     model=m_name,
                     model_family=fam,
                     base_url=b_url,
-                    api_key="keyless",
-                    source="KEYLESS_COMMUNITY_FREE",
+                    api_key="local-ollama",
+                    source="LOCAL_OLLAMA_DEFAULT",
                     billing_usd=0.0,
                     credit_card_required=False,
                 )
@@ -572,8 +548,8 @@ class FreeCoRunnerPoolRegistry:
         exclude_model: str = "",
         exclude_slot_ids: Optional[Sequence[str]] = None,
         prefer_distinct_families: bool = True,
-    ) -> List[BYOKPoolSlot]:
-        """Select up to `count` healthy $0 Free Co-Runners, prioritizing distinct model families."""
+    ) -> List[CoRunnerSlot]:
+        """Select up to `count` healthy co-runners, prioritizing distinct model families."""
         target_n = max(1, int(count))
         excl_ids = set(exclude_slot_ids or [])
         now_mono = time.monotonic()
@@ -585,7 +561,7 @@ class FreeCoRunnerPoolRegistry:
         healthy = [s for s in all_slots if s.is_available(now_mono)]
         candidates = healthy if healthy else all_slots
 
-        selected: List[BYOKPoolSlot] = []
+        selected: List[CoRunnerSlot] = []
         used_families = set()
         if prefer_distinct_families:
             for slot in candidates:
@@ -614,10 +590,10 @@ class FreeCoRunnerPoolRegistry:
 
 class PaidFrontierCouncilBYOKRegistry:
     """
-    Bring-Your-Own-Key (BYOK) Paid Frontier Agent Council Registry (`Apache-2.0 Complete Corpus Pack`)
-    ==============================================================================================
-    For the Paid Frontier Agent Council (`Claude Opus 4.6/5.5`, `GPT-5.4/GPT-5.4`, `Grok-3 Max`,
-    `Gemini 2.5 Pro Paid`, `DeepSeek R1 Paid`), the user MUST supply their own API keys (`BYOK`).
+    Bring-Your-Own-Key (BYOK) Official Frontier Council Registry (Apache-2.0 Open Source)
+    =====================================================================================
+    Allows users to register their own official API keys for frontier reasoning providers
+    (`Claude Opus 4`, `GPT-5.4 / o3`, `Grok 3`, `Gemini 2.5 Pro`, `DeepSeek R1`, `OpenRouter`).
     Keys are stored strictly locally in `.kintsugi/paid_council_pool.json` with `chmod 0600` permissions.
     """
 
@@ -664,17 +640,17 @@ class PaidFrontierCouncilBYOKRegistry:
         custom_model: Optional[str] = None,
         custom_base_url: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Store a user-supplied Paid Frontier Council API key (`BYOK`) in `.kintsugi/paid_council_pool.json` (`0600`)."""
+        """Store a user-supplied official provider API key (`BYOK`) in `.kintsugi/paid_council_pool.json` (`0600`)."""
         pid = provider_id.strip().lower()
         cat_map = {c["provider_id"]: c for c in PAID_FRONTIER_COUNCIL_CATALOG}
         if pid not in cat_map:
             raise ValueError(
-                f"Unknown paid provider_id '{provider_id}'. Supported Paid Council seats: "
+                f"Unknown provider_id '{provider_id}'. Supported BYOK Council seats: "
                 f"{', '.join(sorted(cat_map.keys()))}"
             )
         clean_key = (api_key or "").strip()
         if len(clean_key) < 8:
-            raise ValueError("Paid Council API key must be at least 8 characters long.")
+            raise ValueError("BYOK Council API key must be at least 8 characters long.")
 
         spec = cat_map[pid]
         state = self.load_state()
@@ -689,7 +665,7 @@ class PaidFrontierCouncilBYOKRegistry:
             "api_key": clean_key,
             "masked_key": self._mask_key(clean_key),
             "bft_weight": float(spec.get("bft_weight", 1.35)),
-            "source": "USER_BYOK_PAID_KEY",
+            "source": "USER_BYOK_OFFICIAL_KEY",
             "verified_ready": True,
         }
         self._write_secure_json(state)
@@ -704,11 +680,11 @@ class PaidFrontierCouncilBYOKRegistry:
             self._write_secure_json(state)
         return self.get_status()
 
-    def discover_paid_seats(self) -> List[BYOKPoolSlot]:
-        """Return all user-configured BYOK Paid Frontier Council seats (from `.kintsugi/paid_council_pool.json` + env)."""
+    def discover_paid_seats(self) -> List[CoRunnerSlot]:
+        """Return all user-configured BYOK Frontier Council seats (from `.kintsugi/paid_council_pool.json` + env)."""
         state = self.load_state()
         saved = state.get("providers") or {}
-        seats: List[BYOKPoolSlot] = []
+        seats: List[CoRunnerSlot] = []
         seen_pids = set()
 
         for pid, info in sorted(saved.items()):
@@ -717,17 +693,17 @@ class PaidFrontierCouncilBYOKRegistry:
             key_val = str(info.get("api_key") or "").strip()
             if not key_val:
                 continue
-            m_name = str(info.get("model") or "gpt-5.4-thinking").strip()
+            m_name = str(info.get("model") or "gpt-5.4").strip()
             seen_pids.add(pid)
             seats.append(
-                BYOKPoolSlot(
+                CoRunnerSlot(
                     slot_id=f"paid_byok:{pid}:{m_name}",
                     provider_id=pid,
                     model=m_name,
                     model_family=str(info.get("model_family") or pid),
                     base_url=str(info.get("base_url") or "https://api.openai.com/v1"),
                     api_key=key_val,
-                    source="USER_BYOK_PAID_COUNCIL",
+                    source="USER_OFFICIAL_BYOK_COUNCIL",
                     billing_usd=0.0,
                     credit_card_required=False,
                     is_paid_byok=True,
@@ -744,7 +720,7 @@ class PaidFrontierCouncilBYOKRegistry:
                 if env_val:
                     m_name = spec["default_model"]
                     seats.append(
-                        BYOKPoolSlot(
+                        CoRunnerSlot(
                             slot_id=f"paid_env:{pid}:{m_name}",
                             provider_id=pid,
                             model=m_name,
@@ -765,19 +741,13 @@ class PaidFrontierCouncilBYOKRegistry:
 
         entitlement = resolve_workspace_co_execution_entitlement(self.workspace_root)
         seats = self.discover_paid_seats()
-        unlocked = bool(entitlement["paid_council_byok_unlocked"])
-        if not unlocked:
-            council_state = "LOCKED_REQUIRES_ENTERPRISE_PRO_29"
-        elif not seats:
-            council_state = "UNLOCKED_AWAITING_USER_BYOK_KEYS"
-        else:
-            council_state = "ACTIVE_READY"
+        council_state = "ACTIVE_READY" if seats else "UNLOCKED_AWAITING_USER_BYOK_KEYS"
 
         return {
             "paid_council_state": council_state,
             "entitlement_tier": entitlement["tier_id"],
             "entitlement_label": entitlement["tier_label"],
-            "paid_council_byok_unlocked": unlocked,
+            "paid_council_byok_unlocked": True,
             "configured_paid_seats_count": len(seats),
             "configured_paid_seats": [s.to_public_dict() for s in seats],
             "supported_paid_council_catalog": [
@@ -798,148 +768,78 @@ class PaidFrontierCouncilBYOKRegistry:
 
 def build_multi_model_agent_guide(workspace_root: str | Path = ".") -> Dict[str, Any]:
     """
-    Generate the structured Bilingual Agent Onboarding & Tier-Upgrade Guide (`VI` / `EN`)
-    so the AI Coding Agent can guide the user step-by-step on:
-      - How the current tier runs (`Free = Primary + 1 Free Model` vs `Pro = Primary + Multi-Model Free`
-        vs `Enterprise = Primary + Multi-Model Free + BYOK Paid Frontier Council`)
-      - How to add $0 Free keys or authorize $0 auto-provisioning
-      - How to add user-owned API keys (`BYOK`) for the Paid Frontier Agent Council
-      - How to unlock higher tiers via `.kpack` license keys.
+    Generate the structured Apache-2.0 Open-Source Multi-Model BYOK & Local Onboarding Guide:
+      - Explains offline local execution (Ollama / deterministic AST & Rust verification)
+      - Explains how to configure official BYOK provider keys (OpenAI, Anthropic, Google Gemini, DeepSeek, OpenRouter)
+      - Explains how to run parallel co-execution and zero-loss context compaction (`@COMPACT/1`).
     """
     from kintsugi.packs import resolve_workspace_co_execution_entitlement
 
     ws = Path(workspace_root).resolve()
     entitlement = resolve_workspace_co_execution_entitlement(ws)
-    free_reg = FreeCoRunnerPoolRegistry(ws)
+    free_reg = FreeCoRunnerPoolRegistry(ws, probe_local_gateway=False)
     free_slots = free_reg.discover_free_slots()
     paid_reg = PaidFrontierCouncilBYOKRegistry(ws)
     paid_status = paid_reg.get_status()
 
-    tier_id = entitlement["tier_id"]
-    if tier_id == "APACHE_2_OPEN_SOURCE":
-        active_behavior_vi = (
-            "Đang ở bản FREE ($0): Model gốc (Primary Anchor) luôn chạy song song với ĐÚNG 1 Model Miễn Phí "
-            "get được (khóa trần 1 model free). Để mở khóa chạy 2–5 Model Miễn Phí cùng lúc (Multi-Model Free Swarm), "
-            "hãy nâng cấp gói Pro (Apache-2.0 / Apache-2.0). Để mở khóa thêm Hội Đồng Agent Thu Phí (Claude Opus / GPT-5.4 / Grok Max), "
-            "hãy nâng cấp gói Complete Corpus Pack (Apache-2.0)."
-        )
+    if paid_status["configured_paid_seats_count"] == 0:
         active_behavior_en = (
-            "Currently on FREE Tier ($0): Your Primary Anchor model always runs alongside EXACTLY 1 discovered $0 Free model "
-            "(hard-locked to 1 free co-runner). Upgrade to Pro (Apache-2.0 / Apache-2.0) to unlock 2–5 parallel Multi-Model Free Co-Runners, "
-            "or upgrade to Complete Corpus Pack (Apache-2.0) to also unlock the BYOK Paid Frontier Agent Council."
-        )
-    elif tier_id == "APACHE_2_OPEN_SOURCE":
-        active_behavior_vi = (
-            "Đang ở bản PRO MULTI-MODEL FREE (Apache-2.0 / Apache-2.0): Đã mở khóa cho phép Model gốc chạy song song cùng "
-            "2–5 Model Miễn Phí thuộc các họ độc lập (DeepSeek, Gemini, Grok Fast, Llama/Cerebras, Qwen) kèm tự động "
-            "xoay vòng khi chạm giới hạn 429. Hội Đồng Agent Thu Phí hiện đang khóa (cần bản Complete Corpus Pack Apache-2.0)."
-        )
-        active_behavior_en = (
-            "Currently on PRO MULTI-MODEL FREE (Apache-2.0 / Apache-2.0): Unlocked parallel execution of your Primary Anchor model "
-            "with 2–5 independent $0 Free Co-Runners plus automatic 429 round-robin failover. Paid Frontier Council "
-            "requires upgrading to Complete Corpus Pack (Apache-2.0)."
+            "Apache-2.0 Open Source (All Features Unlocked): Your workspace can run 100% offline with "
+            "deterministic Rust/Python verification and local Ollama models, or co-execute with up to 5 "
+            "local/BYOK co-runners plus up to 6 BYOK official provider seats. No BYOK council keys are "
+            "configured yet — run `kintsugi swarm --add-paid-key <provider_id> <api_key>` to add your own."
         )
     else:
-        if paid_status["configured_paid_seats_count"] == 0:
-            active_behavior_vi = (
-                "Đang ở bản Complete Corpus Pack (Apache-2.0): Đã mở khóa toàn bộ Multi-Model Free (tối đa 5 model free) "
-                "VÀ Hội Đồng Agent Thu Phí (Paid Frontier Council). Tuy nhiên bạn chưa thêm API Key cho Hội Đồng Thu Phí. "
-                "Hãy làm theo Bước 3 bên dưới (`kintsugi swarm --add-paid-key <provider_id> <api_key>`) để tự thêm key của bạn."
-            )
-            active_behavior_en = (
-                "Currently on Complete Corpus Pack (Apache-2.0): Both Multi-Model Free (up to 5 free models) AND the "
-                "Paid Frontier Agent Council are unlocked! However, no Paid Council BYOK API keys are configured yet. "
-                "Follow Step 3 below (`kintsugi swarm --add-paid-key <provider_id> <api_key>`) to add your own keys."
-            )
-        else:
-            active_behavior_vi = (
-                f"Đang ở bản Complete Corpus Pack (Apache-2.0): Đã mở khóa đầy đủ và gắn sẵn "
-                f"{paid_status['configured_paid_seats_count']} ghế Hội Đồng Agent Thu Phí (BYOK) chạy song song cùng "
-                f"Model Gốc + dàn Multi-Model Free!"
-            )
-            active_behavior_en = (
-                f"Currently on Complete Corpus Pack (Apache-2.0): Fully unlocked with "
-                f"{paid_status['configured_paid_seats_count']} BYOK Paid Frontier Council seat(s) running alongside "
-                f"your Primary Anchor + Multi-Model Free Swarm!"
-            )
+        active_behavior_en = (
+            f"Apache-2.0 Open Source (All Features Unlocked): Active with "
+            f"{paid_status['configured_paid_seats_count']} BYOK official provider seat(s) ready to run "
+            f"alongside your Primary Anchor and local/BYOK co-runners."
+        )
 
     return {
         "current_entitlement": entitlement,
         "discovered_free_models_count": len(free_slots),
         "paid_council_status": paid_status["paid_council_state"],
         "configured_paid_seats_count": paid_status["configured_paid_seats_count"],
-        "agent_explanation_vi": active_behavior_vi,
         "agent_explanation_en": active_behavior_en,
-        "tier_comparison_matrix": [
+        "execution_modes": [
             {
-                "tier_id": "APACHE_2_OPEN_SOURCE",
-                "edition": "Free Open-Source Starter ($0)",
-                "execution_topology": "1 Primary Model + 1 Free Model (Locked to 1 Free Co-Runner)",
-                "max_free_co_runners": 1,
-                "paid_council_byok": False,
-                "how_to_unlock": "Default included in open-source `pip install kintsugi-harness`",
-            },
-            {
-                "tier_id": "APACHE_2_OPEN_SOURCE",
-                "edition": "Pro Skill Packs (Apache-2.0 FinOps Pro / Apache-2.0 AppSec Pro)",
-                "execution_topology": "1 Primary Model + 2..5 Multi-Model Free Co-Runners (Auto 429 Rotation)",
-                "max_free_co_runners": 5,
-                "paid_council_byok": False,
-                "how_to_unlock": "kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>",
-            },
-            {
-                "tier_id": "APACHE_2_OPEN_SOURCE",
-                "edition": "Complete Corpus Pack (Apache-2.0)",
-                "execution_topology": "1 Primary Model + 2..5 Free Co-Runners + 1..6 Paid Frontier Council Seats (BYOK)",
+                "mode_id": "OFFLINE_LOCAL",
+                "edition": "Apache-2.0 Open Source (100% Local)",
+                "execution_topology": "Deterministic Rust/Python scanner + local Ollama OpenAI-compatible runtime",
                 "max_free_co_runners": 5,
                 "paid_council_byok": True,
-                "how_to_unlock": "kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>",
+                "how_to_configure": "Run local Ollama (`http://127.0.0.1:11434/v1`) or offline deterministic CLI commands",
+            },
+            {
+                "mode_id": "OFFICIAL_BYOK_COUNCIL",
+                "edition": "Apache-2.0 Open Source (BYOK Official APIs)",
+                "execution_topology": "1 Primary Model + 1..5 Co-Runners + 1..6 Official BYOK Provider Seats",
+                "max_free_co_runners": 5,
+                "paid_council_byok": True,
+                "how_to_configure": "Set OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / DEEPSEEK_API_KEY or use `--add-paid-key`",
             },
         ],
-        "step_by_step_user_guide_vi": {
-            "step_1_free_tier_1_corunner": (
-                "Chạy ngay ở bản Free ($0) — Model gốc tự động chạy kèm 1 Model Free: "
-                "`kintsugi swarm . --co-run`"
-            ),
-            "step_2_unlock_multi_model_free": (
-                "Mở khóa chạy 2–5 Model Free cùng lúc (Gói Apache-2.0/Apache-2.0): "
-                "`kintsugi install-pack <pro-pack.kpack> --license-key <KEY>` rồi chạy "
-                "`kintsugi swarm --authorize-auto-provision` và `kintsugi swarm . --co-run --free-runners 4`"
-            ),
-            "step_3_setup_paid_council_byok_keys": (
-                "Với Hội Đồng Agent Thu Phí (Gói Enterprise Apache-2.0), người dùng TỰ THÊM API KEY của chính mình "
-                "(lưu cục bộ 0600 tại `.kintsugi/paid_council_pool.json`):\n"
-                "  • Thêm Claude Opus : `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
-                "  • Thêm OpenAI GPT-5.4: `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
-                "  • Thêm xAI Grok-3: `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
-                "  • Thêm Gemini Paid : `kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>`\n"
-                "  • Thêm DeepSeek R1 : `kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>`"
-            ),
-            "step_4_run_full_hybrid_council": (
-                "Chạy đồng thời Model Gốc + Multi-Model Free + Hội Đồng Thu Phí: "
-                "`kintsugi swarm . --co-run --free-runners 3 --paid-council`"
-            ),
-        },
         "step_by_step_user_guide_en": {
-            "step_1_free_tier_1_corunner": (
-                "Run on Free Tier ($0) — Primary model automatically co-executes with 1 Free model: "
+            "step_1_offline_local": (
+                "Run 100% offline deterministic verification or local Ollama co-execution: "
                 "`kintsugi swarm . --co-run`"
             ),
-            "step_2_unlock_multi_model_free": (
-                "Unlock 2–5 parallel Free Co-Runners (Apache-2.0/Apache-2.0 Pro Pack): "
-                "`kintsugi install-pack <pro-pack.kpack> --license-key <KEY>`, then run "
-                "`kintsugi swarm --authorize-auto-provision` and `kintsugi swarm . --co-run --free-runners 4`"
+            "step_2_configure_local_or_byok_runners": (
+                "Configure up to 5 parallel local/BYOK co-runners with automatic HTTP 429 failover: "
+                "`kintsugi swarm . --co-run --free-runners 3`"
             ),
-            "step_3_setup_paid_council_byok_keys": (
-                "For the Paid Frontier Agent Council (Apache-2.0 Enterprise Pro), users ADD THEIR OWN API KEYS (BYOK, stored locally with 0600 permissions in `.kintsugi/paid_council_pool.json`):\n"
-                "  • Add Claude Opus : `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
-                "  • Add OpenAI GPT-5.4: `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
-                "  • Add xAI Grok-3: `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
-                "  • Add Gemini Paid : `kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>`\n"
-                "  • Add DeepSeek R1 : `kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>`"
+            "step_3_setup_byok_official_keys": (
+                "Add your own official API keys (BYOK, stored locally with `chmod 0600` in `.kintsugi/paid_council_pool.json`):\n"
+                "  • OpenAI (GPT-5.4 / o3)     : `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
+                "  • Anthropic (Claude Opus 4) : `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
+                "  • Google (Gemini 2.5 Pro)   : `kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>`\n"
+                "  • DeepSeek (DeepSeek R1)    : `kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>`\n"
+                "  • xAI (Grok 3)              : `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
+                "  • OpenRouter (BYOK)         : `kintsugi swarm --add-paid-key openrouter_frontier <YOUR_OPENROUTER_KEY>`"
             ),
-            "step_4_run_full_hybrid_council": (
-                "Run Primary Anchor + Multi-Model Free + Paid Frontier Council in parallel: "
+            "step_4_run_multi_model_council": (
+                "Run Primary Anchor + parallel co-runners + BYOK Official Provider Council: "
                 "`kintsugi swarm . --co-run --free-runners 3 --paid-council`"
             ),
         },
@@ -951,286 +851,138 @@ def answer_user_multi_model_question(
     workspace_root: str | Path = ".",
 ) -> Dict[str, Any]:
     """
-    Conversational User-Guidance & Q&A Responder (`v1.4.0`).
+    Interactive User-Guidance & Q&A Responder (Apache-2.0 Open Source).
 
     Whenever a user asks the AI Agent (or runs `kintsugi guide "<question>"` / `kintsugi swarm --ask "<question>"`)
-    how to use Multi-Model Co-Execution, how many Free models their edition supports, how to add their own
-    API keys (`BYOK`) for the Paid Frontier Council, or how to upgrade tiers, this function inspects the
-    live workspace state and returns a ready-to-present conversational Markdown guide in the user's language.
+    how to use Multi-Model Co-Execution, how to add their own official API keys (`BYOK`), how to run
+    100% offline with local Ollama, or how to compact long conversations (`@COMPACT/1`), this function
+    inspects the live workspace state and returns a crisp Markdown guide.
     """
     base_guide = build_multi_model_agent_guide(workspace_root)
     ent = base_guide["current_entitlement"]
     tier_id = str(ent.get("tier_id", "APACHE_2_OPEN_SOURCE"))
-    max_free = int(ent.get("max_free_co_runners", 1))
-    paid_unlocked = bool(ent.get("paid_council_byok_unlocked", False))
+    max_free = int(ent.get("max_free_co_runners", 5))
     paid_count = int(base_guide.get("configured_paid_seats_count", 0))
     free_count = int(base_guide.get("discovered_free_models_count", 1))
 
     q_clean = (question or "").strip()
     q_low = q_clean.lower()
 
-    # Detect Vietnamese vs English
-    vi_markers = (
-        "làm sao", "như nào", "thế nào", "hướng dẫn", "thêm key", "hội đồng",
-        "miễn phí", "thu phí", "bản free", "nâng cấp", "mấy model", "chạy cùng",
-        "ở đâu", "an toàn", "cách dùng", "tại sao", "khoá", "khóa", "gói",
-    )
-    has_vi_chars = any(ord(ch) > 127 for ch in q_clean)
-    is_vi = has_vi_chars or any(m in q_low for m in vi_markers) or not q_clean
-    lang = "vi" if is_vi else "en"
-
     # Classify question intent
-    if any(
-        k in q_low
-        for k in (
-            "tràn",
-            "nén",
-            "đầy",
-            "mất context",
-            "nhiễu",
-            "ý chính",
-            "compact",
-            "overflow",
-            "checkpoint",
-            "conversation",
-        )
-    ):
+    if any(k in q_low for k in ("compact", "overflow", "checkpoint", "conversation", "context")):
         intent = "anti_overflow_context_compaction"
-    elif any(k in q_low for k in ("deepseek", "đăng ký", "tự đăng ký", "register", "harvest", "BYOKProvider")):
-        intent = "autonomous_deepseek_free_registration"
-    elif any(k in q_low for k in ("key", "byok", "thu phí", "paid", "opus", "gpt", "grok", "api")):
-        intent = "byok_paid_council_setup"
-    elif any(k in q_low for k in ("an toàn", "bảo mật", "lưu ở đâu", "safe", "security", "privacy", "where")):
+    elif any(k in q_low for k in ("key", "byok", "paid", "opus", "gpt", "grok", "deepseek", "gemini", "api")):
+        intent = "byok_council_setup"
+    elif any(k in q_low for k in ("safe", "security", "privacy", "where", "chmod", "local")):
         intent = "key_security_and_privacy"
-    elif any(k in q_low for k in ("tại sao", "khoá", "khóa", "1 model", "nâng cấp", "tier", "pro", "enterprise", "upgrade", "clamp", "limit")):
-        intent = "tier_comparison_and_upgrade"
-    elif any(k in q_low for k in ("free", "miễn phí", "429", "failover", "provision")):
-        intent = "free_models_discovery_and_rotation"
+    elif any(k in q_low for k in ("ollama", "offline", "429", "failover", "local")):
+        intent = "local_execution_and_failover"
     else:
         intent = "general_multi_model_onboarding"
 
-    faq_vi = [
-        {
-            "question": "1. Model gốc chạy cùng các model miễn phí và hội đồng thu phí như thế nào?",
-            "answer": (
-                "Trong Kintsugi v1.4.0, Model gốc (Primary Model) KHÔNG BAO GIỜ chạy đơn độc. "
-                "Nó luôn chạy song song với các Model Miễn Phí ($0) tự động tìm được (qua cổng local :11434, "
-                "`.kintsugi/byok_provider_pool.json`, biến môi trường hoặc keyless endpoint) và kiểm chứng chéo kết quả bằng BFT + AST/Regex Gate."
-            ),
-        },
-        {
-            "question": "2. Bản Free ($0), Bản Pro (Apache-2.0/Apache-2.0) và Bản Enterprise (Apache-2.0) khác nhau ra sao?",
-            "answer": (
-                "• Bản Free ($0 — `APACHE_2_OPEN_SOURCE`): Khóa cứng chạy `Model gốc + 1 Model Free ($0)` (`max_free_co_runners = 1`).\n"
-                "• Bản Pro (Apache-2.0 FinOps / Apache-2.0 AppSec — `APACHE_2_OPEN_SOURCE`): Mở khóa chạy `Model gốc + 2..5 Model Free ($0) song song`, tự động xoay vòng khi gặp lỗi HTTP 429.\n"
-                "• Bản Enterprise (Apache-2.0 — `APACHE_2_OPEN_SOURCE`): Mở khóa `Model gốc + 5 Model Free ($0) + 6 Ghế Hội Đồng Agent Thu Phí (BYOK)`."
-            ),
-        },
-        {
-            "question": "3. Tôi tự thêm API Key cho Hội Đồng Agent Thu Phí (BYOK) bằng cách nào?",
-            "answer": (
-                "Với Hội Đồng Thu Phí, bạn tự thêm key cá nhân của mình (Anthropic, OpenAI, xAI Grok, Gemini, DeepSeek, OpenRouter) bằng lệnh:\n"
-                "  `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
-                "  `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
-                "  `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
-                "Kiểm tra trạng thái key: `kintsugi swarm --paid-council-status`\n"
-                "Xoá key bất kỳ lúc nào: `kintsugi swarm --remove-paid-key <provider_id>`"
-            ),
-        },
-        {
-            "question": "4. API Key tôi thêm vào được lưu ở đâu, có bị gửi đi đâu không?",
-            "answer": (
-                "100% lưu cục bộ trên máy của bạn tại `.kintsugi/paid_council_pool.json` với quyền bảo mật `chmod 0600` (chỉ user trên máy đọc được) "
-                "và tự động nằm trong `.gitignore`. Mọi lệnh hiển thị trạng thái đều che kín key (`sk-a...9f2a`). Kintsugi tuyệt đối không gửi key của bạn lên bất kỳ server trung gian nào."
-            ),
-        },
-        {
-            "question": "5. Agent có tự động đăng ký tài khoản và lấy API Key DeepSeek Free ($0) được không?",
-            "answer": (
-                "CÓ. Chạy lệnh `kintsugi swarm --configure-byok` (hoặc `--configure-byok --deepseek-count 3`), Agent sẽ tự động: "
-                "(1) Tạo hộp thư tạm `example.invalid`, (2) Gửi Magic Link đăng ký BYOKProvider 262K (`deepseek-ai/DeepSeek-R1`), "
-                "(3) Đọc mail lấy mã xác thực, (4) Tự động mint API Key `tj_...` thật ($0, không cần thẻ), "
-                "(5) Gọi test trực tiếp `POST /v1/chat/completions` đạt `HTTP 200 OK` và lưu vào `.kintsugi/byok_provider_pool.json` (`0600`)."
-            ),
-        },
-        {
-            "question": "6. Khi 1 conversation đầy, làm sao chống tràn nén, giữ 100% ý chính và loại bỏ nhiễu?",
-            "answer": (
-                "Chạy `kintsugi compact --inject-agents` (hoặc gọi MCP tool `kintsugi_compact_context`). Hệ thống `@COMPACT/1` sẽ: "
-                "(1) Theo dõi áp lực token qua 2 ngưỡng (`70%` Soft Watermark / `85%` Hard Watermark), "
-                "(2) Tự động loại bỏ 4 lớp nhiễu (log build/test dài >18 dòng, vòng lặp poll trùng lặp, các lần đọc file cũ đã bị ghi đè, suy nghĩ nháp thừa), "
-                "(3) Khóa cứng 100% Ý chính của User (`@USER_INTENTS`), Mỏ neo kỹ thuật (`@HARD_ANCHORS`: `file:line`, commit/tag, rule ID, IP/port, daemon) & Lỗi đã sửa (`@ERRORS_AND_FIXES`), "
-                "(4) Lưu bản tóm tắt đầy đủ vào `.kintsugi/context_checkpoints/latest_checkpoint.md` kèm chuỗi siêu nén `<180 token` `@COMPACT/1` trong `CLAUDE.md` / `AGENTS.md`."
-            ),
-        },
-    ]
-
     faq_en = [
         {
-            "question": "1. How does the Primary Model co-execute with Free Models and the Paid Council?",
+            "question": "1. How does Multi-Model Co-Execution work in Kintsugi Harness?",
             "answer": (
-                "In Kintsugi v1.4.0, your Primary Anchor Model never runs alone. It always co-executes in parallel "
-                "with dynamically discovered $0 Free Co-Runners (from local gateway :11434, `.kintsugi/byok_provider_pool.json`, "
-                "env vars, or keyless endpoints) and merges findings via BFT consensus + deterministic AST/Regex verification."
+                "Your Primary Anchor model can co-execute in parallel with up to 5 local Ollama or BYOK co-runners "
+                "and up to 6 official BYOK provider council seats, merging findings via BFT consensus and "
+                "deterministic AST/Regex verification. All features are 100% unlocked under Apache-2.0."
             ),
         },
         {
-            "question": "2. What is the difference between Free ($0), Pro (Apache-2.0/Apache-2.0), and Enterprise (Apache-2.0)?",
+            "question": "2. How do I add my own official API keys (BYOK) for the Multi-Model Council?",
             "answer": (
-                "• Free ($0 — `APACHE_2_OPEN_SOURCE`): Locked to `Primary + 1 Free Model ($0)` (`max_free_co_runners = 1`).\n"
-                "• Pro (Apache-2.0 FinOps / Apache-2.0 AppSec — `APACHE_2_OPEN_SOURCE`): Unlocks `Primary + 2..5 Parallel Free Models ($0)` with automatic HTTP 429 failover.\n"
-                "• Enterprise (Apache-2.0 — `APACHE_2_OPEN_SOURCE`): Unlocks `Primary + 5 Free Models ($0) + 6-Seat BYOK Paid Frontier Council`."
-            ),
-        },
-        {
-            "question": "3. How do I add my own API keys (BYOK) for the Paid Frontier Council?",
-            "answer": (
-                "Register your own API keys locally using:\n"
-                "  `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
+                "Register your own official API keys locally using:\n"
                 "  `kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>`\n"
-                "  `kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>`\n"
+                "  `kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>`\n"
                 "Check status: `kintsugi swarm --paid-council-status`\n"
                 "Remove a key: `kintsugi swarm --remove-paid-key <provider_id>`"
             ),
         },
         {
-            "question": "4. Where are my BYOK API keys stored and are they private?",
+            "question": "3. Where are my BYOK API keys stored and are they private?",
             "answer": (
                 "Keys are stored strictly on your local disk at `.kintsugi/paid_council_pool.json` with `chmod 0600` permissions "
-                "(owner-read/write only) and masked in all status outputs. Keys are never sent to any third-party relay."
+                "(owner-read/write only) and masked in all status outputs. Keys are sent only to the official provider endpoint you configure."
             ),
         },
         {
-            "question": "5. Can the Agent automatically register and mint a real $0 DeepSeek Free API key?",
+            "question": "4. Can Kintsugi run 100% offline with zero external API keys?",
             "answer": (
-                "YES. Run `kintsugi swarm --configure-byok` (or `--configure-byok --deepseek-count 3`), and the Agent will autonomously: "
-                "(1) create a disposable `example.invalid` inbox, (2) request a signup magic link from BYOKProvider 262K (`deepseek-ai/DeepSeek-R1`), "
-                "(3) extract the verification token, (4) mint a live `tj_...` API key ($0, no credit card), "
-                "(5) verify a live `HTTP 200 OK` chat completion, and save it to `.kintsugi/byok_provider_pool.json` (`0600`)."
+                "Yes. Core AST/Regex scanning, Rust PreToolUse enforcement, formal verification, and offline scar synthesis "
+                "require zero network access. For local LLM co-execution, point `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434/v1`) "
+                "to your local Ollama, vLLM, or LM Studio instance."
             ),
         },
         {
-            "question": "6. How does Anti-Overflow Conversation Compaction (@COMPACT/1) prevent losing context when a chat fills up?",
+            "question": "5. How does Anti-Overflow Conversation Compaction (@COMPACT/1) prevent losing context?",
             "answer": (
                 "Run `kintsugi compact --inject-agents` (or call MCP tool `kintsugi_compact_context`). The `@COMPACT/1` engine: "
                 "(1) monitors token pressure against soft (`70%`) and hard (`85%`) watermarks, "
                 "(2) strips 4 classes of noise (verbose build/test logs, duplicate polling loops, superseded file reads, exploratory chaff), "
-                "(3) locks 100% of `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules, IPs, daemons), and `@ERRORS_AND_FIXES`, and "
-                "(4) persists both `.kintsugi/context_checkpoints/latest_checkpoint.md` and a `<180-token` `@COMPACT/1` wire capsule into `CLAUDE.md` / `AGENTS.md`."
+                "(3) preserves `@USER_INTENTS`, `@HARD_ANCHORS` (`file:line`, commits, rules), and `@ERRORS_AND_FIXES`, and "
+                "(4) persists `.kintsugi/context_checkpoints/latest_checkpoint.md` plus a `<180-token` `@COMPACT/1` wire capsule into `CLAUDE.md` / `AGENTS.md`."
             ),
         },
     ]
 
-    if is_vi:
-        md_lines = [
-            "### 🧭 Hướng Dẫn Sử Dụng Multi-Model & Hội Đồng Agent (`Kintsugi v1.4.0`)",
-            "",
-            f"- **Trạng thái Workspace hiện tại của bạn:** `{tier_id}` ({ent.get('tier_label')}) · "
-            f"Tối đa **`{max_free}` Model Free** (`đã phát hiện {free_count} nguồn Free`) · "
-            f"Hội Đồng Thu Phí BYOK: **`{'ĐÃ MỞ KHÓA' if paid_unlocked else 'ĐANG KHÓA'}`** (`{paid_count}/6` ghế đã gắn key).",
-            f"- **Tóm tắt nhanh:** {base_guide['agent_explanation_vi']}",
-            "",
-            "#### 1. Cơ chế 3 Tầng (Free vs Pro vs Enterprise)",
-            "1. **Bản Free (`$0` — `APACHE_2_OPEN_SOURCE`):** Model gốc luôn chạy kèm **1 Model Miễn Phí (`$0`)** (`max_free_co_runners = 1`).",
-            "   - Tự động đăng ký & lấy API Key DeepSeek Free (`262K` context, `$0`): `kintsugi swarm --configure-byok`",
-            "   - Lệnh chạy ngay: `kintsugi swarm . --co-run`",
-            "2. **Bản Pro (`Apache-2.0` FinOps / `Apache-2.0` AppSec — `APACHE_2_OPEN_SOURCE`):** Mở khóa chạy song song **2 đến 5 Model Miễn Phí (`$0`)**, tự động xoay vòng khi có model bị giới hạn `HTTP 429`.",
-            "   - Mở khóa gói: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
-            "   - Cấp quyền tự lấy pool Free `$0`: `kintsugi swarm --authorize-auto-provision`",
-            "   - Lệnh chạy 4–5 model Free: `kintsugi swarm . --co-run --free-runners 5`",
-            "3. **Bản Enterprise (`Apache-2.0` — `APACHE_2_OPEN_SOURCE`):** Mở khóa **5 Model Free (`$0`) + 6 Ghế Hội Đồng Agent Thu Phí (`BYOK`)**.",
-            "   - Mở khóa gói: `kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>`",
-            "",
-            "#### 2. Cách Người Dùng Tự Thêm API Key Cho Hội Đồng Thu Phí (`BYOK`)",
-            "Với Hội Đồng Thu Phí, bạn tự thêm key cá nhân (lưu an toàn `chmod 0600` tại `.kintsugi/paid_council_pool.json` trên máy bạn):",
-            "```bash",
-            "# B1: Thêm 1 hoặc nhiều API key của bạn vào Hội Đồng Thu Phí",
-            "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
-            "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
-            "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>",
-            "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>",
-            "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>",
-            "",
-            "# B2: Kiểm tra danh sách ghế Hội Đồng Thu Phí đã sẵn sàng",
-            "kintsugi swarm --paid-council-status",
-            "",
-            "# B3: Chạy đồng thời Model Gốc + 5 Model Free + Hội Đồng Thu Phí",
-            "kintsugi swarm . --co-run --free-runners 5 --paid-council",
-            "```",
-            "",
-            "#### 3. Cơ Chế Chống Tràn Nén Khi Conversation Đầy (`@COMPACT/1` — Zero-Loss Context Distillation)",
-            "- **Tự động lọc 4 lớp gây nhiễu:** Gấp gọn log CLI/build/test dài, gộp các vòng lặp poll trùng lặp (`manage_task`/`git status`), cắt bỏ các lần đọc file cũ đã bị ghi đè và suy nghĩ nháp thừa.",
-            "- **Giữ 100% Ý chính & Mỏ neo kỹ thuật:** Bảo toàn tuyệt đối mọi yêu cầu của User (`@USER_INTENTS`), đường dẫn `file:line`, mã commit/tag, rule ID, IP/port, daemon đang chạy (`@HARD_ANCHORS`) và các lỗi đã sửa (`@ERRORS_AND_FIXES`).",
-            "```bash",
-            "# Tự động nén hội thoại đang chạy, lưu checkpoint và nhúng capsule <180 token vào CLAUDE.md / AGENTS.md",
-            "kintsugi compact --inject-agents",
-            "kintsugi compact --wire",
-            "```",
-        ]
-    else:
-        md_lines = [
-            "### 🧭 Multi-Model Co-Execution & BYOK Paid Council Guide (`Kintsugi v1.4.0`)",
-            "",
-            f"- **Your Active Workspace Tier:** `{tier_id}` ({ent.get('tier_label')}) · "
-            f"Max **`{max_free}` Free Co-Runner(s)** (`{free_count} discovered`) · "
-            f"BYOK Paid Council: **`{'UNLOCKED' if paid_unlocked else 'LOCKED'}`** (`{paid_count}/6` seats configured).",
-            f"- **Summary:** {base_guide['agent_explanation_en']}",
-            "",
-            "#### 1. How the 3 Commercial Tiers Work",
-            "1. **Free Tier (`$0` — `APACHE_2_OPEN_SOURCE`):** Primary Model always runs alongside **1 Free Co-Runner (`$0`)** (`max_free_co_runners = 1`).",
-            "   - Auto-register & mint a live $0 DeepSeek Free API key (`262K` context): `kintsugi swarm --configure-byok`",
-            "   - Run now: `kintsugi swarm . --co-run`",
-            "2. **Pro Tier (`Apache-2.0` FinOps / `Apache-2.0` AppSec — `APACHE_2_OPEN_SOURCE`):** Unlocks **2 to 5 parallel Free Co-Runners (`$0`)** with automatic HTTP 429 failover.",
-            "   - Unlock pack: `kintsugi install-pack kintsugi-zero-trust-mcp-security-pro-v1.4.0.kpack --license-key <PRO_KEY>`",
-            "   - Authorize $0 pool discovery: `kintsugi swarm --authorize-auto-provision`",
-            "   - Run with 5 Free models: `kintsugi swarm . --co-run --free-runners 5`",
-            "3. **Enterprise Tier (`Apache-2.0` — `APACHE_2_OPEN_SOURCE`):** Unlocks **5 Free Models (`$0`) + 6-Seat Paid Frontier Council (`BYOK`)**.",
-            "   - Unlock pack: `kintsugi install-pack kintsugi-enterprise-complete-pro-v1.4.0.kpack --license-key <ENT_KEY>`",
-            "",
-            "#### 2. How to Add Your Own API Keys (`BYOK`) for the Paid Frontier Council",
-            "Your keys are stored strictly locally in `.kintsugi/paid_council_pool.json` (`chmod 0600`):",
-            "```bash",
-            "# Step 1: Register 1 or more of your own frontier API keys",
-            "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
-            "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
-            "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>",
-            "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>",
-            "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>",
-            "",
-            "# Step 2: Verify configured Paid Council seats",
-            "kintsugi swarm --paid-council-status",
-            "",
-            "# Step 3: Co-execute Primary Model + 5 Free Models + Paid Frontier Council",
-            "kintsugi swarm . --co-run --free-runners 5 --paid-council",
-            "```",
-            "",
-            "#### 3. Anti-Overflow Conversation Compaction (`@COMPACT/1` — Zero-Loss Context Distillation)",
-            "- **Strips 4 classes of noise:** Folds verbose build/test logs, collapses duplicate polling loops, prunes superseded file reads, and trims exploratory chaff.",
-            "- **Locks 100% of Hard Anchors:** Preserves all `@USER_INTENTS`, `file:line` anchors, git commits/tags, rule IDs, pinned IPs/ports, active daemons, and `@ERRORS_AND_FIXES`.",
-            "```bash",
-            "kintsugi compact --inject-agents",
-            "kintsugi compact --wire",
-            "```",
-        ]
+    md_lines = [
+        "### Multi-Model Co-Execution & BYOK Configuration Guide (Apache-2.0 Open Source)",
+        "",
+        f"- **Active Workspace Profile:** `{tier_id}` ({ent.get('tier_label')}) · "
+        f"Up to **`{max_free}` parallel co-runner(s)** (`{free_count}` available) · "
+        f"BYOK Official Council: **UNLOCKED** (`{paid_count}/6` seats configured).",
+        f"- **Summary:** {base_guide['agent_explanation_en']}",
+        "",
+        "#### 1. Offline Local & Official BYOK Execution",
+        "1. **100% Offline Local Execution:** Deterministic Rust/Python verification and local Ollama (`http://127.0.0.1:11434/v1`).",
+        "   - Run co-execution: `kintsugi swarm . --co-run --free-runners 3`",
+        "2. **BYOK Official Provider Council (OpenAI, Anthropic, Google Gemini, DeepSeek, xAI, OpenRouter):**",
+        "   Keys are stored strictly locally in `.kintsugi/paid_council_pool.json` (`chmod 0600`):",
+        "```bash",
+        "# Step 1: Register 1 or more of your own official provider API keys",
+        "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
+        "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
+        "kintsugi swarm --add-paid-key google_gemini_paid <YOUR_GEMINI_KEY>",
+        "kintsugi swarm --add-paid-key deepseek_paid <YOUR_DEEPSEEK_KEY>",
+        "kintsugi swarm --add-paid-key xai_grok_paid <YOUR_XAI_KEY>",
+        "kintsugi swarm --add-paid-key openrouter_frontier <YOUR_OPENROUTER_KEY>",
+        "",
+        "# Step 2: Verify configured BYOK Council seats",
+        "kintsugi swarm --paid-council-status",
+        "",
+        "# Step 3: Co-execute Primary Model + Local/BYOK Co-Runners + Official BYOK Council",
+        "kintsugi swarm . --co-run --free-runners 3 --paid-council",
+        "```",
+        "",
+        "#### 2. Anti-Overflow Conversation Compaction (`@COMPACT/1` — Zero-Loss Context Distillation)",
+        "- **Strips 4 classes of noise:** Folds verbose build/test logs, collapses duplicate polling loops, prunes superseded file reads, and trims exploratory chaff.",
+        "- **Preserves Hard Anchors:** Retains all `@USER_INTENTS`, `file:line` anchors, git commits/tags, rule IDs, and `@ERRORS_AND_FIXES`.",
+        "```bash",
+        "kintsugi compact --inject-agents",
+        "kintsugi compact --wire",
+        "```",
+    ]
 
     recommended_cmds = [
         "kintsugi compact --inject-agents",
-        "kintsugi swarm --configure-byok",
         "kintsugi swarm . --co-run",
         "kintsugi swarm --paid-council-status",
+        "kintsugi swarm --add-paid-key openai_frontier <YOUR_OPENAI_KEY>",
         "kintsugi swarm --add-paid-key anthropic_opus <YOUR_ANTHROPIC_KEY>",
-        "kintsugi swarm . --co-run --free-runners 5 --paid-council",
+        "kintsugi swarm . --co-run --free-runners 3 --paid-council",
     ]
 
     result = dict(base_guide)
     result.update(
         {
             "question": q_clean,
-            "detected_language": lang,
+            "detected_language": "en",
             "detected_intent": intent,
             "direct_answer_markdown": "\n".join(md_lines),
             "recommended_commands": recommended_cmds,
-            "faq_catalog_vi": faq_vi,
             "faq_catalog_en": faq_en,
         }
     )
@@ -1239,14 +991,13 @@ def answer_user_multi_model_question(
 
 class PrimaryPlusFreeCoExecutor:
     """
-    Tier-Gated Multi-Model Co-Execution Engine (`v1.3.0`)
-    =====================================================
-    Guarantees that the Primary Anchor Model (`model gốc`) ALWAYS runs alongside:
-      - Tier 0 (`APACHE_2_OPEN_SOURCE`, `$0`)            : Hard-locked to `1` discovered $0 Free Co-Runner (`Primary + 1 Free`).
-      - Tier 1 (`APACHE_2_OPEN_SOURCE`, `Apache-2.0 / Apache-2.0`)   : `1..5` parallel $0 Free Co-Runners across distinct model families
-                                                   with automatic round-robin failover on HTTP 429 / timeouts.
-      - Tier 2 (`APACHE_2_OPEN_SOURCE`, `Apache-2.0`): `1..5` $0 Free Co-Runners PLUS `1..6` user-supplied BYOK
-                                                   Paid Frontier Agent Council seats (`Claude Opus`, `GPT-5.4`, `Grok-3`).
+    Apache-2.0 Open-Source Multi-Model Co-Execution Engine
+    ======================================================
+    Co-executes the Primary Anchor model alongside:
+      - `1..5` parallel local Ollama or BYOK co-runners across distinct model families
+        with automatic round-robin failover on HTTP 429 / timeouts.
+      - Optional `1..6` user-supplied BYOK Official Frontier Council seats
+        (`Claude Opus 4`, `GPT-5.4 / o3`, `Grok 3`, `Gemini 2.5 Pro`, `DeepSeek R1`, `OpenRouter`).
     """
 
     def __init__(
@@ -1272,13 +1023,14 @@ class PrimaryPlusFreeCoExecutor:
         base_url = (
             os.environ.get("KINTSUGI_PRIMARY_BASE_URL")
             or os.environ.get("KINTSUGI_ARCHITECT_BASE_URL")
+            or os.environ.get("OLLAMA_BASE_URL")
             or "http://127.0.0.1:11434/v1"
         )
         api_key = (
             os.environ.get("KINTSUGI_PRIMARY_API_KEY")
-            or os.environ.get("GEMINI_API_KEY")
             or os.environ.get("OPENAI_API_KEY")
-            or "primary-session"
+            or os.environ.get("GEMINI_API_KEY")
+            or "local-ollama"
         )
         fam = model.split("-")[0].lower() if "-" in model else "primary-anchor"
         return AgentEndpoint(
@@ -1290,7 +1042,6 @@ class PrimaryPlusFreeCoExecutor:
             model_family=fam,
             source="PRIMARY_ANCHOR",
             billing_usd=0.0,
-            extra_body={"allow_pro": False, "standard_byok_mode": True},
         )
 
     def resolve_execution_plan(
@@ -1299,24 +1050,21 @@ class PrimaryPlusFreeCoExecutor:
         include_paid_council: bool = False,
     ) -> Dict[str, Any]:
         """
-        Apply the 3-Tier Commercial Entitlement Gate to determine exact co-execution seats:
-        - `APACHE_2_OPEN_SOURCE` ($0) clamps `effective_free_runners = 1` and blocks `include_paid_council`.
-        - `APACHE_2_OPEN_SOURCE` (Apache-2.0/Apache-2.0) allows `1..5` free co-runners and blocks `include_paid_council`.
-        - `APACHE_2_OPEN_SOURCE` (Apache-2.0) allows `1..5` free co-runners AND `include_paid_council` (requires BYOK keys).
+        Resolve the Apache-2.0 co-execution seat plan:
+        - Allows `1..5` parallel local/BYOK co-runners (all features unlocked under Apache-2.0).
+        - Allows optional `include_paid_council=True` using user-configured BYOK official API keys.
         """
         from kintsugi.packs import resolve_workspace_co_execution_entitlement
 
         entitlement = resolve_workspace_co_execution_entitlement(self.workspace_root)
         max_free_allowed = int(entitlement["max_free_co_runners"])
-        req_free = int(requested_free_runners) if requested_free_runners is not None else max_free_allowed
+        req_free = int(requested_free_runners) if requested_free_runners is not None else 1
         req_free = max(1, req_free)
 
         notices: List[str] = []
         if req_free > max_free_allowed:
             notices.append(
-                f"TIER_GATE_CLAMPED_FREE_MODELS: Requested {req_free} free models, but current tier "
-                f"'{entitlement['tier_id']}' ({entitlement['tier_label']}) is locked to {max_free_allowed} free model(s). "
-                f"Install a Pro Skill Pack (Apache-2.0 / Apache-2.0 / Apache-2.0) to unlock up to 5 parallel free models."
+                f"MAX_PARALLEL_CO_RUNNERS_CAPPED: Requested {req_free} co-runners; capped at {max_free_allowed} parallel seats."
             )
         effective_free = max(1, min(req_free, max_free_allowed))
 
@@ -1326,25 +1074,18 @@ class PrimaryPlusFreeCoExecutor:
             prefer_distinct_families=True,
         )
 
-        paid_slots: List[BYOKPoolSlot] = []
+        paid_slots: List[CoRunnerSlot] = []
         paid_council_status = "NOT_REQUESTED"
         if include_paid_council:
-            if not entitlement["paid_council_byok_unlocked"]:
-                paid_council_status = "LOCKED_REQUIRES_ENTERPRISE_PRO_29"
+            paid_slots = self.paid_registry.discover_paid_seats()
+            if not paid_slots:
+                paid_council_status = "AWAITING_USER_BYOK_KEYS"
                 notices.append(
-                    f"TIER_GATE_BLOCKED_PAID_COUNCIL: Paid Frontier Agent Council requires "
-                    f"'kintsugi-enterprise-complete-pro' (Apache-2.0). Current tier is '{entitlement['tier_id']}'."
+                    "NO_USER_KEYS_CONFIGURED: Add official provider API keys via "
+                    "`kintsugi swarm --add-paid-key <provider_id> <api_key>` or environment variables."
                 )
             else:
-                paid_slots = self.paid_registry.discover_paid_seats()
-                if not paid_slots:
-                    paid_council_status = "AWAITING_USER_BYOK_KEYS"
-                    notices.append(
-                        "PAID_COUNCIL_BYOK_REQUIRED: Complete Corpus Pack (Apache-2.0) is unlocked, but you have not added "
-                        "your Paid Frontier API keys yet. Run `kintsugi swarm --add-paid-key <provider_id> <api_key>`."
-                    )
-                else:
-                    paid_council_status = "ACTIVE_BYOK_READY"
+                paid_council_status = "ACTIVE_BYOK_READY"
 
         return {
             "entitlement": entitlement,
@@ -1369,7 +1110,7 @@ class PrimaryPlusFreeCoExecutor:
     def _execute_free_seat_with_failover(
         self,
         seat_index: int,
-        initial_slot: BYOKPoolSlot,
+        initial_slot: CoRunnerSlot,
         system_prompt: str,
         user_prompt: str,
         already_assigned_ids: Sequence[str],
@@ -1552,17 +1293,17 @@ class PrimaryPlusFreeCoExecutor:
     ) -> Dict[str, Any]:
         """
         Execute `system_prompt` + `user_prompt` in parallel across:
-          - Seat 0: `PRIMARY_ANCHOR` (`model gốc`)
-          - Seats 1..M: `$0` Free Co-Runners (`1` on Free tier, `1..5` on Pro/Enterprise tiers)
-          - Seats M+1..K: BYOK Paid Frontier Council seats (when `include_paid_council=True` on `Apache-2.0` Enterprise tier)
+          - Seat 0: `PRIMARY_ANCHOR` (active primary model)
+          - Seats 1..M: Open-Source Co-Runners (1..5 local Ollama or BYOK endpoints)
+          - Seats M+1..K: BYOK Frontier Council seats (when `include_paid_council=True`, fully unlocked under Apache-2.0)
         """
         t_start = time.perf_counter()
         plan = self.resolve_execution_plan(
             requested_free_runners=num_free_runners,
             include_paid_council=include_paid_council,
         )
-        free_slots: List[BYOKPoolSlot] = plan.pop("_free_slot_objects")
-        paid_slots: List[BYOKPoolSlot] = plan.pop("_paid_slot_objects")
+        free_slots: List[CoRunnerSlot] = plan.pop("_free_slot_objects")
+        paid_slots: List[CoRunnerSlot] = plan.pop("_paid_slot_objects")
         assigned_free_ids = [s.slot_id for s in free_slots]
 
         total_workers = 1 + len(free_slots) + len(paid_slots)
@@ -1659,8 +1400,8 @@ class PrimaryPlusFreeCoExecutor:
         include_paid_council: bool = False,
     ) -> Tuple[GoldenScar, Dict[str, Any]]:
         """
-        Synthesize and verify a `GoldenScar` by running the Primary Anchor Model (`model gốc`)
-        in parallel with `1..N` $0 Free Co-Runners (and optional BYOK Paid Frontier Council seats).
+        Synthesize and verify a `GoldenScar` by running the Primary Anchor model
+        in parallel with `1..N` local/BYOK co-runners (and optional BYOK Official Frontier Council seats).
         Every candidate must pass `verify_candidate_scar()` (7-Layer Shield + TP >= 1 + FP == 0).
         """
         sys_prompt = (
@@ -1781,7 +1522,7 @@ class EvolutionCouncil:
 
     @staticmethod
     def from_env() -> List[AgentEndpoint]:
-        """Auto-discover Architect (Gemini), Synthesizer (DeepSeek), and Critic (Muse/OpenAI) seats."""
+        """Auto-discover Architect (Gemini), Synthesizer (DeepSeek), and Critic (OpenAI / BYOK) seats."""
         seats: List[AgentEndpoint] = []
         gemini_key = os.environ.get("GEMINI_API_KEY")
         if gemini_key:
@@ -1814,7 +1555,7 @@ class EvolutionCouncil:
                 )
             )
 
-        critic_key = os.environ.get("MUSE_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        critic_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("KINTSUGI_CRITIC_API_KEY")
         if critic_key:
             seats.append(
                 AgentEndpoint(
@@ -1837,8 +1578,8 @@ class EvolutionCouncil:
         include_paid_council: bool = False,
     ) -> Tuple[GoldenScar, Dict[str, Any]]:
         """
-        Run the Tier-Gated `PrimaryPlusFreeCoExecutor` so the Primary Model always executes
-        alongside 1 Free model (Free tier), 2..5 Free models (Pro tier), or Free + BYOK Paid Council (Enterprise tier).
+        Run `PrimaryPlusFreeCoExecutor` so the Primary Model executes alongside
+        `1..5` parallel local/BYOK co-runners and optional BYOK Official Provider Council seats.
         """
         primary_ep = self.endpoints[0] if self.endpoints else None
         executor = PrimaryPlusFreeCoExecutor(

@@ -12,7 +12,7 @@ tags:
   checked: false
   model:
   - deepseek-r1
-  - Grok-3
+  - grok-3
   - qwen3-4b-mlx
   org:
   - Kintsugi-Harness

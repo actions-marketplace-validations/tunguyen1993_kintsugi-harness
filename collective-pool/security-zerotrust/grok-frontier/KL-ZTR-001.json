@@ -20,11 +20,11 @@
   "good_code": "claims = jwt.decode(token, public_key, algorithms=[\"RS256\"])",
   "regex_pattern": "[\"\\']verify_signature[\"\\']\\s*:\\s*False",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
+    "grok-3",
     "claude-opus-4"
   ],
   "reinforcement_count": 17,

@@ -301,7 +301,7 @@ class DisjointScarHoldoutVerifier:
     """
     v1.2.0 Disjoint Generator/Verifier Scar Holdout Gate (`T_gen != T_ver`).
 
-    Enforces Council #2's (`Grok-3` + `DeepSeek-R1` + `GPT-5.4.1 Terra` + `GPT-5.4 Luna`)
+    Enforces the multi-model verification council's
     out-of-sample verification invariant before any autopoietically synthesized `GoldenScar`
     or `CognitiveLesson` is admitted into memory:
       1. Generates a disjoint positive holdout corpus (`pos_holdout`) via alpha-renaming,
@@ -333,7 +333,7 @@ class DisjointScarHoldoutVerifier:
         scar: GoldenScar,
         *,
         generator_model: str = "deepseek-r1-0528",
-        verifier_model: str = "Grok-3-build-fast",
+        verifier_model: str = "grok-3",
     ) -> Dict[str, Any]:
         if generator_model.strip().lower() == verifier_model.strip().lower():
             verifier_model = f"{verifier_model}-disjoint-verifier"
@@ -460,7 +460,7 @@ class DisjointScarHoldoutVerifier:
 
 class AutopoieticSynthesizer:
     """
-    Self-Generates (`Tự sinh`) new verified causal `CognitiveLesson`s and `GoldenScar`s
+    Self-generates new verified causal `CognitiveLesson`s and `GoldenScar`s
     by inspecting live codebase seams, generating counterfactual test pairs, and running
     the 4-Stage Frontier Epistemic & Counterfactual Verification Gate + v1.2.0 Disjoint Holdout Gate.
     """
@@ -508,7 +508,7 @@ class AutopoieticSynthesizer:
                 good_code=tpl["good_code"],
                 regex_pattern=tpl["regex_pattern"],
                 synthesized_by_model=synthesized_by_model,
-                endorsed_by_models=[synthesized_by_model, "gpt-5.4", "Grok-3"],
+                endorsed_by_models=[synthesized_by_model, "gpt-5.4", "grok-3"],
                 reinforcement_count=1,
                 source_repo="local-episodic",
             )
@@ -524,7 +524,7 @@ class AutopoieticSynthesizer:
             holdout_rep = DisjointScarHoldoutVerifier.verify_disjoint_holdout(
                 cand_scar,
                 generator_model=synthesized_by_model,
-                verifier_model="Grok-3-build-fast",
+                verifier_model="grok-3",
             )
             if not holdout_rep["passed"]:
                 self.meta_model.record_outcome(candidate.domain, succeeded=False, predicted_prob=0.7)
@@ -599,7 +599,7 @@ class HorizonForecastItem:
 
 class CausalForesightEngine:
     """
-    3-Horizon Causal World-Model Forecaster & Proactive Action Planner (`Tự dự toán tương lai`):
+    3-Horizon Causal World-Model Forecaster & Proactive Action Planner:
     - `T+1 (Immediate Direct Risk)`: Direct failure probability across active seams & unguarded paths.
     - `T+2 (Second-Order Cascade)`: Propagates risk across callers/modules (`r^(2) = A*r + lambda*A^2*r`).
     - `T+3 (Scale, Concurrency & Drift Tail-Risk)`: Evaluates race-window & resource-exhaustion stress multipliers.
@@ -1352,8 +1352,7 @@ class ScientificLiteratureVerifier:
 
 class LakatosCEGISVerifier:
     """
-    v1.3.0 High-Reasoning Upgrade #1 (Synthesized by GPT-5.4 [Thinking effort: Pro],
-    Grok-3 [xhigh], and gpt-5.4 [max]):
+    v1.3.0 High-Reasoning Upgrade #1 (multi-model formal verification: o3, claude-opus-4, gpt-5.4):
     Lakatosian Proofs & Refutations / Counterexample-Guided Inductive Synthesis (CEGIS)
     with strict Anti-Goalpost-Moving semantics:
       - `PROVED`      : Complete refuter finds 0 counterexamples on uncut initial domain `D_0`,
@@ -1443,8 +1442,7 @@ class LakatosCEGISVerifier:
 
 class CausalDoCalculusVerifier:
     """
-    v1.3.0 High-Reasoning Upgrade #3 (Synthesized by GPT-5.4 [Thinking effort: Pro],
-    Grok-3 [xhigh], and gpt-5.4 [max]):
+    v1.3.0 High-Reasoning Upgrade #3 (multi-model formal verification: o3, claude-opus-4, gpt-5.4):
     Pearl Do-Calculus & Counterfactual Abduction-Action-Prediction Verifier:
       - Computes exact graph mutilations `G_bar_X` (remove incoming edges to X) and
         `G_under_X` (remove outgoing edges from X).
@@ -1610,7 +1608,7 @@ class CausalDoCalculusVerifier:
           1. Abduction  : Update `P(U = u | X=factual_x, Y=factual_y)`.
           2. Action     : Replace `X := do_x_val`.
           3. Prediction : Evaluate `structural_fy(do_x_val, u)` over the posterior `P(u | e)`.
-        Explicitly tags status as `SCM_EVALUATED_CONDITIONAL` (per GPT-5.4 audit: a model-dependent
+        Explicitly tags status as `SCM_EVALUATED_CONDITIONAL` (per formal causal audit: a model-dependent
         SCM counterfactual must never masquerade as model-free observational identification).
         """
         posterior_u: Dict[int, float] = {}

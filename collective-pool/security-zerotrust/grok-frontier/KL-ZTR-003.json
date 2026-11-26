@@ -20,11 +20,11 @@
   "good_code": "ALLOWED = {'display_name', 'bio'}\nuser_record.update({k: request_json[k] for k in ALLOWED if k in request_json})",
   "regex_pattern": "UNFILTERED_PRIVILEGE_MASS_ASSIGNMENT|\\buser_record\\.update\\(\\s*request_json\\s*\\)",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
+    "grok-3",
     "gpt-5.4"
   ],
   "reinforcement_count": 18,

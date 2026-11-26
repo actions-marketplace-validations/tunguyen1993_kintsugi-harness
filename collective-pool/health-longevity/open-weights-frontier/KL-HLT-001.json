@@ -19,12 +19,12 @@
   "good_code": "HABIT_LOG: RESPECT_CIRCADIAN_CUTOFF(last_caffeine_hour=14, ultradian_break_every_minutes=90)",
   "regex_pattern": "INTAKE_CAFFEINE_LATE_NIGHT",
   "ast_rule": null,
-  "synthesized_by_model": "meta-muse-spark",
+  "synthesized_by_model": "open-weights-frontier",
   "model_family": "open-weights-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "meta-muse-spark",
-    "Gemini-2.5-Pro"
+    "open-weights-frontier",
+    "gemini-2.5-pro"
   ],
   "reinforcement_count": 16,
   "source_repo": "local-episodic",

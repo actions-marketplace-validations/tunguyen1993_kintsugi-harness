@@ -19,12 +19,12 @@
   "good_code": "OUTREACH_POST: NATIVE_VALUE_CONTRIBUTION(account_age_days=14, karma=250, value_to_promo_ratio='95:5')",
   "regex_pattern": "BLAST_PROMO_LINK_ON_NEW_ACCOUNT",
   "ast_rule": null,
-  "synthesized_by_model": "Qwen-2.5-Coder",
+  "synthesized_by_model": "qwen-2.5-coder",
   "model_family": "qwen-max",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Qwen-2.5-Coder",
-    "Grok-3"
+    "qwen-2.5-coder",
+    "grok-3"
   ],
   "reinforcement_count": 16,
   "source_repo": "local-episodic",

@@ -141,7 +141,7 @@ class UserPersonaProfile:
     Learned strictly from user-authored turns (never from tool output or untrusted repo files).
     """
 
-    profile_id: str = "developer_cognitive_profile_v1"
+    profile_id: str = "owner_cognitive_twin_v1"
     schema_version: str = "USER_PERSONA/1"
     version: int = 1
     preferred_language: str = "vi"

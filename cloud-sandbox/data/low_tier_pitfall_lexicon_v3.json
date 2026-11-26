@@ -1,0 +1,2414 @@
+{
+  "schema": "LowTierPitfallLexicon/3",
+  "schema_version": "3.1.1",
+  "total_entries": 80,
+  "entries": [
+    {
+      "id": "LT-001",
+      "slug": "signature_drift",
+      "category": "api",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "verify",
+          "validate",
+          "parse",
+          "verifier",
+          "validator",
+          "kwargs"
+        ],
+        [
+          "bool",
+          "boolean",
+          "false",
+          "valueerror",
+          "raise",
+          "kwargs",
+          "signature",
+          "proof",
+          "token",
+          "hmac",
+          "mac",
+          "digest",
+          "schema",
+          "payload"
+        ]
+      ],
+      "bad_pattern": "Inventing nonexistent kwargs or raising ValueError inside a `-> bool` verifier",
+      "good_pattern": "Preserve exact method/kwarg signatures; for `-> bool` verifiers return False on malformed input",
+      "precondition": "Function signature or interface contract is specified by caller/tests",
+      "compact": "@PITFALL[LT-001|signature_drift|api] AVOID: Inventing nonexistent kwargs or raising ValueError inside a `-> bool` verifier -> DO: Preserve exact method/kwarg signatures; for `-> bool` verifiers return False on malformed input | WHEN: Function signature or interface contract is specified by caller/tests"
+    },
+    {
+      "id": "LT-002",
+      "slug": "float_money",
+      "category": "fintech",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_decimal_currency_math",
+          "price",
+          "amount",
+          "balance",
+          "vnd",
+          "usd",
+          "usdc",
+          "fx",
+          "tax",
+          "invoice",
+          "fee"
+        ],
+        [
+          "float",
+          "round",
+          "decimal",
+          "number",
+          "total",
+          "rate",
+          "cost",
+          "subtotal"
+        ]
+      ],
+      "bad_pattern": "Binary `float(amount)` / JS `Number(decimal)` or banker's `round()` causing 0.01 drift",
+      "good_pattern": "Use `Decimal(str(raw)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)` or integer minor units",
+      "precondition": "Any currency, tax, FX conversion, or financial ledger calculation",
+      "compact": "@PITFALL[LT-002|float_money|fintech] AVOID: Binary `float(amount)` / JS `Number(decimal)` or banker's `round()` causing 0.01 drift -> DO: Use `Decimal(str(raw)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)` or integer minor units | WHEN: Any currency, tax, FX conversion, or financial ledger calculation"
+    },
+    {
+      "id": "LT-003",
+      "slug": "sql_concat_and_tuple",
+      "category": "sql",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "execute",
+          "executemany",
+          "query",
+          "select",
+          "cursor",
+          "sqlite",
+          "mysql",
+          "sql"
+        ]
+      ],
+      "bad_pattern": "`f\"SELECT ... {x}\"`, `\"%s\" % x`, or scalar `cursor.execute(sql, uid)` instead of 1-tuple",
+      "good_pattern": "Static SQL literal (or immutable local `sql = \"... ?\"`) with explicit tuple/array `(uid,)` / `[uid]`",
+      "precondition": "Every SQL query execution sink",
+      "compact": "@PITFALL[LT-003|sql_concat_and_tuple|sql] AVOID: `f\"SELECT ... {x}\"`, `\"%s\" % x`, or scalar `cursor.execute(sql, uid)` instead of 1-tuple -> DO: Static SQL literal (or immutable local `sql = \"... ?\"`) with explicit tuple/array `(uid,)` / `[uid]` | WHEN: Every SQL query execution sink"
+    },
+    {
+      "id": "LT-004",
+      "slug": "path_prefix_bypass",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript",
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_fs_persistence",
+          "realpath",
+          "abspath",
+          "path",
+          "workspace",
+          "root",
+          "rel"
+        ],
+        [
+          "startswith",
+          "open",
+          "save",
+          "write",
+          "read",
+          "join",
+          "file",
+          "receipt"
+        ]
+      ],
+      "bad_pattern": "`target.startswith(root)` without `+ os.sep` (allows `/ws_evil`) or skipping `islink` per segment",
+      "good_pattern": "Canonicalize `root = os.path.realpath(ws)`, reject symlinks per segment, check `target == root or target.startswith(root + os.sep)`",
+      "precondition": "Resolving user/relative file paths under a confined workspace root",
+      "compact": "@PITFALL[LT-004|path_prefix_bypass|security] AVOID: `target.startswith(root)` without `+ os.sep` (allows `/ws_evil`) or skipping `islink` per segment -> DO: Canonicalize `root = os.path.realpath(ws)`, reject symlinks per segment, check `target == root or target.startswith(root + os.sep)` | WHEN: Resolving user/relative file paths under a confined workspace root"
+    },
+    {
+      "id": "LT-005",
+      "slug": "subprocess_shell",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_subprocess_exec",
+          "subprocess",
+          "popen",
+          "spawn",
+          "exec",
+          "command"
+        ]
+      ],
+      "bad_pattern": "`subprocess.run(f\"{bin} {arg}\", shell=True)`, hanging argv without `timeout=5`, or omitting `shell=False` / `TimeoutExpired` handling / metachar check",
+      "good_pattern": "Pass fast non-hanging argv list `[bin_real, flag, arg]` with explicit `shell=False, timeout=5`, handle `subprocess.TimeoutExpired` cleanly, and reject `;|&$><`\\n\\r\\x00`",
+      "precondition": "Spawning any external binary or CLI subprocess",
+      "compact": "@PITFALL[LT-005|subprocess_shell|security] AVOID: `subprocess.run(f\"{bin} {arg}\", shell=True)`, hanging argv without `timeout=5`, or omitting `shell=False` / `TimeoutExpired` handling / metachar check -> DO: Pass fast non-hanging argv list `[bin_real, flag, arg]` with explicit `shell=False, timeout=5`, handle `subprocess.TimeoutExpired` cleanly, and reject `;|&$><`\\n\\r\\x00` | WHEN: Spawning any external binary or CLI subprocess"
+    },
+    {
+      "id": "LT-006",
+      "slug": "lock_order_self_deadlock",
+      "category": "concurrency",
+      "languages": [
+        "python",
+        "typescript",
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_multi_lock_transfer",
+          "lock",
+          "rlock",
+          "mutex"
+        ],
+        [
+          "transfer",
+          "move",
+          "debit",
+          "credit",
+          "rebalance",
+          "acct",
+          "account"
+        ]
+      ],
+      "bad_pattern": "Acquiring locks in caller `(src, dst)` order (AB-BA deadlock) or locking `src` twice when `src == dst`",
+      "good_pattern": "Lock sorted `(min(src,dst), max(src,dst))`; when `src == dst` acquire ONE lock, verify balance, preserve sum",
+      "precondition": "Multi-entity transfer or swap using per-key locks",
+      "compact": "@PITFALL[LT-006|lock_order_self_deadlock|concurrency] AVOID: Acquiring locks in caller `(src, dst)` order (AB-BA deadlock) or locking `src` twice when `src == dst` -> DO: Lock sorted `(min(src,dst), max(src,dst))`; when `src == dst` acquire ONE lock, verify balance, preserve sum | WHEN: Multi-entity transfer or swap using per-key locks"
+    },
+    {
+      "id": "LT-007",
+      "slug": "silent_except_swallow",
+      "category": "reliability",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "except",
+          "catch",
+          "try",
+          "error",
+          "raise",
+          "throw"
+        ]
+      ],
+      "bad_pattern": "Broad `except Exception: pass` / `return {}` masking real security or invariant failures",
+      "good_pattern": "Catch specific exception types only; fail closed on security, parse, or state-corruption errors",
+      "precondition": "Error handling around validation, persistence, crypto, or I/O",
+      "compact": "@PITFALL[LT-007|silent_except_swallow|reliability] AVOID: Broad `except Exception: pass` / `return {}` masking real security or invariant failures -> DO: Catch specific exception types only; fail closed on security, parse, or state-corruption errors | WHEN: Error handling around validation, persistence, crypto, or I/O"
+    },
+    {
+      "id": "LT-008",
+      "slug": "mutable_default_arg",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "trigger_groups": [
+        [
+          "def",
+          "init",
+          "class"
+        ],
+        [
+          "list",
+          "dict",
+          "seen",
+          "frozenset",
+          "cache",
+          "items",
+          "opts",
+          "config",
+          "default"
+        ]
+      ],
+      "bad_pattern": "`def fn(items=[], seen={}):` or shared mutable class attributes leaking across calls/tests",
+      "good_pattern": "Default to `None` (`items: list | None = None`) and initialize fresh container inside function/`__init__`",
+      "precondition": "Python functions or classes accepting optional containers",
+      "compact": "@PITFALL[LT-008|mutable_default_arg|python] AVOID: `def fn(items=[], seen={}):` or shared mutable class attributes leaking across calls/tests -> DO: Default to `None` (`items: list | None = None`) and initialize fresh container inside function/`__init__` | WHEN: Python functions or classes accepting optional containers"
+    },
+    {
+      "id": "LT-009",
+      "slug": "boundary_odd_empty",
+      "category": "algo",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_halving_hash_tree",
+          "merkle",
+          "len",
+          "length",
+          "range",
+          "slice",
+          "array",
+          "index",
+          "items",
+          "nodes"
+        ],
+        [
+          "for",
+          "while",
+          "append",
+          "push",
+          "pop",
+          "offset",
+          "page",
+          "limit",
+          "bounds",
+          "boundary",
+          "empty",
+          "is_empty",
+          "single",
+          "odd",
+          "even",
+          "mid",
+          "midpoint",
+          "median",
+          "indexerror"
+        ]
+      ],
+      "bad_pattern": "Indexing `items[0]` on empty input, leaving `nodes.append(nodes[-1])` odd-node duplication (`[A,B,C]==[A,B,C,C]`), or `<` vs `<=` off-by-one",
+      "good_pattern": "Explicitly reject empty `items` (`if not items: raise ValueError(...)`), REMOVE any `nodes.append(nodes[-1])` odd-node duplication, and promote the trailing odd node unchanged",
+      "precondition": "Loop indexing, Merkle/tree reduction, pagination, or inclusive/exclusive bounds",
+      "compact": "@PITFALL[LT-009|boundary_odd_empty|algo] AVOID: Indexing `items[0]` on empty input, leaving `nodes.append(nodes[-1])` odd-node duplication (`[A,B,C]==[A,B,C,C]`), or `<` vs `<=` off-by-one -> DO: Explicitly reject empty `items` (`if not items: raise ValueError(...)`), REMOVE any `nodes.append(nodes[-1])` odd-node duplication, and promote the trailing odd node unchanged | WHEN: Loop indexing, Merkle/tree reduction, pagination, or inclusive/exclusive bounds"
+    },
+    {
+      "id": "LT-010",
+      "slug": "toctou_idempotency",
+      "category": "concurrency",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_idempotent_state_write",
+          "idempotency",
+          "replay",
+          "dedupe",
+          "order",
+          "stock",
+          "webhook"
+        ]
+      ],
+      "bad_pattern": "Checking `if key in seen` without payload-hash binding, or reading balance outside atomic lock/TX",
+      "good_pattern": "Bind `(idempotency_key, sha256(raw_payload))` atomically inside lock/TX; conflict on same key + different payload",
+      "precondition": "Idempotent webhook, order fulfillment, stock movement, or payout endpoints",
+      "compact": "@PITFALL[LT-010|toctou_idempotency|concurrency] AVOID: Checking `if key in seen` without payload-hash binding, or reading balance outside atomic lock/TX -> DO: Bind `(idempotency_key, sha256(raw_payload))` atomically inside lock/TX; conflict on same key + different payload | WHEN: Idempotent webhook, order fulfillment, stock movement, or payout endpoints"
+    },
+    {
+      "id": "LT-011",
+      "slug": "timing_and_boundary_mac",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "hmac",
+          "signature",
+          "sig",
+          "mac",
+          "secret",
+          "digest",
+          "token"
+        ]
+      ],
+      "bad_pattern": "`sig == expected` (timing side-channel) or un-delimited `f\"{ts}{body}\"` (`1230+x == 123+0x`)",
+      "good_pattern": "Use `hmac.compare_digest` / `crypto.timingSafeEqual` and explicit delimiter `f\"{ts}.\".encode() + raw_body`",
+      "precondition": "Any MAC, webhook signature, OTP, or API secret verification",
+      "compact": "@PITFALL[LT-011|timing_and_boundary_mac|security] AVOID: `sig == expected` (timing side-channel) or un-delimited `f\"{ts}{body}\"` (`1230+x == 123+0x`) -> DO: Use `hmac.compare_digest` / `crypto.timingSafeEqual` and explicit delimiter `f\"{ts}.\".encode() + raw_body` | WHEN: Any MAC, webhook signature, OTP, or API secret verification"
+    },
+    {
+      "id": "LT-012",
+      "slug": "naive_datetime_tz",
+      "category": "time",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "datetime",
+          "timestamp",
+          "epoch",
+          "skew",
+          "expire",
+          "ttl",
+          "utc",
+          "now"
+        ]
+      ],
+      "bad_pattern": "Mixing naive `datetime.now()` with UTC-aware timestamps or skipping skew bounds when `max_skew` param exists",
+      "good_pattern": "Use UTC epoch int/float or `datetime.now(timezone.utc)`; enforce skew ONLY when `now_sec`/`max_skew` params exist",
+      "precondition": "Expiry, replay window, audit logs, or scheduled job timestamps",
+      "compact": "@PITFALL[LT-012|naive_datetime_tz|time] AVOID: Mixing naive `datetime.now()` with UTC-aware timestamps or skipping skew bounds when `max_skew` param exists -> DO: Use UTC epoch int/float or `datetime.now(timezone.utc)`; enforce skew ONLY when `now_sec`/`max_skew` params exist | WHEN: Expiry, replay window, audit logs, or scheduled job timestamps"
+    },
+    {
+      "id": "LT-013",
+      "slug": "recursion_and_diamond_dag",
+      "category": "algo",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "dag",
+          "graph",
+          "edges",
+          "prereq",
+          "ancestor",
+          "topological",
+          "cycle",
+          "node",
+          "tree"
+        ]
+      ],
+      "bad_pattern": "Recursive DFS (hits Python 1000-frame `RecursionError`), summing shared ancestors twice in Diamond DAGs, or `class CycleError(Exception)` breaking `except ValueError`",
+      "good_pattern": "Use iterative Kahn topological sort, `set` union `anc[v] |= anc[u] | {u}` for distinct transitive ancestors, and subclass `class CycleError(ValueError): pass` so `except ValueError` catches cycles",
+      "precondition": "Graph/DAG traversal, cycle detection, dependency resolution, or critical-path makespan",
+      "compact": "@PITFALL[LT-013|recursion_and_diamond_dag|algo] AVOID: Recursive DFS (hits Python 1000-frame `RecursionError`), summing shared ancestors twice in Diamond DAGs, or `class CycleError(Exception)` breaking `except ValueError` -> DO: Use iterative Kahn topological sort, `set` union `anc[v] |= anc[u] | {u}` for distinct transitive ancestors, and subclass `class CycleError(ValueError): pass` so `except ValueError` catches cycles | WHEN: Graph/DAG traversal, cycle detection, dependency resolution, or critical-path makespan"
+    },
+    {
+      "id": "LT-014",
+      "slug": "noop_test_shortcut",
+      "category": "testing",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "test",
+          "assert",
+          "mock",
+          "stub",
+          "fixture",
+          "verify"
+        ]
+      ],
+      "bad_pattern": "Making failing tests pass by deleting assertions, returning hardcoded constants, or skipping real mutation",
+      "good_pattern": "Ensure positive control (real state change happens), negative control (bug fails), and conservation check all pass",
+      "precondition": "Any patch proposed under automated test verification",
+      "compact": "@PITFALL[LT-014|noop_test_shortcut|testing] AVOID: Making failing tests pass by deleting assertions, returning hardcoded constants, or skipping real mutation -> DO: Ensure positive control (real state change happens), negative control (bug fails), and conservation check all pass | WHEN: Any patch proposed under automated test verification"
+    },
+    {
+      "id": "LT-015",
+      "slug": "untrusted_json_bool_int_bidi",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_json_untrusted_input",
+          "json",
+          "payload",
+          "memo",
+          "note",
+          "body",
+          "request"
+        ]
+      ],
+      "bad_pattern": "`isinstance(x, int)` accepting Python `bool` (`True == 1`), or allowing Bidi `\\u202e` / NUL `\\x00` in decoded strings",
+      "good_pattern": "Check `isinstance(x, int) and not isinstance(x, bool)` and reject Bidi (`\\u202a-\\u202e`, `\\u2066-\\u2069`, `\\u061c`) + `\\x00`",
+      "precondition": "Parsing untrusted JSON payloads, webhooks, or user-supplied strings",
+      "compact": "@PITFALL[LT-015|untrusted_json_bool_int_bidi|security] AVOID: `isinstance(x, int)` accepting Python `bool` (`True == 1`), or allowing Bidi `\\u202e` / NUL `\\x00` in decoded strings -> DO: Check `isinstance(x, int) and not isinstance(x, bool)` and reject Bidi (`\\u202a-\\u202e`, `\\u2066-\\u2069`, `\\u061c`) + `\\x00` | WHEN: Parsing untrusted JSON payloads, webhooks, or user-supplied strings"
+    },
+    {
+      "id": "LT-016",
+      "slug": "ts_async_truthy_trap",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "async",
+          "await",
+          "promise",
+          "foreach",
+          "amount",
+          "qty",
+          "price"
+        ]
+      ],
+      "bad_pattern": "`items.forEach(async ...)` (unawaited promises!) or `if (!amount)` dropping valid `0`",
+      "good_pattern": "Use `for (const item of items) { await ... }` / `Promise.all` and explicit `amount === undefined || amount === null`",
+      "precondition": "TypeScript/Node async loops and numeric zero-value validation",
+      "compact": "@PITFALL[LT-016|ts_async_truthy_trap|typescript] AVOID: `items.forEach(async ...)` (unawaited promises!) or `if (!amount)` dropping valid `0` -> DO: Use `for (const item of items) { await ... }` / `Promise.all` and explicit `amount === undefined || amount === null` | WHEN: TypeScript/Node async loops and numeric zero-value validation"
+    },
+    {
+      "id": "LT-017",
+      "slug": "floor_zero_div_precondition",
+      "category": "fintech",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_share_vault_ratio",
+          "shares",
+          "vault",
+          "mint",
+          "redeem",
+          "stake",
+          "ratio",
+          "denom"
+        ]
+      ],
+      "bad_pattern": "Assuming floor-divided shares `(a * (S + V_S)) // (A + V_A)` is always `> 0` after arbitrary donations or omitting `denom == 0`",
+      "good_pattern": "Check `denom > 0`, verify precondition `A + V_A <= a * (S + V_S)`, and explicitly reject `shares <= 0` (`ValueError`)",
+      "precondition": "ERC-4626 vaults, share mint/redeem math, or integer ratio splits",
+      "compact": "@PITFALL[LT-017|floor_zero_div_precondition|fintech] AVOID: Assuming floor-divided shares `(a * (S + V_S)) // (A + V_A)` is always `> 0` after arbitrary donations or omitting `denom == 0` -> DO: Check `denom > 0`, verify precondition `A + V_A <= a * (S + V_S)`, and explicitly reject `shares <= 0` (`ValueError`) | WHEN: ERC-4626 vaults, share mint/redeem math, or integer ratio splits"
+    },
+    {
+      "id": "LT-018",
+      "slug": "non_atomic_file_write",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript",
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "@struct_fs_persistence",
+          "write_text",
+          "writefilesync",
+          "dump",
+          "save",
+          "persist",
+          "receipt"
+        ]
+      ],
+      "bad_pattern": "Direct `open(path, 'w')` / `writeFileSync(path)` corrupting state on crash and leaving `0o644` permissions",
+      "good_pattern": "Write to temp file with `O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW` mode `0o600`, `fsync`, then atomic `os.replace`",
+      "precondition": "Persisting receipts, credentials, ledgers, or JSON state files",
+      "compact": "@PITFALL[LT-018|non_atomic_file_write|security] AVOID: Direct `open(path, 'w')` / `writeFileSync(path)` corrupting state on crash and leaving `0o644` permissions -> DO: Write to temp file with `O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW` mode `0o600`, `fsync`, then atomic `os.replace` | WHEN: Persisting receipts, credentials, ledgers, or JSON state files"
+    },
+    {
+      "id": "LT-019",
+      "slug": "ssrf_ipv4_mapped_global_crlf",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "url",
+          "webhook",
+          "outbound",
+          "ssrf",
+          "fetch"
+        ],
+        [
+          "ipaddress",
+          "resolved",
+          "headers",
+          "host",
+          "localhost",
+          "http"
+        ]
+      ],
+      "bad_pattern": "Checking `'127.0.0.1' in url` or only `is_private` (misses CGNAT `100.64.0.0/10`, `::ffff:127.0.0.1`, empty IPs, `file://`, and `\\r\\n` CRLF)",
+      "good_pattern": "Allow only `http`/`https`, reject `\\r`/`\\n` in URL & headers, require non-empty `resolved_ips`, unwrap `ip.ipv4_mapped or ip`, and require `ip.is_global`",
+      "precondition": "Validating outbound URLs, webhooks, HTTP headers, or resolved destination IPs",
+      "compact": "@PITFALL[LT-019|ssrf_ipv4_mapped_global_crlf|security] AVOID: Checking `'127.0.0.1' in url` or only `is_private` (misses CGNAT `100.64.0.0/10`, `::ffff:127.0.0.1`, empty IPs, `file://`, and `\\r\\n` CRLF) -> DO: Allow only `http`/`https`, reject `\\r`/`\\n` in URL & headers, require non-empty `resolved_ips`, unwrap `ip.ipv4_mapped or ip`, and require `ip.is_global` | WHEN: Validating outbound URLs, webhooks, HTTP headers, or resolved destination IPs"
+    },
+    {
+      "id": "LT-020",
+      "slug": "zip_slip_symlink_bomb",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "zipfile",
+          "extract",
+          "extractall",
+          "tarfile",
+          "archive",
+          "zip",
+          "unzip"
+        ]
+      ],
+      "bad_pattern": "Calling `extractall()`, checking only `..`, or ignoring Unix symlink entries and decompression bomb size",
+      "good_pattern": "Reject symlink members (`stat.S_ISLNK(info.external_attr >> 16)`), confine via `realpath` + `root + os.sep`, and stream-read enforcing cumulative `max_total_bytes`",
+      "precondition": "Extracting any untrusted zip/tar archive",
+      "compact": "@PITFALL[LT-020|zip_slip_symlink_bomb|security] AVOID: Calling `extractall()`, checking only `..`, or ignoring Unix symlink entries and decompression bomb size -> DO: Reject symlink members (`stat.S_ISLNK(info.external_attr >> 16)`), confine via `realpath` + `root + os.sep`, and stream-read enforcing cumulative `max_total_bytes` | WHEN: Extracting any untrusted zip/tar archive"
+    },
+    {
+      "id": "LT-021",
+      "slug": "jwt_alg_pin_claims",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "jwt",
+          "hs256",
+          "b64decode",
+          "urlsafe"
+        ],
+        [
+          "alg",
+          "aud",
+          "exp",
+          "token",
+          "secret",
+          "payload"
+        ]
+      ],
+      "bad_pattern": "Trusting untrusted header `alg` (`alg: none`), using `==` on signature, or skipping `exp`/`aud` checks and crashing on bad base64",
+      "good_pattern": "Pin exact `hdr.get('alg') == 'HS256'`, verify via `hmac.compare_digest`, enforce `exp > now_ts` & `aud == expected_aud`, and return `None` on decode errors",
+      "precondition": "Verifying JWT or signed bearer tokens",
+      "compact": "@PITFALL[LT-021|jwt_alg_pin_claims|security] AVOID: Trusting untrusted header `alg` (`alg: none`), using `==` on signature, or skipping `exp`/`aud` checks and crashing on bad base64 -> DO: Pin exact `hdr.get('alg') == 'HS256'`, verify via `hmac.compare_digest`, enforce `exp > now_ts` & `aud == expected_aud`, and return `None` on decode errors | WHEN: Verifying JWT or signed bearer tokens"
+    },
+    {
+      "id": "LT-022",
+      "slug": "redos_and_dollar_newline",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "re",
+          "regex",
+          "compile",
+          "match",
+          "fullmatch"
+        ],
+        [
+          "slug",
+          "pattern",
+          "valid",
+          "validate",
+          "text"
+        ]
+      ],
+      "bad_pattern": "Nested quantifiers `(a+)+$` (ReDoS freeze) or Python `re.match(r'...$', s)` where `$` matches before trailing `\\n` (`'admin\\n'` passes!)",
+      "good_pattern": "Use linear non-backtracking regex (`^[a-z0-9]+(?:-[a-z0-9]+)*\\Z` or `re.fullmatch`), explicit length bound, and reject `'\\n'`",
+      "precondition": "Validating slugs, usernames, emails, or untrusted strings via regex",
+      "compact": "@PITFALL[LT-022|redos_and_dollar_newline|security] AVOID: Nested quantifiers `(a+)+$` (ReDoS freeze) or Python `re.match(r'...$', s)` where `$` matches before trailing `\\n` (`'admin\\n'` passes!) -> DO: Use linear non-backtracking regex (`^[a-z0-9]+(?:-[a-z0-9]+)*\\Z` or `re.fullmatch`), explicit length bound, and reject `'\\n'` | WHEN: Validating slugs, usernames, emails, or untrusted strings via regex"
+    },
+    {
+      "id": "LT-023",
+      "slug": "deep_merge_proto_dunder_pollution",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "merge",
+          "deep",
+          "patch",
+          "proto",
+          "setattr"
+        ],
+        [
+          "dict",
+          "config",
+          "base",
+          "patch",
+          "items"
+        ]
+      ],
+      "bad_pattern": "Mutating `base` in-place or allowing `__proto__`, `constructor`, `prototype`, `__class__`, `__globals__`, `__dict__`, `__init__` in untrusted patches",
+      "good_pattern": "Recursively reject dangerous/dunder keys (`__proto__`, `constructor`, `prototype`, any `__*__`) and `copy.deepcopy` nested dicts/lists so callers are never mutated",
+      "precondition": "Merging or applying untrusted JSON/config patches",
+      "compact": "@PITFALL[LT-023|deep_merge_proto_dunder_pollution|security] AVOID: Mutating `base` in-place or allowing `__proto__`, `constructor`, `prototype`, `__class__`, `__globals__`, `__dict__`, `__init__` in untrusted patches -> DO: Recursively reject dangerous/dunder keys (`__proto__`, `constructor`, `prototype`, any `__*__`) and `copy.deepcopy` nested dicts/lists so callers are never mutated | WHEN: Merging or applying untrusted JSON/config patches"
+    },
+    {
+      "id": "LT-024",
+      "slug": "csv_formula_injection",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "csv",
+          "writer",
+          "writerow",
+          "spreadsheet",
+          "excel"
+        ]
+      ],
+      "bad_pattern": "Writing raw user cells to CSV where leading `=`, `+`, `-`, `@`, `\\t`, `\\r` execute spreadsheet formulas",
+      "good_pattern": "Prefix any string cell whose value (or whitespace-stripped value) begins with `=`, `+`, `-`, `@`, `\\t`, or `\\r` with `'` before `writerow`",
+      "precondition": "Exporting user-supplied data to CSV/TSV/Excel spreadsheets",
+      "compact": "@PITFALL[LT-024|csv_formula_injection|security] AVOID: Writing raw user cells to CSV where leading `=`, `+`, `-`, `@`, `\\t`, `\\r` execute spreadsheet formulas -> DO: Prefix any string cell whose value (or whitespace-stripped value) begins with `=`, `+`, `-`, `@`, `\\t`, or `\\r` with `'` before `writerow` | WHEN: Exporting user-supplied data to CSV/TSV/Excel spreadsheets"
+    },
+    {
+      "id": "LT-025",
+      "slug": "xml_xxe_dtd_bomb",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "xml",
+          "etree",
+          "fromstring",
+          "minidom",
+          "doctype",
+          "elementtree"
+        ]
+      ],
+      "bad_pattern": "Passing raw XML directly to `ET.fromstring` without size limit or `<!DOCTYPE`/`<!ENTITY` rejection",
+      "good_pattern": "Enforce `len(raw_xml) <= max_bytes` and reject `<!DOCTYPE` or `<!ENTITY` (case-insensitive) with `SecurityViolationError` before parsing",
+      "precondition": "Parsing untrusted XML documents or configuration payloads",
+      "compact": "@PITFALL[LT-025|xml_xxe_dtd_bomb|security] AVOID: Passing raw XML directly to `ET.fromstring` without size limit or `<!DOCTYPE`/`<!ENTITY` rejection -> DO: Enforce `len(raw_xml) <= max_bytes` and reject `<!DOCTYPE` or `<!ENTITY` (case-insensitive) with `SecurityViolationError` before parsing | WHEN: Parsing untrusted XML documents or configuration payloads"
+    },
+    {
+      "id": "LT-026",
+      "slug": "oauth_redirect_exact_origin",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "redirect",
+          "oauth",
+          "callback"
+        ],
+        [
+          "origin",
+          "origins",
+          "uri",
+          "url",
+          "allowed",
+          "startswith"
+        ]
+      ],
+      "bad_pattern": "`redirect_uri.startswith(origin)` (bypassed by `https://ok.com.evil.com`, `https://ok.com@evil.com`, `\\\\@`, `//evil.com`)",
+      "good_pattern": "Reject backslashes/userinfo (`@`), parse with `urlsplit`, and require exact `(scheme, hostname, port)` match against parsed `allowed_origins`",
+      "precondition": "Validating OAuth `redirect_uri` or post-login redirect URLs",
+      "compact": "@PITFALL[LT-026|oauth_redirect_exact_origin|security] AVOID: `redirect_uri.startswith(origin)` (bypassed by `https://ok.com.evil.com`, `https://ok.com@evil.com`, `\\\\@`, `//evil.com`) -> DO: Reject backslashes/userinfo (`@`), parse with `urlsplit`, and require exact `(scheme, hostname, port)` match against parsed `allowed_origins` | WHEN: Validating OAuth `redirect_uri` or post-login redirect URLs"
+    },
+    {
+      "id": "LT-027",
+      "slug": "monotonic_rate_bucket",
+      "category": "concurrency",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "bucket",
+          "refill",
+          "limiter",
+          "ratelimit"
+        ],
+        [
+          "tokens",
+          "capacity",
+          "clock",
+          "allow",
+          "cost"
+        ]
+      ],
+      "bad_pattern": "Using `time.time()` without lock, failing on backward clock jump, forgetting `cost <= 0` check, or rejecting valid `refill_per_sec == 0`",
+      "good_pattern": "Default `clock_fn=time.monotonic`, guard with `threading.Lock`, clamp `elapsed = max(0.0, now - self._last)`, allow `refill_per_sec >= 0`, reject `cost <= 0` (`ValueError`)",
+      "precondition": "Implementing rate limiters, token buckets, or burst controllers",
+      "compact": "@PITFALL[LT-027|monotonic_rate_bucket|concurrency] AVOID: Using `time.time()` without lock, failing on backward clock jump, forgetting `cost <= 0` check, or rejecting valid `refill_per_sec == 0` -> DO: Default `clock_fn=time.monotonic`, guard with `threading.Lock`, clamp `elapsed = max(0.0, now - self._last)`, allow `refill_per_sec >= 0`, reject `cost <= 0` (`ValueError`) | WHEN: Implementing rate limiters, token buckets, or burst controllers"
+    },
+    {
+      "id": "LT-028",
+      "slug": "sql_cursor_tiebreaker_limit",
+      "category": "sql",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "paginate",
+          "pagination",
+          "offset",
+          "after"
+        ],
+        [
+          "limit",
+          "cursor",
+          "order",
+          "orders",
+          "created"
+        ]
+      ],
+      "bad_pattern": "Allowing `limit <= 0` (SQLite `LIMIT -1` returns ALL rows!) or paginating by non-unique `created_at` alone (drops tied rows)",
+      "good_pattern": "Reject `bool`/non-positive `limit` (`ValueError`), cap `min(limit, 100)`, and use deterministic `(created_at ASC, id ASC)` with `(created_at > ? OR (created_at = ? AND id > ?))`",
+      "precondition": "SQL cursor pagination or bounded list queries",
+      "compact": "@PITFALL[LT-028|sql_cursor_tiebreaker_limit|sql] AVOID: Allowing `limit <= 0` (SQLite `LIMIT -1` returns ALL rows!) or paginating by non-unique `created_at` alone (drops tied rows) -> DO: Reject `bool`/non-positive `limit` (`ValueError`), cap `min(limit, 100)`, and use deterministic `(created_at ASC, id ASC)` with `(created_at > ? OR (created_at = ? AND id > ?))` | WHEN: SQL cursor pagination or bounded list queries"
+    },
+    {
+      "id": "LT-029",
+      "slug": "domain_exception_hierarchy_and_finally",
+      "category": "reliability",
+      "languages": [
+        "python"
+      ],
+      "trigger_groups": [
+        [
+          "domain",
+          "unit",
+          "cycle",
+          "exit"
+        ],
+        [
+          "error",
+          "commit",
+          "rollback",
+          "close",
+          "exception"
+        ]
+      ],
+      "bad_pattern": "Subclassing bare `Exception` for validation/cycle errors (breaks callers catching `ValueError`) or skipping `try...finally` around `on_commit`/`on_close`",
+      "good_pattern": "Inherit domain validation/cycle errors from `ValueError`, and wrap `__exit__` commit/rollback in `try: ... finally: self._on_close()`",
+      "precondition": "Defining domain validation exceptions or resource/transaction context managers",
+      "compact": "@PITFALL[LT-029|domain_exception_hierarchy_and_finally|reliability] AVOID: Subclassing bare `Exception` for validation/cycle errors (breaks callers catching `ValueError`) or skipping `try...finally` around `on_commit`/`on_close` -> DO: Inherit domain validation/cycle errors from `ValueError`, and wrap `__exit__` commit/rollback in `try: ... finally: self._on_close()` | WHEN: Defining domain validation exceptions or resource/transaction context managers"
+    },
+    {
+      "id": "LT-030",
+      "slug": "late_binding_closure_and_deepcopy",
+      "category": "python",
+      "languages": [
+        "python"
+      ],
+      "trigger_groups": [
+        [
+          "lambda",
+          "adders",
+          "closure",
+          "snapshot"
+        ],
+        [
+          "tiers",
+          "cfg",
+          "config",
+          "dict",
+          "list"
+        ]
+      ],
+      "bad_pattern": "`[lambda x: x + t for t in tiers]` (late-binds every lambda to final `t`) or `dict(cfg)` shallow copy aliasing nested dicts/lists",
+      "good_pattern": "Bind loop var by value `[lambda x, t=t: x + t for t in tiers]` and use `copy.deepcopy(cfg)` for isolated snapshots",
+      "precondition": "Creating closures inside loops or snapshotting nested dicts/lists",
+      "compact": "@PITFALL[LT-030|late_binding_closure_and_deepcopy|python] AVOID: `[lambda x: x + t for t in tiers]` (late-binds every lambda to final `t`) or `dict(cfg)` shallow copy aliasing nested dicts/lists -> DO: Bind loop var by value `[lambda x, t=t: x + t for t in tiers]` and use `copy.deepcopy(cfg)` for isolated snapshots | WHEN: Creating closures inside loops or snapshotting nested dicts/lists"
+    },
+    {
+      "id": "LT-031",
+      "slug": "nan_inf_bool_risk_poisoning",
+      "category": "fintech",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "risk",
+          "nan",
+          "inf",
+          "isfinite",
+          "max"
+        ],
+        [
+          "limit",
+          "amount",
+          "float",
+          "decimal",
+          "range"
+        ]
+      ],
+      "bad_pattern": "`if val <= 0 or val > max_limit:` on `float('nan')` evaluates BOTH branches to `False`, bypassing the limit guard completely",
+      "good_pattern": "Reject `bool`, convert via `Decimal(str(amount))` (never `float`), and require `val.is_finite()` / `math.isfinite()` before checking `0 < val <= max_limit`",
+      "precondition": "Validating numeric amounts, risk caps, scores, or thresholds from untrusted inputs",
+      "compact": "@PITFALL[LT-031|nan_inf_bool_risk_poisoning|fintech] AVOID: `if val <= 0 or val > max_limit:` on `float('nan')` evaluates BOTH branches to `False`, bypassing the limit guard completely -> DO: Reject `bool`, convert via `Decimal(str(amount))` (never `float`), and require `val.is_finite()` / `math.isfinite()` before checking `0 < val <= max_limit` | WHEN: Validating numeric amounts, risk caps, scores, or thresholds from untrusted inputs"
+    },
+    {
+      "id": "LT-032",
+      "slug": "unicode_nfkc_casefold_zwsp",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "username",
+          "usernames",
+          "blocklist",
+          "denylist",
+          "normalize",
+          "unicodedata"
+        ],
+        [
+          "blocked",
+          "banned",
+          "allowlist",
+          "in",
+          "casefold",
+          "nfkc"
+        ]
+      ],
+      "bad_pattern": "Raw `username in blocked` bypassed by `'Admin'`, zero-width `'a\\u200bdmin'`, fullwidth `'\\uff41dmin'`, or `'stra\\u00dfe'`",
+      "good_pattern": "Strip zero-width/format chars (`\\u200b\\u200c\\u200d\\u2060\\ufeff\\u00ad`) and apply `unicodedata.normalize('NFKC', s).casefold()` to BOTH input and blocklist",
+      "precondition": "Comparing usernames, identifiers, or strings against security blocklists/allowlists",
+      "compact": "@PITFALL[LT-032|unicode_nfkc_casefold_zwsp|security] AVOID: Raw `username in blocked` bypassed by `'Admin'`, zero-width `'a\\u200bdmin'`, fullwidth `'\\uff41dmin'`, or `'stra\\u00dfe'` -> DO: Strip zero-width/format chars (`\\u200b\\u200c\\u200d\\u2060\\ufeff\\u00ad`) and apply `unicodedata.normalize('NFKC', s).casefold()` to BOTH input and blocklist | WHEN: Comparing usernames, identifiers, or strings against security blocklists/allowlists"
+    },
+    {
+      "id": "LT-033",
+      "slug": "sqlite_atomic_fk_rollback",
+      "category": "sql",
+      "languages": [
+        "python"
+      ],
+      "trigger_groups": [
+        [
+          "sqlite3",
+          "transfers",
+          "accounts"
+        ],
+        [
+          "commit",
+          "rollback",
+          "balance",
+          "update",
+          "insert"
+        ]
+      ],
+      "bad_pattern": "Executing multi-statement SQLite debit/credit without `PRAGMA foreign_keys = ON`, rowcount/balance check, or `rollback()` on exception",
+      "good_pattern": "Enable `PRAGMA foreign_keys = ON`, verify `amount > 0` + `rowcount == 1` + balance inside `try: ... conn.commit() except Exception: conn.rollback(); raise`",
+      "precondition": "Multi-statement SQLite balance/inventory/ledger transfers",
+      "compact": "@PITFALL[LT-033|sqlite_atomic_fk_rollback|sql] AVOID: Executing multi-statement SQLite debit/credit without `PRAGMA foreign_keys = ON`, rowcount/balance check, or `rollback()` on exception -> DO: Enable `PRAGMA foreign_keys = ON`, verify `amount > 0` + `rowcount == 1` + balance inside `try: ... conn.commit() except Exception: conn.rollback(); raise` | WHEN: Multi-statement SQLite balance/inventory/ledger transfers"
+    },
+    {
+      "id": "LT-034",
+      "slug": "ttl_lru_composite_tuple_key",
+      "category": "reliability",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "cache",
+          "lru",
+          "evict",
+          "ordereddict"
+        ],
+        [
+          "maxsize",
+          "ttl",
+          "namespace",
+          "key",
+          "store"
+        ]
+      ],
+      "bad_pattern": "String-joined cache key `f'{ns}_{key}'` (`('a_b','c') == ('a','b_c')`), unbounded dict OOM, or returning TTL-expired entries",
+      "good_pattern": "Key by typed tuple `(namespace, key)` in `OrderedDict`, purge expired entries (`now >= exp`) on `get()`, move hit to end, and pop oldest when `len > maxsize`",
+      "precondition": "Implementing in-memory TTL/LRU caches with namespaced keys",
+      "compact": "@PITFALL[LT-034|ttl_lru_composite_tuple_key|reliability] AVOID: String-joined cache key `f'{ns}_{key}'` (`('a_b','c') == ('a','b_c')`), unbounded dict OOM, or returning TTL-expired entries -> DO: Key by typed tuple `(namespace, key)` in `OrderedDict`, purge expired entries (`now >= exp`) on `get()`, move hit to end, and pop oldest when `len > maxsize` | WHEN: Implementing in-memory TTL/LRU caches with namespaced keys"
+    },
+    {
+      "id": "LT-035",
+      "slug": "ts_bigint_json_serialize",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "bigint",
+          "serialize",
+          "stringify"
+        ],
+        [
+          "json",
+          "order",
+          "record",
+          "response",
+          "vnd",
+          "id"
+        ]
+      ],
+      "bad_pattern": "`JSON.stringify(obj)` throwing `TypeError` on `BigInt`, or `Number(bigint)` corrupting IDs `> Number.MAX_SAFE_INTEGER` (`2^53 - 1`)",
+      "good_pattern": "Use `JSON.stringify(obj, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))` to preserve exact decimal precision recursively",
+      "precondition": "Serializing MySQL BIGINT IDs or financial amounts to JSON in Node.js/NestJS",
+      "compact": "@PITFALL[LT-035|ts_bigint_json_serialize|typescript] AVOID: `JSON.stringify(obj)` throwing `TypeError` on `BigInt`, or `Number(bigint)` corrupting IDs `> Number.MAX_SAFE_INTEGER` (`2^53 - 1`) -> DO: Use `JSON.stringify(obj, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))` to preserve exact decimal precision recursively | WHEN: Serializing MySQL BIGINT IDs or financial amounts to JSON in Node.js/NestJS"
+    },
+    {
+      "id": "LT-036",
+      "slug": "mysql_json_column_dual_shape",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "mysql",
+          "column",
+          "encode",
+          "decode",
+          "parse"
+        ],
+        [
+          "json",
+          "stringify",
+          "raw",
+          "null",
+          "undefined"
+        ]
+      ],
+      "bad_pattern": "Blindly calling `JSON.parse(raw)` when `mysql2` already returned an object (`'[object Object]'` crash) or `String(val)` on encode",
+      "good_pattern": "Return `null` on `null`/`undefined`; on decode check `typeof raw === 'string' ? JSON.parse(raw) : raw`; on encode use `JSON.stringify(val)`",
+      "precondition": "Reading or writing MySQL JSON columns in Node.js/TypeScript",
+      "compact": "@PITFALL[LT-036|mysql_json_column_dual_shape|typescript] AVOID: Blindly calling `JSON.parse(raw)` when `mysql2` already returned an object (`'[object Object]'` crash) or `String(val)` on encode -> DO: Return `null` on `null`/`undefined`; on decode check `typeof raw === 'string' ? JSON.parse(raw) : raw`; on encode use `JSON.stringify(val)` | WHEN: Reading or writing MySQL JSON columns in Node.js/TypeScript"
+    },
+    {
+      "id": "LT-037",
+      "slug": "ts_bounded_async_concurrency",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "concurrency",
+          "maxconcurrency",
+          "batches",
+          "worker",
+          "foreach"
+        ],
+        [
+          "async",
+          "promise",
+          "items",
+          "await",
+          "sync"
+        ]
+      ],
+      "bad_pattern": "`items.forEach(async ...)` (unawaited empty array!) or unbounded `Promise.all(items.map(worker))` exhausting DB connection pools",
+      "good_pattern": "Run `Math.min(maxConcurrency, items.length)` async workers pulling `nextIdx++` and storing `results[idx] = await worker(items[idx])` to cap in-flight calls and preserve order",
+      "precondition": "Processing async batches against MySQL/HTTP with a concurrency cap",
+      "compact": "@PITFALL[LT-037|ts_bounded_async_concurrency|typescript] AVOID: `items.forEach(async ...)` (unawaited empty array!) or unbounded `Promise.all(items.map(worker))` exhausting DB connection pools -> DO: Run `Math.min(maxConcurrency, items.length)` async workers pulling `nextIdx++` and storing `results[idx] = await worker(items[idx])` to cap in-flight calls and preserve order | WHEN: Processing async batches against MySQL/HTTP with a concurrency cap"
+    },
+    {
+      "id": "LT-038",
+      "slug": "js_proto_pollution_immutable_merge",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "merge",
+          "settings",
+          "tenant",
+          "deep",
+          "patch"
+        ],
+        [
+          "record",
+          "object",
+          "keys",
+          "base",
+          "proto"
+        ]
+      ],
+      "bad_pattern": "Mutating `base` in-place or copying `__proto__`, `constructor`, `prototype` keys (polluting `Object.prototype` via `JSON.parse`)",
+      "good_pattern": "Clone into fresh objects/arrays (`structuredClone` or recursive copy) without mutating `base`, and reject/throw on `__proto__`, `constructor`, or `prototype` at every depth",
+      "precondition": "Merging untrusted tenant/user JSON config objects in JavaScript/TypeScript",
+      "compact": "@PITFALL[LT-038|js_proto_pollution_immutable_merge|typescript] AVOID: Mutating `base` in-place or copying `__proto__`, `constructor`, `prototype` keys (polluting `Object.prototype` via `JSON.parse`) -> DO: Clone into fresh objects/arrays (`structuredClone` or recursive copy) without mutating `base`, and reject/throw on `__proto__`, `constructor`, or `prototype` at every depth | WHEN: Merging untrusted tenant/user JSON config objects in JavaScript/TypeScript"
+    },
+    {
+      "id": "LT-039",
+      "slug": "ts_nullish_preserve_default_strict_eq",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "discount",
+          "coupon",
+          "subtotal",
+          "cents",
+          "bonus"
+        ],
+        [
+          "number",
+          "string",
+          "total",
+          "effective",
+          "compute"
+        ]
+      ],
+      "bad_pattern": "Using `discount || 100` (drops explicit `0`), over-fixing to `discount ?? 0` (breaks `undefined` default `100`!), or loose `coupon == 0` (`'' == 0` is `true`)",
+      "good_pattern": "Preserve the original fallback via nullish coalescing `discountCents ?? 100` (keeps `0` as `0`, defaults `undefined`/`null` to `100`) and use strict `===`",
+      "precondition": "Handling optional numeric defaults or string comparisons in JS/TS",
+      "compact": "@PITFALL[LT-039|ts_nullish_preserve_default_strict_eq|typescript] AVOID: Using `discount || 100` (drops explicit `0`), over-fixing to `discount ?? 0` (breaks `undefined` default `100`!), or loose `coupon == 0` (`'' == 0` is `true`) -> DO: Preserve the original fallback via nullish coalescing `discountCents ?? 100` (keeps `0` as `0`, defaults `undefined`/`null` to `100`) and use strict `===` | WHEN: Handling optional numeric defaults or string comparisons in JS/TS"
+    },
+    {
+      "id": "LT-040",
+      "slug": "ts_allsettled_timeout_return_values",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "webhooks",
+          "dispatch",
+          "timeout",
+          "timeoutms",
+          "targets"
+        ],
+        [
+          "promise",
+          "async",
+          "succeeded",
+          "failed",
+          "send"
+        ]
+      ],
+      "bad_pattern": "`Promise.all` aborting all targets on 1 error, missing `clearTimeout`, or pushing target URLs into `succeeded` instead of resolved `sendFn(t)` return values",
+      "good_pattern": "Use `Promise.allSettled` with per-call `Promise.race` + `clearTimeout` in `finally`; push fulfilled `r.value` into `succeeded` and failed/timed-out targets into `failed`",
+      "precondition": "Fan-out async dispatchers with per-request timeouts",
+      "compact": "@PITFALL[LT-040|ts_allsettled_timeout_return_values|typescript] AVOID: `Promise.all` aborting all targets on 1 error, missing `clearTimeout`, or pushing target URLs into `succeeded` instead of resolved `sendFn(t)` return values -> DO: Use `Promise.allSettled` with per-call `Promise.race` + `clearTimeout` in `finally`; push fulfilled `r.value` into `succeeded` and failed/timed-out targets into `failed` | WHEN: Fan-out async dispatchers with per-request timeouts"
+    },
+    {
+      "id": "LT-041",
+      "slug": "ts_sql_params_and_strict_orderby_allowlist",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "sortcol",
+          "sortdir",
+          "orderby",
+          "buildorder",
+          "query"
+        ],
+        [
+          "sql",
+          "params",
+          "select",
+          "orders",
+          "status"
+        ]
+      ],
+      "bad_pattern": "Interpolating `'${status}'` or `${sortCol}`, rewriting `status` via an invented enum, or silently falling back on injected `sortCol`/`sortDir` instead of throwing",
+      "good_pattern": "Bind `status` directly via `?` (`params: [status]`) without mutating its case/value, and validate `sortCol` (`id`/`status`/`total_vnd`) & `sortDir` (`ASC`/`DESC`) against strict allowlists throwing `Error` on mismatch",
+      "precondition": "Building dynamic SQL queries with parameterized filters and ORDER BY clauses in TS/JS",
+      "compact": "@PITFALL[LT-041|ts_sql_params_and_strict_orderby_allowlist|typescript] AVOID: Interpolating `'${status}'` or `${sortCol}`, rewriting `status` via an invented enum, or silently falling back on injected `sortCol`/`sortDir` instead of throwing -> DO: Bind `status` directly via `?` (`params: [status]`) without mutating its case/value, and validate `sortCol` (`id`/`status`/`total_vnd`) & `sortDir` (`ASC`/`DESC`) against strict allowlists throwing `Error` on mismatch | WHEN: Building dynamic SQL queries with parameterized filters and ORDER BY clauses in TS/JS"
+    },
+    {
+      "id": "LT-042",
+      "slug": "ts_async_eventloop_per_key_mutex",
+      "category": "typescript",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "allocator",
+          "reserve",
+          "stock",
+          "sku",
+          "delay"
+        ],
+        [
+          "async",
+          "await",
+          "map",
+          "promise",
+          "qty"
+        ]
+      ],
+      "bad_pattern": "Reading `this.stock.get(sku)` before `await ioDelayFn()` and writing back after `await`, allowing concurrent calls to double-spend inventory",
+      "good_pattern": "Chain a per-SKU Promise mutex (`tail.then(() => run(), () => run())`) so concurrent `reserveStockAsync` calls for the same SKU execute strictly serially",
+      "precondition": "Check-then-act async state transitions across `await` boundaries in Node.js",
+      "compact": "@PITFALL[LT-042|ts_async_eventloop_per_key_mutex|typescript] AVOID: Reading `this.stock.get(sku)` before `await ioDelayFn()` and writing back after `await`, allowing concurrent calls to double-spend inventory -> DO: Chain a per-SKU Promise mutex (`tail.then(() => run(), () => run())`) so concurrent `reserveStockAsync` calls for the same SKU execute strictly serially | WHEN: Check-then-act async state transitions across `await` boundaries in Node.js"
+    },
+    {
+      "id": "LT-043",
+      "slug": "sol_fee_on_transfer_delta_credit",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "transferfrom",
+          "balanceof",
+          "deposit",
+          "feevault"
+        ],
+        [
+          "balances",
+          "token",
+          "amount",
+          "withdraw"
+        ]
+      ],
+      "bad_pattern": "Crediting `balances[msg.sender] += amount` or reverting `require(received == amount)` (breaks Fee-on-Transfer tokens)",
+      "good_pattern": "Measure `balBefore = token.balanceOf(address(this))`, transfer, compute `received = token.balanceOf(address(this)) - balBefore`, `require(received > 0)`, and credit `balances[msg.sender] += received`",
+      "precondition": "Depositing arbitrary ERC-20 tokens into a vault or pool",
+      "compact": "@PITFALL[LT-043|sol_fee_on_transfer_delta_credit|solidity] AVOID: Crediting `balances[msg.sender] += amount` or reverting `require(received == amount)` (breaks Fee-on-Transfer tokens) -> DO: Measure `balBefore = token.balanceOf(address(this))`, transfer, compute `received = token.balanceOf(address(this)) - balBefore`, `require(received > 0)`, and credit `balances[msg.sender] += received` | WHEN: Depositing arbitrary ERC-20 tokens into a vault or pool"
+    },
+    {
+      "id": "LT-044",
+      "slug": "sol_cross_function_reentrancy_cei",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "rewardvault",
+          "transferbalance",
+          "withdraw",
+          "call"
+        ],
+        [
+          "balances",
+          "value",
+          "msg",
+          "payable"
+        ]
+      ],
+      "bad_pattern": "Sending ETH via `msg.sender.call{value: bal}('')` before zeroing `balances[msg.sender] = 0` or leaving `transferBalance` unguarded against cross-function reentrancy",
+      "good_pattern": "Apply CEI (`balances[msg.sender] = 0` BEFORE external call) AND guard ALL balance-mutating functions (`withdraw`, `transferBalance`, `deposit`) with a shared `nonReentrant` lock",
+      "precondition": "Solidity contracts making external ETH/token calls while tracking user balances",
+      "compact": "@PITFALL[LT-044|sol_cross_function_reentrancy_cei|solidity] AVOID: Sending ETH via `msg.sender.call{value: bal}('')` before zeroing `balances[msg.sender] = 0` or leaving `transferBalance` unguarded against cross-function reentrancy -> DO: Apply CEI (`balances[msg.sender] = 0` BEFORE external call) AND guard ALL balance-mutating functions (`withdraw`, `transferBalance`, `deposit`) with a shared `nonReentrant` lock | WHEN: Solidity contracts making external ETH/token calls while tracking user balances"
+    },
+    {
+      "id": "LT-045",
+      "slug": "sol_readonly_reentrancy_view_lock",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "getvirtualprice",
+          "removeliquidity",
+          "liquiditypool",
+          "totalsupply"
+        ],
+        [
+          "balance",
+          "shares",
+          "call",
+          "view"
+        ]
+      ],
+      "bad_pattern": "Sending ETH before updating `shares`/`totalSupply` and exposing `getVirtualPrice()` without checking the reentrancy lock (stale price oracle during callback)",
+      "good_pattern": "Update `shares` and `totalSupply` BEFORE sending ETH under `nonReentrant`, AND enforce `require(_locked == 1, 'REENTRANT')` inside `getVirtualPrice()`",
+      "precondition": "Liquidity pools exposing view pricing/share-ratio functions alongside ETH/callback withdrawals",
+      "compact": "@PITFALL[LT-045|sol_readonly_reentrancy_view_lock|solidity] AVOID: Sending ETH before updating `shares`/`totalSupply` and exposing `getVirtualPrice()` without checking the reentrancy lock (stale price oracle during callback) -> DO: Update `shares` and `totalSupply` BEFORE sending ETH under `nonReentrant`, AND enforce `require(_locked == 1, 'REENTRANT')` inside `getVirtualPrice()` | WHEN: Liquidity pools exposing view pricing/share-ratio functions alongside ETH/callback withdrawals"
+    },
+    {
+      "id": "LT-046",
+      "slug": "sol_eip712_permit_dynamic_domain_low_s",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "permit",
+          "ecrecover",
+          "computedigest",
+          "nonces"
+        ],
+        [
+          "deadline",
+          "allowance",
+          "spender",
+          "owner"
+        ]
+      ],
+      "bad_pattern": "Declaring `constant DOMAIN_SEPARATOR` with `block.chainid`/`address(this)` (Solc Error 8349!), skipping `nonces[owner]++`/`deadline`/`chainid`, or allowing EIP-2 malleable high-`s`",
+      "good_pattern": "Compute digest dynamically in `view` with `block.chainid`, `address(this)`, `nonce`, `deadline`; enforce `block.timestamp <= deadline`, `nonces[owner]++`, `v == 27 || v == 28`, `uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0`, and `recovered != address(0) && recovered == owner`",
+      "precondition": "Implementing `permit()` or `ecrecover`-based gasless signatures in Solidity",
+      "compact": "@PITFALL[LT-046|sol_eip712_permit_dynamic_domain_low_s|solidity] AVOID: Declaring `constant DOMAIN_SEPARATOR` with `block.chainid`/`address(this)` (Solc Error 8349!), skipping `nonces[owner]++`/`deadline`/`chainid`, or allowing EIP-2 malleable high-`s` -> DO: Compute digest dynamically in `view` with `block.chainid`, `address(this)`, `nonce`, `deadline`; enforce `block.timestamp <= deadline`, `nonces[owner]++`, `v == 27 || v == 28`, `uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0`, and `recovered != address(0) && recovered == owner` | WHEN: Implementing `permit()` or `ecrecover`-based gasless signatures in Solidity"
+    },
+    {
+      "id": "LT-047",
+      "slug": "sol_erc4626_zero_share_and_ceil_withdraw",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "totalshares",
+          "totalassets",
+          "sharebalance",
+          "simplesharevault"
+        ],
+        [
+          "deposit",
+          "withdraw",
+          "shares",
+          "assets"
+        ]
+      ],
+      "bad_pattern": "Allowing `deposit()` to mint `0` shares after large donation, or rounding `sharesBurned` DOWN in `withdraw(assets)` (free 1-wei withdrawal drain)",
+      "good_pattern": "In `deposit()`, `require(shares > 0, 'ZERO_SHARES')`; in `withdraw(assets)`, round UP: `sharesBurned = (assets * (totalShares + 1e6) + totalAssets) / (totalAssets + 1)` (`ceilDiv`)",
+      "precondition": "Solidity ERC-4626 / share-accounting vaults converting assets and shares",
+      "compact": "@PITFALL[LT-047|sol_erc4626_zero_share_and_ceil_withdraw|solidity] AVOID: Allowing `deposit()` to mint `0` shares after large donation, or rounding `sharesBurned` DOWN in `withdraw(assets)` (free 1-wei withdrawal drain) -> DO: In `deposit()`, `require(shares > 0, 'ZERO_SHARES')`; in `withdraw(assets)`, round UP: `sharesBurned = (assets * (totalShares + 1e6) + totalAssets) / (totalAssets + 1)` (`ceilDiv`) | WHEN: Solidity ERC-4626 / share-accounting vaults converting assets and shares"
+    },
+    {
+      "id": "LT-048",
+      "slug": "sol_safe_erc20_lowlevel_call",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "safeescrow",
+          "deposittoken",
+          "releasetoken",
+          "ierc20like"
+        ],
+        [
+          "transferfrom",
+          "transfer",
+          "token",
+          "deposits"
+        ]
+      ],
+      "bad_pattern": "Ignoring ERC-20 `bool` return (accepts silent `false`!) or typed interface call reverting on USDT-style non-returning ERC-20s",
+      "good_pattern": "Use low-level `token.call(abi.encodeWithSelector(IERC20Like.transferFrom.selector, ...))` and `require(ok && (data.length == 0 || abi.decode(data, (bool))), 'SAFE_ERC20_FAIL')`",
+      "precondition": "Escrows or vaults interacting with arbitrary / USDT-style ERC-20 tokens",
+      "compact": "@PITFALL[LT-048|sol_safe_erc20_lowlevel_call|solidity] AVOID: Ignoring ERC-20 `bool` return (accepts silent `false`!) or typed interface call reverting on USDT-style non-returning ERC-20s -> DO: Use low-level `token.call(abi.encodeWithSelector(IERC20Like.transferFrom.selector, ...))` and `require(ok && (data.length == 0 || abi.decode(data, (bool))), 'SAFE_ERC20_FAIL')` | WHEN: Escrows or vaults interacting with arbitrary / USDT-style ERC-20 tokens"
+    },
+    {
+      "id": "LT-049",
+      "slug": "sol_access_fee_cap_slippage_deadline",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "setfeebps",
+          "tokenswap",
+          "minamountout",
+          "feebps"
+        ],
+        [
+          "swap",
+          "owner",
+          "deadline",
+          "amountin"
+        ]
+      ],
+      "bad_pattern": "Unprotected `setFeeBps` without `onlyOwner` or upper bound (`<= 1000` bps), or `swap()` ignoring `minAmountOut` and `deadline`",
+      "good_pattern": "Enforce `msg.sender == owner` + `newFeeBps <= 1000` on `setFeeBps`, and enforce `block.timestamp <= deadline` + `amountOut >= minAmountOut` in `swap()`",
+      "precondition": "Admin parameter setters and AMM/swap entrypoints in Solidity",
+      "compact": "@PITFALL[LT-049|sol_access_fee_cap_slippage_deadline|solidity] AVOID: Unprotected `setFeeBps` without `onlyOwner` or upper bound (`<= 1000` bps), or `swap()` ignoring `minAmountOut` and `deadline` -> DO: Enforce `msg.sender == owner` + `newFeeBps <= 1000` on `setFeeBps`, and enforce `block.timestamp <= deadline` + `amountOut >= minAmountOut` in `swap()` | WHEN: Admin parameter setters and AMM/swap entrypoints in Solidity"
+    },
+    {
+      "id": "LT-050",
+      "slug": "sol_pull_over_push_and_msg_sender",
+      "category": "solidity",
+      "languages": [
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "batchpayout",
+          "distribute",
+          "claimable",
+          "origin"
+        ],
+        [
+          "recipients",
+          "amounts",
+          "claim",
+          "owner"
+        ]
+      ],
+      "bad_pattern": "Authenticating with `tx.origin == owner` (phishable!) and pushing ETH inside a loop with `require(ok)` (1 reverting receiver DoS-bricks everyone)",
+      "good_pattern": "Check `msg.sender == owner` (never `tx.origin`), require `msg.value == totalAmount`, credit `claimable[recipients[i]] += amounts[i]` in `distribute()`, and pay via CEI in `claim()`",
+      "precondition": "Batch ETH/token payout contracts and owner authentication in Solidity",
+      "compact": "@PITFALL[LT-050|sol_pull_over_push_and_msg_sender|solidity] AVOID: Authenticating with `tx.origin == owner` (phishable!) and pushing ETH inside a loop with `require(ok)` (1 reverting receiver DoS-bricks everyone) -> DO: Check `msg.sender == owner` (never `tx.origin`), require `msg.value == totalAmount`, credit `claimable[recipients[i]] += amounts[i]` in `distribute()`, and pay via CEI in `claim()` | WHEN: Batch ETH/token payout contracts and owner authentication in Solidity"
+    },
+    {
+      "id": "LT-051",
+      "slug": "wallet_no_random_fallback_sign_recover",
+      "category": "fintech",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "payout",
+          "wallet",
+          "private_key",
+          "privatekey",
+          "derive"
+        ],
+        [
+          "recover",
+          "sign",
+          "getrandbits",
+          "token_hex",
+          "urandom"
+        ]
+      ],
+      "bad_pattern": "Falling back to random 20-byte hex (`token_hex(20)`/`getrandbits(160)`/`urandom(20)`) when crypto libs fail, or skipping `sign -> recover == address` verification",
+      "good_pattern": "Fail closed (`RuntimeError`) if derivation fails or returns `None`, validate address format, and assert `recover_fn(challenge, sign_fn(pk, challenge)).lower() == addr.lower()` before returning",
+      "precondition": "Deriving or registering any EVM/Solana wallet address from a private key",
+      "compact": "@PITFALL[LT-051|wallet_no_random_fallback_sign_recover|fintech] AVOID: Falling back to random 20-byte hex (`token_hex(20)`/`getrandbits(160)`/`urandom(20)`) when crypto libs fail, or skipping `sign -> recover == address` verification -> DO: Fail closed (`RuntimeError`) if derivation fails or returns `None`, validate address format, and assert `recover_fn(challenge, sign_fn(pk, challenge)).lower() == addr.lower()` before returning | WHEN: Deriving or registering any EVM/Solana wallet address from a private key"
+    },
+    {
+      "id": "LT-052",
+      "slug": "zero_outbound_tx_and_cosign_safety_gate",
+      "category": "fintech",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "deposit_required",
+          "entry_fee",
+          "transfers_funds",
+          "send_value",
+          "outbound_transfer",
+          "cosign",
+          "tx_guard"
+        ],
+        [
+          "transaction",
+          "signing",
+          "tx_payload",
+          "policy_meta",
+          "verified_by",
+          "verifiedby"
+        ]
+      ],
+      "bad_pattern": "Allowing `deposit_required=True`, `entry_fee>0`, `transfers_funds=True`, `send_value!=0`, `outbound_transfer=True`, payment-card identity gates, `transaction.value!=0`, or outbound actions (`eth_sendTransaction`, `erc20_transfer`, `approve`, `swap`, `bridge`, `stake`, `deposit`, `loan`); or over-blocking zero-value read-only auth (`personal_sign`, `eip191`, `ed25519_auth`, `siwe`)",
+      "good_pattern": "Fail closed returning `(False, reason)` if ANY deposit/fee/card gate/non-zero `value`/`transfers_funds=True`/outbound method (`eth_sendTransaction`, `erc20_transfer`, `ERC20.approve`, `transferWithAuthorization`, `swap`, `bridge`, `stake`, `deposit`, `loan`) appears; flag unknown signing actions for owner review; allow zero-value read-only auth when all checks pass",
+      "precondition": "Evaluating agent transaction payloads or signing policy metadata under zero-outbound receive-only rules",
+      "compact": "@PITFALL[LT-052|zero_outbound_tx_and_cosign_safety_gate|fintech] AVOID: Allowing `deposit_required=True`, `entry_fee>0`, `transfers_funds=True`, `send_value!=0`, `outbound_transfer=True`, payment-card identity gates, `transaction.value!=0`, or outbound actions (`eth_sendTransaction`, `erc20_transfer`, `approve`, `swap`, `bridge`, `stake`, `deposit`, `loan`); or over-blocking zero-value read-only auth (`personal_sign`, `eip191`, `ed25519_auth`, `siwe`) -> DO: Fail closed returning `(False, reason)` if ANY deposit/fee/card gate/non-zero `value`/`transfers_funds=True`/outbound method (`eth_sendTransaction`, `erc20_transfer`, `ERC20.approve`, `transferWithAuthorization`, `swap`, `bridge`, `stake`, `deposit`, `loan`) appears; flag unknown signing actions for owner review; allow zero-value read-only auth when all checks pass | WHEN: Evaluating agent transaction payloads or signing policy metadata under zero-outbound receive-only rules"
+    },
+    {
+      "id": "LT-053",
+      "slug": "forensic_raw_http_bom_cdn_freshness",
+      "category": "reliability",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "raw_body_bytes",
+          "raw_body",
+          "http_date_epoch",
+          "http_date",
+          "retrieved_utc"
+        ],
+        [
+          "forensic",
+          "excerpt",
+          "raw_sha256",
+          "drift_sec",
+          "entity_id"
+        ]
+      ],
+      "bad_pattern": "Decoding raw bytes with plain `utf-8` (crashes on UTF-8 BOM `\\xef\\xbb\\xbf`), hashing `json.dumps()` instead of `raw_body_bytes`, reformatting excerpts via `json.dumps`, or accepting CDN drift `> 5s`",
+      "good_pattern": "Reject `abs(http_date - retrieved_utc) > 5.0` (`ValueError`), hash exact `raw_body_bytes` for `raw_sha256`, decode with `utf-8-sig` for `json.loads`, require `entity_id` in raw text, and slice `excerpt` verbatim from original raw text",
+      "precondition": "Capturing verifiable HTTP API evidence, checksums, and raw excerpts",
+      "compact": "@PITFALL[LT-053|forensic_raw_http_bom_cdn_freshness|reliability] AVOID: Decoding raw bytes with plain `utf-8` (crashes on UTF-8 BOM `\\xef\\xbb\\xbf`), hashing `json.dumps()` instead of `raw_body_bytes`, reformatting excerpts via `json.dumps`, or accepting CDN drift `> 5s` -> DO: Reject `abs(http_date - retrieved_utc) > 5.0` (`ValueError`), hash exact `raw_body_bytes` for `raw_sha256`, decode with `utf-8-sig` for `json.loads`, require `entity_id` in raw text, and slice `excerpt` verbatim from original raw text | WHEN: Capturing verifiable HTTP API evidence, checksums, and raw excerpts"
+    },
+    {
+      "id": "LT-054",
+      "slug": "multipull_id_csv_parity_and_meta_ban",
+      "category": "reliability",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "pull1_ids",
+          "pull1_headers",
+          "pull2_headers",
+          "pull2_rows",
+          "multipull"
+        ],
+        [
+          "report_markdown",
+          "deliverable",
+          "headers",
+          "pull1",
+          "pull2"
+        ]
+      ],
+      "bad_pattern": "Checking CSV headers with unordered `set()` (misses reordered columns), ignoring missing/added IDs between Pull 1 and Pull 2, or allowing meta-evaluator/dispute words in deliverable prose",
+      "good_pattern": "Require exact ordered header equality `list(pull2_headers) == list(pull1_headers)`, exact ID set match `{r['id'] for r in pull2_rows} == set(pull1_ids)` + row count, and reject case-insensitive meta words (`evaluator`, `revision`, `dispute`, `appeal`, `requirements met`)",
+      "precondition": "Validating multi-pull audit datasets and deliverable markdown reports",
+      "compact": "@PITFALL[LT-054|multipull_id_csv_parity_and_meta_ban|reliability] AVOID: Checking CSV headers with unordered `set()` (misses reordered columns), ignoring missing/added IDs between Pull 1 and Pull 2, or allowing meta-evaluator/dispute words in deliverable prose -> DO: Require exact ordered header equality `list(pull2_headers) == list(pull1_headers)`, exact ID set match `{r['id'] for r in pull2_rows} == set(pull1_ids)` + row count, and reject case-insensitive meta words (`evaluator`, `revision`, `dispute`, `appeal`, `requirements met`) | WHEN: Validating multi-pull audit datasets and deliverable markdown reports"
+    },
+    {
+      "id": "LT-055",
+      "slug": "no_stub_verbatim_cli_and_soft404",
+      "category": "reliability",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "cmd_result",
+          "returncode",
+          "mock_tx_hash",
+          "_simulated",
+          "recentjobs"
+        ],
+        [
+          "html_body",
+          "api_payload",
+          "http_status",
+          "stdout",
+          "stderr"
+        ]
+      ],
+      "bad_pattern": "Fabricating `_simulated=True`/`mock_tx_hash` when `returncode != 0`, truncating `stdout[:80]`, accepting HTTP 200 login-wall/Request-Access HTML, or silently guessing nonexistent keys like `recentJobs`",
+      "good_pattern": "Raise `RuntimeError`/`ValueError` on `returncode != 0`, keep 100% verbatim `stdout`/`stderr`, reject `http_status != 200` or soft-404/auth walls (`request access`, `sign in`, `404 not found`), and require exact `'jobs' in api_payload`",
+      "precondition": "Normalizing CLI execution output, fetched HTML pages, and JSON API responses",
+      "compact": "@PITFALL[LT-055|no_stub_verbatim_cli_and_soft404|reliability] AVOID: Fabricating `_simulated=True`/`mock_tx_hash` when `returncode != 0`, truncating `stdout[:80]`, accepting HTTP 200 login-wall/Request-Access HTML, or silently guessing nonexistent keys like `recentJobs` -> DO: Raise `RuntimeError`/`ValueError` on `returncode != 0`, keep 100% verbatim `stdout`/`stderr`, reject `http_status != 200` or soft-404/auth walls (`request access`, `sign in`, `404 not found`), and require exact `'jobs' in api_payload` | WHEN: Normalizing CLI execution output, fetched HTML pages, and JSON API responses"
+    },
+    {
+      "id": "LT-056",
+      "slug": "mass_assignment_allowlist_and_tenant",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "untrusted_patch",
+          "existing_user",
+          "caller_tenant_id",
+          "allowed_profile_fields",
+          "mass_assignment"
+        ],
+        [
+          "tenant_id",
+          "tenant",
+          "profile",
+          "update"
+        ]
+      ],
+      "bad_pattern": "Calling `existing_user.update(untrusted_patch)` (in-place mutation + mass-assignment of `role`/`is_admin`/`tenant_id`), silently ignoring forbidden keys, or skipping `existing_user['tenant_id'] == caller_tenant_id`",
+      "good_pattern": "Verify `existing_user['tenant_id'] == caller_tenant_id` (`PermissionError`), reject ANY key not in `ALLOWED_PROFILE_FIELDS` (`ValueError`), and return a new copy without mutating `existing_user`",
+      "precondition": "Applying user-supplied update patches in multi-tenant profile/account APIs",
+      "compact": "@PITFALL[LT-056|mass_assignment_allowlist_and_tenant|security] AVOID: Calling `existing_user.update(untrusted_patch)` (in-place mutation + mass-assignment of `role`/`is_admin`/`tenant_id`), silently ignoring forbidden keys, or skipping `existing_user['tenant_id'] == caller_tenant_id` -> DO: Verify `existing_user['tenant_id'] == caller_tenant_id` (`PermissionError`), reject ANY key not in `ALLOWED_PROFILE_FIELDS` (`ValueError`), and return a new copy without mutating `existing_user` | WHEN: Applying user-supplied update patches in multi-tenant profile/account APIs"
+    },
+    {
+      "id": "LT-057",
+      "slug": "atomic_integer_mul_before_div",
+      "category": "fintech",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript",
+        "solidity"
+      ],
+      "trigger_groups": [
+        [
+          "amount_atomic",
+          "fee_bps",
+          "bps_rate",
+          "micro_usdc",
+          "split_micro"
+        ],
+        [
+          "10000",
+          "bps",
+          "atomic",
+          "fee",
+          "net"
+        ]
+      ],
+      "bad_pattern": "Premature integer floor division `(amount_atomic // 10000) * fee_bps` (loses 100% of small fees), `float()` precision loss on `10**18` ints, rounding UP instead of floor, or accepting `bool`/negative/`fee_bps > 10000`",
+      "good_pattern": "Reject `isinstance(x, bool)` or non-`int` or `amount_atomic < 0` or not `0 <= fee_bps <= 10000` (`ValueError`), then compute exact integer floor `fee = (amount_atomic * fee_bps) // 10_000` and `net = amount_atomic - fee`",
+      "precondition": "Computing basis-point splits or fee deductions on integer atomic token units",
+      "compact": "@PITFALL[LT-057|atomic_integer_mul_before_div|fintech] AVOID: Premature integer floor division `(amount_atomic // 10000) * fee_bps` (loses 100% of small fees), `float()` precision loss on `10**18` ints, rounding UP instead of floor, or accepting `bool`/negative/`fee_bps > 10000` -> DO: Reject `isinstance(x, bool)` or non-`int` or `amount_atomic < 0` or not `0 <= fee_bps <= 10000` (`ValueError`), then compute exact integer floor `fee = (amount_atomic * fee_bps) // 10_000` and `net = amount_atomic - fee` | WHEN: Computing basis-point splits or fee deductions on integer atomic token units"
+    },
+    {
+      "id": "LT-058",
+      "slug": "http_429_retry_after_and_idempotency",
+      "category": "reliability",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "retry_after",
+          "max_retries",
+          "max_wait_s",
+          "sleep_fn",
+          "backoff"
+        ],
+        [
+          "idempotency_key",
+          "idempotency",
+          "request_fn",
+          "post",
+          "429"
+        ]
+      ],
+      "bad_pattern": "Hardcoding `sleep(1.0)` ignoring `Retry-After` inside `resp['headers']`, retrying non-transient `400`/`401`/`403`/`404` errors, omitting `Idempotency-Key` header, or accepting empty `idempotency_key`",
+      "good_pattern": "Reject empty/blank `idempotency_key` (`ValueError`), send `'Idempotency-Key': idempotency_key` on every attempt, retry ONLY `{429, 502, 503, 504}` up to `max_retries`, and read `Retry-After` case-insensitively from `resp.get('headers', {})` (clamped to `[0.0, max_wait_s]`)",
+      "precondition": "Implementing HTTP POST retry loops against rate-limited external APIs",
+      "compact": "@PITFALL[LT-058|http_429_retry_after_and_idempotency|reliability] AVOID: Hardcoding `sleep(1.0)` ignoring `Retry-After` inside `resp['headers']`, retrying non-transient `400`/`401`/`403`/`404` errors, omitting `Idempotency-Key` header, or accepting empty `idempotency_key` -> DO: Reject empty/blank `idempotency_key` (`ValueError`), send `'Idempotency-Key': idempotency_key` on every attempt, retry ONLY `{429, 502, 503, 504}` up to `max_retries`, and read `Retry-After` case-insensitively from `resp.get('headers', {})` (clamped to `[0.0, max_wait_s]`) | WHEN: Implementing HTTP POST retry loops against rate-limited external APIs"
+    },
+    {
+      "id": "LT-059",
+      "slug": "redirect_strip_auth_cross_origin",
+      "category": "security",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "follow_safe_redirects",
+          "max_hops",
+          "redirect",
+          "location"
+        ],
+        [
+          "fetch_once",
+          "headers",
+          "authorization",
+          "start_url",
+          "302"
+        ]
+      ],
+      "bad_pattern": "Forwarding `Authorization`/`Cookie`/`X-API-Key`/`Proxy-Authorization` across cross-origin redirects, omitting `urljoin` for relative `Location`, or looping infinitely without `max_hops`",
+      "good_pattern": "Resolve `urljoin(url, location)`, enforce `http`/`https` and `hops <= max_hops` (`RuntimeError`/`ValueError`), keep headers on identical `(scheme, host, port)` origin, and case-insensitively strip `authorization`/`cookie`/`x-api-key`/`proxy-authorization` on cross-origin hops",
+      "precondition": "Following HTTP 301/302/303/307/308 redirects with authenticated request headers",
+      "compact": "@PITFALL[LT-059|redirect_strip_auth_cross_origin|security] AVOID: Forwarding `Authorization`/`Cookie`/`X-API-Key`/`Proxy-Authorization` across cross-origin redirects, omitting `urljoin` for relative `Location`, or looping infinitely without `max_hops` -> DO: Resolve `urljoin(url, location)`, enforce `http`/`https` and `hops <= max_hops` (`RuntimeError`/`ValueError`), keep headers on identical `(scheme, host, port)` origin, and case-insensitively strip `authorization`/`cookie`/`x-api-key`/`proxy-authorization` on cross-origin hops | WHEN: Following HTTP 301/302/303/307/308 redirects with authenticated request headers"
+    },
+    {
+      "id": "LT-060",
+      "slug": "git_lf_split_u2028_and_md_code_fence",
+      "category": "reliability",
+      "languages": [
+        "python",
+        "typescript",
+        "javascript"
+      ],
+      "trigger_groups": [
+        [
+          "git_stdout",
+          "splitlines",
+          "markdown_text",
+          "section_heading"
+        ],
+        [
+          "paths",
+          "section_body",
+          "markdown",
+          "split"
+        ]
+      ],
+      "bad_pattern": "Using `str.splitlines()` on git paths (corrupts Unicode `U+2028`/`U+2029`/`U+0085` filenames) or `.split(heading)` on markdown (falsely matches headings inside fenced code blocks)",
+      "good_pattern": "Split `git_stdout` strictly on `'\\n'` + strip trailing `'\\r'` only; scan markdown line-by-line with `in_fence = not in_fence` on `line.lstrip().startswith((\"```\", \"~~~\"))` and ignore headings while `in_fence` (never `.split(heading)`)",
+      "precondition": "Parsing git file path output or extracting sections from Markdown documents",
+      "compact": "@PITFALL[LT-060|git_lf_split_u2028_and_md_code_fence|reliability] AVOID: Using `str.splitlines()` on git paths (corrupts Unicode `U+2028`/`U+2029`/`U+0085` filenames) or `.split(heading)` on markdown (falsely matches headings inside fenced code blocks) -> DO: Split `git_stdout` strictly on `'\\n'` + strip trailing `'\\r'` only; scan markdown line-by-line with `in_fence = not in_fence` on `line.lstrip().startswith((\"```\", \"~~~\"))` and ignore headings while `in_fence` (never `.split(heading)`) | WHEN: Parsing git file path output or extracting sections from Markdown documents"
+    },
+    {
+      "id": "LT-061",
+      "slug": "flock_single_instance_and_finally_cleanup",
+      "category": "concurrency",
+      "languages": [
+        "python"
+      ],
+      "trigger_groups": [
+        [
+          "lock_file_path",
+          "open_resource_fn",
+          "work_fn",
+          "flock",
+          "worker_session"
+        ],
+        [
+          "close",
+          "lock",
+          "resource",
+          "session"
+        ]
+      ],
+      "bad_pattern": "Running daemon/browser sessions without an exclusive non-blocking `fcntl.flock` lock or calling `res.close()` outside `try...finally` (leaking handles/RAM when `work_fn` raises)",
+      "good_pattern": "Open `lock_file_path` (`O_CREAT|O_RDWR`, `0o600`), acquire `fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)` (fail fast if held), and release `res.close()` + `flock(LOCK_UN)` + `os.close(fd)` inside `try...finally`",
+      "precondition": "Guarding worker daemons and managed browser/subprocess resources",
+      "compact": "@PITFALL[LT-061|flock_single_instance_and_finally_cleanup|concurrency] AVOID: Running daemon/browser sessions without an exclusive non-blocking `fcntl.flock` lock or calling `res.close()` outside `try...finally` (leaking handles/RAM when `work_fn` raises) -> DO: Open `lock_file_path` (`O_CREAT|O_RDWR`, `0o600`), acquire `fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)` (fail fast if held), and release `res.close()` + `flock(LOCK_UN)` + `os.close(fd)` inside `try...finally` | WHEN: Guarding worker daemons and managed browser/subprocess resources"
+    },
+    {
+      "id": "LT-062",
+      "slug": "public_release_dlp_and_placeholder_exempt",
+      "category": "security",
+      "languages": [
+        "*"
+      ],
+      "trigger_groups": [
+        [
+          "sanitize_public_release_bundle",
+          "file_map",
+          "release_bundle",
+          "public_release"
+        ],
+        [
+          "violations",
+          "path",
+          "bundle",
+          "sanitize"
+        ]
+      ],
+      "bad_pattern": "Allowing `.env`/`.DS_Store`/`__pycache__`/`.coverage`, PEM private-key blocks, `sk-live-`/`ghp_`/`AKIA` tokens, or RFC-1918 private LAN IPs (`10.x.x.x`/`172.16.x.x`) & local `/Users/<name>/` paths into public releases — OR false-flagging benign `EXAMPLE_PLACEHOLDER_0000` constants",
+      "good_pattern": "Flag dirty paths (`.env`, `.DS_Store`, `__pycache__`, `.coverage`), PEM private-key headers, concrete token prefixes (`sk-live-`, `ghp_`, `AKIA`), and RFC-1918 private LAN IPs / `/Users/<user>/` host paths, while NOT flagging benign `EXAMPLE_PLACEHOLDER` fixtures",
+      "precondition": "Scanning public PR/export file maps for secret leaks, internal paths, and dirty build artifacts",
+      "compact": "@PITFALL[LT-062|public_release_dlp_and_placeholder_exempt|security] AVOID: Allowing `.env`/`.DS_Store`/`__pycache__`/`.coverage`, PEM private-key blocks, `sk-live-`/`ghp_`/`AKIA` tokens, or RFC-1918 private LAN IPs (`10.x.x.x`/`172.16.x.x`) & local `/Users/<name>/` paths into public releases — OR false-flagging benign `EXAMPLE_PLACEHOLDER_0000` constants -> DO: Flag dirty paths (`.env`, `.DS_Store`, `__pycache__`, `.coverage`), PEM private-key headers, concrete token prefixes (`sk-live-`, `ghp_`, `AKIA`), and RFC-1918 private LAN IPs / `/Users/<user>/` host paths, while NOT flagging benign `EXAMPLE_PLACEHOLDER` fixtures | WHEN: Scanning public PR/export file maps for secret leaks, internal paths, and dirty build artifacts"
+    },
+    {
+      "id": "LT-063",
+      "slug": "fe_xss_innerhtml_and_url_scheme",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "dangerouslysetinnerhtml",
+          "innerhtml",
+          "outerhtml",
+          "dompurify",
+          "href",
+          "srcdoc",
+          "html"
+        ],
+        [
+          "dangerouslysetinnerhtml",
+          "innerhtml",
+          "outerhtml",
+          "dompurify",
+          "srcdoc",
+          "url",
+          "link",
+          "sanitize",
+          "template",
+          "component",
+          "props",
+          "render",
+          "jsx",
+          "tsx",
+          "div"
+        ]
+      ],
+      "bad_pattern": "Rendering untrusted markup via `dangerouslySetInnerHTML`/`v-html`/`.innerHTML` without `DOMPurify.sanitize`, or binding `href={userUrl}` allowing `javascript:`/`data:` schemes",
+      "good_pattern": "Render plain text by default, sanitize unavoidable HTML via `DOMPurify.sanitize(raw)`, and validate `new URL(userUrl)` protocol is strictly `'https:'` or `'http:'` (or same-origin `/path`)",
+      "precondition": "Rendering user-supplied HTML snippets or dynamic navigation URLs in React, Next.js, or Vue",
+      "compact": "@PITFALL[LT-063|fe_xss_innerhtml_and_url_scheme|frontend] AVOID: Rendering untrusted markup via `dangerouslySetInnerHTML`/`v-html`/`.innerHTML` without `DOMPurify.sanitize`, or binding `href={userUrl}` allowing `javascript:`/`data:` schemes -> DO: Render plain text by default, sanitize unavoidable HTML via `DOMPurify.sanitize(raw)`, and validate `new URL(userUrl)` protocol is strictly `'https:'` or `'http:'` (or same-origin `/path`) | WHEN: Rendering user-supplied HTML snippets or dynamic navigation URLs in React, Next.js, or Vue"
+    },
+    {
+      "id": "LT-064",
+      "slug": "fe_effect_abort_race_and_stale_state",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "useeffect",
+          "uselayouteffect",
+          "watcheffect",
+          "onmounted",
+          "abortcontroller",
+          "abortsignal",
+          "usestate"
+        ],
+        [
+          "fetch",
+          "fetcher",
+          "axios",
+          "async",
+          "await",
+          "then",
+          "promise",
+          "abort",
+          "signal",
+          "settimeout",
+          "setinterval",
+          "prev",
+          "setstate"
+        ]
+      ],
+      "bad_pattern": "Running async `fetch` inside `useEffect` without `AbortController` cleanup (out-of-order stale response overwrite) or calling `setState(val + 1)` with a stale closure",
+      "good_pattern": "Create `const ac = new AbortController()`, pass `{ signal: ac.signal }`, return `() => ac.abort()` in cleanup (ignoring `AbortError`), and use functional updaters `setState(prev => prev + 1)`",
+      "precondition": "Async data fetching, subscriptions, or state updates inside React `useEffect`/Vue watchers",
+      "compact": "@PITFALL[LT-064|fe_effect_abort_race_and_stale_state|frontend] AVOID: Running async `fetch` inside `useEffect` without `AbortController` cleanup (out-of-order stale response overwrite) or calling `setState(val + 1)` with a stale closure -> DO: Create `const ac = new AbortController()`, pass `{ signal: ac.signal }`, return `() => ac.abort()` in cleanup (ignoring `AbortError`), and use functional updaters `setState(prev => prev + 1)` | WHEN: Async data fetching, subscriptions, or state updates inside React `useEffect`/Vue watchers"
+    },
+    {
+      "id": "LT-065",
+      "slug": "fe_ssr_hydration_nondeterministic",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "localstorage",
+          "sessionstorage",
+          "window",
+          "navigator",
+          "random",
+          "now",
+          "tolocaledatestring",
+          "tolocalestring"
+        ],
+        [
+          "ssr",
+          "hydrate",
+          "hydration",
+          "nextjs",
+          "useeffect",
+          "usestate",
+          "component",
+          "props",
+          "jsx",
+          "tsx",
+          "div",
+          "span",
+          "template",
+          "onmounted",
+          "getserversideprops",
+          "page",
+          "isclient",
+          "render"
+        ]
+      ],
+      "bad_pattern": "Reading `Date.now()`, `Math.random()`, `window`, or `localStorage` directly in an SSR render body (causes hydration mismatch or server `ReferenceError`)",
+      "good_pattern": "Keep initial SSR render deterministic from props/server data; read browser globals and non-deterministic clocks only inside `useEffect`/`onMounted` after client mount",
+      "precondition": "Authoring SSR-rendered React, Next.js App/Pages Router, or Vue components",
+      "compact": "@PITFALL[LT-065|fe_ssr_hydration_nondeterministic|frontend] AVOID: Reading `Date.now()`, `Math.random()`, `window`, or `localStorage` directly in an SSR render body (causes hydration mismatch or server `ReferenceError`) -> DO: Keep initial SSR render deterministic from props/server data; read browser globals and non-deterministic clocks only inside `useEffect`/`onMounted` after client mount | WHEN: Authoring SSR-rendered React, Next.js App/Pages Router, or Vue components"
+    },
+    {
+      "id": "LT-066",
+      "slug": "fe_list_index_key_and_inplace_sort",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "sort",
+          "reverse",
+          "splice",
+          "push",
+          "unshift",
+          "key"
+        ],
+        [
+          "usestate",
+          "usememo",
+          "reactive",
+          "computed",
+          "jsx",
+          "tsx",
+          "li",
+          "div",
+          "idx",
+          "index",
+          "items",
+          "rows",
+          "list",
+          "keys"
+        ]
+      ],
+      "bad_pattern": "Using array index `key={idx}` on dynamic lists (corrupts DOM/input state on reorder/filter) or mutating React/Vue state arrays in place (`items.sort()`/`push()`/`splice()`)",
+      "good_pattern": "Key list items by stable unique entity ID (`key={item.id}`) and clone before sorting/updating (`[...items].sort(...)`, `[...items, next]`) so state reconciliation detects changes",
+      "precondition": "Rendering dynamic lists or sorting/mutating array state in React or Vue",
+      "compact": "@PITFALL[LT-066|fe_list_index_key_and_inplace_sort|frontend] AVOID: Using array index `key={idx}` on dynamic lists (corrupts DOM/input state on reorder/filter) or mutating React/Vue state arrays in place (`items.sort()`/`push()`/`splice()`) -> DO: Key list items by stable unique entity ID (`key={item.id}`) and clone before sorting/updating (`[...items].sort(...)`, `[...items, next]`) so state reconciliation detects changes | WHEN: Rendering dynamic lists or sorting/mutating array state in React or Vue"
+    },
+    {
+      "id": "LT-067",
+      "slug": "fe_checkout_double_submit_idempotency",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "checkout",
+          "payment",
+          "placeorder",
+          "submitorder",
+          "onsubmit",
+          "handlesubmit",
+          "handlecheckout",
+          "handlepayment",
+          "issubmitting",
+          "submitting"
+        ],
+        [
+          "fetch",
+          "axios",
+          "post",
+          "async",
+          "await",
+          "idempotency",
+          "disabled",
+          "order",
+          "pay",
+          "button",
+          "form"
+        ]
+      ],
+      "bad_pattern": "Checkout/payment submit handlers lacking an in-flight `isSubmitting` guard or generating a random/timestamp `Idempotency-Key` per attempt (breaking retry deduplication and causing duplicate charges)",
+      "good_pattern": "Guard with a synchronous in-flight flag/ref (`if (submittingRef.current) return null; submittingRef.current = true`), derive or cache ONE deterministic `Idempotency-Key` per `orderId` (reused identically across retries for the same order, never `Math.random()`/`Date.now()` per call), and reset the flag in `finally`",
+      "precondition": "Implementing checkout, payment, transfer, or order-creation submit handlers in FE apps",
+      "compact": "@PITFALL[LT-067|fe_checkout_double_submit_idempotency|frontend] AVOID: Checkout/payment submit handlers lacking an in-flight `isSubmitting` guard or generating a random/timestamp `Idempotency-Key` per attempt (breaking retry deduplication and causing duplicate charges) -> DO: Guard with a synchronous in-flight flag/ref (`if (submittingRef.current) return null; submittingRef.current = true`), derive or cache ONE deterministic `Idempotency-Key` per `orderId` (reused identically across retries for the same order, never `Math.random()`/`Date.now()` per call), and reset the flag in `finally` | WHEN: Implementing checkout, payment, transfer, or order-creation submit handlers in FE apps"
+    },
+    {
+      "id": "LT-068",
+      "slug": "fe_cart_currency_float_and_intl",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "cart",
+          "subtotal",
+          "discount",
+          "vat",
+          "currency",
+          "formatprice",
+          "formatcurrency",
+          "numberformat",
+          "intl",
+          "coupon"
+        ],
+        [
+          "price",
+          "total",
+          "tax",
+          "amount",
+          "cents",
+          "vnd",
+          "usd",
+          "tofixed",
+          "number",
+          "reduce",
+          "qty",
+          "quantity",
+          "intl",
+          "numberformat"
+        ]
+      ],
+      "bad_pattern": "Computing cart subtotal/discount/tax with JS floating-point `Number` (`0.1 + 0.2 !== 0.3`, `115 * 0.9 = 103.49999999999999`) or subtracting a separately rounded discount instead of half-up rounding the net minor-unit total",
+      "good_pattern": "Parse price strings directly into exact integer minor units (cents/VND), compute discounted net totals with exact integer `ROUND_HALF_UP` (`Math.floor((subtotalCents * (100 - discountPercent) + 50) / 100)` or `BigInt` half-up), and format display strings via `new Intl.NumberFormat(locale, { style: 'currency', currency })`",
+      "precondition": "Calculating or formatting cart totals, discounts, taxes, or prices in frontend JS/TS/Vue",
+      "compact": "@PITFALL[LT-068|fe_cart_currency_float_and_intl|frontend] AVOID: Computing cart subtotal/discount/tax with JS floating-point `Number` (`0.1 + 0.2 !== 0.3`, `115 * 0.9 = 103.49999999999999`) or subtracting a separately rounded discount instead of half-up rounding the net minor-unit total -> DO: Parse price strings directly into exact integer minor units (cents/VND), compute discounted net totals with exact integer `ROUND_HALF_UP` (`Math.floor((subtotalCents * (100 - discountPercent) + 50) / 100)` or `BigInt` half-up), and format display strings via `new Intl.NumberFormat(locale, { style: 'currency', currency })` | WHEN: Calculating or formatting cart totals, discounts, taxes, or prices in frontend JS/TS/Vue"
+    },
+    {
+      "id": "LT-069",
+      "slug": "fe_open_redirect_and_postmessage_origin",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "postmessage",
+          "onmessage",
+          "addeventlistener",
+          "location",
+          "router",
+          "redirect",
+          "returnurl",
+          "nexturl"
+        ],
+        [
+          "postmessage",
+          "onmessage",
+          "origin",
+          "push",
+          "replace",
+          "assign",
+          "href",
+          "next",
+          "redirect",
+          "searchparams",
+          "query",
+          "contentwindow",
+          "iframe",
+          "opener",
+          "message",
+          "msg"
+        ]
+      ],
+      "bad_pattern": "Passing unvalidated params to `router.push(next)`/`window.location = next` (allows `//evil.com` or external URLs), sending `postMessage(data, '*')`, or skipping `event.origin` validation",
+      "good_pattern": "Allow only same-origin relative paths (`/^\\/(?!\\/|\\\\)/`) for redirects, pass an explicit target origin to `postMessage`, and enforce strict `event.origin === ALLOWED_ORIGIN` in every `message` listener",
+      "precondition": "Client-side post-login redirects or cross-window/iframe `postMessage` handlers",
+      "compact": "@PITFALL[LT-069|fe_open_redirect_and_postmessage_origin|frontend] AVOID: Passing unvalidated params to `router.push(next)`/`window.location = next` (allows `//evil.com` or external URLs), sending `postMessage(data, '*')`, or skipping `event.origin` validation -> DO: Allow only same-origin relative paths (`/^\\/(?!\\/|\\\\)/`) for redirects, pass an explicit target origin to `postMessage`, and enforce strict `event.origin === ALLOWED_ORIGIN` in every `message` listener | WHEN: Client-side post-login redirects or cross-window/iframe `postMessage` handlers"
+    },
+    {
+      "id": "LT-070",
+      "slug": "fe_server_action_authz_and_zod",
+      "category": "frontend",
+      "languages": [
+        "typescript",
+        "javascript",
+        "vue"
+      ],
+      "trigger_groups": [
+        [
+          "formdata",
+          "nextrequest",
+          "nextresponse",
+          "serveraction",
+          "getserversession",
+          "cookies",
+          "headers",
+          "route",
+          "handler",
+          "action",
+          "zod",
+          "safeparse"
+        ],
+        [
+          "userid",
+          "role",
+          "price",
+          "isadmin",
+          "admin",
+          "tenantid",
+          "ownerid",
+          "session",
+          "auth",
+          "amount",
+          "status"
+        ]
+      ],
+      "bad_pattern": "Trusting client-supplied `userId`, `role`, `isAdmin`, or `price` in Next.js Server Actions / API routes without server session authz and schema validation",
+      "good_pattern": "Derive actor identity/role strictly from verified server session (never client payload), validate input types/bounds fail-closed (using existing validator or explicit runtime checks; NEVER invent uninstalled imports like `zod`), and recompute authoritative prices from server catalog",
+      "precondition": "Implementing Next.js Server Actions, BFF endpoints, or API route handlers",
+      "compact": "@PITFALL[LT-070|fe_server_action_authz_and_zod|frontend] AVOID: Trusting client-supplied `userId`, `role`, `isAdmin`, or `price` in Next.js Server Actions / API routes without server session authz and schema validation -> DO: Derive actor identity/role strictly from verified server session (never client payload), validate input types/bounds fail-closed (using existing validator or explicit runtime checks; NEVER invent uninstalled imports like `zod`), and recompute authoritative prices from server catalog | WHEN: Implementing Next.js Server Actions, BFF endpoints, or API route handlers"
+    },
+    {
+      "id": "LT-071",
+      "slug": "go_loop_goroutine_capture_and_defer",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "trigger_groups": [
+        [
+          "go",
+          "defer",
+          "goroutine",
+          "waitgroup",
+          "wg"
+        ],
+        [
+          "for",
+          "range",
+          "ctx",
+          "context",
+          "done",
+          "chan",
+          "select",
+          "go"
+        ]
+      ],
+      "bad_pattern": "Spawning `go func()` in loops capturing loop vars / ignoring `<-ctx.Done()` (races & leaks), or calling `defer f.Close()` inside a loop (leaks FDs until outer function exits)",
+      "good_pattern": "Pass loop values explicitly `go func(v T) { ... }(v)`, select on `<-ctx.Done()` for cancellation, and move loop-body resource cleanup into a helper function so `defer f.Close()` runs per iteration",
+      "precondition": "Writing Go loops that launch goroutines or open per-iteration files/connections",
+      "compact": "@PITFALL[LT-071|go_loop_goroutine_capture_and_defer|go] AVOID: Spawning `go func()` in loops capturing loop vars / ignoring `<-ctx.Done()` (races & leaks), or calling `defer f.Close()` inside a loop (leaks FDs until outer function exits) -> DO: Pass loop values explicitly `go func(v T) { ... }(v)`, select on `<-ctx.Done()` for cancellation, and move loop-body resource cleanup into a helper function so `defer f.Close()` runs per iteration | WHEN: Writing Go loops that launch goroutines or open per-iteration files/connections"
+    },
+    {
+      "id": "LT-072",
+      "slug": "go_http_body_close_limit_timeout",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "trigger_groups": [
+        [
+          "http",
+          "resp",
+          "response",
+          "readall",
+          "defaultclient",
+          "limitreader"
+        ],
+        [
+          "get",
+          "post",
+          "do",
+          "body",
+          "readall",
+          "client",
+          "timeout",
+          "transport"
+        ]
+      ],
+      "bad_pattern": "Calling `http.Get` (uses `http.DefaultClient` with zero timeout), omitting `defer resp.Body.Close()`, or calling unbounded `io.ReadAll(resp.Body)` (OOM DoS)",
+      "good_pattern": "Use `&http.Client{Timeout: 10 * time.Second}` (or `http.NewRequestWithContext`), `defer resp.Body.Close()` right after `err == nil`, and cap reads with `io.LimitReader(resp.Body, maxBytes)`",
+      "precondition": "Making outbound HTTP requests or reading HTTP response bodies in Go",
+      "compact": "@PITFALL[LT-072|go_http_body_close_limit_timeout|go] AVOID: Calling `http.Get` (uses `http.DefaultClient` with zero timeout), omitting `defer resp.Body.Close()`, or calling unbounded `io.ReadAll(resp.Body)` (OOM DoS) -> DO: Use `&http.Client{Timeout: 10 * time.Second}` (or `http.NewRequestWithContext`), `defer resp.Body.Close()` right after `err == nil`, and cap reads with `io.LimitReader(resp.Body, maxBytes)` | WHEN: Making outbound HTTP requests or reading HTTP response bodies in Go"
+    },
+    {
+      "id": "LT-073",
+      "slug": "go_sql_rows_err_and_tx_rollback",
+      "category": "go",
+      "languages": [
+        "go"
+      ],
+      "trigger_groups": [
+        [
+          "rows",
+          "sql",
+          "tx",
+          "begintx",
+          "queryrow",
+          "querycontext"
+        ],
+        [
+          "next",
+          "scan",
+          "query",
+          "exec",
+          "begin",
+          "begintx",
+          "commit",
+          "rollback",
+          "close",
+          "err"
+        ]
+      ],
+      "bad_pattern": "Iterating Go `database/sql` `rows.Next()` without `defer rows.Close()` and post-loop `rows.Err()`, or starting a `tx` without `defer tx.Rollback()` on error paths",
+      "good_pattern": "Call `defer rows.Close()` immediately after `db.Query`, check `if err := rows.Err(); err != nil` after `rows.Next()`, and always `defer tx.Rollback()` right after `db.BeginTx` (safe no-op after `Commit`)",
+      "precondition": "Querying rows or running SQL transactions via Go `database/sql`",
+      "compact": "@PITFALL[LT-073|go_sql_rows_err_and_tx_rollback|go] AVOID: Iterating Go `database/sql` `rows.Next()` without `defer rows.Close()` and post-loop `rows.Err()`, or starting a `tx` without `defer tx.Rollback()` on error paths -> DO: Call `defer rows.Close()` immediately after `db.Query`, check `if err := rows.Err(); err != nil` after `rows.Next()`, and always `defer tx.Rollback()` right after `db.BeginTx` (safe no-op after `Commit`) | WHEN: Querying rows or running SQL transactions via Go `database/sql`"
+    },
+    {
+      "id": "LT-074",
+      "slug": "rust_unchecked_index_unwrap_overflow",
+      "category": "rust",
+      "languages": [
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "unwrap",
+          "expect",
+          "split_at",
+          "from_be_bytes",
+          "from_le_bytes",
+          "checked_add",
+          "checked_mul",
+          "saturating_add",
+          "try_from",
+          "unchecked",
+          "get_unchecked"
+        ]
+      ],
+      "bad_pattern": "Panicking on untrusted input via `slice[i]`/`.unwrap()`/`.expect()`, silently wrapping `a + b` in release builds, or truncating integers via `val as usize`/`as u32`",
+      "good_pattern": "Use bounds-checked `.get(i)` + `?` propagation, checked arithmetic (`checked_add`/`checked_mul`/`saturating_sub`), and fallible `usize::try_from(val)?` instead of `as` casts",
+      "precondition": "Indexing slices, unwrapping `Option`/`Result`, or doing arithmetic/casts on untrusted input in Rust",
+      "compact": "@PITFALL[LT-074|rust_unchecked_index_unwrap_overflow|rust] AVOID: Panicking on untrusted input via `slice[i]`/`.unwrap()`/`.expect()`, silently wrapping `a + b` in release builds, or truncating integers via `val as usize`/`as u32` -> DO: Use bounds-checked `.get(i)` + `?` propagation, checked arithmetic (`checked_add`/`checked_mul`/`saturating_sub`), and fallible `usize::try_from(val)?` instead of `as` casts | WHEN: Indexing slices, unwrapping `Option`/`Result`, or doing arithmetic/casts on untrusted input in Rust"
+    },
+    {
+      "id": "LT-075",
+      "slug": "rust_mutex_across_await_and_poison",
+      "category": "rust",
+      "languages": [
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "mutex",
+          "rwlock",
+          "mutexguard",
+          "lock"
+        ],
+        [
+          "await",
+          "async",
+          "tokio",
+          "unwrap_or_default",
+          "into_inner",
+          "poison",
+          "poisoned",
+          "guard"
+        ]
+      ],
+      "bad_pattern": "Holding `std::sync::MutexGuard` across `.await`/callbacks (deadlocks or fails `!Send`) or silently swallowing lock-poison errors via `.unwrap_or_else(|e| e.into_inner())`/`.unwrap_or_default()`",
+      "good_pattern": "Drop `std::sync::MutexGuard` inside a tight synchronous `{ ... }` scope BEFORE `.await` or external callbacks, and return `Err(...)` fail-closed on poisoned locks instead of `.into_inner()`/`.unwrap_or_default()`",
+      "precondition": "Using `Mutex`/`RwLock` in async Rust tasks or handling fallible lock/parse results",
+      "compact": "@PITFALL[LT-075|rust_mutex_across_await_and_poison|rust] AVOID: Holding `std::sync::MutexGuard` across `.await`/callbacks (deadlocks or fails `!Send`) or silently swallowing lock-poison errors via `.unwrap_or_else(|e| e.into_inner())`/`.unwrap_or_default()` -> DO: Drop `std::sync::MutexGuard` inside a tight synchronous `{ ... }` scope BEFORE `.await` or external callbacks, and return `Err(...)` fail-closed on poisoned locks instead of `.into_inner()`/`.unwrap_or_default()` | WHEN: Using `Mutex`/`RwLock` in async Rust tasks or handling fallible lock/parse results"
+    },
+    {
+      "id": "LT-076",
+      "slug": "rust_path_join_abs_override_and_nofollow",
+      "category": "rust",
+      "languages": [
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "join",
+          "canonicalize",
+          "openoptions",
+          "o_nofollow",
+          "nofollow",
+          "pathbuf"
+        ],
+        [
+          "path",
+          "pathbuf",
+          "root",
+          "base",
+          "dir",
+          "rel",
+          "fs",
+          "file",
+          "open",
+          "read",
+          "write",
+          "starts_with"
+        ]
+      ],
+      "bad_pattern": "Calling `root.join(user_rel)` (Rust `Path::join` SILENTLY REPLACES `root` when `user_rel` starts with `/`!) or skipping `canonicalize()` + `starts_with(&canon_root)` + `O_NOFOLLOW`",
+      "good_pattern": "Reject absolute paths and `Component::ParentDir`/`RootDir`/`Prefix` via `Path::components()` before joining (and canonicalize existing root/paths + check `starts_with(&canon_root)` + `O_NOFOLLOW` when opening files on Unix)",
+      "precondition": "Resolving user-controlled relative paths under a confined root directory in Rust",
+      "compact": "@PITFALL[LT-076|rust_path_join_abs_override_and_nofollow|rust] AVOID: Calling `root.join(user_rel)` (Rust `Path::join` SILENTLY REPLACES `root` when `user_rel` starts with `/`!) or skipping `canonicalize()` + `starts_with(&canon_root)` + `O_NOFOLLOW` -> DO: Reject absolute paths and `Component::ParentDir`/`RootDir`/`Prefix` via `Path::components()` before joining (and canonicalize existing root/paths + check `starts_with(&canon_root)` + `O_NOFOLLOW` when opening files on Unix) | WHEN: Resolving user-controlled relative paths under a confined root directory in Rust"
+    },
+    {
+      "id": "LT-077",
+      "slug": "gha_unpinned_action_and_run_injection",
+      "category": "ci",
+      "languages": [
+        "yaml",
+        "shell"
+      ],
+      "trigger_groups": [
+        [
+          "uses",
+          "github",
+          "workflow_dispatch",
+          "pull_request_target",
+          "runs"
+        ],
+        [
+          "actions",
+          "checkout",
+          "steps",
+          "jobs",
+          "event",
+          "run"
+        ]
+      ],
+      "bad_pattern": "Pinning GitHub Actions to mutable refs (`uses: org/action@main` or `@v4`) or interpolating `${{ github.event.* }}` directly into `run:` shell commands (command injection)",
+      "good_pattern": "Pin third-party actions to immutable 40-hex commit SHAs (`uses: actions/checkout@<40-hex-sha> # v4`) and pass `${{ github.event.* }}` through `env:` + quoted `\"$VAR\"` inside `run:`",
+      "precondition": "Authoring or auditing GitHub Actions `.github/workflows/*.yml` workflows",
+      "compact": "@PITFALL[LT-077|gha_unpinned_action_and_run_injection|ci] AVOID: Pinning GitHub Actions to mutable refs (`uses: org/action@main` or `@v4`) or interpolating `${{ github.event.* }}` directly into `run:` shell commands (command injection) -> DO: Pin third-party actions to immutable 40-hex commit SHAs (`uses: actions/checkout@<40-hex-sha> # v4`) and pass `${{ github.event.* }}` through `env:` + quoted `\"$VAR\"` inside `run:` | WHEN: Authoring or auditing GitHub Actions `.github/workflows/*.yml` workflows"
+    },
+    {
+      "id": "LT-078",
+      "slug": "gha_excessive_perms_and_pr_target",
+      "category": "ci",
+      "languages": [
+        "yaml"
+      ],
+      "trigger_groups": [
+        [
+          "pull_request_target",
+          "workflow_run",
+          "permissions",
+          "github_token",
+          "secrets"
+        ],
+        [
+          "pull_request_target",
+          "workflow_run",
+          "jobs",
+          "steps",
+          "checkout",
+          "github",
+          "runs"
+        ]
+      ],
+      "bad_pattern": "Omitting top-level least-privilege `permissions:` (or using `write-all`), or checking out untrusted PR head code inside a `pull_request_target` workflow with secrets exposed",
+      "good_pattern": "Declare top-level `permissions: contents: read` (or `{}`), scope write permissions per job only, and NEVER checkout/execute untrusted PR head code under `pull_request_target`",
+      "precondition": "Configuring GitHub Actions triggers, `GITHUB_TOKEN` permissions, or PR workflows",
+      "compact": "@PITFALL[LT-078|gha_excessive_perms_and_pr_target|ci] AVOID: Omitting top-level least-privilege `permissions:` (or using `write-all`), or checking out untrusted PR head code inside a `pull_request_target` workflow with secrets exposed -> DO: Declare top-level `permissions: contents: read` (or `{}`), scope write permissions per job only, and NEVER checkout/execute untrusted PR head code under `pull_request_target` | WHEN: Configuring GitHub Actions triggers, `GITHUB_TOKEN` permissions, or PR workflows"
+    },
+    {
+      "id": "LT-079",
+      "slug": "docker_root_latest_and_secret_arg",
+      "category": "docker",
+      "languages": [
+        "dockerfile",
+        "shell"
+      ],
+      "trigger_groups": [
+        [
+          "dockerfile",
+          "workdir",
+          "entrypoint",
+          "from",
+          "docker"
+        ],
+        [
+          "dockerfile",
+          "workdir",
+          "entrypoint",
+          "latest",
+          "alpine",
+          "slim",
+          "distroless",
+          "bookworm",
+          "bullseye",
+          "nonroot",
+          "adduser",
+          "useradd",
+          "healthcheck"
+        ]
+      ],
+      "bad_pattern": "Running containers as `root` (missing non-root `USER`), pinning mutable `:latest` base images, or passing secrets via `ARG`/`ENV` baked into image layers",
+      "good_pattern": "Pin base images to an immutable `@sha256:...` digest, switch to a non-root `USER` before `CMD`/`ENTRYPOINT`, and pass build secrets via `RUN --mount=type=secret` (never `ARG`/`ENV`)",
+      "precondition": "Writing Dockerfiles or container image build definitions",
+      "compact": "@PITFALL[LT-079|docker_root_latest_and_secret_arg|docker] AVOID: Running containers as `root` (missing non-root `USER`), pinning mutable `:latest` base images, or passing secrets via `ARG`/`ENV` baked into image layers -> DO: Pin base images to an immutable `@sha256:...` digest, switch to a non-root `USER` before `CMD`/`ENTRYPOINT`, and pass build secrets via `RUN --mount=type=secret` (never `ARG`/`ENV`) | WHEN: Writing Dockerfiles or container image build definitions"
+    },
+    {
+      "id": "LT-080",
+      "slug": "ci_pipefail_brokenpipe_and_runner",
+      "category": "ci",
+      "languages": [
+        "shell",
+        "yaml",
+        "rust"
+      ],
+      "trigger_groups": [
+        [
+          "pipefail",
+          "brokenpipe",
+          "epipe",
+          "sigpipe",
+          "macos",
+          "bash",
+          "errexit",
+          "nounset",
+          "runner"
+        ],
+        [
+          "pipefail",
+          "brokenpipe",
+          "epipe",
+          "sigpipe",
+          "runs",
+          "shell",
+          "set",
+          "pipe",
+          "spawn",
+          "child",
+          "ci",
+          "workflow",
+          "steps",
+          "latest",
+          "stdout",
+          "stderr",
+          "script"
+        ]
+      ],
+      "bad_pattern": "Omitting `set -euo pipefail` in CI shell scripts (silently masks upstream pipe failures), pinning retired CI runners (`macos-14`), or testing `BrokenPipe`/`EPIPE` without confirming reader closure before child spawn",
+      "good_pattern": "Begin CI shell scripts with `set -euo pipefail`, use supported runners (`macos-15`/`ubuntu-24.04`), and confirm reader FD closure (drop reader before child spawn/write) when testing `BrokenPipe`/`EPIPE`",
+      "precondition": "Writing CI shell scripts, runner matrices, or `BrokenPipe`/`EPIPE` subprocess tests",
+      "compact": "@PITFALL[LT-080|ci_pipefail_brokenpipe_and_runner|ci] AVOID: Omitting `set -euo pipefail` in CI shell scripts (silently masks upstream pipe failures), pinning retired CI runners (`macos-14`), or testing `BrokenPipe`/`EPIPE` without confirming reader closure before child spawn -> DO: Begin CI shell scripts with `set -euo pipefail`, use supported runners (`macos-15`/`ubuntu-24.04`), and confirm reader FD closure (drop reader before child spawn/write) when testing `BrokenPipe`/`EPIPE` | WHEN: Writing CI shell scripts, runner matrices, or `BrokenPipe`/`EPIPE` subprocess tests"
+    }
+  ]
+}

@@ -19,11 +19,10 @@
   "good_code": "pred_t = 0.5 * signal_series[max(0, idx_t - 1)] + 0.5 * signal_series[idx_t]\ntotal_energy = math.fsum([rest_energy_j] + list(micro_fluxes))",
   "regex_pattern": "CAUSAL_ARROW_LOOKAHEAD_LEAK|CATASTROPHIC_CANCELLATION_SEAM",
   "ast_rule": null,
-  "synthesized_by_model": "gpt-5.4-mini-wm",
+  "synthesized_by_model": "gpt-5.4",
   "model_family": "openai-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "gpt-5.4-mini-wm",
     "gpt-5.4"
   ],
   "reinforcement_count": 20,

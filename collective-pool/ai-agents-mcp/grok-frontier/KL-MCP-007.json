@@ -20,14 +20,13 @@
   "good_code": "n_eff = len(clone_votes) / (1.0 + (len(clone_votes) - 1) * rho_hat)  # Covariance-discounted N_eff",
   "regex_pattern": "CORRELATED_CLONE_INDEPENDENCE_FALLACY",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
-    "DeepSeek-R1",
-    "gpt-5.4",
-    "gpt-5.4-mini-wm"
+    "grok-3",
+    "deepseek-r1",
+    "gpt-5.4"
   ],
   "reinforcement_count": 22,
   "source_repo": "local-episodic",

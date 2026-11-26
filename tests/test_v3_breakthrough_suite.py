@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """End-to-end verification suite for Kintsugi v3.0:
-  - Mũi A: Typed Obligation Prover (live Rust CLI confusion matrix + DeepSeek SQL_EXEC:403 + multiline subprocess)
-  - Mũi B: ContextEnvelope + PostToolUse(Read) + task-pack --low-tier + MCP v3 (preserving build3 == 23!)
-  - Mũi C: Verified Patch Transaction Controller (no-op blocked, stale CAS rollback, oracle tamper, allowlist, signed receipt)
-  - Mũi D: 4 Falsifiable Domain Contracts + Universal Truth Gate + Held-Out Utility Gate + Low-Tier Lexicon (LT-001..LT-018)
+  - Track A: Typed Obligation Prover (live Rust CLI confusion matrix + DeepSeek SQL_EXEC:403 + multiline subprocess)
+  - Track B: ContextEnvelope + PostToolUse(Read) + task-pack --low-tier + MCP v3 (preserving build3 == 23!)
+  - Track C: Verified Patch Transaction Controller (no-op blocked, stale CAS rollback, oracle tamper, allowlist, signed receipt)
+  - Track D: 4 Falsifiable Domain Contracts + Universal Truth Gate + Held-Out Utility Gate + Low-Tier Lexicon (LT-001..LT-018)
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="kintsugi_v3_suite_"))
 
     # -----------------------------------------------------------------------
-    # Mũi C: Verified Patch Transaction Controller
+    # Track C: Verified Patch Transaction Controller
     # -----------------------------------------------------------------------
     def _make_tx_workspace(self) -> Tuple[Path, Path, Path]:
         ws = self.tmp / "ws"
@@ -250,7 +250,7 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertIn("receipt_hmac_sha256", rcpt)
 
     # -----------------------------------------------------------------------
-    # Mũi D: 4 Falsifiable Domain Contracts + Truth Gate + Utility Gate
+    # Track D: 4 Falsifiable Domain Contracts + Truth Gate + Utility Gate
     # -----------------------------------------------------------------------
     def test_02_four_domain_contracts_catch_bugs_and_pass_verified_implementations(self) -> None:
         # 1. CONTRACT-CM-IDEMPOTENCY (Broken: replays debit twice vs Fixed: payload-hash bound)
@@ -376,7 +376,7 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
             precondition="total_assets + V_ASSETS <= assets * (total_shares + V_SHARES)",
             invariant_text="Reject shares <= 0 when donation exceeds virtual shares offset.",
             oracle_digest="sha256:pinned_erc4626",
-            proposer_model="GPT-5.4",
+            proposer_model="gpt-5.4",
             proposer_origin="openai_codex_official",
             endpoint_url="https://chatgpt.com/backend-api/codex/responses",
         )
@@ -403,10 +403,10 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertTrue(ledger.record_outcome(cand.contract_id, False)["frozen"])
 
     # -----------------------------------------------------------------------
-    # Mũi A + B + Low-Tier Lexicon CLI & MCP v3 Verification
+    # Track A + B + Low-Tier Lexicon CLI & MCP v3 Verification
     # -----------------------------------------------------------------------
     def test_03_rust_cli_context_lexicon_taskpack_postread_and_mcp_v3_compat(self) -> None:
-        self.assertEqual(set(CLIENT_SUPPORT_MATRIX.keys()), {"claude_code", "antigravity", "local_cli", "cloud_sandbox"})
+        self.assertEqual(set(CLIENT_SUPPORT_MATRIX.keys()), {"claude_code", "antigravity", "local_cli", "manual_cli_pack"})
 
         sample = self.tmp / "deepseek_sql.py"
         sample.write_text(
@@ -531,7 +531,7 @@ class TestKintsugiV3BreakthroughSuite(unittest.TestCase):
         self.assertEqual(len(lines), 2, f"Expected 2 JSON-RPC responses, got: {proc.stdout!r}")
         init_resp = json.loads(lines[0])
         tools_resp = json.loads(lines[1])
-        self.assertEqual(init_resp["result"]["serverInfo"]["version"], "3.0.1")
+        self.assertEqual(init_resp["result"]["serverInfo"]["version"], "3.1.1")
         tools = tools_resp["result"]["tools"]
         self.assertEqual(len(tools), 26)
         tool_by_name = {t["name"]: t for t in tools}

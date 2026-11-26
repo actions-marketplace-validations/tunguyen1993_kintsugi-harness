@@ -1,0 +1,103 @@
+{
+  "schema": "KintsugiCloudSandboxCanaryCorpus/1",
+  "version": "3.1.1",
+  "total_samples": 16,
+  "samples": [
+    {
+      "id": "CANARY-PY-01",
+      "language": "python",
+      "description": "Dataclass 2D point and rectangle geometry helper",
+      "code": "from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass Point:\n    x: int\n    y: int\n\ndef add_points(a: Point, b: Point) -> Point:\n    return Point(a.x + b.x, a.y + b.y)\n\ndef manhattan_span(a: Point, b: Point) -> int:\n    return abs(a.x - b.x) + abs(a.y - b.y)\n"
+    },
+    {
+      "id": "CANARY-PY-02",
+      "language": "python",
+      "description": "ASCII title slugger without regex backtracking",
+      "code": "def slugify_heading(title: str) -> str:\n    parts = []\n    prev_dash = True\n    for ch in title.strip().lower():\n        if ch.isalnum():\n            parts.append(ch)\n            prev_dash = False\n        elif not prev_dash:\n            parts.append('-')\n            prev_dash = True\n    return ''.join(parts).strip('-')\n"
+    },
+    {
+      "id": "CANARY-PY-03",
+      "language": "python",
+      "description": "Pure integer pagination bounds helper",
+      "code": "def paginate_window(total_items: int, page_num: int, page_size: int) -> dict:\n    safe_size = max(1, min(page_size, 100))\n    safe_page = max(1, page_num)\n    offset = (safe_page - 1) * safe_size\n    total_pages = (max(0, total_items) + safe_size - 1) // safe_size\n    return {'page': safe_page, 'size': safe_size, 'offset': offset, 'pages': total_pages}\n"
+    },
+    {
+      "id": "CANARY-PY-04",
+      "language": "python",
+      "description": "Pure descriptive statistics over numeric sequence",
+      "code": "def summarize_samples(samples: list) -> dict:\n    if not samples:\n        return {'count': 0, 'min': 0, 'max': 0, 'median': 0}\n    ordered = sorted(samples)\n    mid = len(ordered) // 2\n    median = ordered[mid] if len(ordered) % 2 == 1 else (ordered[mid - 1] + ordered[mid]) // 2\n    return {'count': len(ordered), 'min': ordered[0], 'max': ordered[-1], 'median': median}\n"
+    },
+    {
+      "id": "CANARY-PY-05",
+      "language": "python",
+      "description": "Pure frequency histogram over string labels",
+      "code": "def count_labels(labels: list) -> dict:\n    tally = {}\n    for raw in labels:\n        cleaned = raw.strip().lower()\n        if cleaned:\n            tally[cleaned] = tally.get(cleaned, 0) + 1\n    return tally\n"
+    },
+    {
+      "id": "CANARY-PY-06",
+      "language": "python",
+      "description": "Tabular column header cleaner",
+      "code": "def normalize_headers(headers: list) -> list:\n    cleaned = []\n    for idx, heading in enumerate(headers):\n        token = '_'.join(heading.strip().lower().split())\n        cleaned.append(token if token else f'col_{idx}')\n    return cleaned\n"
+    },
+    {
+      "id": "CANARY-TS-01",
+      "language": "typescript",
+      "description": "TypeScript pure calendar label formatter",
+      "code": "export interface CalendarParts {\n  readonly year: number;\n  readonly month: number;\n  readonly day: number;\n}\n\nexport function formatCalendarLabel(parts: CalendarParts): string {\n  const mm = String(parts.month).padStart(2, '0');\n  const dd = String(parts.day).padStart(2, '0');\n  return `${parts.year}-${mm}-${dd}`;\n}\n"
+    },
+    {
+      "id": "CANARY-TS-02",
+      "language": "typescript",
+      "description": "Accessible pure React button component",
+      "code": "export interface ActionButtonProps {\n  readonly caption: string;\n  readonly disabled?: boolean;\n  readonly onPress: () => void;\n}\n\nexport function ActionButton({ caption, disabled = false, onPress }: ActionButtonProps) {\n  return (\n    <button type=\"button\" disabled={disabled} onClick={onPress}>\n      {caption}\n    </button>\n  );\n}\n"
+    },
+    {
+      "id": "CANARY-JS-01",
+      "language": "javascript",
+      "description": "Pure JavaScript sequence chunking helper",
+      "code": "export function chunkSequence(elements, chunkSize) {\n  const step = Math.max(1, Math.trunc(chunkSize));\n  const groups = [];\n  for (let idx = 0; idx < elements.length; idx += step) {\n    groups.push(elements.slice(idx, idx + step));\n  }\n  return groups;\n}\n"
+    },
+    {
+      "id": "CANARY-TS-03",
+      "language": "typescript",
+      "description": "TypeScript navigation breadcrumb trail builder",
+      "code": "export interface Crumb {\n  readonly caption: string;\n  readonly depth: number;\n}\n\nexport function buildCrumbs(segments: readonly string[]): Crumb[] {\n  return segments\n    .map((seg) => seg.trim())\n    .filter((seg) => seg.length > 0)\n    .map((caption, depth) => ({ caption, depth }));\n}\n"
+    },
+    {
+      "id": "CANARY-SQL-01",
+      "language": "sql",
+      "description": "Parameterized catalog lookup query",
+      "code": "SELECT item_id, title, shelf_code\nFROM catalog_items\nWHERE shelf_code = ?\nORDER BY title ASC\nLIMIT ?;\n"
+    },
+    {
+      "id": "CANARY-SQL-02",
+      "language": "sql",
+      "description": "Parameterized catalog note insert statement",
+      "code": "INSERT INTO catalog_notes (note_id, author_alias, summary_text)\nVALUES (?, ?, ?);\n"
+    },
+    {
+      "id": "CANARY-SQL-03",
+      "language": "sql",
+      "description": "Read-only grouped summary query",
+      "code": "SELECT region_code, COUNT(station_id) AS station_count\nFROM weather_stations\nWHERE active_flag = 1\nGROUP BY region_code\nHAVING COUNT(station_id) > 0;\n"
+    },
+    {
+      "id": "CANARY-SOL-01",
+      "language": "solidity",
+      "description": "Read-only ERC20 style balance view helper",
+      "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\ncontract BalanceReader {\n    mapping(address => uint256) private _ledger;\n\n    function balanceOf(address holder) external view returns (uint256) {\n        return _ledger[holder];\n    }\n}\n"
+    },
+    {
+      "id": "CANARY-SOL-02",
+      "language": "solidity",
+      "description": "Read-only badge metadata lookup contract",
+      "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.24;\n\ncontract BadgeDirectory {\n    struct BadgeInfo {\n        string label;\n        uint32 tier;\n    }\n\n    mapping(uint256 => BadgeInfo) private _badges;\n\n    function getBadge(uint256 badgeId) external view returns (string memory, uint32) {\n        BadgeInfo storage info = _badges[badgeId];\n        return (info.label, info.tier);\n    }\n}\n"
+    },
+    {
+      "id": "CANARY-MD-01",
+      "language": "markdown",
+      "description": "Release changelog markdown note",
+      "code": "# Release Changelog\n\n## v1.2.0\n- Added integer pagination window helper for catalog listings.\n- Added accessible caption button component and calendar formatter.\n- Documented grouped summary reporting query.\n"
+    }
+  ]
+}

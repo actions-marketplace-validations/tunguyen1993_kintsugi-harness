@@ -18,11 +18,11 @@
   "good_code": "import hmac\nif hmac.compare_digest(webhook_signature, expected_hmac_digest):\n    credit_ledger()",
   "regex_pattern": "\\b(?:webhook_signature|hmac_sig|expected_hmac_digest)\\s*==\\s*(?:expected_hmac_digest|webhook_signature|computed_hmac)\\b",
   "ast_rule": null,
-  "synthesized_by_model": "Qwen-2.5-Coder",
+  "synthesized_by_model": "qwen-2.5-coder",
   "model_family": "qwen-max",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Qwen-2.5-Coder",
+    "qwen-2.5-coder",
     "gpt-5.4"
   ],
   "reinforcement_count": 13,

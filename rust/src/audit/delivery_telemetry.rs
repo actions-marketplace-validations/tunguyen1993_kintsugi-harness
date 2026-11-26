@@ -366,7 +366,7 @@ fn load_store(store_path: &Path) -> Result<TelemetryStore, String> {
         Err(e) => return Err(format!("STAT_ERROR: {e}")),
     }
     let raw = read_regular_file_fd_verified(store_path, MAX_TELEMETRY_FILE_BYTES)?;
-    if raw.is_empty() { return Ok(TelemetryStore::default()); }
+    if raw.trim().is_empty() { return Err(format!("CORRUPT_EMPTY_TELEMETRY_STORE: {}", store_path.display())); }
     let val = parse_json_value(raw.trim())?;
     let root = val.as_object().ok_or_else(|| "UNRECOGNIZED_TELEMETRY_STORE: root must be object".to_string())?;
     match root.get("schema") {
@@ -728,10 +728,17 @@ mod tests {
         fs::write(&missing_sections, br#"{"schema":"DeliveryTelemetry/1"}"#).unwrap();
         assert!(record_telemetry_event(&missing_sections, "claude_code", "issued", "s1", "e1", "d1", "", &[], &[], 10, None).is_err());
         assert_eq!(fs::read(&missing_sections).unwrap(), br#"{"schema":"DeliveryTelemetry/1"}"#);
-        // 0-byte empty file auto-initializes cleanly
-        let zero = dir.join("empty.json");
+        // Existing 0-byte / whitespace-only file MUST fail closed; absent path auto-initializes cleanly
+        let (zero, ws, fresh) = (dir.join("empty.json"), dir.join("ws.json"), dir.join("fresh.json"));
         fs::write(&zero, b"").unwrap();
-        assert!(record_telemetry_event(&zero, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 5, None).is_ok());
+        fs::write(&ws, b" \n\t ").unwrap();
+        for p in [&zero, &ws] {
+            assert!(record_telemetry_event(p, "claude_code", "issued", "s0", "e0", "d0", "", &[], &[], 5, None).unwrap_err().contains("CORRUPT_EMPTY_TELEMETRY_STORE"));
+            assert!(render_telemetry_report_json(p).unwrap_err().contains("CORRUPT_EMPTY_TELEMETRY_STORE"));
+            assert!(try_load_frozen_ids(p).unwrap_err().contains("CORRUPT_EMPTY_TELEMETRY_STORE"));
+        }
+        assert_eq!(fs::read(&zero).unwrap(), b"");
+        assert!(record_telemetry_event(&fresh, "cloud_sandbox", "issued", "s0", "e0", "d0", "", &[], &[], 5, None).is_ok());
 
         // HIGH #6: 2 envelopes in same session bound to same patch_digest="p" count ONCE; 2nd patch "p2" freezes!
         let dedup_store = dir.join("dedup.json");

@@ -468,7 +468,7 @@ pub fn builtin_invariant_capsules() -> Vec<InvariantCapsule> {
                 s_vec(&["@struct_multi_lock_transfer"]),
                 s_vec(&["transfer", "rebalance", "move", "debit", "credit", "acct", "tranche"]),
             ],
-            when_clause: "Concurrent multi-entity transfer/rebalance with per-key locks".to_string(),
+            when_clause: "Concurrent cross-account transfer/rebalance with per-key locks".to_string(),
             invariant: "Acquire distinct account locks in sorted order `(first, second) = sorted((src, dst))`; when `src == dst` (self-transfer), acquire ONLY ONE lock, check `0 < amount <= balance[src]` (raise `ValueError` if insufficient), preserve total ledger sum conservation, and return cleanly without deadlocking.".to_string(),
             pos_ast: "if src == dst:\n    with self._lock(src):\n        if bal.get(src, 0) < amt: raise ValueError('insufficient')\n        return".to_string(),
             wins: 16, losses: 0, trials: 16, consecutive_losses: 0, frozen: false,

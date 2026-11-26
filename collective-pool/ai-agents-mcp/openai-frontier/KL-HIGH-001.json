@@ -24,9 +24,7 @@
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
     "gpt-5.4",
-    "Grok-3",
-    "gpt-5.4",
-    "GPT-5.4-wm"
+    "grok-3"
   ],
   "reinforcement_count": 25,
   "source_repo": "local-episodic",

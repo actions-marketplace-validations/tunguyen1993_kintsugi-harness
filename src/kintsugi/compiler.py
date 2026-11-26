@@ -78,11 +78,11 @@ class SkillCompiler:
                 "",
                 "```text",
                 '@GUIDE/1[cmd="kintsugi guide \\"<question>\\"" | mcp="kintsugi_multi_model_guide"]',
-                '@TIERS/1[APACHE_2_OPEN_SOURCE="$0: Primary + 1 Free (--configure-byok, --co-run)" | APACHE_2_OPEN_SOURCE="Apache-2.0/Apache-2.0: Primary + 2..5 Free (--free-runners 5)" | APACHE_2_OPEN_SOURCE="Apache-2.0: Primary + 5 Free + 6 BYOK Paid Seats"]',
-                '@BYOK/1[store=".kintsugi/paid_council_pool.json(0600)" | add="kintsugi swarm --add-paid-key <anthropic_opus|openai_frontier|xai_grok_paid> <KEY>" | status="--paid-council-status" | run="--co-run --free-runners 5 --paid-council"]',
-                '@SWARM_DISPATCH/1[plan="UNLIMITED_LOCAL|PRO|APACHE_2_OPEN_SOURCE" | max_subagents=8 | auto_split=">=3_indep_or_120s" | step_cap="sub12,task25" | subagent_model="FRONTIER_HIGH(inherit|pro)" | forbid="flash,flash_lite" | matrix="kintsugi swarm --model-matrix" | plan_cmd="kintsugi swarm --swarm-plan \\"<task>\\""]',
+                '@LICENSE/1[license="Apache-2.0" | all_features="UNLOCKED" | co_runners="1..5 local/BYOK" | council="up_to_6_BYOK_official_APIs"]',
+                '@BYOK/1[store=".kintsugi/paid_council_pool.json(0600)" | add="kintsugi swarm --add-paid-key <openai_frontier|anthropic_opus|google_gemini_paid|deepseek_paid|openrouter_frontier> <KEY>" | status="--paid-council-status" | run="--co-run --free-runners 3 --paid-council"]',
+                '@SWARM_DISPATCH/1[profile="UNLIMITED_LOCAL|HIGH_CONCURRENCY|STANDARD" | max_subagents=8 | auto_split=">=3_indep_or_120s" | step_cap="sub12,task25" | subagent_model="FRONTIER_HIGH(inherit|pro)" | forbid="flash,flash_lite" | matrix="kintsugi swarm --model-matrix" | plan_cmd="kintsugi swarm --swarm-plan \\"<task>\\""]',
                 '@STEP_ECONOMICS/1[shell_target=">=60%" | subagent_cap=12 | task_cap=25 | fail_fast="2_strike_pivot" | cmd="kintsugi swarm --step-audit <path>"]',
-                '@DUAL_COUNCIL/1[tier_2="24/7 $0 Free Unlimited Audit/Scan/Draft" | tier_1="Quota-Capped Paid Frontier 3-Round Debate & First-Shot Blueprint Gate" | never_solo="@NEVER_SOLO_GATE/1(FORBID solo delivery on critical paths)"]',
+                '@DUAL_COUNCIL/1[offline_local="100% offline deterministic AST/Rust/Ollama verification" | byok_frontier="User-supplied official API keys (OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter)" | never_solo="@NEVER_SOLO_GATE/1(cross-verify critical paths)"]',
                 '@HARNESS_HOT_RELOAD/1[hook="SessionStart/PreInvocation SHA-256 Digest Check" | idle_token_overhead=0 | domains="docs/domains/01..06_*.kml" | pr_guard="@OSS_PR_LIFECYCLE_GUARD/1(KS-EMP-062)"]',
                 '@COMPACT/1[trigger="pressure>=70%_soft|>=85%_hard" | cmd="kintsugi compact --inject-agents" | mcp="kintsugi_compact_context" | preserve="@USER_INTENTS,@HARD_ANCHORS,@ERRORS_AND_FIXES" | out=".kintsugi/context_checkpoints/latest_checkpoint.{md,kml}"]',
                 "```",
@@ -107,22 +107,21 @@ class SkillCompiler:
         return (
             "---\n"
             "name: kintsugi-multi-model-council\n"
-            'description: "Machine-Native Spec (@GUIDE/1 + @COMPACT/1) for Kintsugi 3-Tier Multi-Model Co-Execution (APACHE_2_OPEN_SOURCE, APACHE_2_OPEN_SOURCE, APACHE_2_OPEN_SOURCE), BYOK Paid Council, and Zero-Loss Anti-Overflow Compaction."\n'
+            'description: "Machine-Native Spec (@GUIDE/1 + @COMPACT/1) for Kintsugi Apache-2.0 Open-Source Multi-Model Co-Execution (BYOK Official Provider APIs + Offline Local Ollama) and Zero-Loss Anti-Overflow Compaction."\n'
             'tags: ["multi-model", "byok", "council", "onboarding", "user-guide", "anti-overflow", "compact"]\n'
             "---\n\n"
             "# `@GUIDE/1` & `@COMPACT/1` Machine-Native Skill Spec\n\n"
             "```text\n"
             '@DISPATCH[on_user_question="kintsugi guide \\"<user_question>\\"" | on_overflow="kintsugi compact --inject-agents"]\n'
-            "@TIERS[\n"
-            '  APACHE_2_OPEN_SOURCE:            "$0 | max_free_co_runners=1 | kintsugi swarm --configure-byok && kintsugi swarm . --co-run"\n'
-            '  APACHE_2_OPEN_SOURCE:          "Apache-2.0/Apache-2.0 | max_free_co_runners=5 | kintsugi install-pack <pro.kpack> --license-key <KEY> && kintsugi swarm . --co-run --free-runners 5"\n'
-            '  APACHE_2_OPEN_SOURCE: "Apache-2.0 | 5 Free + 6 BYOK Paid | kintsugi install-pack <ent.kpack> --license-key <KEY>"\n'
+            "@OPEN_SOURCE_MODES[\n"
+            '  OFFLINE_LOCAL: "Apache-2.0 | 100% offline deterministic Rust/Python verification + local Ollama (http://127.0.0.1:11434/v1)"\n'
+            '  BYOK_COUNCIL:  "Apache-2.0 | All features unlocked | up to 5 local/BYOK co-runners + 6 official BYOK provider seats"\n'
             "]\n"
             "@BYOK_COMMANDS[\n"
             '  store:  ".kintsugi/paid_council_pool.json (chmod 0600, local-only, masked)"\n'
-            '  add:    "kintsugi swarm --add-paid-key <anthropic_opus|openai_frontier|xai_grok_paid|google_gemini_paid|deepseek_paid> <API_KEY>"\n'
+            '  add:    "kintsugi swarm --add-paid-key <openai_frontier|anthropic_opus|xai_grok_paid|google_gemini_paid|deepseek_paid|openrouter_frontier> <API_KEY>"\n'
             '  status: "kintsugi swarm --paid-council-status"\n'
-            '  exec:   "kintsugi swarm . --co-run --free-runners 5 --paid-council"\n'
+            '  exec:   "kintsugi swarm . --co-run --free-runners 3 --paid-council"\n'
             "]\n"
             "@COMPACT_PROTOCOL[\n"
             '  watermarks: "soft>=70% | hard>=85%"\n'

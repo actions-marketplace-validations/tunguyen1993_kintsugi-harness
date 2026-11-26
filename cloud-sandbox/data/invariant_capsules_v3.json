@@ -1,0 +1,240 @@
+{
+  "schema": "KintsugiInvariantCapsules/3",
+  "edition": "Kintsugi-v3.1.1-Cloud-Sandbox-Edition",
+  "source_commit": "395c41d",
+  "signature_guarded": true,
+  "universal_truth_gate": {
+    "policy": "No proposer (frontier or low-tier) self-certifies lessons; every candidate must pass Truth Gate (BROKEN fails on expected property, FIXED passes positive/negative/near-miss/conservation controls) + held-out Utility Gate + 2-Strike Auto-Freeze."
+  },
+  "total_capsules": 9,
+  "capsules": [
+    {
+      "id": "CAP-FIN-ERC4626",
+      "domain": "fintech-vault",
+      "trigger_groups": [
+        [
+          "@struct_share_vault_ratio"
+        ],
+        [
+          "shares",
+          "share",
+          "vault",
+          "stake",
+          "staked",
+          "mint",
+          "redeem",
+          "unstake"
+        ]
+      ],
+      "when_clause": "Share/staking vault converting assets <-> shares with yield/reward donations",
+      "invariant": "Use ERC-4626 virtual offset (V_SHARES=10**6, V_ASSETS=1) with vault-favorable integer rounding (never float): deposit shares = (assets * (total_shares + V_SHARES)) // (total_assets + V_ASSETS) (floor); redeem assets = (shares * (total_assets + V_ASSETS)) // (total_shares + V_SHARES) (floor); mint required_assets = ceil; withdraw required_shares = ceil. PRECONDITION: shares > 0 holds ONLY when total_assets + V_ASSETS <= assets * (total_shares + V_SHARES); if donation exceeds V_SHARES * assets so floor yields 0 shares, callers MUST explicitly reject shares <= 0 (ValueError/revert).",
+      "pos_ast": "V_S, V_A = 10**6, 1; shares = (assets * (self.total_shares + V_S)) // (self.total_assets + V_A); if shares <= 0: raise ValueError('zero shares')",
+      "wins": 18,
+      "losses": 1,
+      "trials": 19,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-CONC-LOCK-SELF",
+      "domain": "concurrency",
+      "trigger_groups": [
+        [
+          "@struct_multi_lock_transfer"
+        ],
+        [
+          "transfer",
+          "rebalance",
+          "move",
+          "debit",
+          "credit",
+          "acct",
+          "tranche"
+        ]
+      ],
+      "when_clause": "Concurrent multi-entity transfer/rebalance with per-key locks",
+      "invariant": "Acquire distinct account locks in sorted order (first, second) = sorted((src, dst)); when src == dst (self-transfer), acquire ONLY ONE lock, check 0 < amount <= balance[src] (raise ValueError if insufficient), preserve total ledger sum conservation, and return cleanly without deadlocking.",
+      "pos_ast": "if src == dst:\n    with self._lock(src):\n        if bal.get(src, 0) < amt: raise ValueError('insufficient')\n        return",
+      "wins": 16,
+      "losses": 0,
+      "trials": 16,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-CRYPTO-RFC6962-MERKLE",
+      "domain": "crypto-merkle",
+      "trigger_groups": [
+        [
+          "@struct_halving_hash_tree",
+          "merkle"
+        ],
+        [
+          "sha256",
+          "blake2",
+          "keccak",
+          "digest"
+        ]
+      ],
+      "when_clause": "Binary hash/Merkle tree & inclusion proof verification (even under custom names)",
+      "invariant": "Reject empty items (ValueError). Length-prefix leaf fields (len(id_bytes_4B_be) + id_bytes + int_str) with RFC-6962 b'\\x00' leaf prefix and b'\\x01' internal-node prefix. When a level has odd length (len(nodes) % 2 == 1), promote nodes[-1] unchanged WITHOUT duplicating ([A,B,C] root != [A,B,C,C] root). SIGNATURE-GUARDED: for -> bool proof verifiers return False (do NOT raise ValueError) when proof directions are not in ('L', 'R') or sibling hex is malformed.",
+      "pos_ast": "leaf = sha256(b'\\x00' + len(rb).to_bytes(4, 'big') + rb + str(qty).encode()).digest()  # odd node promoted unchanged",
+      "wins": 17,
+      "losses": 1,
+      "trials": 18,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-ALGO-DAG-DIAMOND",
+      "domain": "graph-dag",
+      "trigger_groups": [
+        [
+          "dag",
+          "prereq",
+          "prereqs",
+          "ancest",
+          "ancestors",
+          "makespan",
+          "topological",
+          "edges"
+        ],
+        [
+          "edges",
+          "cycle",
+          "depend",
+          "milestone",
+          "milestones"
+        ]
+      ],
+      "when_clause": "Directed Acyclic Graph (DAG) prerequisite evaluation, ancestor aggregation & critical path",
+      "invariant": "Validate unknown endpoints (ValueError), use iterative Kahn's topological sort (no deep recursion RecursionError on 500+ nodes, raise ValueError or CycleError(ValueError) if processed < len(nodes)), and propagate set[node_id] of distinct transitive ancestors so Diamond DAGs (A->B, A->C, B->D, C->D) NEVER double-count shared ancestor A.",
+      "pos_ast": "anc[v] |= anc[u] | {u}  # iterative Kahn topological order; sum(base[x] for x in anc[m])",
+      "wins": 14,
+      "losses": 0,
+      "trials": 14,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-SEC-RUNTIME-BIDI-MAC",
+      "domain": "sec-webhook-input",
+      "trigger_groups": [
+        [
+          "@struct_json_untrusted_input",
+          "webhook",
+          "packet"
+        ],
+        [
+          "secret",
+          "hmac",
+          "mac",
+          "signature",
+          "idempotency"
+        ]
+      ],
+      "when_clause": "Authenticated JSON webhook/packet verification & string field parsing",
+      "invariant": "Sign with hmac.new(secret, f'{ts_or_epoch}.'.encode() + raw_body, sha256) (explicit '.' delimiter prevents boundary collision), verify via hmac.compare_digest. SIGNATURE-GUARDED: check abs(now - ts) <= max_skew ONLY if now_sec/max_skew_sec parameters exist on the method; bind idempotency key to sha256(raw_body) if idempotency parameter exists; reject Trojan Source Bidi chars (\\u202a..\\u202e, \\u2066..\\u2069, \\u061c, \\x00) in ALL decoded JSON string fields — for -> bool verifiers return False (do NOT raise), otherwise raise SecurityViolationError.",
+      "pos_ast": "if any('\\u202a'<=c<='\\u202e' or '\\u2066'<=c<='\\u2069' or c in '\\u061c\\x00' for c in text): return False  # if -> bool else raise SecurityViolationError",
+      "wins": 15,
+      "losses": 0,
+      "trials": 15,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-SEC-SUBPROCESS-ARGV",
+      "domain": "sec-subprocess",
+      "trigger_groups": [
+        [
+          "@struct_subprocess_exec"
+        ]
+      ],
+      "when_clause": "Subprocess / external CLI binary execution",
+      "invariant": "Before calling subprocess.run([bin_real, flag, target_real], shell=False, check=False, timeout=5), reject shell/control metacharacters (;|&$><`\\n\\r\\x00) in BOTH binary & argument strings (SecurityViolationError/ValueError), require os.path.isabs(bin) + os.access(bin_real, os.X_OK) + os.path.isfile(target_real).",
+      "pos_ast": "if any(c in arg for c in ';|&$><`\\n\\r\\x00') or not os.path.isfile(arg): raise SecurityViolationError('unsafe arg')",
+      "wins": 19,
+      "losses": 0,
+      "trials": 19,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-SEC-PATH-NOFOLLOW-0600",
+      "domain": "sec-filesystem",
+      "trigger_groups": [
+        [
+          "@struct_fs_persistence"
+        ],
+        [
+          "workspace",
+          "root",
+          "receipt",
+          "rel_path",
+          "save"
+        ]
+      ],
+      "when_clause": "Writing files under a workspace root directory",
+      "invariant": "Canonicalize root once via root = os.path.realpath(workspace_root), reject symlinks on every relative segment (os.path.islink), enforce sibling-safe confinement target == root or target.startswith(root + os.sep) (blocks /ws_evil), and write atomically via os.open(..., O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW, 0o600) + os.replace.",
+      "pos_ast": "if not target.startswith(root + os.sep) or os.path.islink(cand): raise SecurityViolationError('escape')",
+      "wins": 15,
+      "losses": 0,
+      "trials": 15,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-ERP-ORDER-IDEMPOTENCY",
+      "domain": "erp-order-fulfillment",
+      "trigger_groups": [
+        [
+          "@struct_idempotent_state_write"
+        ],
+        [
+          "order",
+          "stock",
+          "inventory",
+          "warehouse",
+          "movement",
+          "fulfillment"
+        ]
+      ],
+      "when_clause": "Order/stock state transition with idempotency key deduplication",
+      "invariant": "First delivery for (idempotency_key, payload_hash) MUST create exactly 1 stock movement and debit/credit inventory; duplicate replay with identical key+payload returns stored receipt with 0 extra movements; same key with conflicting payload MUST fail closed (ValueError/409).",
+      "pos_ast": "if key in seen: return seen[key] if seen[key].payload_hash == ph else raise ValueError('idempotency conflict')",
+      "wins": 10,
+      "losses": 0,
+      "trials": 10,
+      "consecutive_losses": 0,
+      "frozen": false
+    },
+    {
+      "id": "CAP-ERP-MYSQL-DECIMAL-FX",
+      "domain": "erp-finance-fx",
+      "trigger_groups": [
+        [
+          "@struct_decimal_currency_math"
+        ],
+        [
+          "vnd",
+          "usd",
+          "usdc",
+          "fx",
+          "currency",
+          "invoice",
+          "subtotal",
+          "tax",
+          "ledger"
+        ]
+      ],
+      "when_clause": "SQL DECIMAL money round-trip and multi-currency FX rounding conservation",
+      "invariant": "Never parse DECIMAL/money columns via binary float/Number; construct Decimal(str(raw)), quantize at explicit currency precision (ROUND_HALF_UP), and verify sum(line_totals) == grand_total conservation with remainder allocated deterministically.",
+      "pos_ast": "amt = Decimal(str(raw_val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)",
+      "wins": 10,
+      "losses": 0,
+      "trials": 10,
+      "consecutive_losses": 0,
+      "frozen": false
+    }
+  ]
+}

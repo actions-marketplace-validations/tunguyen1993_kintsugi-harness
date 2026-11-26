@@ -30,22 +30,22 @@
     "schema_version": "USER_PERSONA/1",
     "version": 1,
     "digest": "6554f2207441",
-    "preferred_language": "vi",
+    "preferred_language": "en",
     "communication_style": "direct, concise, evidence-verified",
     "standing_constraints": [
-      "Mandatory Dual-Council Review (Free Agent Council Tier 2 + Paid Frontier Council Tier 1) on architecture & upgrades",
+      "Mandatory Multi-Model Review (open-weights and frontier models) on architecture & upgrades",
       "Run full empirical tests, edge-case benchmarks, and pre-push security checks (`PASS 100%`) before shipping",
-      "Keep GitHub releases, tags, and all marketplace skill packs/manifests synchronized to the latest verified version"
+      "Keep GitHub releases, tags, and all skill pack manifests synchronized to the latest verified version"
     ],
     "workflow_preferences": [],
     "frustration_watchouts": [
-      "[Step #1 User Watchout] User: hội đồng agent free và thu phí cần review các phần đã nâng cấp, tại sao lại gặp lỗi này tới 2 lần, cần test đầy đủ có kiểm chứng sau đó update các bản mới nhất cho các chợ và github"
+      "[Step #1 User Watchout] Require multi-model review of upgraded components, root-cause analysis on repeated regressions, and full empirical verification before releasing updates."
     ],
     "preferences": [
       {
         "preference_id": "PREF-COUNCIL_CO_REVIEW",
         "key": "council_co_review",
-        "value": "Mandatory Dual-Council Review (Free Agent Council Tier 2 + Paid Frontier Council Tier 1) on architecture & upgrades",
+        "value": "Mandatory Multi-Model Review (open-weights and frontier models) on architecture & upgrades",
         "source_turn_id": 1,
         "source_type": "explicit",
         "scope": "workspace",
@@ -67,7 +67,7 @@
       {
         "preference_id": "PREF-SYNC_GITHUB_AND_MARKETPLACES",
         "key": "sync_github_and_marketplaces",
-        "value": "Keep GitHub releases, tags, and all marketplace skill packs/manifests synchronized to the latest verified version",
+        "value": "Keep GitHub releases, tags, and all skill pack manifests synchronized to the latest verified version",
         "source_turn_id": 1,
         "source_type": "explicit",
         "scope": "workspace",
@@ -78,7 +78,7 @@
       {
         "preference_id": "WATCHOUT-1",
         "key": "watchout_step_1",
-        "value": "User: hội đồng agent free và thu phí cần review các phần đã nâng cấp, tại sao lại gặp lỗi này tới 2 lần, cần test đầy đủ có kiểm chứng sau đó update các bản mới nhất cho các chợ và github",
+        "value": "Require multi-model review of upgraded components, root-cause analysis on repeated regressions, and full empirical verification before releasing updates.",
         "source_turn_id": 1,
         "source_type": "explicit",
         "scope": "workspace",
@@ -89,7 +89,7 @@
       {
         "preference_id": "PREF-LANGUAGE",
         "key": "language",
-        "value": "vi",
+        "value": "en",
         "source_turn_id": 2,
         "source_type": "explicit",
         "scope": "workspace",

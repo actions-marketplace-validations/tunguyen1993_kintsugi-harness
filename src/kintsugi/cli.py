@@ -55,8 +55,8 @@ from kintsugi.packs import (
 from kintsugi.scanner import KintsugiScanner, render_patch_preview, report_to_sarif
 from kintsugi.swarm import (
     AIProviderBenchmarkSuite,
+    BYOKProviderPoolManager,
     ClosedLoopEvolutionArena,
-    ConsentGatedBYOKPoolManager,
     ControlledInternetForager,
     RedBlueAdversarialArena,
     ShadowCloneSwarmOrchestrator,
@@ -155,14 +155,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_fix.add_argument("--apply", action="store_true", help="Apply in-place codemods (unlocked via installed Skill Packs)")
 
     # install-pack
-    p_ipack = sub.add_parser("install-pack", help="Install an external or encrypted Premium Skill Pack (.kpack, .zip, or .json) into .kintsugi/packs/")
+    p_ipack = sub.add_parser("install-pack", help="Install an external or authenticated Skill Pack (.kpack, .zip, or .json) into .kintsugi/packs/")
     p_ipack.add_argument("pack_path", help="Path to Skill Pack .kpack, .zip, or .json bundle")
     p_ipack.add_argument("--workspace", default=".", help="Target workspace root")
     p_ipack.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
-    p_ipack.add_argument("--license-key", default=None, help="Customer unlock key for encrypted Kintsugi Pro .kpack bundles (or set KINTSUGI_LICENSE_KEY)")
+    p_ipack.add_argument("--license-key", default=None, help="Decryption key for encrypted .kpack bundles (or set KINTSUGI_LICENSE_KEY)")
 
     # list-packs
-    p_lpacks = sub.add_parser("list-packs", help="List installed external and Premium Skill Packs")
+    p_lpacks = sub.add_parser("list-packs", help="List installed Skill Packs")
     p_lpacks.add_argument("--workspace", default=".", help="Target workspace root")
 
     # learn (Human-like Federated Cognitive Lesson Engine & Frontier-Gated GitHub Pool)
@@ -187,7 +187,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ldist.add_argument("--domain", default="ai-agents-mcp", choices=list(SUPPORTED_DOMAINS), help="Industry domain")
     p_ldist.add_argument("--severity", default="HIGH", choices=["CRITICAL", "HIGH", "MEDIUM", "LOW"])
     p_ldist.add_argument("--language", default="python", help="Target language")
-    p_ldist.add_argument("--model", required=True, help="Synthesizing model identifier (e.g. deepseek-r1, GPT-5.4.1, claude-opus-4)")
+    p_ldist.add_argument("--model", required=True, help="Synthesizing model identifier (e.g. deepseek-r1, gpt-5.4, claude-opus-4)")
     p_ldist.add_argument("--trap", required=True, help="Cognitive trap: why the agent thought the wrong code was right")
     p_ldist.add_argument("--mental-model", required=True, help="Reusable engineering heuristic learned")
     p_ldist.add_argument("--bad-code", required=True, help="Minimal offending code snippet")
@@ -202,7 +202,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_lpull.add_argument("--workspace", default=".", help="Workspace root")
     p_lpull.add_argument("--ledger", default=".kintsugi/scars.json", help="Path to scars.json")
     p_lpull.add_argument("--domains", default=None, help="Comma-separated industry/life domains to pull")
-    p_lpull.add_argument("--model-family", default=None, help="Filter by Frontier model family (e.g. deepseek-r1, openai-frontier)")
+    p_lpull.add_argument("--model-family", default=None, help="Filter by Frontier model family (e.g. deepseek-r1, openai-frontier, open-weights-frontier)")
     p_lpull.add_argument("--remote", action="store_true", help="Fetch directly from remote GitHub repository raw API")
     p_lpull.add_argument("--relay", action="store_true", help="Also ingest pending lessons from Zero-GitHub-Account Public Relay")
 
@@ -267,18 +267,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_evo.add_argument(
         "--co-run",
         action="store_true",
-        help="Run Primary Anchor model alongside discovered $0 Free Co-Runner(s) (1 on Free tier, up to 5 on Pro/Enterprise)",
+        help="Run Primary Anchor model alongside local/BYOK co-runner(s) (1..5 parallel seats, Apache-2.0 unlocked)",
     )
     p_evo.add_argument(
         "--free-runners",
         type=int,
         default=None,
-        help="Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)",
+        help="Requested number of local/BYOK co-runners (1..5 parallel seats, Apache-2.0 unlocked)",
     )
     p_evo.add_argument(
         "--paid-council",
         action="store_true",
-        help="Include user-supplied BYOK Paid Frontier Council seats (requires Complete Corpus Pack)",
+        help="Include user-supplied BYOK official provider council seats (OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter)",
     )
 
     from kintsugi.cli_nextgen import register_nextgen_parsers
@@ -340,44 +340,42 @@ def _build_parser() -> argparse.ArgumentParser:
     p_for.add_argument("--wire", action="store_true", help="Output ultra-compact @FORESIGHT/1 + @META/1 + @DREAM/1 + @SWARM/1 wire headers")
     p_for.add_argument("--top-k", type=int, default=8, help="Max ranked pre-emptive actions to emit (default: 8)")
 
-    # swarm (Pillar 5 & 5B: Shadow-Clone Parallel Epistemic Swarm, BFT Synaptic Merge & Consent-Gated Free Agent Pool)
+    # swarm (Pillar 5 & 5B: Shadow-Clone Parallel Epistemic Swarm, BFT Synaptic Merge & BYOK Provider Pool)
     p_swm = sub.add_parser(
         "swarm",
-        help="Spawn K=4 orthogonal Shadow Clones in parallel, manage the Consent-Gated Free Agent Pool, and merge into 1 Verified Right Playbook",
+        help="Spawn K=4 orthogonal Shadow Clones in parallel, manage BYOK/local provider config, and merge into 1 Verified Playbook",
     )
     p_swm.add_argument("target", nargs="?", default=".", help="Repository or file for the Shadow-Clone Swarm to explore")
     p_swm.add_argument("--workspace", default=".", help="Workspace root for .kintsugi state")
     p_swm.add_argument("--clones", type=int, default=4, help="Number of orthogonal Shadow Clones to spawn (default: 4)")
     p_swm.add_argument("--no-consolidate", action="store_true", help="Run swarm without writing newly distilled lessons to .kintsugi")
     p_swm.add_argument("--byzantine-test", action="store_true", help="Inject a Byzantine fault into 1 clone to verify K=3f+1 fault-tolerant consensus")
-    p_swm.add_argument("--pool-status", action="store_true", help="Show Consent-Gated Free-Agent Pool status & Condorcet BFT accuracy metrics")
-    p_swm.add_argument("--request-consent", action="store_true", help="Display structured User Consent Prompt for supplying keys or authorizing $0 auto-provisioning")
-    p_swm.add_argument("--authorize-auto-provision", action="store_true", help="Grant explicit user consent for Kintsugi to autonomously provision $0 no-card free-tier endpoints")
-    p_swm.add_argument("--configure-byok", action="store_true", help="Autonomously register a disposable example.invalid inbox, verify magic link, mint a live $0 DeepSeek Free API key (262K context), verify HTTP 200 OK chat completion, and save to .kintsugi/byok_provider_pool.json")
-    p_swm.add_argument("--deepseek-count", type=int, default=1, help="Number of independent DeepSeek Free accounts/tokens to auto-register (1..5, default: 1)")
+    p_swm.add_argument("--pool-status", action="store_true", help="Show BYOK & local provider pool status and Condorcet BFT accuracy metrics")
+    p_swm.add_argument("--request-consent", action="store_true", help="Display structured BYOK & local provider setup prompt")
+    p_swm.add_argument("--authorize-auto-provision", action="store_true", help="Configure local Ollama / environment-key providers into .kintsugi/byok_provider_pool.json")
     p_swm.add_argument("--scope", default="", help="Optional comma-separated provider_ids for --authorize-auto-provision")
-    p_swm.add_argument("--add-free-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Supply a user-provided $0 free-tier API key (e.g. groq_free gsk_...)")
-    p_swm.add_argument("--revoke-consent", action="store_true", help="Immediately revoke auto-provisioning consent and purge stored keys in .kintsugi/byok_provider_pool.json")
-    p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 6 High-Reasoning Council campaigns)")
+    p_swm.add_argument("--add-free-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Supply a user-provided BYOK provider API key (e.g. groq_byok <API_KEY>)")
+    p_swm.add_argument("--revoke-consent", action="store_true", help="Clear stored local provider keys in .kintsugi/byok_provider_pool.json")
+    p_swm.add_argument("--red-blue-arena", action="store_true", help="Run v1.3.0 2-Team Adversarial Arena (Red Team Attack vs Blue Team Defense across 6 formal campaigns)")
     p_swm.add_argument("--evolution-proof", action="store_true", help="Run 5-Wave Closed-Loop Self-Learning & Self-Healing Proof (Epoch 0 Breach -> Scar Synthesis -> Autofix -> Epoch 5 Unseen Variant Immunity)")
-    p_swm.add_argument("--forage-internet", action="store_true", help="Release DeepSeek Free + Gemini-2.5-Pro pair onto the controlled internet sandbox (OSV.dev, GitHub Advisories, ArXiv) and run the 3.8B-vs-opus-4 Evolution Gauntlet")
+    p_swm.add_argument("--forage-internet", action="store_true", help="Run the Controlled Security Advisory Forager (OSV.dev, GitHub Advisories, ArXiv) and 10-Challenge Evolution Gauntlet")
     p_swm.add_argument("--provider-benchmarks", action="store_true", help="Run the 8-Facet Official AI Provider Benchmark Suite (SWE-bench Verified, LiveCodeBench, GPQA Diamond, AIME/MATH-500, CyberSecEval 3, TAU-bench/BFCL, SimpleQA/FACTS, IFEval)")
-    p_swm.add_argument("--co-run", action="store_true", help="Execute Tier-Gated Multi-Model Co-Execution (Primary Model + 1..5 Free Models + optional BYOK Paid Council)")
-    p_swm.add_argument("--free-runners", type=int, default=None, help="Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)")
-    p_swm.add_argument("--paid-council", action="store_true", help="Include user-supplied BYOK Paid Frontier Council seats (requires Complete Corpus Pack)")
-    p_swm.add_argument("--add-paid-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Add user-owned BYOK API key for the Paid Frontier Council (e.g. anthropic_opus <YOUR_API_KEY>)")
-    p_swm.add_argument("--remove-paid-key", metavar="PROVIDER_ID", default=None, help="Remove a stored Paid Frontier Council BYOK API key")
-    p_swm.add_argument("--paid-council-status", action="store_true", help="Show Paid Frontier Council BYOK status and supported seats")
-    p_swm.add_argument("--guide", action="store_true", help="Display the Bilingual Agent Onboarding & Tier-Upgrade Guide (Free vs Pro Multi-Free vs Enterprise Paid Council)")
-    p_swm.add_argument("--ask", metavar="QUESTION", default=None, help="Answer any user question in Vietnamese/English about Multi-Model Co-Execution, BYOK Paid Council keys, or Edition Tiers")
+    p_swm.add_argument("--co-run", action="store_true", help="Execute Apache-2.0 Multi-Model Co-Execution (Primary Model + 1..5 local/BYOK co-runners + optional BYOK Council)")
+    p_swm.add_argument("--free-runners", type=int, default=None, help="Requested number of local/BYOK co-runners (1..5 parallel seats)")
+    p_swm.add_argument("--paid-council", action="store_true", help="Include user-supplied BYOK official Frontier Council seats")
+    p_swm.add_argument("--add-paid-key", nargs=2, metavar=("PROVIDER_ID", "API_KEY"), help="Add user-owned BYOK API key for the Frontier Council (e.g. openai_frontier <YOUR_API_KEY>)")
+    p_swm.add_argument("--remove-paid-key", metavar="PROVIDER_ID", default=None, help="Remove a stored Frontier Council BYOK API key")
+    p_swm.add_argument("--paid-council-status", action="store_true", help="Show Frontier Council BYOK status and supported official provider seats")
+    p_swm.add_argument("--guide", action="store_true", help="Display the Multi-Model BYOK & Offline Local Setup Guide")
+    p_swm.add_argument("--ask", metavar="QUESTION", default=None, help="Answer user questions about Multi-Model Co-Execution, BYOK Official API keys, and Local Ollama setup")
     p_swm.add_argument("--model-matrix", action="store_true", help="Display the 6-Tier Model Capability Matrix (@MODEL_MATRIX/1) & Harness Architecture Evolutions")
-    p_swm.add_argument("--swarm-plan", metavar="TASK", default=None, help="Compute Subscription-Aware Parallel Subagent Swarm Dispatch Plan (@SWARM_DISPATCH/1) & Domain Shard Routing")
-    p_swm.add_argument("--plan-tier", default="UNLIMITED_LOCAL", choices=["UNLIMITED_LOCAL", "PRO", "APACHE_2_OPEN_SOURCE"], help="Subscription plan tier for --swarm-plan (default: UNLIMITED_LOCAL)")
+    p_swm.add_argument("--swarm-plan", metavar="TASK", default=None, help="Compute Parallel Subagent Swarm Dispatch Plan (@SWARM_DISPATCH/1) & Domain Shard Routing")
+    p_swm.add_argument("--plan-tier", default="UNLIMITED_LOCAL", choices=["UNLIMITED_LOCAL", "HIGH_CONCURRENCY", "STANDARD"], help="Parallelism profile for --swarm-plan (default: UNLIMITED_LOCAL)")
     p_swm.add_argument("--step-audit", metavar="PATH", default=None, help="Audit agent transcript (.jsonl or dir) for step-economics (@STEP_ECONOMICS/1: steps, shell ratio, error burn)")
     p_swm.add_argument("--wire", action="store_true", help="Output compact <45-token @SWARM/1 + @POOL/1 wire headers")
 
-    p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (answers user questions about Multi-Model, Free Models, and BYOK Paid Council)")
-    p_gde.add_argument("question", nargs="*", help="Optional natural-language question from the user (e.g. 'làm sao thêm key hội đồng thu phí?')")
+    p_gde = sub.add_parser("guide", help="Interactive User Onboarding & Q&A Guide (BYOK Official APIs & Offline Local Multi-Model setup)")
+    p_gde.add_argument("question", nargs="*", help="Optional natural-language question from the user (e.g. 'How do I configure OpenAI and Anthropic BYOK keys?')")
     p_gde.add_argument("--workspace", default=".", help="Workspace root directory")
     p_gde.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format (markdown for human/chat display, json for programmatic tools)")
 
@@ -404,8 +402,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_log.add_argument("--benchmark", action="store_true", help="Run the 5-Pillar @LOGIC/2 verification benchmark suite")
     p_log.add_argument("--login-verify", action="store_true", help="Run the Formal Login & Authentication State-Machine Verifier (MFA Step-Up, Session Revocation, OTP Window, Fallacy Guard)")
-    p_log.add_argument("--arena", action="store_true", help="Run the 5-Round Adversarial Logic & Login Arena: (Gemini-2.5-Pro + gpt-5.4-mini + Kintsugi @LOGIC/2) vs Raw Free Agent Council")
-    p_log.add_argument("--forage-github-harnesses", action="store_true", help="Release Gemini-2.5-Pro + Grok-3 to study high-star GitHub agent harnesses (Claude Code, DeepSeek R1, OpenHands, Aider, Cline)")
+    p_log.add_argument("--arena", action="store_true", help="Run the 5-Round Adversarial Logic & Login Arena: (Qwen-2.5-Coder + GPT-5.4 + Kintsugi @LOGIC/2) vs Raw Unassisted Council")
+    p_log.add_argument("--forage-github-harnesses", action="store_true", help="Study high-star GitHub agent harnesses (Claude Code, DeepSeek R1, OpenHands, Aider, Cline)")
     p_log.add_argument("--wire", action="store_true", help="Output compact @LOGIC/2 symbolic wire summary")
 
     p_ver = sub.add_parser(
@@ -1127,7 +1125,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(json.dumps(pb_rep, indent=2, ensure_ascii=False))
             return 0 if pb_rep["all_8_harnesses_executed_and_verified"] else 1
         if args.forage_internet:
-            fg_rep = ControlledInternetForager().forage_and_evolve_3b8_vs_opus(fetch_live_network=True)
+            fg_rep = ControlledInternetForager().forage_and_evolve_small_vs_frontier(fetch_live_network=True)
             if args.wire:
                 print(fg_rep["kmi_forage_wire"])
                 return 0
@@ -1147,7 +1145,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return 0
             print(json.dumps(arena_rep, indent=2, ensure_ascii=False))
             return 0 if arena_rep["all_attacks_neutralized"] else 1
-        pool_mgr = ConsentGatedBYOKPoolManager(args.workspace)
+        pool_mgr = BYOKProviderPoolManager(args.workspace)
         paid_reg = PaidFrontierCouncilBYOKRegistry(args.workspace)
         if args.ask is not None:
             print(json.dumps(answer_user_multi_model_question(args.ask, args.workspace), indent=2, ensure_ascii=False))
@@ -1183,14 +1181,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             pid, key_val = args.add_free_key
             print(json.dumps(pool_mgr.add_user_provided_key(pid, key_val), indent=2, ensure_ascii=False))
             return 0
-        if args.configure-byok:
-            res = pool_mgr.auto_configure-byok(
-                confirmed_by_user=True,
-                count=int(args.deepseek_count or 1),
-                verify_chat=True,
-            )
-            print(json.dumps(res, indent=2, ensure_ascii=False))
-            return 0 if res.get("ok") else 1
         if args.authorize_auto_provision:
             scope_list = [s.strip() for s in args.scope.split(",") if s.strip()] if args.scope else None
             res = pool_mgr.authorize_auto_provision(confirmed_by_user=True, allowed_providers=scope_list)
@@ -1262,17 +1252,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "logic":
         from kintsugi.logic import (
             LoginAuthLogicVerifier,
-            forage_github_star_harnesses_with_gemini_grok,
-            run_multi_model_luna_vs_free_council_logic_arena,
+            forage_github_star_harnesses,
             run_logical_reasoning_benchmark,
+            run_neuro_symbolic_vs_raw_council_logic_arena,
         )
 
         if getattr(args, "login_verify", False):
             rep = LoginAuthLogicVerifier().verify_login_security_suite()
         elif getattr(args, "arena", False):
-            rep = run_multi_model_luna_vs_free_council_logic_arena()
+            rep = run_neuro_symbolic_vs_raw_council_logic_arena()
         elif getattr(args, "forage_github_harnesses", False):
-            rep = forage_github_star_harnesses_with_gemini_grok(live_github_probe=True)
+            rep = forage_github_star_harnesses(live_github_probe=True)
         else:
             rep = run_logical_reasoning_benchmark()
 

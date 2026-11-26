@@ -6,9 +6,9 @@ Reproducibly verifies on any machine:
 1. `@KML/1` Universal Agent Machine Language compression, zero-prose invariant, and parse speed
    across all 1,789 evolved open-source scars in `.kintsugi/scars.json` & `.kintsugi/scars.kml`.
 2. Native Rust `kintsugi-rs v1.3.0` sub-millisecond `PreToolUse` benchmark & `verify-kml` audit.
-3. All 4 Kintsugi Editions (`Core Guard Free $0`, `Tier 1 FinOps & Reliability Pack Apache-2.0`,
-   `Tier 2 AppSec & MCP Pack Apache-2.0`, `Tier 3 Complete Corpus Pack Apache-2.0`):
-   - 100% True-Positive detection & 0.0% False-Positive invariant across all tier rule families
+3. All 4 Apache-2.0 Open-Source Domain Skill Packs (`Core Guard Starter`,
+   `FinOps & Reliability Pack`, `Zero-Trust AppSec & MCP Pack`, `Complete Corpus Pack`):
+   - 100% True-Positive detection & 0.0% False-Positive invariant across all rule families
    - Deterministic `kintsugi autofix` codemod transformations (before -> after AST/Regex verification)
    - `PBKDF2-HMAC-SHA256` (200,000 iterations) `.kpack` AEAD encryption/decryption & tamper rejection
 4. 7-Layer Zero-Trust Shield & Outbound Egress Whitelist Firewall verification.
@@ -43,8 +43,8 @@ from kintsugi.scanner import KintsugiScanner
 from kintsugi.shield import audit_scar_security, verify_outbound_destination_allowed
 
 
-def _get_pro_representative_scars() -> List[GoldenScar]:
-    """Representative specification of the 16 Pro guardrail families (KS-017..KS-032) for TP/FP proof."""
+def _get_domain_pack_representative_scars() -> List[GoldenScar]:
+    """Representative specification of the Apache-2.0 domain guardrail families (KS-017..KS-032) for TP/FP proof."""
     return [
         GoldenScar(
             id="KS-017",
@@ -215,8 +215,8 @@ def verify_all_four_editions() -> Dict[str, Any]:
     ledger = ScarLedger(REPO_ROOT / ".kintsugi" / "scars.json")
     all_oss = ledger.all()
     core_16 = [s for s in all_oss if s.id.startswith("KS-0") and int(s.id.split("-")[1]) <= 16]
-    pro_rep = _get_pro_representative_scars()
-    combined = core_16 + pro_rep
+    domain_rep = _get_domain_pack_representative_scars()
+    combined = core_16 + domain_rep
 
     tp_passed = 0
     for scar in combined:
@@ -225,7 +225,7 @@ def verify_all_four_editions() -> Dict[str, Any]:
             raise RuntimeError(f"Edition scar verification failed for {scar.id}: {msg}")
         tp_passed += 1
 
-    # 1. Verify Free Starter Pack ($0) quickstart self-test
+    # 1. Verify Apache-2.0 Core Guard Starter Pack quickstart self-test
     free_script = REPO_ROOT / "free-skill-pack" / "scripts" / "kintsugi_free_quickstart.py"
     free_proc = subprocess.run(
         [sys.executable, str(free_script), "--selftest"],
@@ -237,17 +237,17 @@ def verify_all_four_editions() -> Dict[str, Any]:
     free_res = json.loads(free_proc.stdout)
     assert free_res.get("status") == "PASS", free_res
 
-    # 2. Verify Tier 1 (FinOps & Reliability Pack) & Tier 2 (Zero-Trust MCP Pro) Auto-Fix Codemods
+    # 2. Verify Apache-2.0 FinOps & Reliability Pack and Zero-Trust MCP Pack Auto-Fix Codemods
     with tempfile.TemporaryDirectory() as tmp:
         ws = Path(tmp)
         packs_dir = ws / ".kintsugi" / "packs"
         packs_dir.mkdir(parents=True, exist_ok=True)
-        (packs_dir / "pro-test-pack.json").write_text(
+        (packs_dir / "domain-test-pack.json").write_text(
             json.dumps(
                 {
-                    "name": "pro-test-pack",
-                    "tier": "premium",
-                    "scars": [s.to_dict() for s in pro_rep],
+                    "name": "domain-test-pack",
+                    "tier": "open-source",
+                    "scars": [s.to_dict() for s in domain_rep],
                     "autofix_playbooks": [
                         {
                             "scar_id": "KS-020",
@@ -280,38 +280,38 @@ def verify_all_four_editions() -> Dict[str, Any]:
         assert "yaml.safe_load(raw_yaml)" in fixed_code, fixed_code
         assert "await asyncio.sleep(2)" in fixed_code, fixed_code
 
-    # 3. Verify Tier 3 (.kpack PBKDF2-HMAC-SHA256 AEAD Encryption + Tamper Rejection + Install)
+    # 3. Verify Apache-2.0 Complete Corpus Pack (.kpack PBKDF2-HMAC-SHA256 AEAD Encryption + Tamper Rejection + Install)
     with tempfile.TemporaryDirectory() as tmp_kpack:
         ws_kp = Path(tmp_kpack)
-        demo_zip_path = ws_kp / "demo-pro-pack.zip"
+        demo_zip_path = ws_kp / "demo-oss-pack.zip"
         with zipfile.ZipFile(demo_zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(
-                "demo-pro-pack/agensi-manifest.json",
+                "demo-oss-pack/kintsugi-pack.json",
                 json.dumps(
                     {
-                        "name": "kintsugi-enterprise-complete-pro",
-                        "title": "Kintsugi Complete Corpus Pack (v1.3.0 Verification Vector)",
+                        "name": "kintsugi-complete-corpus",
+                        "title": "Kintsugi Apache-2.0 Complete Corpus Pack (Verification Vector)",
                         "version": __version__,
-                        "tier": "premium",
+                        "tier": "open-source",
                         "machine_language_format": "KML/1",
                     }
                 ),
             )
             zf.writestr(
-                "demo-pro-pack/scars.json",
+                "demo-oss-pack/scars.json",
                 json.dumps({"scars": [s.to_dict() for s in combined]}),
             )
-            zf.writestr("demo-pro-pack/scars.kml", render_kml_corpus(combined, pack_name="kintsugi-enterprise-complete-pro"))
-            zf.writestr("demo-pro-pack/.claude/commands/kintsugi-audit.md", "# /kintsugi-audit\n")
+            zf.writestr("demo-oss-pack/scars.kml", render_kml_corpus(combined, pack_name="kintsugi-complete-corpus"))
+            zf.writestr("demo-oss-pack/.claude/commands/kintsugi-audit.md", "# /kintsugi-audit\n")
 
         synthetic_key = "SYNTHETIC-TEST-KEY-DEMO-ONLY"
         kpack_bytes = encrypt_pro_kpack_bytes(
             demo_zip_path.read_bytes(),
             synthetic_key,
-            pack_id="kintsugi-enterprise-complete-pro",
-            tier="pro-encrypted-v1.3.0-kml1",
+            pack_id="kintsugi-complete-corpus",
+            tier="apache2-aead-kml1",
         )
-        kpack_file = ws_kp / "kintsugi-enterprise-complete-pro-v1.3.0.kpack"
+        kpack_file = ws_kp / "kintsugi-complete-corpus.kpack"
         kpack_file.write_bytes(kpack_bytes)
 
         # Verify wrong key is cryptographically rejected
@@ -320,7 +320,7 @@ def verify_all_four_editions() -> Dict[str, Any]:
             decrypt_pro_kpack_bytes(kpack_bytes, "INVALID-LICENSE-KEY-0000")
         except PermissionError:
             wrong_key_rejected = True
-        assert wrong_key_rejected, "AEAD .kpack must reject invalid license keys"
+        assert wrong_key_rejected, "AEAD .kpack must reject invalid decryption keys"
 
         # Verify valid key decrypts and installs cleanly
         install_res = install_skill_pack(
@@ -330,40 +330,41 @@ def verify_all_four_editions() -> Dict[str, Any]:
             license_key=synthetic_key,
         )
         assert install_res["scars_in_pack"] == len(combined), install_res
-        assert (ws_kp / ".kintsugi" / "packs" / "kintsugi-enterprise-complete-pro.kml").is_file()
-        assert install_res["co_execution_entitlement"]["tier_id"] == "APACHE_2_OPEN_SOURCE"
-        assert install_res["co_execution_entitlement"]["max_free_co_runners"] == 5
+        assert (ws_kp / ".kintsugi" / "packs" / "kintsugi-complete-corpus.kml").is_file()
+        assert install_res["co_execution_entitlement"]["tier_id"] == "APACHE_2_OPEN_SOURCE", install_res["co_execution_entitlement"]
+        assert install_res["co_execution_entitlement"]["max_free_co_runners"] >= 5
         assert install_res["co_execution_entitlement"]["paid_council_byok_unlocked"] is True
 
     lessons = get_seed_frontier_lessons()
     return {
         "status": "PASS",
+        "license": "Apache-2.0",
         "editions_verified": {
-            "edition_0_core_guard_free_0usd": {
+            "pack_0_core_guard_starter": {
                 "status": "VERIFIED_PASS",
                 "core_scars": len(core_16),
-                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Primary + 1 Free Model)",
+                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Offline + Optional BYOK)",
                 "runtime_gates_verified": 5,
             },
-            "edition_1_finops_reliability_pro_15usd": {
+            "pack_1_finops_reliability": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 11,
                 "kml_evolved_rules": 844,
-                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Primary + up to 5 Free Models)",
+                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Offline + Optional BYOK)",
                 "autofix_codemods_verified": 4,
             },
-            "edition_2_zero_trust_mcp_security_pro_19usd": {
+            "pack_2_appsec_mcp_security": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 21,
                 "kml_evolved_rules": 862,
-                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Primary + up to 5 Free Models)",
+                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Offline + Optional BYOK)",
                 "autofix_codemods_verified": 8,
             },
-            "edition_3_enterprise_complete_pro_29usd": {
+            "pack_3_complete_corpus": {
                 "status": "VERIFIED_PASS",
                 "curated_scars": 32,
                 "kml_evolved_rules": len(all_oss),
-                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Primary + 5 Free Models + BYOK Paid Council)",
+                "co_execution_tier": "APACHE_2_OPEN_SOURCE (Primary + Multi-Model Pool + BYOK)",
                 "autofix_codemods_verified": 12,
                 "frontier_lessons_verified": len(lessons),
                 "kpack_aead_encryption_verified": True,

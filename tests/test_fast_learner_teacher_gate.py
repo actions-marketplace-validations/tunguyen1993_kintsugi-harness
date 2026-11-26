@@ -110,16 +110,16 @@ class TestFastLearnerTeacherGate(unittest.TestCase):
             clean_corpus_paths=[self.clean_py],
         )
 
-    def test_01_relay_spoofed_opus55_and_empty_host_and_null_sig_are_blocked(self) -> None:
+    def test_01_relay_spoofed_model_and_empty_host_and_null_sig_are_blocked(self) -> None:
         prov_relay = validate_teacher_provenance(
-            teacher_model="claude-opus-4-5",
+            teacher_model="claude-opus-4-6-spoofed",
             teacher_origin="anthropic_official",
-            endpoint_url="https://relay.unverified-proxy.example/v1/messages",
+            endpoint_url="https://untrusted-relay.example/v1/messages",
             thinking_signature_verified=False,
         )
         self.assertFalse(prov_relay["is_genuine_frontier"])
 
-        # GPT-5.4 catch #2: empty endpoint_url + thinking_signature_verified=None MUST NOT pass!
+        # Hardened provenance check: empty endpoint_url + thinking_signature_verified=None MUST NOT pass!
         prov_empty = validate_teacher_provenance(
             teacher_model="claude-opus-4-6-thinking",
             teacher_origin="anthropic_official",
@@ -130,13 +130,13 @@ class TestFastLearnerTeacherGate(unittest.TestCase):
         self.assertTrue(any("missing_endpoint_host" in r for r in prov_empty["reasons"]))
         self.assertTrue(any("thinking_signature_unverified" in r for r in prov_empty["reasons"]))
 
-        # Genuine Codex GPT-5.4 on chatgpt.com PASSES provenance
-        prov_astra = validate_teacher_provenance(
-            teacher_model="GPT-5.4",
+        # Genuine Codex gpt-5.4 on chatgpt.com PASSES provenance
+        prov_codex = validate_teacher_provenance(
+            teacher_model="gpt-5.4",
             teacher_origin="openai_codex_official",
             endpoint_url="https://chatgpt.com/backend-api/codex/responses",
         )
-        self.assertTrue(prov_astra["is_genuine_frontier"])
+        self.assertTrue(prov_codex["is_genuine_frontier"])
 
     def test_02_setup_error_timeout_and_no_tests_rejected_as_invalid_runtime_proof(self) -> None:
         for bad_outcome in (
@@ -169,7 +169,7 @@ class TestFastLearnerTeacherGate(unittest.TestCase):
             fixed_code=FIXED_MERKLE,
             failure_summary="Odd leaf forgery",
             llm_proposer=lambda _p: SAMPLE_CAPSULE_JSON,
-            teacher_model="gemini-4-hydrogen-low",
+            teacher_model="gemini-2.5-flash",
             teacher_origin="antigravity_native",
         )
         self.assertEqual(res_no_rt["status"], "QUARANTINED_UNTRUSTED_TEACHER_REQUIRES_RUNTIME_PROOF")
@@ -180,7 +180,7 @@ class TestFastLearnerTeacherGate(unittest.TestCase):
             fixed_code=FIXED_MERKLE,
             failure_summary="Odd leaf forgery",
             llm_proposer=lambda _p: SAMPLE_CAPSULE_JSON,
-            teacher_model="gemini-4-hydrogen-low",
+            teacher_model="gemini-2.5-flash",
             teacher_origin="antigravity_native",
             runtime_test_fn=_real_runtime_merkle_check,
             canary_eval_fn=lambda _cap: {"score_raw": 17, "score_with_capsule": 20, "regressions": 0},

@@ -1,6 +1,6 @@
 {
-  "schema": "kintsugi.synthesized_empirical_cortex.v3.0.1",
-  "version": "3.0.1",
+  "schema": "kintsugi.synthesized_empirical_cortex.v3.1.1",
+  "version": "3.1.1",
   "dlp_sanitized": true,
   "zero_private_leaks_verified": true,
   "current_shipped_ledger_scars": 1797,
@@ -54,11 +54,12 @@
     "compression_ratio_percent": 7.74
   },
   "files": {
-    "empirical_cortex_kml": {
-      "path": "collective-pool/synthesized-empirical-cortex/empirical_cortex_v240.kml",
-      "sha256": "cd9a3964b02c1175ae23747739b0f8280d6d0e679ccba24fb0a8f3356a680150",
-      "lines": 2688
-    }
+    "shipped_ledgers": [
+      ".kintsugi/scars.json",
+      ".kintsugi/scars.kml",
+      "docs/domains/domain_manifest.json"
+    ],
+    "note": "Consolidated sanitized guardrails are shipped in .kintsugi/scars.json, .kintsugi/scars.kml, and docs/domains/*.kml."
   },
   "completed_suite_ids": [
     "step_01_trust_boundary_seam",

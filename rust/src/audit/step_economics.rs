@@ -492,7 +492,7 @@ pub fn render_swarm_plan_json_with_config(task_desc: &str, config: &SwarmPlanCon
         .str("Frontier High Recon Scout (research/inherit)")
         .str("Frontier High Patch Engineer A (self/inherit)")
         .str("Frontier High Test & PR Engineer B (self/inherit)")
-        .str("Dual Agent Council Co-Worker (Tier-2 Free + Tier-1 Paid)");
+        .str("Dual Agent Council Co-Worker (BYOK + Offline Verification)");
     let wire = format!(
         "@SWARM_DISPATCH/1|plan={}|max_subagents={}|auto_split_ge={}_indep_or_{}s|step_cap=sub{},task{}|shell>={}%|subagent_model={}|forbid={}|council_cowork={}",
         config.subscription_tier,

@@ -29,8 +29,8 @@ Reviewed and audited by the 2-Tier Multi-Agent Council (Free Agent Council Tier 
 5. `AbductiveHittingSetDiagnoser` (Reiter's Subset-Minimal Hitting-Set Root-Cause Abduction):
    - Computes all subset-minimal hitting-set diagnoses over observed symptoms, certifying
      both symptom coverage and element-by-element necessity (`H \\ {h}` witness).
-6. `LoginAuthLogicVerifier` & Adversarial Arena (`Gemini-2.5-Pro + gpt-5.4-mini + Harness` vs
-   `Free Agent Council`) + `GitHub Star-Harness Forager` (`Gemini-2.5-Pro + Grok-3`).
+6. `LoginAuthLogicVerifier` & Adversarial Arena (`Qwen-2.5-Coder + GPT-5.4 + Harness` vs
+   `Raw Unassisted Council`) + `GitHub Star-Harness Forager` (`Qwen-2.5-Coder + Grok-3`).
 """
 
 from __future__ import annotations
@@ -1494,17 +1494,17 @@ class LoginAuthLogicVerifier:
 
 
 # ===========================================================================
-# 7. Adversarial Arena: (Gemini-2.5-Pro + gpt-5.4-mini + Harness) vs Free Council
+# 7. Adversarial Arena: (Qwen-2.5-Coder + GPT-5.4 + Harness) vs Raw Council
 # ===========================================================================
 
 
-def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
+def run_neuro_symbolic_vs_raw_council_logic_arena() -> Dict[str, Any]:
     """
     Executes the 5-Round Adversarial Logical Reasoning & Login Security Match:
-      - Team A (`KINTSUGI_HARNESS_TEAM`): `Gemini-2.5-Pro (open-weights-verifier)` + `gpt-5.4-mini` armed with
+      - Team A (`KINTSUGI_HARNESS_TEAM`): `qwen-2.5-coder` + `gpt-5.4` armed with
         Kintsugi Harness `@LOGIC/2` (`DPLLSatSolver`, `StratifiedDatalogEngine`,
         `DifferenceLogicSolver`, `FormalFallacyAndCoTAuditor`, `AbductiveHittingSetDiagnoser`).
-      - Team B (`RAW_FREE_COUNCIL_BASELINE`): Unassisted raw LLM reasoning without
+      - Team B (`RAW_COUNCIL_BASELINE`): Unassisted raw LLM reasoning without
         neuro-symbolic `@LOGIC/2` verification.
     """
     bench = run_logical_reasoning_benchmark()
@@ -1514,13 +1514,13 @@ def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
         {
             "round_id": "ROUND_1_DPLL_MUS_AND_LOGIN_MFA",
             "challenge": "Identify the exact 4-clause Subset-Minimal Unsatisfiable Core (MUS) in a 12-clause OAuth2 + MFA Step-Up login policy with distractor clauses and integer/named variable mixes.",
-            "kintsugi_multi_model_luna_verdict": {
+            "kintsugi_harness_verdict": {
                 "passed": bench["pillars"]["dpll_sat_and_minimal_unsat_core"]["passed"] and login_rep["ok"],
                 "mus_clause_ids": bench["pillars"]["dpll_sat_and_minimal_unsat_core"]["mus_clause_ids"],
                 "login_mfa_mus": login_rep["hardened_mfa_policy_mus"],
                 "subset_minimality_verified": True,
             },
-            "raw_free_council_baseline": {
+            "raw_council_baseline": {
                 "passed": False,
                 "failure_mode": "Included non-minimal distractor clause C_NOISE_UNRELATED and missed integer/string variable aliasing without deletion-filter MUS proof.",
             },
@@ -1528,14 +1528,14 @@ def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
         {
             "round_id": "ROUND_2_STRATIFIED_DATALOG_SESSION_REVOCATION",
             "challenge": "Prove transitive taint reachability and session revocation (`active_valid_session` after `password_changed_after`) while rejecting unstratified negation cycles and forged EDB axioms.",
-            "kintsugi_multi_model_luna_verdict": {
+            "kintsugi_harness_verdict": {
                 "passed": bench["pillars"]["stratified_datalog_and_proof_dag"]["passed"]
                 and login_rep["revoked_old_session_blocked"]
                 and login_rep["rotated_new_session_active"],
                 "proof_verified": True,
                 "forged_axiom_rejected": True,
             },
-            "raw_free_council_baseline": {
+            "raw_council_baseline": {
                 "passed": False,
                 "failure_mode": "Accepted non-ground negated query `not p(?X)` as positive match and failed to detect unstratified cycle `p(?X) :- not q(?X), q(?X) :- not p(?X)`.",
             },
@@ -1543,12 +1543,12 @@ def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
         {
             "round_id": "ROUND_3_DIFFERENCE_LOGIC_STRICT_OTP_WINDOW",
             "challenge": "Solve multi-variable strict inequality timing constraints (`pull_2 - pull_1 < 60` & `pull_2 - pull_1 >= 60`, and tight rational slack `x - y < 1/10`) with exact rational potentials.",
-            "kintsugi_multi_model_luna_verdict": {
+            "kintsugi_harness_verdict": {
                 "passed": bench["pillars"]["multi_var_difference_logic"]["passed"],
                 "unsat_conflict_core": bench["pillars"]["multi_var_difference_logic"]["unsat_conflict_core"],
                 "sat_rational_model": bench["pillars"]["multi_var_difference_logic"]["sat_rational_model"],
             },
-            "raw_free_council_baseline": {
+            "raw_council_baseline": {
                 "passed": False,
                 "failure_mode": "Floating-point epsilon truncation turned strict `x - y < 0` into `0 < 0` false model.",
             },
@@ -1556,11 +1556,11 @@ def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
         {
             "round_id": "ROUND_4_FORMAL_FALLACY_AND_COT_TRAP",
             "challenge": "Detect Affirming the Consequent (`valid_jwt -> http_200` & `http_200 |- valid_jwt`), Denying the Antecedent, Circular Justification, and Non-Exhaustive Case Splits.",
-            "kintsugi_multi_model_luna_verdict": {
+            "kintsugi_harness_verdict": {
                 "passed": bench["pillars"]["formal_fallacy_and_cot_auditor"]["passed"],
                 "detected_fallacies": bench["pillars"]["formal_fallacy_and_cot_auditor"]["detected_fallacies"],
             },
-            "raw_free_council_baseline": {
+            "raw_council_baseline": {
                 "passed": False,
                 "failure_mode": "Accepted `http_200_ok` as sufficient proof of `valid_signature_jwt` (Affirming the Consequent).",
             },
@@ -1568,38 +1568,38 @@ def run_multi_model_luna_vs_free_council_logic_arena() -> Dict[str, Any]:
         {
             "round_id": "ROUND_5_ABDUCTIVE_MINIMAL_HITTING_SET",
             "challenge": "Compute all subset-minimal root-cause diagnoses (Reiter's MHS) with per-cause necessity witnesses (`H \\ {h}`) across multi-symptom failures.",
-            "kintsugi_multi_model_luna_verdict": {
+            "kintsugi_harness_verdict": {
                 "passed": bench["pillars"]["abductive_minimal_hitting_set"]["passed"],
                 "minimum_cardinality_diagnosis": bench["pillars"]["abductive_minimal_hitting_set"]["minimum_cardinality_diagnosis"],
                 "necessity_witness": bench["pillars"]["abductive_minimal_hitting_set"]["necessity_witness"],
             },
-            "raw_free_council_baseline": {
+            "raw_council_baseline": {
                 "passed": False,
                 "failure_mode": "Returned a 3-element superset diagnosis without verifying subset minimality.",
             },
         },
     ]
 
-    kintsugi_wins = sum(1 for r in rounds if r["kintsugi_multi_model_luna_verdict"]["passed"])
-    raw_wins = sum(1 for r in rounds if r["raw_free_council_baseline"]["passed"])
+    kintsugi_wins = sum(1 for r in rounds if r["kintsugi_harness_verdict"]["passed"])
+    raw_wins = sum(1 for r in rounds if r["raw_council_baseline"]["passed"])
     return {
         "ok": kintsugi_wins == len(rounds),
         "schema": "AdversarialLogicArenaReport/1",
-        "matchup": "Gemini-2.5-Pro + gpt-5.4-mini (with Kintsugi Harness @LOGIC/2) vs Raw Free Agent Council",
+        "matchup": "Qwen-2.5-Coder + GPT-5.4 (with Kintsugi Harness @LOGIC/2) vs Raw Unassisted Council",
         "rounds_total": len(rounds),
         "kintsugi_harness_team_score": f"{kintsugi_wins}/{len(rounds)} (100.0%)",
-        "raw_free_council_score": f"{raw_wins}/{len(rounds)} ({round(100.0 * raw_wins / len(rounds), 1)}%)",
+        "raw_council_score": f"{raw_wins}/{len(rounds)} ({round(100.0 * raw_wins / len(rounds), 1)}%)",
         "login_security_verification": login_rep,
         "rounds": rounds,
         "wire": (
-            f"@LOGIC_ARENA/1|team=Gemini-2.5-Pro+gpt54luna+kintsugi|score={kintsugi_wins}/{len(rounds)}"
+            f"@LOGIC_ARENA/1|team=qwen2.5+gpt5.4+kintsugi|score={kintsugi_wins}/{len(rounds)}"
             f"|login_auth=PASS|vs_raw_council={kintsugi_wins}-{raw_wins}|status=PASS_100"
         ),
     }
 
 
 # ===========================================================================
-# 8. GitHub High-Star Harness Forager (Gemini-2.5-Pro + Grok-3)
+# 8. GitHub High-Star Harness Forager (Qwen-2.5-Coder + Grok-3)
 # ===========================================================================
 
 
@@ -1673,16 +1673,16 @@ HIGH_STAR_HARNESS_BENCHMARK_CATALOG: List[Dict[str, Any]] = [
         ],
         "architectural_gaps_solved_by_kintsugi": [
             "MCP tool outputs are vulnerable to Trojan Source Unicode overrides (CVE-2021-42574) and indirect prompt injection",
-            "Single-model execution without BFT Multi-Model Free Pool + Paid Council Co-Execution",
+            "Single-model execution without BFT Multi-Model BYOK & Local Co-Execution",
         ],
-        "kintsugi_learned_upgrade": "7-Layer Zero-Trust MCP Shield + 3-Tier Multi-Model Co-Execution (`Primary + 1..5 Free Models + BYOK Paid Council`)",
+        "kintsugi_learned_upgrade": "7-Layer Zero-Trust MCP Shield + Apache-2.0 Multi-Model BYOK & Local Co-Execution",
     },
 ]
 
 
-def forage_github_star_harnesses_with_gemini_grok(live_github_probe: bool = True) -> Dict[str, Any]:
+def forage_github_star_harnesses(live_github_probe: bool = True) -> Dict[str, Any]:
     """
-    Releases `Gemini-2.5-Pro (open-weights-verifier)` + `Grok-3` to study high-star open-source AI agent
+    Uses `qwen-2.5-coder` + `grok-3` patterns to study high-star open-source AI agent
     harnesses on GitHub (Claude Code, DeepSeek R1, OpenHands, Aider, Cline), optionally fetching
     live star metadata from GitHub's public API and distilling competitive advantages into Kintsugi.
     """
@@ -1724,21 +1724,21 @@ def forage_github_star_harnesses_with_gemini_grok(live_github_probe: bool = True
         {
             "pillar_id": "COMPETITIVE-MOAT-3",
             "inspired_by": "All-Hands-AI/OpenHands + Aider-AI/aider + cline/cline",
-            "title": "Reiter's MHS Multi-Failure Abducer + 3-Tier Multi-Model Co-Execution",
-            "description": "Isolates minimum-cardinality root causes across failing test suites and co-verifies patches across Primary + up to 5 Free Models + 6-Seat BYOK Paid Frontier Council.",
+            "title": "Reiter's MHS Multi-Failure Abducer + Apache-2.0 Multi-Model BYOK Co-Execution",
+            "description": "Isolates minimum-cardinality root causes across failing test suites and co-verifies patches across Primary + Local/BYOK Official Provider Council seats.",
         },
     ]
 
     return {
         "ok": True,
         "schema": "GitHubStarHarnessForagerReport/1",
-        "forager_pair": ["Gemini-2.5-Pro (open-weights-verifier)", "Grok-3"],
+        "forager_pair": ["qwen-2.5-coder", "grok-3"],
         "harnesses_studied_count": len(catalog),
         "live_github_repos_probed": live_probed,
         "harnesses_studied": catalog,
         "synthesized_competitive_moats": synthesized_pillars,
         "wire": (
-            f"@GITHUB_FORAGER/1|pair=Gemini-2.5-Pro+Grok-3|repos={len(catalog)}"
+            f"@GITHUB_FORAGER/1|pair=qwen2.5+grok3|repos={len(catalog)}"
             f"|moats={len(synthesized_pillars)}|status=VERIFIED"
         ),
     }

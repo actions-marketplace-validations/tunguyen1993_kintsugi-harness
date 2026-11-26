@@ -18,11 +18,11 @@
   "good_code": "reported = str(response_data.get(\"model\") or \"\")\nassert reported.startswith(expected_family), f\"Unexpected routed model: {reported}\"",
   "regex_pattern": "SILENT_MODEL_DOWNGRADE_MASK|response_data\\.get\\(\\s*[\\\"']model[\\\"']\\s*\\)\\s+or\\s+target_frontier_model",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
+    "grok-3",
     "deepseek-r1-0528"
   ],
   "reinforcement_count": 16,

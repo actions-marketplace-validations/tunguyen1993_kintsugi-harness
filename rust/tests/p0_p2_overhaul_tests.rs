@@ -274,7 +274,7 @@ fn git_diff_confinement_overflow_fail_closed_staged_and_ffi_overlap_guards() {
 }
 
 #[test]
-fn opus55_sprint_closures_dom_pretool_regex_failclosed_sql_comments_and_strict_cli() {
+fn sprint_closures_dom_pretool_regex_failclosed_sql_comments_and_strict_cli() {
     // 1. P0-1: PreToolUse DOM JSON parser allows escaped `"tool_input": []` and `"cwd": "/etc"` inside benign content!
     let benign_write = r#"{"tool_name":"Write","tool_input":{"file_path":"docs/guide.md","content":"Example schema: \"tool_input\": [] and \"cwd\": \"/etc\" in prose.\n"}}"#;
     let dec_allow = evaluate_pre_tool_json(benign_write, Severity::High);

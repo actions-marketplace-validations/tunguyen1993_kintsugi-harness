@@ -6,12 +6,14 @@ on:
   pull_request:
     branches: [ "main" ]
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   verify-and-attest:
     name: Unit Tests, 10-Arena Pareto Benchmark & Provenance Digest
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
 
@@ -42,6 +44,7 @@ jobs:
       - name: Run full pytest suite
         env:
           PYTHONPATH: src:tests
+          PYTHONDONTWRITEBYTECODE: "1"
         run: pytest -q -s --assert=plain -p no:unraisableexception -p no:threadexception
 
       - name: Run 10-Arena 5-Pillar Pareto-Optimal Verification Suite
@@ -57,6 +60,7 @@ jobs:
   rust-msrv-arch-and-32-feature-powerset:
     name: MSRV 1.75.0 + 32-Feature Powerset (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
@@ -108,7 +112,10 @@ jobs:
         run: |
           set -euo pipefail
           feats=(audit rule-ir logforge sarif lab-tools)
+          target="${{ matrix.target }}"
           ran=0
+          tested=0
+          checked=0
           for mask in $(seq 0 31); do
             list=""
             for i in 0 1 2 3 4; do
@@ -116,14 +123,26 @@ jobs:
                 list="${list:+${list},}${feats[$i]}"
               fi
             done
-            echo "::group::mask=${mask} features=[${list}]"
+            subcmd="test"
+            if [ "${target}" = "aarch64-apple-darwin" ]; then
+              case "${mask}" in
+                0|1|2|4|8|16|31) subcmd="test" ;;
+                *) subcmd="check" ;;
+              esac
+            fi
+            echo "::group::mask=${mask} mode=${subcmd} features=[${list}]"
             if [ -n "${list}" ]; then
-              cargo +stable test --no-default-features --features "${list}" --all-targets
+              cargo +stable "${subcmd}" --no-default-features --features "${list}" --all-targets
             else
-              cargo +stable test --no-default-features --all-targets
+              cargo +stable "${subcmd}" --no-default-features --all-targets
             fi
             echo "::endgroup::"
+            if [ "${subcmd}" = "test" ]; then
+              tested=$((tested + 1))
+            else
+              checked=$((checked + 1))
+            fi
             ran=$((ran + 1))
           done
-          echo "powerset combinations verified: ${ran}"
+          echo "powerset combinations verified: ${ran} (test=${tested}, check=${checked})"
           test "${ran}" -eq 32

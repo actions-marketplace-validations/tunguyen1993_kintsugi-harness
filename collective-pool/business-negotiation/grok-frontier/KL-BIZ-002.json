@@ -19,11 +19,11 @@
   "good_code": "PITCH: ANCHOR_VALUE_WITH_QUID_PRO_QUO(discount_pct=15, counter_commitment='annual_upfront_and_case_study')",
   "regex_pattern": "UNILATERAL_PREEMPTIVE_DISCOUNT",
   "ast_rule": null,
-  "synthesized_by_model": "Grok-3",
+  "synthesized_by_model": "grok-3",
   "model_family": "grok-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Grok-3",
+    "grok-3",
     "claude-opus-4"
   ],
   "reinforcement_count": 15,

@@ -1,6 +1,6 @@
 {
   "schema": "kintsugi.low_tier_lexicon_ab_results.v3",
-  "harness_version": "3.0.1",
+  "harness_version": "3.1.1",
   "generated_date": "2026-11-25",
   "dlp_sanitized": true,
   "lexicon_scope": "LT-001..LT-080",
@@ -20,7 +20,7 @@
     "total_tasks": 56,
     "models_evaluated": [
       "Budget-Reasoning-Model",
-      "DeepSeek-R1",
+      "DeepSeek-R1-Distill",
       "GLM-4-Flash"
     ],
     "total_runs": 168,
@@ -40,7 +40,7 @@
         "delta_passed": 24,
         "delta_pp": 42.9
       },
-      "DeepSeek-R1": {
+      "DeepSeek-R1-Distill": {
         "tasks": 56,
         "baseline_passed": 30,
         "baseline_pass_rate_pct": 53.6,
@@ -78,7 +78,7 @@
           "with_lexicon_passed": 11,
           "tasks": 12
         },
-        "DeepSeek-R1": {
+        "DeepSeek-R1-Distill": {
           "baseline_passed": 6,
           "with_lexicon_passed": 11,
           "tasks": 12
@@ -107,7 +107,7 @@
           "with_lexicon_passed": 15,
           "tasks": 16
         },
-        "DeepSeek-R1": {
+        "DeepSeek-R1-Distill": {
           "baseline_passed": 9,
           "with_lexicon_passed": 15,
           "tasks": 16
@@ -140,7 +140,7 @@
           "with_lexicon_passed": 16,
           "tasks": 16
         },
-        "DeepSeek-R1": {
+        "DeepSeek-R1-Distill": {
           "baseline_passed": 12,
           "with_lexicon_passed": 16,
           "tasks": 16
@@ -169,7 +169,7 @@
           "with_lexicon_passed": 12,
           "tasks": 12
         },
-        "DeepSeek-R1": {
+        "DeepSeek-R1-Distill": {
           "baseline_passed": 3,
           "with_lexicon_passed": 12,
           "tasks": 12

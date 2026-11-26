@@ -20,11 +20,11 @@
   "good_code": "IP_CLAUSE: RETAIN_BACKGROUND_IP_AND_ASSIGN_CUSTOM_DELIVERABLES_ONLY(license='non_exclusive_perpetual')",
   "regex_pattern": "ASSIGN_ALL_BACKGROUND_TOOLS_AND_FRAMEWORKS_TO_CLIENT",
   "ast_rule": null,
-  "synthesized_by_model": "Gemini-2.5-Pro",
+  "synthesized_by_model": "gemini-2.5-pro",
   "model_family": "gemini-pro",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "Gemini-2.5-Pro",
+    "gemini-2.5-pro",
     "deepseek-r1-0528"
   ],
   "reinforcement_count": 15,

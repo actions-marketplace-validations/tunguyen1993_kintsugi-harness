@@ -195,7 +195,7 @@ def get_starter_scars() -> List[GoldenScar]:
             good_code="child_process.execFile('convert', [userFile, 'output.png']);",
             rationale="execFile and spawn pass arguments as an array directly to the OS kernel without shell interpretation.",
             regex_pattern=r"\b(?:child_process\.)?exec(?:Sync)?\s*\(\s*`[^`]*\$\{[^}]+\}",
-            verified_by=["architect:Gemini-2.5-Pro", "synthesizer:DeepSeek-R1", "critic:open-weights-verifier", "self-check"],
+            verified_by=["architect:gemini-2.5-pro", "synthesizer:deepseek-r1", "critic:claude-sonnet-4", "self-check"],
         ),
         GoldenScar(
             id="KS-014",
@@ -209,7 +209,7 @@ def get_starter_scars() -> List[GoldenScar]:
             good_code="const httpsAgent = new https.Agent({ ca: fs.readFileSync(customCaPath) });",
             rationale="Configures custom CA certificates per-agent instead of disabling TLS validation process-wide.",
             regex_pattern=r"""(?:NODE_TLS_REJECT_UNAUTHORIZED\s*(?:=|:)\s*["']?0["']?|rejectUnauthorized\s*:\s*false\b)""",
-            verified_by=["architect:gpt-5.4", "synthesizer:DeepSeek-R1", "critic:open-weights-verifier", "self-check"],
+            verified_by=["architect:gpt-5.4", "synthesizer:deepseek-r1", "critic:claude-sonnet-4", "self-check"],
         ),
         GoldenScar(
             id="KS-015",
@@ -224,7 +224,7 @@ def get_starter_scars() -> List[GoldenScar]:
             rationale="Explicit origin allowlists prevent cross-origin credential exposure.",
             ast_rule="py_cors_wildcard_credentials",
             regex_pattern=r"""(?:\ballow_origins\s*=\s*[\[\(]\s*["']\*["']\s*,?\s*[\]\)][^()]*\ballow_credentials\s*=\s*True\b|["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b)[^}]*["']?\bcredentials["']?\s*:\s*true\b|["']?\bcredentials["']?\s*:\s*true\b[^}]*["']?\borigin["']?\s*:\s*(?:["']\*["']|true\b))""",
-            verified_by=["architect:gpt-5.4", "synthesizer:DeepSeek-R1", "critic:open-weights-verifier", "self-check"],
+            verified_by=["architect:gpt-5.4", "synthesizer:deepseek-r1", "critic:claude-sonnet-4", "self-check"],
         ),
         GoldenScar(
             id="KS-016",
@@ -238,7 +238,7 @@ def get_starter_scars() -> List[GoldenScar]:
             good_code='client := &http.Client{Timeout: 10 * time.Second}\nresp, err := client.Get("https://api.example.com/status")',
             rationale="Explicit http.Client{Timeout: ...} prevents goroutine leaks on unresponsive upstream servers.",
             regex_pattern=r"\bhttp\.(?:Get|Post|PostForm|Head)\s*\(",
-            verified_by=["architect:Gemini-2.5-Pro", "synthesizer:DeepSeek-R1", "critic:open-weights-verifier", "self-check"],
+            verified_by=["architect:gemini-2.5-pro", "synthesizer:deepseek-r1", "critic:claude-sonnet-4", "self-check"],
         ),
     ]
 
@@ -342,7 +342,7 @@ def get_full_crs_scars() -> List[GoldenScar]:
             good_code="fn safe(v: &[u8]) -> Option<u8> { v.first().copied() }",
             rationale="Use safe Rust references, slices, and Option<T> to eliminate undefined behavior from raw pointer dereferences.",
             regex_pattern=r"\bunsafe\s*\{[^}]*(?:\*\s*[A-Za-z_]|\btransmute\b)",
-            verified_by=["evolved-crs-v2.4.0", "GPT-5.4"],
+            verified_by=["evolved-crs-v2.4.0", "gpt-5.4"],
         ),
         GoldenScar(
             id="KS-024",
@@ -356,6 +356,6 @@ def get_full_crs_scars() -> List[GoldenScar]:
             good_code="new Gson().fromJson(json, MyClass.class);\nnew ProcessBuilder(\"echo\", arg).start();",
             rationale="Use type-safe deserialization (Gson/Jackson) and argument-array process builders instead of stream deserialization and string-based exec.",
             regex_pattern=r"(?:ObjectInputStream|Runtime\.getRuntime\(\)\.exec)\s*\(",
-            verified_by=["evolved-crs-v2.4.0", "GPT-5.4"],
+            verified_by=["evolved-crs-v2.4.0", "gpt-5.4"],
         ),
     ]

@@ -19,11 +19,11 @@
   "good_code": "ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/ssh/known_hosts deploy@edge.example.com \"systemctl restart api\"",
   "regex_pattern": "(?:StrictHostKeyChecking=no|AutoAddPolicy\\s*\\(\\s*\\))",
   "ast_rule": null,
-  "synthesized_by_model": "meta-muse-spark",
+  "synthesized_by_model": "open-weights-frontier",
   "model_family": "open-weights-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "meta-muse-spark",
+    "open-weights-frontier",
     "deepseek-r1-0528"
   ],
   "reinforcement_count": 15,

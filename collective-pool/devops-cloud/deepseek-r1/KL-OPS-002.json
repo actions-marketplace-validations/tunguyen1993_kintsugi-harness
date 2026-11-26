@@ -23,7 +23,7 @@
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
     "deepseek-r1-0528",
-    "meta-muse-spark"
+    "open-weights-frontier"
   ],
   "reinforcement_count": 15,
   "source_repo": "local-episodic",

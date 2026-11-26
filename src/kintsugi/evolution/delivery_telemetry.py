@@ -293,11 +293,13 @@ def _apply_efficacy_outcome(rec: Dict[str, Any], passed: bool) -> bool:
 
 def _load_store(store_path: Path) -> Dict[str, Any]:
     raw = read_regular_text_secure(store_path, MAX_TELEMETRY_FILE_BYTES)
-    if raw is None or len(raw) == 0:
+    if raw is None:
         return {
             "schema": DELIVERY_TELEMETRY_SCHEMA, "schema_version": SCHEMA_VERSION,
             "updated_at_utc": 0, "envelopes": {}, "efficacy": {}, "applied_outcomes": set(),
         }
+    if len(raw) == 0 or not raw.strip():
+        raise ValueError("CORRUPT_EMPTY_TELEMETRY_STORE")
     doc = _strict_json_loads(raw.strip())
     if not isinstance(doc, dict):
         raise ValueError("UNRECOGNIZED_TELEMETRY_STORE: root must be object")
@@ -567,10 +569,13 @@ def render_telemetry_report_json(store_path: Path) -> str:
 
 
 def try_load_frozen_ids(store_path: Path) -> Set[str]:
-    """Fail-closed loader for auto-frozen capsule/pitfall IDs (raises on corrupt/unreadable store)."""
+    """Fail-closed loader for auto-frozen capsule/pitfall IDs (raises on 0-byte/corrupt/unreadable store)."""
     store = _load_store(Path(store_path))
     return {k for k, v in store["efficacy"].items() if _is_efficacy_frozen(v)}
 
+def load_frozen_ids_strict(store_path: Path) -> Set[str]:
+    """Fail-closed loader raising CORRUPT_EMPTY_TELEMETRY_STORE on 0-byte or corrupt JSON telemetry."""
+    return try_load_frozen_ids(store_path)
 
 def load_frozen_ids(store_path: Path) -> Set[str]:
     try:
@@ -578,21 +583,13 @@ def load_frozen_ids(store_path: Path) -> Set[str]:
     except (OSError, ValueError, PermissionError):
         return set()
 
-
 @dataclass
 class DeliveryTelemetryTracker:
     """Stateful convenience wrapper bound to a single `store_path`."""
     store_path: Path
-
-    def record_issued(self, **kw: Any) -> Dict[str, Any]:
-        return record_telemetry_event(self.store_path, stage="issued", **kw)
-    def record_included_in_input(self, **kw: Any) -> Dict[str, Any]:
-        return record_telemetry_event(self.store_path, stage="included_in_input", **kw)
-    def record_patch_bound(self, **kw: Any) -> Dict[str, Any]:
-        return record_telemetry_event(self.store_path, stage="patch_bound", **kw)
-    def report(self) -> Dict[str, Any]:
-        return build_telemetry_report(self.store_path)
-    def render_report_json(self) -> str:
-        return render_telemetry_report_json(self.store_path)
-    def load_frozen_ids(self) -> Set[str]:
-        return load_frozen_ids(self.store_path)
+    def record_issued(self, **kw: Any) -> Dict[str, Any]: return record_telemetry_event(self.store_path, stage="issued", **kw)
+    def record_included_in_input(self, **kw: Any) -> Dict[str, Any]: return record_telemetry_event(self.store_path, stage="included_in_input", **kw)
+    def record_patch_bound(self, **kw: Any) -> Dict[str, Any]: return record_telemetry_event(self.store_path, stage="patch_bound", **kw)
+    def report(self) -> Dict[str, Any]: return build_telemetry_report(self.store_path)
+    def render_report_json(self) -> str: return render_telemetry_report_json(self.store_path)
+    def load_frozen_ids(self) -> Set[str]: return load_frozen_ids(self.store_path)

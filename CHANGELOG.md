@@ -2,6 +2,18 @@
 
 All notable changes to `kintsugi-harness` are documented in this file.
 
+## [3.1.1] - 2026-11-26
+
+### Added & Hardened
+- **Zero-Dependency Cloud Sandbox Edition (`cloud-sandbox/`):**
+  - Hardened standalone Python `3.9+` stdlib edition with pinned SHA-256 GitHub self-updater (`bootstrap.py --require-pin --require-full-sha --expected-bootstrap-sha256 ... --expected-manifest-sha256 ...`), POSIX `dir_fd` (`O_NOFOLLOW`) safe extraction, offline `.tar.gz`/`.zip` archive fallback (`--source-archive`), and clean-environment boot smoke verification prior to atomic swap.
+  - Added **2-Process OS Subprocess IPC Truth Gate** (Python and Node.js isolated runners with runtime-counted assertions) verifying real `BROKEN -> FIXED` state transitions inside the 5-gate closed-loop scar evolution pipeline.
+  - Upgraded the sandbox AST+regex security scanner with `INCOMPLETE_SCAN` fail-closed defaults, exact rational `fractions.Fraction` financial conservation/FX/tick verification, and a read-only transaction policy guard (`tx-guard`).
+- **Apache-2.0 Open Source Cleanup & CI Reliability (`.github/workflows/ci-and-arena-verification.yml`, `README.md`, `AGENTS.md`, `CLAUDE.md`):**
+  - Rewrote `README.md` into a concise, developer-first Apache-2.0 open-source reference covering OpenAI Codex CLI (`~/.codex/config.toml`), Claude Code, Cursor, Windsurf, Cline, Zed, MCP (`kintsugi mcp --profile v3`), and optional local-only BYOK multi-model review (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`).
+  - Removed legacy tiered paywall pricing copy, external token-provisioning flows, and unreleased model codenames across docs, rules, and skill templates.
+  - Hardened `.github/workflows/ci-and-arena-verification.yml` with `timeout-minutes: 45` on both jobs, `PYTHONDONTWRITEBYTECODE: "1"` in the pytest step, and hybrid `test` (masks `0,1,2,4,8,16,31`) + `check --all-targets` (remaining 25 masks) on `aarch64-apple-darwin` while keeping the full 32-mask `cargo +stable test` powerset on Linux `x86_64` and `aarch64` runners.
+
 ## [3.0.1] - 2026-11-25
 
 ### Security & Soundness Hardening
@@ -95,7 +107,7 @@ All notable changes to `kintsugi-harness` are documented in this file.
 - **OpenMontage Cinema Director's Cut Extension Package (`@OPENMONTAGE_CINEMA/1` — `src/kintsugi/cinema.py`, `kintsugi cinema`, and MCP tool `kintsugi_cinema_produce`):**
   - **Live 3-Minute Director's Cut Demo Video Showcase:** Published full 24-shot (`180.0s`) showcase at `https://www.youtube.com/watch?v=tfo2QYUU-c8`.
   - **Hardened On-Demand OpenMontage Auto-Puller (`OpenMontagePackageManager` · `I-PULL-1..8`):** Automatically clones `https://github.com/calesthio/OpenMontage.git` into `.kintsugi/extensions/openmontage/` with git hooks, submodules, symlinks, and file protocols disabled (`-c core.hooksPath=/dev/null -c submodule.recurse=false -c core.symlinks=false -c protocol.file.allow=never`), strips symlink escapes, and mounts the `kintsugi-directors-cut-v4.yaml` chapter-chunked pipeline definition.
-  - **Multi-Provider Video Generation Router (`MultiProviderVideoRouter` · `I-R-1..7`):** Supports `veo` (`Google Veo 3.1 Quality`), `muse` (`Open-Weights Engine 2B Free Pool`), `kling` (`Kling 2.0 Master`), `runway` (`Runway Gen-3 Alpha Turbo`), `luma` (`Luma Ray2`), `pika` (`Pika 2.2`), `hailuo` (`Hailuo MiniMax Director`), `sora` (`OpenAI Sora`), and `wan` (`Alibaba Wan 2.1 Open-Source`), with runtime `capabilities()` and non-stretching `chapter_subchunks` (`playback_rate = 1.0`).
+  - **Multi-Provider Video Generation Router (`MultiProviderVideoRouter` · `I-R-1..7`):** Supports `veo` (`Google Veo 3.1 Quality`), `muse` (`Open-Weights Keyframe Engine`), `kling` (`Kling 2.0 Master`), `runway` (`Runway Gen-3 Alpha Turbo`), `luma` (`Luma Ray2`), `pika` (`Pika 2.2`), `hailuo` (`Hailuo MiniMax Director`), `sora` (`OpenAI Sora`), and `wan` (`Alibaba Wan 2.1 Open-Source`), with runtime `capabilities()` and non-stretching `chapter_subchunks` (`playback_rate = 1.0`).
   - **Dual Visual Style Optimizer (`VisualStyleOptimizer` · `I-S-1..4`):** Optimizes prompts, camera/lens physics, and deterministic RGB LUTs for user-selected `live_action` (Photorealistic Human Cinema on ARRI Alexa LF + `LUT_KODAK_2383_ARRI_ALEXA_LF_V4`) vs `animation` (2D/3D Studio Animation + `LUT_ANIMATION_CEL_VIBRANCE_V4`), strictly isolating positive DNA from `negative_guardrail` and stripping control/prompt-injection sequences.
   - **Mandatory 6-Gate Component Video QA Verifier (`ComponentVideoQAVerifier`):** Enforces (1) Script-to-Frame Discrepancy Verification, (2) Borderless Frame Hygiene (`0%` 35mm sprocket holes), (3) Character Wardrobe & Collar DNA Lock (`LONG-SLEEVED full-length sleeves buttoned at wrists`, `clean bare throat`, `0` logos), (4) Visual Style Fidelity, (5) Inter-Frame Motion Energy Integrity (`0` frozen clips), and (6) Integer-Tick Audio-First Sync (`|video_ticks - audio_ticks| <= 1` frame) + sample-exact J-cut (`-16320` samples @ 48kHz) / L-cut (`+21600` samples @ 48kHz) timeline bridges.
   - **Self-Evolving Filmmaking Engine (`CinemaEvolutionEngine` · `@CINEMA_EVOLVE/1`):** Seeded with 12 battle-tested Cinema Golden Scars (`CS-001`..`CS-012`) distilled from 4 rounds of Multi-Agent Council audits, emitting a 4-hash cryptographic `certificate_bundle` (`pull_pin_hash`, `adapter_capabilities_hash`, `gate_certificate_hash`, `scar_set_hash`).
@@ -151,8 +163,8 @@ All notable changes to `kintsugi-harness` are documented in this file.
 ## [1.4.0] - 2026-11-06
 
 ### Added
-- **3-Tier Multi-Model Co-Execution & BYOK Paid Frontier Council (`src/kintsugi/council.py`):**
-  - Enforces `APACHE_2_OPEN_SOURCE` (`Primary + 1 Free Model`), `APACHE_2_OPEN_SOURCE` (`Primary + 2..5 Free Models`), and `APACHE_2_OPEN_SOURCE` (`Primary + 5 Free Models + 6-Seat BYOK Paid Frontier Council`) with automatic HTTP 429 failover.
+- **Optional BYOK Multi-Model Co-Review (`src/kintsugi/council.py`):**
+  - Supports optional multi-provider Bring-Your-Own-Key (BYOK) co-execution (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`) with automatic HTTP 429 failover and local `0600` credential storage.
 - **Zero-Loss Anti-Overflow Conversation Compactor (`src/kintsugi/compactor.py` — `kintsugi compact`):**
   - Deterministically strips polling loops, superseded file reads, and verbose logs while preserving 100% of hard anchors and Excel/CSV tabular summaries.
 
@@ -160,7 +172,7 @@ All notable changes to `kintsugi-harness` are documented in this file.
 
 ### Added
 - **2-Team Adversarial Harness Arena (`src/kintsugi/swarm.py` — `RedBlueAdversarialArena` & `kintsugi swarm --red-blue-arena`):**
-  - Splits High-Reasoning Council #1 into **⚔️ Red Team (`Grok-3 [xhigh]` + `GPT-5.4 [max]`)** and **🛡️ Blue Team (`GPT-5.4 [Thinking effort: Pro]` + `gpt-5.4 [max]` + Deterministic `v1.3.0` Engine)** across 5 live adversarial campaigns (`ATK-CEGIS-001`..`ATK-PROMO-005`), achieving `5/5` (`100.0%`) containment (`@ARENA/1|ver=1.3.0|campaigns=5/5|containment=100.0%|invariant=KL-HIGH-001|status=PASS`).
+  - Splits adversarial verification into **Red Team** and **Blue Team** (deterministic `v1.3.0` engine + optional BYOK frontier reviewers) across 5 adversarial campaigns (`ATK-CEGIS-001`..`ATK-PROMO-005`), achieving `5/5` (`100.0%`) containment (`@ARENA/1|ver=1.3.0|campaigns=5/5|containment=100.0%|invariant=KL-HIGH-001|status=PASS`).
 - **Lakatosian Proof-And-Refutations CEGIS Loop (`src/kintsugi/foresight.py` — `LakatosCEGISVerifier`):**
   - Enforces 4-state verdict lattice (`PROVED` / `CONDITIONAL` / `REFUTED` / `SURRENDER`), preserves original domain counterexamples in `preserved_original_refutations` when domain cuts occur, and blocks monster-barring (`coverage < c_min` or `domain_cuts` present -> `CONDITIONAL`, never `PROVED`).
 - **4-State Sound Symbolic Path & Interval Constraint Solver (`src/kintsugi/grounding.py` — `SoundSymbolicPathSolver`):**
@@ -170,7 +182,7 @@ All notable changes to `kintsugi-harness` are documented in this file.
 - **Strictly Proper Brier Score & Uncentered Second-Moment Shrinkage Pool (`src/kintsugi/swarm.py` — `BrierMomentShrinkagePool`):**
   - Enforces append-only `before_tick` filtration, abstention baseline penalty $\mathrm{BS}_0 = 0.25$, and simplex optimization over the uncentered second-moment shrinkage matrix $\widehat{M}_\gamma = (1-\gamma)\frac{1}{n}\sum e_i e_i^\top + \gamma T$ to capture both variance and squared bias.
 - **Supreme Epistemic Invariant `KL-HIGH-001` (`src/kintsugi/cognition.py` & `enforce_kl_high_001_promotion_guard`):**
-  - Synthesized by `gpt-5.4` (`Thinking effort: Pro`): forbids promoting `UNKNOWN`, `SURRENDER`, `CONDITIONAL` (domain-cut), `SCM_EVALUATED_CONDITIONAL`, or `EMPIRICAL_CONFIDENCE` into universal `PROVED` (`41` verified Tier-1 Frontier lessons in `collective-pool/`).
+  - Forbids promoting `UNKNOWN`, `SURRENDER`, `CONDITIONAL` (domain-cut), `SCM_EVALUATED_CONDITIONAL`, or `EMPIRICAL_CONFIDENCE` into universal `PROVED` (`41` verified frontier lessons in `collective-pool/`).
 
 ## [1.2.0] - 2026-11-05
 
@@ -190,8 +202,8 @@ All notable changes to `kintsugi-harness` are documented in this file.
 ## [1.1.0] - 2026-11-05
 
 ### Added
-- **Consent-Gated Free-Agent Pool & Condorcet-BFT Accuracy Engine (`src/kintsugi/swarm.py` — `ConsentGatedBYOKPoolManager` & `@POOL/1`):**
-  - Explicit 4-state user consent machine (`AWAITING_USER_CONSENT` -> `USER_PROVIDED_KEY` / `VERIFIED_ACTIVE_POOL` -> `REVOKED`) for binding orthogonal Shadow Clones to distinct `$0` no-card free model families (`12.5x` Condorcet BFT error reduction).
+- **Consent-Gated Multi-Model Review Pool & Condorcet-BFT Accuracy Engine (`src/kintsugi/swarm.py` — `@POOL/1`):**
+  - Explicit 4-state user consent machine (`AWAITING_USER_CONSENT` -> `USER_PROVIDED_KEY` / `VERIFIED_ACTIVE_POOL` -> `REVOKED`) for binding orthogonal Shadow Clones to distinct user-configured BYOK model families (`12.5x` Condorcet BFT error reduction).
 
 ## [1.0.0] - 2026-11-05
 
@@ -213,7 +225,7 @@ All notable changes to `kintsugi-harness` are documented in this file.
 - **Native Rust Core Engine (`Cargo.toml`, `rust/src/lib.rs`, `rust/src/main.rs` — `kintsugi-rs`):** Zero-dependency (`std`-only) Rust CLI and library delivering `9.6 µs/call` scan latency, `< 0.5ms` Claude Code `PreToolUse` JSON hook evaluation, `git diff --staged` hunk filtering, and `kintsugi-rs bench`.
 - **`KMI/1` (Kintsugi Micro-Index v1) Ultra-Low-Token Compression (`src/kintsugi/compressor.py`):** Compiles Golden Scars into a versioned `~209-token` wire header (`kintsugi compile --compact` & `kintsugi token-report`), cutting per-turn `CLAUDE.md` / `AGENTS.md` context consumption by **`93.7%`** (`~156,050 tokens` saved per 50-turn session) while expanding full rules Just-In-Time (JIT) on `PreToolUse` violation.
 - **Security & Agent Readiness Posture Auditor (`src/kintsugi/auditor.py` — `kintsugi audit`):** Computes a deterministic `0–100` score (`Grade A+` to `F`) with Markdown scorecard tables and Shields.io badges.
-- **Open-Core Skill Pack Installer & Auto-Remediation Engine (`src/kintsugi/packs.py` & `src/kintsugi/autofix.py`):** Added `kintsugi install-pack <bundle.zip>`, `kintsugi list-packs`, and `kintsugi autofix [--apply]` to load external/Pro Skill Packs, `.claude/commands/` workflows, and deterministic codemod playbooks.
+- **Skill Pack Installer & Auto-Remediation Engine (`src/kintsugi/packs.py` & `src/kintsugi/autofix.py`):** Added `kintsugi install-pack <bundle.zip>`, `kintsugi list-packs`, and `kintsugi autofix [--apply]` to load external Skill Packs, `.claude/commands/` workflows, and deterministic codemod playbooks.
 
 ## [0.2.0] - 2026-11-05
 

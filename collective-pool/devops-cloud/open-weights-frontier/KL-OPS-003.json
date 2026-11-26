@@ -19,12 +19,12 @@
   "good_code": "await client.send('Page.navigate', { url: 'about:blank' });\nawait client.send('Storage.clearDataForOrigin', { origin, storageTypes: 'indexeddb,local_storage,cache_storage,service_workers' });",
   "regex_pattern": "MISSING_INDEXEDDB_ORIGIN_CLEAR",
   "ast_rule": null,
-  "synthesized_by_model": "meta-muse-spark",
+  "synthesized_by_model": "open-weights-frontier",
   "model_family": "open-weights-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "meta-muse-spark",
-    "Grok-3"
+    "open-weights-frontier",
+    "grok-3"
   ],
   "reinforcement_count": 17,
   "source_repo": "local-episodic",

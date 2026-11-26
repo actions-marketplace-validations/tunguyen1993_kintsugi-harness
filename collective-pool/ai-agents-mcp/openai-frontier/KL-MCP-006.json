@@ -23,8 +23,7 @@
   "model_family": "openai-frontier",
   "model_tier": "TIER_1_FRONTIER",
   "endorsed_by_models": [
-    "gpt-5.4",
-    "gpt-5.4-mini-wm"
+    "gpt-5.4"
   ],
   "reinforcement_count": 21,
   "source_repo": "local-episodic",

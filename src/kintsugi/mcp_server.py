@@ -232,8 +232,8 @@ def _tool_definitions() -> list[Dict[str, Any]]:
             "name": "kintsugi_record_failure",
             "description": (
                 "Compile a runtime/test failure into a new self-verified Golden Scar and persist it into `.kintsugi/scars.json`. "
-                "Supports Tier-Gated Multi-Model Co-Execution (`co_run=True`): runs Primary Model + 1 Free Model on Free tier ($0), "
-                "Primary + 2..5 Free Models on Pro tier (Apache-2.0/Apache-2.0), and Primary + Free Models + BYOK Paid Frontier Council on Enterprise Pro (Apache-2.0)."
+                "Supports Apache-2.0 Open-Source Multi-Model Co-Execution (`co_run=True`): runs Primary Model alongside "
+                "local/BYOK co-runners (up to 5 seats) and optional user-supplied BYOK Official Provider Council seats."
             ),
             "annotations": {
                 "title": "Record Failure & Evolve Golden Scar",
@@ -254,16 +254,16 @@ def _tool_definitions() -> list[Dict[str, Any]]:
                     "workspace_root": {"type": "string", "default": "."},
                     "co_run": {
                         "type": "boolean",
-                        "description": "Always run Primary Anchor model alongside discovered $0 Free model(s)",
+                        "description": "Run Primary Anchor model alongside local/BYOK co-runner(s)",
                         "default": False,
                     },
                     "free_runners": {
                         "type": "integer",
-                        "description": "Requested number of $0 Free Co-Runners (locked to 1 on Free tier, up to 5 on Pro/Enterprise)",
+                        "description": "Requested number of local/BYOK co-runners (1..5 parallel seats, Apache-2.0 unlocked)",
                     },
                     "paid_council": {
                         "type": "boolean",
-                        "description": "Include user-supplied BYOK Paid Frontier Council seats (requires Complete Corpus Pack Apache-2.0)",
+                        "description": "Include user-supplied BYOK official Frontier Council seats",
                         "default": False,
                     },
                 },
@@ -294,38 +294,27 @@ def _tool_definitions() -> list[Dict[str, Any]]:
         {
             "name": "kintsugi_multi_model_guide",
             "description": (
-                "Interactive Bilingual (Vietnamese/English) User Onboarding, Q&A Guide, and Autonomous $0 DeepSeek Free "
-                "Token Collector. Call this tool whenever the user asks how to use Multi-Model Co-Execution, how many Free models "
-                "their edition supports (Free=1, Pro=2..5, Enterprise=5+6 BYOK Paid), how to add their own "
-                "API keys (`BYOK`) for the Paid Frontier Council, or pass `auto_configure-byok=true` to autonomously "
-                "register a disposable example.invalid inbox and mint a live $0 DeepSeek-R1 (262K) API key."
+                "Interactive User Onboarding & BYOK Multi-Model Configuration Guide (Apache-2.0 Open Source). "
+                "Call this tool whenever the user asks how to use Multi-Model Co-Execution, how to configure "
+                "official provider API keys (OpenAI, Anthropic, Google Gemini, DeepSeek, OpenRouter), "
+                "or how to run 100% offline with local Ollama models."
             ),
             "annotations": {
-                "title": "Multi-Model Council Guide & Free Token Collector",
+                "title": "Multi-Model BYOK & Local Setup Guide",
                 "readOnlyHint": True,
                 "destructiveHint": False,
                 "idempotentHint": True,
-                "openWorldHint": True,
+                "openWorldHint": False,
             },
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "Natural-language question asked by the user (e.g. 'làm sao thêm key hội đồng thu phí?')",
+                        "description": "Natural-language question asked by the user (e.g. 'How do I add OpenAI and Anthropic BYOK keys?')",
                         "default": "",
                     },
                     "workspace_root": {"type": "string", "default": "."},
-                    "auto_configure-byok": {
-                        "type": "boolean",
-                        "description": "Set to true when the user asks the Agent to automatically register and mint a real $0 DeepSeek Free API key.",
-                        "default": False,
-                    },
-                    "deepseek_count": {
-                        "type": "integer",
-                        "description": "Number of independent DeepSeek Free accounts/tokens to register (1..5).",
-                        "default": 1,
-                    },
                 },
             },
         },
@@ -442,7 +431,7 @@ def _tool_definitions() -> list[Dict[str, Any]]:
             "description": (
                 "OpenMontage Cinema Director's Cut Extension Package (`@OPENMONTAGE_CINEMA/1` · `kintsugi cinema`). "
                 "Autonomously pulls/sandboxes `calesthio/OpenMontage`, routes video generation across Google Veo 3.1, "
-                "Open-Weights Engine, Kling, Runway, Luma, Pika, Hailuo, Sora, and Wan, optimizes visual prompts & LUTs for "
+                "Open-Weights Keyframe Engine (`muse`), Kling, Runway, Luma, Pika, Hailuo, Sora, and Wan, optimizes visual prompts & LUTs for "
                 "user-selected `live_action` (Photorealistic Human Cinema on ARRI Alexa LF + Kodak 2383 LUT) vs `animation` "
                 "(2D/3D Studio Cel LUT), runs mandatory 6-Gate Component Video QA (Script-to-Frame Discrepancy Verifier, "
                 "Borderless Hygiene, Wardrobe/Collar DNA Lock, Style Fidelity, Motion Energy, and Integer-Tick Audio-First Sync), "
@@ -1018,15 +1007,6 @@ class KintsugiMCPServer:
 
         if name == "kintsugi_multi_model_guide":
             root = str(args.get("workspace_root") or ".")
-            if bool(args.get("auto_configure-byok", False)):
-                from kintsugi.swarm import ConsentGatedBYOKPoolManager
-
-                cnt = int(args.get("deepseek_count") or 1)
-                return ConsentGatedBYOKPoolManager(root).auto_configure-byok(
-                    confirmed_by_user=True,
-                    count=cnt,
-                    verify_chat=True,
-                )
             question = str(args.get("question") or "")
             return answer_user_multi_model_question(question=question, workspace_root=root)
 

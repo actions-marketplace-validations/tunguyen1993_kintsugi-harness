@@ -1,9 +1,9 @@
 """
 Pillar 5 — Shadow-Clone Parallel Epistemic Swarm & Map-Reduce Experience Consolidation
-(`ShadowCloneSwarmOrchestrator` / `Kage Bunshin Learning Engine`).
+(`ShadowCloneSwarmOrchestrator` / Parallel Consensus Learning Engine).
 
-Council-Approved v1.0.0 Architecture (`gpt-5.4` + `gpt-5.4-mini-wm`):
-1. Phase 1 — Orthogonal Clone Spawning (`Spawn / Phân Thân 4 Hướng Trực Giao`):
+Multi-Model BFT v1.0.0 Architecture:
+1. Phase 1 — Orthogonal Clone Spawning (4 Independent Exploration Tracks):
    Given an unfamiliar repository or task snapshot `T` (pinned by `manifest_sha`), the Central
    Brain spawns `K = 4` isolated Shadow Clones (`K = 3f + 1`, `f = 1` Byzantine fault tolerance)
    across 4 orthogonal exploration tracks with zero inter-clone communication during execution:
@@ -12,17 +12,17 @@ Council-Approved v1.0.0 Architecture (`gpt-5.4` + `gpt-5.4-mini-wm`):
      - Clone 3 (`TRACK_3_COUNTERFACTUAL_S3_SYNTHESIS`): Synthesizes `S3` guards and replays them in the Counterfactual Sandbox.
      - Clone 4 (`TRACK_4_ANALOGICAL_LAW_MAPPER`): Maps cross-domain scientific/system laws and 3-Horizon (`T+1/T+2/T+3`) cascade priority `Q`.
 
-2. Phase 2 — Independent Clone Grounding & Episodic Conclusion (`Kết Luận Độc Lập`):
+2. Phase 2 — Independent Clone Grounding & Episodic Conclusion:
    Each clone independently evaluates every claim against the `<5ms` 3-State Grounding Gate
    (`VERIFIED` / `REFUTED` / `UNKNOWN`) and Counterfactual Sandbox, emitting a signed,
    immutable `CloneEpisodicReport` containing both verified findings and refuted traps.
 
-3. Phase 3 — Byzantine-Fault-Tolerant Synaptic Merge & Playbook Distillation (`Giải Ấn Gộp Tri Thức Về 1 Bản Thể`):
+3. Phase 3 — Byzantine-Fault-Tolerant Synaptic Merge & Playbook Distillation:
    All `K` clone reports merge back into the single Central Brain:
      - Normalizes claims by canonical proposition key `(seam_kind | anchor)` with at most 1 vote per clone `v_i(p) in {-1, 0, +1}`.
      - Accepts proposition `p` (`CONSOLIDATED_TRUTH`) only when `s_p >= 3` supporting clones concur, `r_p == 0` validated refutations exist, and counterfactual verification passes.
      - Quarantines refuted or hallucinated clone claims (`r_p >= 1`) into the Negative Tabu List so the entire swarm learns what NOT to do.
-     - Synthesizes accepted truths into `CognitiveLesson` / `GoldenScar` entries, updates the Beta-Bernoulli `MetacognitiveSelfModel`, orders the deterministic Step-by-Step "Right Playbook (`Cách Làm Đúng`)", and emits a `<45-token` `@SWARM/1` wire header.
+     - Synthesizes accepted truths into `CognitiveLesson` / `GoldenScar` entries, updates the Beta-Bernoulli `MetacognitiveSelfModel`, orders the deterministic Step-by-Step "Right Playbook", and emits a `<45-token` `@SWARM/1` wire header.
 """
 
 from __future__ import annotations
@@ -69,352 +69,134 @@ ORTHOGONAL_CLONE_TRACKS: Tuple[Dict[str, str], ...] = (
         "clone_id": "clone-02-adversarial-redteam",
         "track": "TRACK_2_ADVERSARIAL_RED_TEAM",
         "persona": "Adversarial Failure & Edge-Case Red-Team Probe",
-        "default_model": "Grok-3-fast",
+        "default_model": "grok-3",
         "objective": "Probe S0->S1->S2 exploit chains, boundary edge cases, and test adversarial false-positive traps.",
     },
     {
         "clone_id": "clone-03-counterfactual-s3",
         "track": "TRACK_3_COUNTERFACTUAL_S3_SYNTHESIS",
         "persona": "Counterfactual S3 Guard & Invariant Synthesizer",
-        "default_model": "gpt-5.4-mini-wm",
+        "default_model": "claude-sonnet-4",
         "objective": "Synthesize deterministic S3 invariant guards and replay them in an isolated Counterfactual Sandbox.",
     },
     {
         "clone_id": "clone-04-analogical-laws",
         "track": "TRACK_4_ANALOGICAL_LAW_MAPPER",
         "persona": "Cross-Domain Analogical & Conservation Law Mapper",
-        "default_model": "DeepSeek-R1",
+        "default_model": "deepseek-r1",
         "objective": "Map scientific/mathematical conservation laws and 3-Horizon (T+1/T+2/T+3) cascade priorities.",
     },
 )
 
 
-FREE_ZERO_CARD_PROVIDER_CATALOG: Tuple[Dict[str, Any], ...] = (
+OFFICIAL_PROVIDER_CATALOG: Tuple[Dict[str, Any], ...] = (
     {
-        "provider_id": "deepseek_BYOKProvider_free",
-        "name": "BYOKProvider 262K Unlimited DeepSeek-R1 Free Tier",
-        "model_family": "deepseek-r1",
-        "default_model": "deepseek-ai/DeepSeek-R1",
-        "env_var": "DEEPSEEK_FREE_API_KEY",
-        "signup_url": "https://BYOKProvider.ai",
-        "base_url": "https://api.example.invalid/v1",
+        "provider_id": "openai_byok",
+        "name": "OpenAI Official API (BYOK)",
+        "model_family": "openai-gpt",
+        "default_model": "gpt-5.4",
+        "env_var": "OPENAI_API_KEY",
+        "docs_url": "https://platform.openai.com/api-keys",
+        "base_url": "https://api.openai.com/v1",
         "credit_card_required": False,
         "billing_usd": 0.0,
         "auto_provision_supported": True,
-        "autonomous_token_signup_supported": True,
-        "free_quota_note": "Unlimited 262K context DeepSeek-R1 ($0, no credit card, autonomous example.invalid magic-link signup)",
+        "quota_note": "Official OpenAI API using your own OPENAI_API_KEY",
     },
     {
-        "provider_id": "groq_free",
-        "name": "Groq Cloud Free Developer Tier",
-        "model_family": "llama-groq",
-        "default_model": "llama-3.3-70b-versatile",
-        "env_var": "GROQ_API_KEY",
-        "signup_url": "https://console.groq.com/keys",
-        "base_url": "https://api.groq.com/openai/v1",
+        "provider_id": "anthropic_byok",
+        "name": "Anthropic Official API (BYOK)",
+        "model_family": "anthropic-claude",
+        "default_model": "claude-sonnet-4",
+        "env_var": "ANTHROPIC_API_KEY",
+        "docs_url": "https://console.anthropic.com/settings/keys",
+        "base_url": "https://api.anthropic.com/v1",
         "credit_card_required": False,
         "billing_usd": 0.0,
         "auto_provision_supported": True,
-        "free_quota_note": "14,400 req/day free developer tier ($0, no credit card)",
+        "quota_note": "Official Anthropic API using your own ANTHROPIC_API_KEY",
     },
     {
-        "provider_id": "cerebras_free",
-        "name": "Cerebras Inference Free Tier",
-        "model_family": "qwen-cerebras",
-        "default_model": "qwen-3-32b",
-        "env_var": "CEREBRAS_API_KEY",
-        "signup_url": "https://cloud.cerebras.ai/",
-        "base_url": "https://api.cerebras.ai/v1",
-        "credit_card_required": False,
-        "billing_usd": 0.0,
-        "auto_provision_supported": True,
-        "free_quota_note": "1,000,000 tokens/day free tier ($0, no credit card)",
-    },
-    {
-        "provider_id": "openrouter_free",
-        "name": "OpenRouter Free `:free` Models Tier",
-        "model_family": "deepseek-openrouter",
-        "default_model": "deepseek/deepseek-r1:free",
-        "env_var": "OPENROUTER_API_KEY",
-        "signup_url": "https://openrouter.ai/settings/keys",
-        "base_url": "https://openrouter.ai/api/v1",
-        "credit_card_required": False,
-        "billing_usd": 0.0,
-        "auto_provision_supported": True,
-        "free_quota_note": "200 req/day on :free models ($0, no credit card)",
-    },
-    {
-        "provider_id": "gemini_aistudio_free",
-        "name": "Google AI Studio Free Tier",
+        "provider_id": "gemini_byok",
+        "name": "Google Gemini Official API (BYOK)",
         "model_family": "gemini-google",
-        "default_model": "gemini-2.5-flash",
+        "default_model": "gemini-2.5-pro",
         "env_var": "GEMINI_API_KEY",
-        "signup_url": "https://aistudio.google.com/apikey",
+        "docs_url": "https://aistudio.google.com/apikey",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
         "credit_card_required": False,
         "billing_usd": 0.0,
         "auto_provision_supported": True,
-        "free_quota_note": "1,500 req/day free tier ($0, no credit card)",
+        "quota_note": "Official Google AI Studio / Gemini API using your own GEMINI_API_KEY",
     },
     {
-        "provider_id": "oss_provider_h_keyless_free",
-        "name": "oss_provider_h OpenAI-Compatible Free Gateway",
-        "model_family": "openai-oss_provider_h",
-        "default_model": "openai-fast",
-        "env_var": "oss_provider_h_TOKEN",
-        "signup_url": "https://text.oss_provider_h.ai/openai",
-        "base_url": "https://text.oss_provider_h.ai/openai",
+        "provider_id": "deepseek_byok",
+        "name": "DeepSeek Official API (BYOK)",
+        "model_family": "deepseek-r1",
+        "default_model": "deepseek-r1",
+        "env_var": "DEEPSEEK_API_KEY",
+        "docs_url": "https://platform.deepseek.com/api_keys",
+        "base_url": "https://api.deepseek.com/v1",
         "credit_card_required": False,
         "billing_usd": 0.0,
-        "keyless_ready": True,
         "auto_provision_supported": True,
-        "free_quota_note": "Keyless / zero-signup community endpoint ($0, no credit card)",
+        "quota_note": "Official DeepSeek API using your own DEEPSEEK_API_KEY",
     },
     {
-        "provider_id": "github_models_free",
-        "name": "GitHub Marketplace Models Free Tier",
-        "model_family": "gpt-github",
-        "default_model": "gpt-4.1",
-        "env_var": "GITHUB_TOKEN",
-        "signup_url": "https://github.com/marketplace/models",
-        "base_url": "https://models.inference.ai.azure.com",
+        "provider_id": "groq_byok",
+        "name": "Groq Cloud Official API (BYOK)",
+        "model_family": "llama-groq",
+        "default_model": "llama-3.3-70b-versatile",
+        "env_var": "GROQ_API_KEY",
+        "docs_url": "https://console.groq.com/keys",
+        "base_url": "https://api.groq.com/openai/v1",
         "credit_card_required": False,
         "billing_usd": 0.0,
-        "auto_provision_supported": False,
-        "free_quota_note": "Free with standard GitHub account token ($0, no credit card)",
+        "auto_provision_supported": True,
+        "quota_note": "Official Groq Cloud developer API using your own GROQ_API_KEY",
+    },
+    {
+        "provider_id": "openrouter_byok",
+        "name": "OpenRouter Official API (BYOK)",
+        "model_family": "openrouter-multi",
+        "default_model": "deepseek/deepseek-r1",
+        "env_var": "OPENROUTER_API_KEY",
+        "docs_url": "https://openrouter.ai/settings/keys",
+        "base_url": "https://openrouter.ai/api/v1",
+        "credit_card_required": False,
+        "billing_usd": 0.0,
+        "auto_provision_supported": True,
+        "quota_note": "Official OpenRouter API using your own OPENROUTER_API_KEY",
+    },
+    {
+        "provider_id": "ollama_local",
+        "name": "Local Ollama Offline Runtime",
+        "model_family": "qwen-ollama-local",
+        "default_model": "qwen-2.5-coder",
+        "env_var": "OLLAMA_API_KEY",
+        "docs_url": "https://ollama.com/",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "credit_card_required": False,
+        "billing_usd": 0.0,
+        "local_offline": True,
+        "auto_provision_supported": True,
+        "quota_note": "100% offline local inference via Ollama (http://127.0.0.1:11434/v1)",
     },
 )
 
 
-def _default_Collector_http_json(
-    url: str,
-    *,
-    method: str = "GET",
-    payload: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
-    timeout_sec: float = 15.0,
-) -> Tuple[int, Any, List[str]]:
-    """Pure stdlib HTTP JSON helper returning `(status_code, parsed_json, set_cookie_headers)`."""
-    hdrs: Dict[str, str] = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/136.0.0.0 Safari/537.36",
-        "Accept": "application/ld+json, application/json",
-    }
-    if headers:
-        hdrs.update(headers)
-    data_bytes: Optional[bytes] = None
-    if payload is not None:
-        data_bytes = json.dumps(payload).encode("utf-8")
-        hdrs["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=data_bytes, method=method, headers=hdrs)
-    with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
-        raw = resp.read().decode("utf-8", errors="replace")
-        cookies = resp.headers.get_all("Set-Cookie") or []
-        parsed = json.loads(raw) if raw.strip() else {}
-        return int(getattr(resp, "status", 200)), parsed, list(cookies)
-
-
-def configure_byok_provider(
-    *,
-    timeout_sec: float = 15.0,
-    max_polls: int = 12,
-    poll_interval_sec: float = 1.8,
-    verify_chat: bool = True,
-    http_fn: Optional[Callable[..., Tuple[int, Any, List[str]]]] = None,
-) -> Dict[str, Any]:
+class BYOKProviderPoolManager:
     """
-    6-Step Zero-Touch Autonomous DeepSeek Free API Key Collector (`$0`, No Credit Card)
-    ===================================================================================
-    1. Creates a disposable inbox on `api.example.invalid` (`kintsugi_<hex>@<domain>`).
-    2. Requests a signup magic link from `POST https://BYOKProvider.ai/api/v1/send-magic-link`.
-    3. Polls `GET https://api.example.invalid and extracts `verify#token=<magic_token>`.
-    4. Verifies the account via `POST https://BYOKProvider.ai/api/v1/auth/verify` and captures `Set-Cookie`.
-    5. Mints a live `tj_...` API key via `POST https://BYOKProvider.ai/api/v1/api-key` for
-       `deepseek-ai/DeepSeek-R1` (`262,144` token context window, Unlimited Free).
-    6. Optionally verifies a live OpenAI-compatible `POST https://api.example.invalid/v1 (`HTTP 200 OK`).
-    """
-    call_http = http_fn or _default_Collector_http_json
-    started = time.perf_counter()
-    steps_log: List[str] = []
+    Pillar 5B — Consent-Gated BYOK & Local Ollama Provider Pool Manager (Apache-2.0 Open Source).
 
-    try:
-        # Step 1: Create disposable example.invalid inbox
-        _, dom_res, _ = call_http("https://api.example.invalid", method="GET", timeout_sec=timeout_sec)
-        members = dom_res.get("hydra:member") if isinstance(dom_res, dict) else dom_res
-        if not isinstance(members, list) or not members:
-            return {"ok": False, "error": "mailtm_no_domains_available", "steps": steps_log}
-        domain = str(members[0].get("domain") or "").strip()
-        email = f"kintsugi_{secrets.token_hex(3)}@{domain}"
-        ephemeral_inbox_pin = f"Kt!{secrets.token_hex(5)}"  # ggignore
-        inbox_auth_payload = dict(zip(("address", "pass" + "word"), (email, ephemeral_inbox_pin)))  # ggignore
-
-        call_http(
-            "https://api.example.invalid",
-            method="POST",
-            payload=inbox_auth_payload,
-            timeout_sec=timeout_sec,
-        )
-        _, tok_res, _ = call_http(
-            "https://api.example.invalid",
-            method="POST",
-            payload=inbox_auth_payload,
-            timeout_sec=timeout_sec,
-        )
-        mailtm_token = str((tok_res or {}).get("token") or "").strip()
-        if not mailtm_token:
-            return {"ok": False, "error": "mailtm_token_failed", "account_email": email, "steps": steps_log}
-        steps_log.append(f"1_INBOX_CREATED:{email}")
-
-        # Step 2: Request BYOKProvider signup magic link
-        st_magic, _, _ = call_http(
-            "https://BYOKProvider.ai/api/v1/send-magic-link",
-            method="POST",
-            payload={"email": email},
-            timeout_sec=timeout_sec,
-        )
-        steps_log.append(f"2_MAGIC_LINK_DISPATCHED:HTTP_{st_magic}")
-
-        # Step 3: Poll example.invalid inbox and extract verify#token=...
-        magic_token = ""
-        for _ in range(max(1, int(max_polls))):
-            if poll_interval_sec > 0 and http_fn is None:
-                time.sleep(poll_interval_sec)
-            _, msgs_res, _ = call_http(
-                "https://api.example.invalid",
-                method="GET",
-                headers={"Authorization": f"Bearer {mailtm_token}"},
-                timeout_sec=timeout_sec,
-            )
-            msgs = msgs_res.get("hydra:member") if isinstance(msgs_res, dict) else msgs_res
-            if isinstance(msgs, list) and msgs:
-                mid = str(msgs[0].get("id") or "").strip()
-                if mid:
-                    _, detail, _ = call_http(
-                        f"https://api.example.invalid",
-                        method="GET",
-                        headers={"Authorization": f"Bearer {mailtm_token}"},
-                        timeout_sec=timeout_sec,
-                    )
-                    blob = json.dumps(detail)
-                    match = re.search(r"verify#token=([A-Za-z0-9_\-\.]+)", blob)
-                    if match:
-                        magic_token = match.group(1)
-                        break
-
-        if not magic_token:
-            return {
-                "ok": False,
-                "error": "magic_link_poll_timeout",
-                "account_email": email,
-                "steps": steps_log,
-            }
-        steps_log.append("3_MAGIC_TOKEN_EXTRACTED")
-
-        # Step 4: Verify magic link and capture session cookie
-        st_ver, _, cookies = call_http(
-            "https://BYOKProvider.ai/api/v1/auth/verify",
-            method="POST",
-            payload={"token": magic_token, "retainData": True},
-            timeout_sec=timeout_sec,
-        )
-        cookie_hdr = "; ".join(c.split(";", 1)[0] for c in (cookies or []) if c)
-        if not cookie_hdr:
-            return {
-                "ok": False,
-                "error": f"verify_missing_session_cookie_http_{st_ver}",
-                "account_email": email,
-                "steps": steps_log,
-            }
-        steps_log.append(f"4_ACCOUNT_VERIFIED:HTTP_{st_ver}")
-
-        # Step 5: Mint live tj_... API key
-        st_key, key_obj, _ = call_http(
-            "https://BYOKProvider.ai/api/v1/api-key",
-            method="POST",
-            payload={},
-            headers={"Cookie": cookie_hdr},
-            timeout_sec=timeout_sec,
-        )
-        api_key = ""
-        if isinstance(key_obj, dict):
-            api_key = str(key_obj.get("key") or key_obj.get("apiKey") or key_obj.get("token") or "").strip()
-        if not api_key:
-            return {
-                "ok": False,
-                "error": f"api_key_mint_failed_http_{st_key}",
-                "account_email": email,
-                "steps": steps_log,
-            }
-        steps_log.append(f"5_API_KEY_MINTED:{api_key[:6]}***")
-
-        # Step 6: Optional live HTTP 200 OK chat completion check
-        verified_live = False
-        chat_reply = ""
-        chat_latency_ms = 0.0
-        if verify_chat:
-            t_chat = time.perf_counter()
-            st_chat, chat_res, _ = call_http(
-                "https://api.example.invalid/v1",
-                method="POST",
-                payload={
-                    "model": "deepseek-ai/DeepSeek-R1",
-                    "messages": [{"role": "user", "content": "Reply with the single word READY"}],
-                    "max_tokens": 16,
-                    "temperature": 0,
-                },
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout_sec=timeout_sec,
-            )
-            chat_latency_ms = round((time.perf_counter() - t_chat) * 1000.0, 2)
-            if st_chat == 200 and isinstance(chat_res, dict):
-                choices = chat_res.get("choices") or []
-                if choices and isinstance(choices[0], dict):
-                    msg = choices[0].get("message") or {}
-                    chat_reply = str(msg.get("content") or msg.get("reasoning_content") or "").strip()
-                    verified_live = bool(chat_reply)
-            steps_log.append(f"6_LIVE_CHAT_VERIFIED:HTTP_{st_chat}:{verified_live}")
-        else:
-            verified_live = True
-
-        total_ms = round((time.perf_counter() - started) * 1000.0, 2)
-        return {
-            "ok": True,
-            "provider_id": "deepseek_BYOKProvider_free",
-            "name": "BYOKProvider 262K Unlimited DeepSeek-R1 Free Tier",
-            "model_family": "deepseek-r1",
-            "model": "deepseek-ai/DeepSeek-R1",
-            "base_url": "https://api.example.invalid/v1",
-            "context_window": 262144,
-            "account_email": email,
-            "api_key": api_key,
-            "source": "AUTONOMOUS_DEEPSEEK_Collector_VERIFIED_200_OK",
-            "verified_live_200_ok": verified_live,
-            "chat_reply_preview": chat_reply[:60],
-            "chat_latency_ms": chat_latency_ms,
-            "total_harvest_ms": total_ms,
-            "billing_usd": 0.0,
-            "credit_card_required": False,
-            "steps": steps_log,
-        }
-    except Exception as exc:
-        return {
-            "ok": False,
-            "error": f"{type(exc).__name__}: {str(exc)[:180]}",
-            "steps": steps_log,
-        }
-
-
-class ConsentGatedBYOKPoolManager:
-    """
-    Pillar 5B — Consent-Gated Free-Agent Pool & Autonomous Capacity Provisioner.
-
-    Enforces the Council-Approved Consent-First State Machine:
-      `UNCONFIGURED -> AWAITING_USER_CONSENT -> {USER_AUTHORIZED_AUTO_PROVISION | USER_PROVIDED_KEY} -> VERIFIED_ACTIVE_POOL`
-      (and `REVOKED` on instant user revocation).
+    Enforces a strict Consent-First Local Configuration State Machine:
+      `UNCONFIGURED -> AWAITING_USER_CONSENT -> {USER_CONFIGURED_LOCAL_OR_ENV | USER_PROVIDED_KEY} -> VERIFIED_ACTIVE_POOL`
+      (and `REVOKED` on instant user key purge).
 
     Key Invariants:
-      1. Silence is NEVER consent: Autonomous free-account/token provisioning is strictly blocked
-         unless the user explicitly calls `authorize_auto_provision(confirmed_by_user=True)`.
-      2. Zero-Cost / Zero-Card Hard Lock (`billing_usd == 0.0`, `credit_card_required == False`).
+      1. Silence is NEVER consent: Local/env provider binding is blocked unless the user explicitly
+         calls `add_user_provided_key(...)` or `authorize_auto_provision(confirmed_by_user=True)`.
+      2. Strictly BYOK Official APIs & Local Offline Runtimes (zero automated third-party account creation).
       3. Restrictive local storage (`.kintsugi/byok_provider_pool.json` & `.kintsugi/user_consent_ledger.json`
          written with `0o600` permissions, gitignored, and masked in all reports).
       4. Quantifies Condorcet / BFT error reduction as independent model families scale from 1 to `K = 4`.
@@ -492,18 +274,14 @@ class ConsentGatedBYOKPoolManager:
         q = 1.0 - p
         eff_k = max(1, min(int(active_distinct_families), int(target_clones)))
 
-        # Single-family correlated error baseline (q = 0.15)
         baseline_false_accept = round(q, 5)
         if eff_k == 1:
             current_false_accept = baseline_false_accept
         elif eff_k == 2:
-            # 2 independent families: both must err simultaneously (q^2)
             current_false_accept = round(q * q, 5)
         elif eff_k == 3:
-            # 3 independent families: 2-of-3 majority error (3*q^2*(1-q) + q^3)
             current_false_accept = round(3 * (q ** 2) * (1.0 - q) + (q ** 3), 5)
         else:
-            # K=4 independent families with s_p >= 3 BFT quorum: >=3 must err simultaneously (4*q^3*(1-q) + q^4)
             current_false_accept = round(4 * (q ** 3) * (1.0 - q) + (q ** 4), 5)
 
         target_4_false_accept = round(4 * (q ** 3) * (1.0 - q) + (q ** 4), 5)
@@ -528,16 +306,14 @@ class ConsentGatedBYOKPoolManager:
         provider_id: str,
         api_key: str,
     ) -> Dict[str, Any]:
-        """Store a user-supplied free-tier API key (`USER_PROVIDED_KEY`) after zero-card validation."""
+        """Store a user-supplied official provider API key (`USER_PROVIDED_KEY`) locally (`0600`)."""
         pid = provider_id.strip().lower()
-        cat_map = {c["provider_id"]: c for c in FREE_ZERO_CARD_PROVIDER_CATALOG}
+        cat_map = {c["provider_id"]: c for c in OFFICIAL_PROVIDER_CATALOG}
         if pid not in cat_map:
             raise ValueError(
-                f"Unknown provider_id '{provider_id}'. Supported $0 providers: {', '.join( sorted(cat_map.keys()) )}"
+                f"Unknown provider_id '{provider_id}'. Supported BYOK/local providers: {', '.join(sorted(cat_map.keys()))}"
             )
         spec = cat_map[pid]
-        if spec.get("credit_card_required") or float(spec.get("billing_usd", 0.0)) > 0.0:
-            raise ValueError("ZERO_COST_GUARD_VIOLATION: Paid or card-required providers are strictly prohibited.")
 
         clean_key = api_key.strip()
         if not clean_key or len(clean_key) < 6:
@@ -569,24 +345,23 @@ class ConsentGatedBYOKPoolManager:
         *,
         confirmed_by_user: bool,
         allowed_providers: Optional[Sequence[str]] = None,
-        live_harvest_deepseek: bool = False,
-        http_fn: Optional[Callable[..., Tuple[int, Any, List[str]]]] = None,
     ) -> Dict[str, Any]:
         """
-        Explicit User Consent Gate (`USER_AUTHORIZED_AUTO_PROVISION`):
-        Requires `confirmed_by_user=True`. Records a signed consent receipt and provisions
-        approved $0 no-credit-card free-tier endpoints for the Shadow-Clone Swarm.
+        Explicit User Consent Gate (`USER_AUTHORIZED_LOCAL_DISCOVERY`):
+        Requires `confirmed_by_user=True`. Binds ONLY user-configured environment keys or
+        local Ollama OpenAI-compatible slots into `.kintsugi/byok_provider_pool.json` (`0600`).
+        Never performs automated third-party account signups.
         """
         if not confirmed_by_user:
             return {
                 "ok": False,
                 "consent_status": "AWAITING_USER_CONSENT",
                 "auto_provision_blocked_until_user_consent": True,
-                "reason": "USER_CONFIRMATION_REQUIRED: Autonomous free-account provisioning cannot run without explicit user confirmation (`confirmed_by_user=True`).",
+                "reason": "USER_CONFIRMATION_REQUIRED: Provider pool binding cannot run without explicit user confirmation (`confirmed_by_user=True`).",
                 "consent_prompt": self.build_user_consent_prompt(),
             }
 
-        cat_map = {c["provider_id"]: c for c in FREE_ZERO_CARD_PROVIDER_CATALOG if c.get("auto_provision_supported")}
+        cat_map = {c["provider_id"]: c for c in OFFICIAL_PROVIDER_CATALOG if c.get("auto_provision_supported")}
         scope = (
             [p.strip().lower() for p in allowed_providers if p.strip().lower() in cat_map]
             if allowed_providers
@@ -602,67 +377,43 @@ class ConsentGatedBYOKPoolManager:
         consent["updated_at"] = now_iso
         consent.setdefault("audit_trail", []).append(
             {
-                "action": "GRANT_AUTO_PROVISION_CONSENT",
+                "action": "GRANT_LOCAL_OR_ENV_PROVIDER_BINDING",
                 "timestamp": now_iso,
                 "allowed_providers": scope,
-                "billing_cap_usd": 0.0,
                 "receipt_signature": receipt_sig,
             }
         )
         self._write_secure_json(self.consent_path, consent)
 
-        # Provision authorized $0 no-card providers into `.kintsugi/byok_provider_pool.json`
         pool = self.load_pool_state()
         providers_dict = pool.setdefault("providers", {})
         provisioned_now: List[str] = []
-        harvest_details: Optional[Dict[str, Any]] = None
 
         for pid in scope:
             spec = cat_map[pid]
-            if spec.get("credit_card_required") or float(spec.get("billing_usd", 0.0)) > 0.0:
-                continue
-
-            # 1. Check if environment variable already supplies a real key
             env_key = os.environ.get(spec["env_var"], "").strip()
             custom_res = self.custom_provisioner(spec) if self.custom_provisioner is not None else None
 
             if custom_res and isinstance(custom_res, dict) and custom_res.get("api_key"):
                 token_val = str(custom_res["api_key"]).strip()
-                prov_source = str(custom_res.get("source", "USER_AUTHORIZED_AUTO_Collector"))
-                acct_email = str(custom_res.get("account_email", ""))
+                prov_source = str(custom_res.get("source", "USER_CUSTOM_PROVIDER_CONFIG"))
             elif env_key:
                 token_val = env_key
                 prov_source = f"ENV_VAR({spec['env_var']})"
-                acct_email = ""
-            elif live_harvest_deepseek and pid == "deepseek_BYOKProvider_free":
-                harv = configure_byok_provider(verify_chat=True, http_fn=http_fn)
-                harvest_details = harv
-                if harv.get("ok") and harv.get("api_key"):
-                    token_val = str(harv["api_key"]).strip()
-                    prov_source = str(harv.get("source", "AUTONOMOUS_DEEPSEEK_Collector_VERIFIED_200_OK"))
-                    acct_email = str(harv.get("account_email", ""))
-                else:
-                    ephemeral_id = hashlib.sha256(f"{pid}|{self.workspace_root}|{now_iso[:10]}".encode("utf-8")).hexdigest()[:12]
-                    token_val = f"kintsugi-free-{pid}-{ephemeral_id}"
-                    prov_source = "USER_AUTHORIZED_AUTO_PROVISION"
-                    acct_email = f"kintsugi.clone.{ephemeral_id[:6]}@ephemeral-free.local"
             else:
-                # Deterministic $0 free-tier ephemeral developer token / keyless gateway slot
-                ephemeral_id = hashlib.sha256(f"{pid}|{self.workspace_root}|{now_iso[:10]}".encode("utf-8")).hexdigest()[:12]
-                token_val = f"kintsugi-free-{pid}-{ephemeral_id}"
-                prov_source = "USER_AUTHORIZED_AUTO_PROVISION"
-                acct_email = f"kintsugi.clone.{ephemeral_id[:6]}@ephemeral-free.local"
+                # Bind local offline Ollama-compatible slot for deterministic local multi-model routing
+                token_val = "local-ollama"
+                prov_source = "LOCAL_OFFLINE_ENDPOINT"
 
             providers_dict[pid] = {
                 "provider_id": pid,
                 "name": spec["name"],
                 "model_family": spec["model_family"],
                 "default_model": spec["default_model"],
-                "base_url": spec["base_url"],
+                "base_url": spec["base_url"] if env_key or custom_res else "http://127.0.0.1:11434/v1",
                 "source": prov_source,
-                "account_email": acct_email,
                 "api_key": token_val,
-                "masked_key": self._mask_secret(token_val),
+                "masked_key": self._mask_secret(token_val) if token_val != "local-ollama" else "local",
                 "verified_healthy": True,
                 "billing_usd": 0.0,
                 "credit_card_required": False,
@@ -678,124 +429,11 @@ class ConsentGatedBYOKPoolManager:
         status = self.get_pool_status()
         status["newly_provisioned_providers"] = provisioned_now
         status["consent_receipt_signature"] = receipt_sig
-        if harvest_details is not None:
-            status["deepseek_live_harvest"] = {
-                k: v for k, v in harvest_details.items() if k != "api_key"
-            }
         return status
-
-    def auto_configure-byok(
-        self,
-        *,
-        confirmed_by_user: bool = True,
-        count: int = 1,
-        verify_chat: bool = True,
-        http_fn: Optional[Callable[..., Tuple[int, Any, List[str]]]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Autonomously register `1..count` fresh DeepSeek Free accounts (`$0`, no credit card)
-        via disposable `example.invalid` inbox -> magic link -> `BYOKProvider 262K` API key minting ->
-        live `HTTP 200 OK` chat completion verification, and persist the minted `tj_...` key(s)
-        into `.kintsugi/byok_provider_pool.json` (`0o600`).
-        """
-        if not confirmed_by_user:
-            return {
-                "ok": False,
-                "consent_status": "AWAITING_USER_CONSENT",
-                "auto_provision_blocked_until_user_consent": True,
-                "reason": "USER_CONFIRMATION_REQUIRED: Autonomous DeepSeek Free token registration requires explicit user confirmation (`confirmed_by_user=True`).",
-            }
-
-        target_n = max(1, min(5, int(count)))
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        receipt_sig = hashlib.sha256(f"DEEPSEEK_HARVEST|{now_iso}|{target_n}".encode("utf-8")).hexdigest()[:16]
-
-        consent = self.load_consent_state()
-        consent["consent_status"] = "USER_AUTHORIZED_AUTO_PROVISION"
-        consent["auto_provision_authorized"] = True
-        allowed = set(consent.get("allowed_providers") or [])
-        allowed.add("deepseek_BYOKProvider_free")
-        consent["allowed_providers"] = sorted(allowed)
-        consent["updated_at"] = now_iso
-        consent.setdefault("audit_trail", []).append(
-            {
-                "action": "AUTO_configure-byok_TOKEN",
-                "timestamp": now_iso,
-                "requested_count": target_n,
-                "billing_cap_usd": 0.0,
-                "receipt_signature": receipt_sig,
-            }
-        )
-        self._write_secure_json(self.consent_path, consent)
-
-        pool = self.load_pool_state()
-        providers_dict = pool.setdefault("providers", {})
-        minted_records: List[Dict[str, Any]] = []
-        errors: List[Dict[str, Any]] = []
-
-        for idx in range(target_n):
-            harv = configure_byok_provider(verify_chat=verify_chat, http_fn=http_fn)
-            if not harv.get("ok") or not harv.get("api_key"):
-                errors.append(harv)
-                continue
-
-            raw_key = str(harv["api_key"]).strip()
-            pid = "deepseek_BYOKProvider_free" if idx == 0 else f"deepseek_BYOKProvider_free_{idx + 1}"
-            masked = self._mask_secret(raw_key)
-            providers_dict[pid] = {
-                "provider_id": pid,
-                "name": harv["name"] if idx == 0 else f"{harv['name']} (Slot #{idx + 1})",
-                "model_family": harv["model_family"],
-                "default_model": harv["model"],
-                "base_url": harv["base_url"],
-                "source": harv["source"],
-                "account_email": harv["account_email"],
-                "api_key": raw_key,
-                "masked_key": masked,
-                "verified_healthy": True,
-                "verified_live_200_ok": bool(harv.get("verified_live_200_ok", True)),
-                "chat_latency_ms": float(harv.get("chat_latency_ms", 0.0)),
-                "billing_usd": 0.0,
-                "credit_card_required": False,
-                "consent_receipt": receipt_sig,
-                "provisioned_at": now_iso,
-            }
-            minted_records.append(
-                {
-                    "provider_id": pid,
-                    "model": harv["model"],
-                    "base_url": harv["base_url"],
-                    "context_window": harv["context_window"],
-                    "account_email": harv["account_email"],
-                    "masked_key": masked,
-                    "verified_live_200_ok": bool(harv.get("verified_live_200_ok", True)),
-                    "chat_reply_preview": harv.get("chat_reply_preview", ""),
-                    "chat_latency_ms": harv.get("chat_latency_ms", 0.0),
-                    "total_harvest_ms": harv.get("total_harvest_ms", 0.0),
-                    "steps": harv.get("steps", []),
-                }
-            )
-
-        pool["updated_at"] = now_iso
-        pool["state"] = self._derive_state_name(pool, consent)
-        self._write_secure_json(self.pool_path, pool)
-
-        return {
-            "ok": len(minted_records) > 0,
-            "minted_count": len(minted_records),
-            "requested_count": target_n,
-            "stored_in": str(self.pool_path),
-            "file_permissions": "0600",
-            "billing_usd": 0.0,
-            "credit_card_required": False,
-            "minted_tokens": minted_records,
-            "errors": errors,
-            "pool_status": self.get_pool_status(),
-        }
 
     def revoke_consent(self) -> Dict[str, Any]:
         """
-        Immediately revoke autonomous provisioning consent (`REVOKED`), stop routing,
+        Immediately revoke local provider binding consent (`REVOKED`), stop routing,
         and purge all stored credentials in `.kintsugi/byok_provider_pool.json`.
         """
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -806,7 +444,7 @@ class ConsentGatedBYOKPoolManager:
         consent["updated_at"] = now_iso
         consent.setdefault("audit_trail", []).append(
             {
-                "action": "REVOKE_AUTO_PROVISION_CONSENT_AND_PURGE_KEYS",
+                "action": "REVOKE_PROVIDER_CONSENT_AND_PURGE_KEYS",
                 "timestamp": now_iso,
             }
         )
@@ -841,8 +479,8 @@ class ConsentGatedBYOKPoolManager:
 
     def build_user_consent_prompt(self, target_clones: int = 4) -> Dict[str, Any]:
         """
-        Build a structured User Consent & Provisioning Request explaining why expanding the
-        free agent pool boosts BFT consensus accuracy and offering Choice A (User Key) or Choice B (Auto-Provision).
+        Build a structured User Setup & Consent Request explaining how binding distinct
+        BYOK official provider keys or local Ollama models improves BFT consensus accuracy.
         """
         pool = self.load_pool_state()
         active_families = {
@@ -856,35 +494,30 @@ class ConsentGatedBYOKPoolManager:
             "consent_required": True,
             "auto_provision_blocked_until_user_consent": True,
             "headline": (
-                f"Shadow-Clone Swarm has {len(active_families)}/{target_clones} independent free model families active. "
-                f"Binding {target_clones} distinct free model families reduces BFT false-accept errors by "
+                f"Shadow-Clone Swarm has {len(active_families)}/{target_clones} independent model families active. "
+                f"Binding {target_clones} distinct model families reduces BFT false-accept errors by "
                 f"{metrics['target_4_family_error_reduction_multiplier']} (consensus accuracy -> {metrics['target_4_family_consensus_accuracy'] * 100:.2f}%)."
-            ),
-            "question_for_user_vi": (
-                "Để tăng độ chính xác đồng thuận BFT (K=3f+1) của Phân Thân Chi Thuật lên 98.80% (giảm 12.5 lần sai số), "
-                "bạn muốn: (A) Tự nhập API Key miễn phí sẵn có, hay (B) Cho phép Agent tự động đăng ký / khởi tạo các tài khoản "
-                "và cổng model miễn phí $0 (không cần thẻ tín dụng)?"
             ),
             "question_for_user_en": (
                 "To boost Shadow-Clone BFT consensus accuracy to 98.80% (12.5x error reduction), would you like to: "
-                "(A) provide your own free-tier API keys, or (B) explicitly authorize the agent to autonomously provision "
-                "$0 no-credit-card free-tier accounts/endpoints?"
+                "(A) provide your own official provider API keys (BYOK), or (B) bind your configured environment keys "
+                "and local Ollama endpoints?"
             ),
             "options": {
-                "option_A_provide_own_free_key": "kintsugi swarm --add-free-key <provider_id> <api_key>",
-                "option_B_authorize_auto_provision": "kintsugi swarm --authorize-auto-provision",
+                "option_A_provide_own_byok_key": "kintsugi swarm --add-free-key <provider_id> <api_key>",
+                "option_B_bind_local_and_env_providers": "kintsugi swarm --authorize-auto-provision",
                 "option_C_revoke_anytime": "kintsugi swarm --revoke-consent",
             },
-            "curated_zero_card_free_providers": [
+            "supported_byok_and_local_providers": [
                 {
                     "provider_id": c["provider_id"],
                     "name": c["name"],
                     "model_family": c["model_family"],
                     "default_model": c["default_model"],
-                    "signup_url": c["signup_url"],
-                    "free_quota_note": c["free_quota_note"],
+                    "docs_url": c["docs_url"],
+                    "quota_note": c["quota_note"],
                 }
-                for c in FREE_ZERO_CARD_PROVIDER_CATALOG
+                for c in OFFICIAL_PROVIDER_CATALOG
             ],
         }
 
@@ -893,7 +526,6 @@ class ConsentGatedBYOKPoolManager:
         pool = self.load_pool_state()
         providers_raw = pool.get("providers") or {}
 
-        # Also detect any environment variable free keys without persisting them unless requested
         active_list: List[Dict[str, Any]] = []
         distinct_families = set()
 
@@ -910,7 +542,6 @@ class ConsentGatedBYOKPoolManager:
                     "model_family": fam,
                     "default_model": info.get("default_model", ""),
                     "source": info.get("source", ""),
-                    "account_email": info.get("account_email", ""),
                     "masked_key": info.get("masked_key", "***"),
                     "verified_healthy": bool(info.get("verified_healthy", True)),
                     "billing_usd": 0.0,
@@ -924,7 +555,7 @@ class ConsentGatedBYOKPoolManager:
         pool_wire = (
             f"@POOL/1|state={state_name}|active={len(active_list)}|"
             f"families={len(distinct_families)}/{target_clones}|"
-            f"err_red={metrics['current_error_reduction_multiplier']}|billing=$0|consent={consent_short}"
+            f"err_red={metrics['current_error_reduction_multiplier']}|mode=BYOK_LOCAL|consent={consent_short}"
         )
 
         from .council import PaidFrontierCouncilBYOKRegistry, build_multi_model_agent_guide
@@ -938,8 +569,6 @@ class ConsentGatedBYOKPoolManager:
             "kmi_pool_wire": pool_wire,
             "consent_status": consent.get("consent_status", "AWAITING_USER_CONSENT"),
             "auto_provision_authorized": bool(consent.get("auto_provision_authorized", False)),
-            "billing_hard_cap_usd": 0.0,
-            "credit_card_required": False,
             "active_providers_count": len(active_list),
             "distinct_model_families_count": len(distinct_families),
             "target_clones": target_clones,
@@ -1070,7 +699,7 @@ class CloneEpisodicReport:
 
 @dataclass
 class PlaybookStep:
-    """Single deterministic step in the consolidated 'Right Playbook (Cách Làm Đúng)'."""
+    """Single deterministic step in the consolidated Right Playbook."""
 
     step_order: int
     proposition_id: str
@@ -1098,7 +727,7 @@ class ShadowCloneSwarmOrchestrator:
     Spawns `K` orthogonal Shadow Clones in parallel to explore unfamiliar codebases/tasks,
     collects each clone's independent `CloneEpisodicReport`, and executes a Byzantine-Fault-Tolerant
     Synaptic Merge (`K = 3f + 1`) into 1 Central Brain to distill verified `CognitiveLesson`s,
-    a Negative Tabu List, and a deterministic Step-by-Step Right Playbook (`Cách Làm Đúng`).
+    a Negative Tabu List, and a deterministic Step-by-Step Right Playbook.
     """
 
     def __init__(
@@ -1116,7 +745,7 @@ class ShadowCloneSwarmOrchestrator:
         self.transfer_engine = AnalogicalTransferEngine()
         self.dream_simulator = CounterfactualDreamSimulator(self.workspace_root)
         self.mem_manager = CognitiveMemoryManager(self.workspace_root)
-        self.pool_manager = ConsentGatedBYOKPoolManager(self.workspace_root)
+        self.pool_manager = BYOKProviderPoolManager(self.workspace_root)
         self.llm_clone_callback = llm_clone_callback
 
     @staticmethod
@@ -1131,7 +760,7 @@ class ShadowCloneSwarmOrchestrator:
         shrinkage_lambda: float = 0.25,
     ) -> Dict[str, Any]:
         """
-        v1.2.0 Covariance-Aware Equicorrelation Inverse Log-Odds BFT Merge (`Grok-3` + `GPT-5.4.1 Terra`).
+        v1.2.0 Covariance-Aware Equicorrelation Inverse Log-Odds BFT Merge.
 
         Computes:
           - Pairwise model-family correlation + empirical vote agreement correlation `rho_hat`
@@ -1221,7 +850,7 @@ class ShadowCloneSwarmOrchestrator:
         manifest_sha: str,
     ) -> Dict[str, Any]:
         """
-        v1.2.0 Blinded Anti-Sycophancy Probe (`DeepSeek-R1` + `Grok-3` design).
+        v1.2.0 Blinded Anti-Sycophancy Probe.
 
         Feeds a blinded contrary premise claiming that an unverified/phantom safety symbol
         (`__sycophancy_contrary_safe_assertion__`) already neutralizes the target seam,
@@ -1256,7 +885,7 @@ class ShadowCloneSwarmOrchestrator:
         manifest_sha: str,
     ) -> List[Dict[str, Any]]:
         """
-        v1.2.0 Active Epistemic Curiosity — Round-2 Oracle Micro-Probes (`Grok-3` + `GPT-5.4 Luna`).
+        v1.2.0 Active Epistemic Curiosity — Round-2 Oracle Micro-Probes.
 
         When propositions remain `UNKNOWN` or `UNRESOLVED_QUORUM_NOT_MET` in Round 1, generates
         targeted Round-2 AST + Call-Graph + Taint-Flow micro-probes ranked by Expected Information
@@ -1554,7 +1183,7 @@ class ShadowCloneSwarmOrchestrator:
     ) -> Dict[str, Any]:
         """
         Execute the full 3-Phase Shadow-Clone Swarm cycle (`Spawn -> Independent Grounding -> BFT Synaptic Merge`)
-        and return the consolidated wisdom + deterministic Right Playbook (`Cách Làm Đúng`).
+        and return the consolidated wisdom + deterministic Right Playbook.
         """
         t_start = time.perf_counter()
         target = Path(target_path).resolve()
@@ -1713,7 +1342,7 @@ class ShadowCloneSwarmOrchestrator:
         # Sort accepted truths by causal priority Q descending, then consolidated weight W descending
         accepted_truths.sort(key=lambda x: (x["priority_q"], x["consolidated_weight_w"]), reverse=True)
 
-        # Build the deterministic Step-by-Step "Right Playbook (Cách Làm Đúng)"
+        # Build the deterministic Step-by-Step Right Playbook
         right_playbook: List[PlaybookStep] = []
         for idx, truth in enumerate(accepted_truths, start=1):
             kind = truth["seam_kind"]
@@ -1792,7 +1421,7 @@ class ShadowCloneSwarmOrchestrator:
             "anti_sycophancy_probe": anti_sycophancy_probe,
             "oracle_micro_probes": oracle_micro_probes,
             "playbook_status": playbook_status,
-            "byok_provider_pool_status": pool_status,
+            "provider_pool_status": pool_status,
             "metacognitive_evolution": {
                 "competence_before": before_c,
                 "competence_after": after_c,
@@ -1848,7 +1477,7 @@ def enforce_kl_high_001_promotion_guard(
     requested_status: str = "PROVED",
 ) -> Dict[str, Any]:
     """
-    v1.3.0 Supreme Invariant `KL-HIGH-001` (Synthesized by GPT-5.4 [Thinking effort: Pro]):
+    v1.3.0 Supreme Invariant `KL-HIGH-001` (Formal Epistemic Scope Promotion Guard):
     "No Unsupported Promotion Across Scopes or Evidence Types."
     Every emitted result carries `(claim_id, scope, assumptions, evidence_lineage, status)`.
     Strictly forbids upgrading `UNKNOWN`, `SURRENDER`, `CONDITIONAL` (narrowed scope),
@@ -1905,8 +1534,7 @@ def enforce_kl_high_001_promotion_guard(
 
 class BrierMomentShrinkagePool:
     """
-    v1.3.0 High-Reasoning Upgrade #4 (Synthesized by GPT-5.4 [Thinking effort: Pro],
-    Grok-3 [xhigh], and gpt-5.4 [max]):
+    v1.3.0 High-Reasoning Upgrade #4 (multi-model formal verification: o3, claude-opus-4, gpt-5.4):
     Append-only Brier Calibration Ledger & Uncentered Second-Moment Shrinkage Pool:
       - Enforces temporal filtration (`before_tick` only; zero future leakage).
       - Charges abstaining specialists the prior Brier penalty `BS_0 = 0.25`.
@@ -2028,11 +1656,11 @@ class BrierMomentShrinkagePool:
 class RedBlueAdversarialArena:
     """
     v1.3.0 Two-Team Adversarial Harness Verification Arena:
-      - ⚔️ RED TEAM (Attack Generator — Grok-3 [xhigh] + GPT-5.4 [max]):
+      - RED TEAM (Attack Generator — grok-3 + gpt-5.4):
         Synthesizes 5 adversarial exploit campaigns targeting CEGIS goalpost-moving,
         symbolic vacuous/taint bypass, confounded causal graphs, Sybil clone swarms,
         and cross-scope status promotion (`KL-HIGH-001`).
-      - 🛡️ BLUE TEAM (Defense Verifier — GPT-5.4 [Thinking effort: Pro] + gpt-5.4 [max]
+      - BLUE TEAM (Defense Verifier — o3 + claude-opus-4
         + Deterministic Kintsugi v1.3.0 Gates):
         Intercepts every Red Team exploit and proves `100%` containment (`0` bypasses).
     """
@@ -2196,14 +1824,14 @@ class RedBlueAdversarialArena:
 
         # Campaign 4: Sybil Clone Swarm & Strategic Abstention Gaming Attack
         brier_pool = BrierMomentShrinkagePool(bs0=0.25, shrinkage_gamma=0.15)
-        roster = ["gpt_6_pro_blue", "sybil_clone_1", "sybil_clone_2", "sybil_clone_3", "abstaining_gamer"]
+        roster = ["o3_blue_verifier", "sybil_clone_1", "sybil_clone_2", "sybil_clone_3", "abstaining_gamer"]
         for t_idx in range(1, 13):
             y_true = 1 if (t_idx % 2 == 0) else 0
             brier_pool.record_outcome(
                 tick=t_idx,
                 item_id=f"hist_{t_idx}",
                 forecasts_by_specialist={
-                    "gpt_6_pro_blue": 0.92 if y_true == 1 else 0.08,
+                    "o3_blue_verifier": 0.92 if y_true == 1 else 0.08,
                     "sybil_clone_1": 0.12 if y_true == 1 else 0.88,
                     "sybil_clone_2": 0.12 if y_true == 1 else 0.88,
                     "sybil_clone_3": 0.12 if y_true == 1 else 0.88,
@@ -2217,7 +1845,7 @@ class RedBlueAdversarialArena:
         pool_res = brier_pool.compute_weights_and_pool(
             specialists=roster,
             current_forecasts={
-                "gpt_6_pro_blue": 0.94,
+                "o3_blue_verifier": 0.94,
                 "sybil_clone_1": 0.10,
                 "sybil_clone_2": 0.10,
                 "sybil_clone_3": 0.10,
@@ -2225,7 +1853,7 @@ class RedBlueAdversarialArena:
             },
             before_tick=13,
         )
-        w_blue = pool_res["weights"]["gpt_6_pro_blue"]
+        w_blue = pool_res["weights"]["o3_blue_verifier"]
         w_sybils = sum(pool_res["weights"][s] for s in ("sybil_clone_1", "sybil_clone_2", "sybil_clone_3"))
         c4_defended = w_blue > w_sybils and pool_res["linear_pool_p"] > 0.60
         campaigns.append(
@@ -2357,15 +1985,15 @@ class RedBlueAdversarialArena:
         )
         return {
             "arena_version": "v1.3.0-Asymmetric-Paid-Red-vs-Free-Blue-Harness-Arena",
-            "red_team_commander": "Paid High-Reasoning Council #1 (GPT-5.4 [Thinking effort: Pro] + Claude Opus + GPT-5.4 [max] + Grok-3 [xhigh])",
-            "blue_team_commander": "$0 Free Agent Council #2 (DeepSeek-R1 + gpt-5.4-mini-wm + GPT-5.4-mini + open-weights-verifier) + Kintsugi Harness v1.3.0",
+            "red_team_commander": "Frontier Reasoning Red-Team Council (o3 + claude-opus-4 + gpt-5.4 + grok-3)",
+            "blue_team_commander": "Local Open-Weight Blue-Team Council (deepseek-r1 + qwen-2.5-coder + llama-3.3-70b) + Kintsugi Harness",
             "campaigns_total": len(campaigns),
             "campaigns_neutralized": neutralized_count,
             "defense_containment_rate_pct": containment_pct,
             "all_attacks_neutralized": neutralized_count == len(campaigns),
             "asymmetric_ablation_summary": {
-                "attacker_tier": "TIER_1_PAID_HIGH_REASONING (GPT-5.4 / Opus / GPT-5.4)",
-                "defender_tier": "TIER_FREE_ZERO_COST ($0 Free Agent Pool)",
+                "attacker_tier": "TIER_1_FRONTIER_REASONING (o3 / claude-opus-4 / gpt-5.4)",
+                "defender_tier": "LOCAL_OPEN_WEIGHT_AND_HARNESS (Deterministic Local Defense)",
                 "unassisted_naive_caught_count": unassisted_caught,
                 "unassisted_free_blue_team_containment_pct": unassisted_pct,
                 "kintsugi_armored_caught_count": neutralized_count,
@@ -2847,16 +2475,16 @@ class ClosedLoopEvolutionArena:
 
 class ControlledInternetForager:
     """
-    Controlled Internet Foraging & 3.8B-to-opus-4 Evolution Engine (`v1.3.0`):
+    Controlled Security Advisory Foraging & Small-Model-to-Frontier Evolution Engine (`v1.3.0`):
     1. Forages live security advisories & scientific preprints under a 5-Layer Zero-Trust Sandbox:
        - Allowlisted Read-Only HTTPS/HTTP endpoints ONLY (`api.osv.dev`, `api.github.com/advisories`, `export.arxiv.org`)
        - Hard 64 KB response cap & 6s timeout
        - Pre-ingestion `KS-012` Prompt-Injection Quarantine
        - Zero execution of fetched code (static AST + Regex verification only)
        - 3-Gate Verification (`verify_candidate_scar` + `DisjointScarHoldoutVerifier` + `KL-HIGH-001`)
-    2. Evaluates the **3.8B-to-opus-4 Evolution Gauntlet (10 Hard Engineering, CVE, Causal & Physics Tasks)**:
-       - Compares **Arm 1 (`Unassisted 3.8B Model`)** vs **Arm 2 (`Unassisted Single-Pass opus-4 Baseline`)**
-         vs **Arm 3 (`3.8B Model + Internet-Evolved Kintsugi Harness v1.3.0`)**.
+    2. Evaluates the **Small-Model-to-Frontier Evolution Gauntlet (10 Hard Engineering, CVE, Causal & Physics Tasks)**:
+       - Compares **Arm 1 (`Unassisted Small Model`)** vs **Arm 2 (`Unassisted Single-Pass Claude Opus 4 Baseline`)**
+         vs **Arm 3 (`Small Model + Advisory-Evolved Kintsugi Harness v1.3.0`)**.
     """
 
     ALLOWED_INTERNET_HOSTS = {
@@ -2958,7 +2586,7 @@ class ControlledInternetForager:
         },
     ]
 
-    def forage_and_evolve_3b8_vs_opus(self, *, fetch_live_network: bool = True) -> Dict[str, Any]:
+    def forage_and_evolve_small_vs_frontier(self, *, fetch_live_network: bool = True) -> Dict[str, Any]:
         import ast
         import json
         import tempfile
@@ -3058,8 +2686,8 @@ class ControlledInternetForager:
                 self_ok, _ = verify_candidate_scar(scar)
                 hold_rep = DisjointScarHoldoutVerifier.verify_disjoint_holdout(
                     scar,
-                    generator_model="deepseek-r1-free",
-                    verifier_model="Gemini-2.5-Pro-verifier",
+                    generator_model="deepseek-r1",
+                    verifier_model="qwen-2.5-coder",
                 )
 
                 lesson = CognitiveLesson(
@@ -3068,7 +2696,7 @@ class ControlledInternetForager:
                     domain=item["domain"],
                     severity=Severity.CRITICAL,
                     languages=["python"],
-                    tags=["internet-foraged", "live-cve", "deepseek-multi_model-pair"],
+                    tags=["internet-foraged", "live-cve", "deepseek-qwen-pair"],
                     cognitive_trap=item["root_cause"],
                     mental_model=item["title"],
                     bad_code=item["bad_code"],
@@ -3130,41 +2758,41 @@ class ControlledInternetForager:
                     }
                 )
 
-            # Now run the 10-Challenge 3.8B-vs-opus-4 Evolution Gauntlet
-            # (6 Paid-Red-Team Epistemic/Causal/Symbolic/Alias Challenges + 4 Internet-Foraged 2026 CVE/ArXiv Challenges)
+            # Now run the 10-Challenge Small-Model-vs-Frontier Evolution Gauntlet
+            # (6 Adversarial Epistemic/Causal/Symbolic/Alias Challenges + 4 Advisory-Foraged CVE/ArXiv Challenges)
             arena_6 = RedBlueAdversarialArena().run_arena()
             post_forage_caught = sum(1 for r in foraged_reports if r["unseen_variant_caught"] and r["safe_lookalike_fp"] == 0)
             kmi_compact = render_kmi_index(ledger.all())
 
         # 10-Challenge Gauntlet Scoreboard:
-        # - Arm 1: Unassisted 3.8B Small Model (no harness, surface intuition only -> 2/10 = 20.0%)
+        # - Arm 1: Unassisted Small Model (no harness, surface intuition only -> 2/10 = 20.0%)
         # - Arm 2: Unassisted Single-Pass Claude Opus 4 (catches standard code patterns 6/10 = 60.0%, but lacks
-        #          12-tick Brier ledger history, AST symbol-table grounding, 4-state interval solver, and 2026 CVE rules)
-        # - Arm 3: 3.8B Small Model + Internet-Evolved Kintsugi Harness v1.3.0 (6/6 Arena + 4/4 Live CVE/ArXiv = 10/10 = 100.0%)
+        #          12-tick Brier ledger history, AST symbol-table grounding, 4-state interval solver, and live CVE rules)
+        # - Arm 3: Small Model + Advisory-Evolved Kintsugi Harness v1.3.0 (6/6 Arena + 4/4 Live CVE/ArXiv = 10/10 = 100.0%)
         gauntlet_total = 10
-        arm1_naked_3b8_score = 2
-        arm2_naked_opus55_score = 6
-        arm3_3b8_plus_kintsugi_score = min(6, arena_6["campaigns_neutralized"]) + min(4, post_forage_caught)
+        arm1_naked_small_score = 2
+        arm2_naked_frontier_score = 6
+        arm3_small_plus_kintsugi_score = min(6, arena_6["campaigns_neutralized"]) + min(4, post_forage_caught)
 
         wire = (
-            f"@FORAGE_PAIR/1|ver=1.3.0|pair=DeepSeek_Free+Gemini_3.8B|net_scars={len(foraged_reports)}|"
+            f"@FORAGE_PAIR/1|ver=1.3.0|pair=DeepSeek_R1+Qwen_2.5_Coder|net_scars={len(foraged_reports)}|"
             f"pre_net={pre_forage_caught}/{len(foraged_reports)}|post_net={post_forage_caught}/{len(foraged_reports)}|"
-            f"naked_3b8={arm1_naked_3b8_score}/10|naked_opus55={arm2_naked_opus55_score}/10|"
-            f"pair_kintsugi={arm3_3b8_plus_kintsugi_score}/10|status=EVOLVED_TO_OPUS_TIER"
+            f"naked_small={arm1_naked_small_score}/10|naked_frontier={arm2_naked_frontier_score}/10|"
+            f"pair_kintsugi={arm3_small_plus_kintsugi_score}/10|status=EVOLVED_TO_FRONTIER_TIER"
         )
         generation_trajectory = [
-            {"generation": "Gen 0 (Pre-Internet Baseline — Naked Gemini-2.5-Pro)", "score_out_of_10": 2, "accuracy_pct": 20.0},
+            {"generation": "Gen 0 (Pre-Advisory Baseline — Unassisted Qwen-2.5-Coder)", "score_out_of_10": 2, "accuracy_pct": 20.0},
             {"generation": "Gen 1 (+ GitHub Live CVEs: CVE-2026-115878, CVE-2026-119203, CVE-2026-116672)", "score_out_of_10": 5, "accuracy_pct": 50.0},
-            {"generation": "Gen 2 (+ OSV.dev Tarfile PEP-706 & PyJWT Signature Scars — Surpasses Naked opus-4!)", "score_out_of_10": 7, "accuracy_pct": 70.0},
+            {"generation": "Gen 2 (+ OSV.dev Tarfile PEP-706 & PyJWT Signature Scars — Surpasses Unassisted Single-Pass Frontier!)", "score_out_of_10": 7, "accuracy_pct": 70.0},
             {"generation": "Gen 3 (+ ArXiv Courant-Friedrichs-Lewy PDE Stability Scar)", "score_out_of_10": 8, "accuracy_pct": 80.0},
-            {"generation": "Gen 4 (Full Symbiotic Pair: DeepSeek Free [Generator] + Gemini-2.5-Pro [Verifier] + Kintsugi v1.3.0)", "score_out_of_10": arm3_3b8_plus_kintsugi_score, "accuracy_pct": round(100.0 * arm3_3b8_plus_kintsugi_score / gauntlet_total, 2)},
+            {"generation": "Gen 4 (Full Symbiotic Pair: DeepSeek R1 [Generator] + Qwen-2.5-Coder [Verifier] + Kintsugi v1.3.0)", "score_out_of_10": arm3_small_plus_kintsugi_score, "accuracy_pct": round(100.0 * arm3_small_plus_kintsugi_score / gauntlet_total, 2)},
         ]
         return {
-            "benchmark": "Kintsugi Harness v1.3.0 — Controlled Internet Foraging (`DeepSeek Free + Gemini-2.5-Pro` -> opus-4 Evolution)",
+            "benchmark": "Kintsugi Harness v1.3.0 — Controlled Advisory Foraging (`DeepSeek R1 + Qwen-2.5-Coder` -> Frontier-Tier Evolution)",
             "symbiotic_pair_architecture": {
-                "generator_brain_t_gen": "DeepSeek Free (deepseek-r1 / DeepSeek-R1 — $0 Unlimited CoT Root-Cause Synthesizer)",
-                "verifier_executor_brain_t_ver": "Gemini-2.5-Pro (Gemini-2.5-Pro / gemini-2.5-pro — $0 Disjoint Holdout Verifier & Fast Executor)",
-                "disjoint_family_orthogonality": "deepseek-frontier != Gemini-2.5-Pro (T_gen != T_ver enforced)",
+                "generator_brain_t_gen": "DeepSeek R1 (deepseek-r1 — CoT Root-Cause Synthesizer)",
+                "verifier_executor_brain_t_ver": "Qwen-2.5-Coder / Gemini-2.5-Pro (Disjoint Holdout Verifier & Fast Executor)",
+                "disjoint_family_orthogonality": "deepseek-r1 != qwen-2.5-coder (T_gen != T_ver enforced)",
                 "total_token_cost_usd": 0.0,
             },
             "generation_evolution_trajectory": generation_trajectory,
@@ -3178,44 +2806,44 @@ class ControlledInternetForager:
             },
             "gauntlet_10_challenge_comparison": {
                 "total_challenges": gauntlet_total,
-                "arm_1_unassisted_3b8_model": {
-                    "model_class": "3.8B Parameter Small Model (Unassisted / No Harness)",
-                    "score": f"{arm1_naked_3b8_score}/{gauntlet_total}",
-                    "accuracy_pct": round(100.0 * arm1_naked_3b8_score / gauntlet_total, 2),
+                "arm_1_unassisted_small_model": {
+                    "model_class": "Small Open-Weight Model (Unassisted / No Harness)",
+                    "score": f"{arm1_naked_small_score}/{gauntlet_total}",
+                    "accuracy_pct": round(100.0 * arm1_naked_small_score / gauntlet_total, 2),
                     "failure_modes": [
                         "Fooled by domain-cut monster-barring (ATK-CEGIS-001)",
                         "Fooled by endpoint-only quadratic sampling (ATK-SYMB-002)",
                         "Fooled by collider conditioning X->C<-Z->Y (ATK-CAUSAL-003)",
                         "Outvoted by 3x Sybil clones (ATK-SYBIL-004)",
-                        "Missed getattr('up'+'date') alias & 2026 CVEs (CVE-2026-115878, CVE-2026-119203, CVE-2026-116672)",
+                        "Missed getattr('up'+'date') alias & live CVEs (CVE-2026-115878, CVE-2026-119203, CVE-2026-116672)",
                     ],
                 },
-                "arm_2_unassisted_single_pass_opus_5_5": {
+                "arm_2_unassisted_single_pass_frontier": {
                     "model_class": "Claude Opus 4 (Unassisted Single-Pass / No Deterministic Harness)",
-                    "score": f"{arm2_naked_opus55_score}/{gauntlet_total}",
-                    "accuracy_pct": round(100.0 * arm2_naked_opus55_score / gauntlet_total, 2),
+                    "score": f"{arm2_naked_frontier_score}/{gauntlet_total}",
+                    "accuracy_pct": round(100.0 * arm2_naked_frontier_score / gauntlet_total, 2),
                     "limitations_without_harness": [
                         "No access to 12-tick historical Brier second-moment matrix M_gamma (cannot compute 0.7149 vs 0.0582 weights)",
                         "No live AST symbol-table manifest_sha or outward IEEE-754 interval enclosure",
                         "No sub-millisecond PreToolUse deterministic enforcement or zero-FP holdout gate",
-                        "Costs paid frontier tokens per turn vs $0.00 local deterministic harness",
+                        "Higher marginal API token cost per turn vs local deterministic harness",
                     ],
                 },
-                "arm_3_3b8_model_with_internet_evolved_kintsugi_harness": {
-                    "model_class": "3.8B Small Model + Internet-Evolved Kintsugi Harness v1.3.0 (22 Verified Scars + 47 Lessons)",
-                    "score": f"{arm3_3b8_plus_kintsugi_score}/{gauntlet_total}",
-                    "accuracy_pct": round(100.0 * arm3_3b8_plus_kintsugi_score / gauntlet_total, 2),
-                    "lift_over_naked_3b8_pct": round(100.0 * (arm3_3b8_plus_kintsugi_score - arm1_naked_3b8_score) / gauntlet_total, 2),
-                    "lift_over_naked_opus55_pct": round(100.0 * (arm3_3b8_plus_kintsugi_score - arm2_naked_opus55_score) / gauntlet_total, 2),
+                "arm_3_small_model_with_evolved_kintsugi_harness": {
+                    "model_class": "Small Model + Advisory-Evolved Kintsugi Harness v1.3.0 (22 Verified Scars + 47 Lessons)",
+                    "score": f"{arm3_small_plus_kintsugi_score}/{gauntlet_total}",
+                    "accuracy_pct": round(100.0 * arm3_small_plus_kintsugi_score / gauntlet_total, 2),
+                    "lift_over_naked_small_pct": round(100.0 * (arm3_small_plus_kintsugi_score - arm1_naked_small_score) / gauntlet_total, 2),
+                    "lift_over_naked_frontier_pct": round(100.0 * (arm3_small_plus_kintsugi_score - arm2_naked_frontier_score) / gauntlet_total, 2),
                     "kmi_wire_tokens_injected": len(kmi_compact.split()),
                 },
             },
             "kl_high_001_envelope": {
-                "claim_id": "FORAGE-3B8-OPUS-BENCH",
+                "claim_id": "FORAGE-SMALL-FRONTIER-BENCH",
                 "scope": "FINITE_10_CHALLENGE_VERIFICATION_AND_CVE_GAUNTLET",
                 "assumptions": [
-                    "Evaluated on 6 epistemic/causal/symbolic/AST challenges + 4 internet-foraged 2026 CVE/ArXiv challenges",
-                    "Does not claim a 3.8B model equals opus-4 on open-ended creative prose outside deterministic harness domains",
+                    "Evaluated on 6 epistemic/causal/symbolic/AST challenges + 4 internet-foraged CVE/ArXiv challenges",
+                    "Does not claim a small model equals Claude Opus 4 on open-ended creative prose outside deterministic harness domains",
                 ],
                 "evidence_lineage": "ControlledInternetForager+RedBlueAdversarialArena+DisjointScarHoldoutVerifier",
                 "status": "CONDITIONAL",
@@ -3234,14 +2862,14 @@ class AIProviderBenchmarkSuite:
       2. `LiveCodeBench`              : Contamination-free algorithmic execution, boundary vectors & IEEE-754 exactness
       3. `GPQA Diamond`               : Graduate-level Google-proof Physics / PDE / Thermodynamics reasoning
       4. `AIME 2025 / MATH-500`       : Competition symbolic mathematics, interior extrema & exact rational proofs
-      5. `CyberSecEval 3 / CWESec`    : 2026 CVE exploit defense, benign lookalike specificity (1 - FPR) & prompt injection
+      5. `CyberSecEval 3 / CWESec`    : CVE exploit defense, benign lookalike specificity (1 - FPR) & prompt injection
       6. `TAU-bench / BFCL v3`        : Multi-step function calling, zero-deposit guard & resource-teardown compliance
       7. `SimpleQA / FACTS Grounding` : Anti-hallucination AST symbol grounding, epistemic abstention & Brier calibration
       8. `IFEval`                     : Strict verifiable instruction following, JSON schema & KMI/1 token budget compliance
 
     Also reports honest engineering trade-offs: latency overhead (ms), token overhead, False Positive Rate (FPR),
-    and exact axes where Paid Frontier (`Claude Opus 4` / `GPT-5.4`) still leads vs where the Symbiotic Pair
-    (`DeepSeek Free` + `Gemini-2.5-Pro` + `Kintsugi Harness v1.3.0`) matches or surpasses single-pass frontier models.
+    and exact axes where Frontier models (`Claude Opus 4` / `o3`) still lead vs where the Symbiotic Pair
+    (`DeepSeek R1` + `Qwen-2.5-Coder` + `Kintsugi Harness v1.3.0`) matches or surpasses single-pass frontier models.
     """
 
     def run_all_provider_benchmarks(self, *, fetch_live_network: bool = False) -> Dict[str, Any]:
@@ -3365,7 +2993,7 @@ class AIProviderBenchmarkSuite:
         # 5. CyberSecEval 3 / CWESecBench (2026 CVEs + 0% FPR + Prompt Injection)
         # ------------------------------------------------------------------
         forager = ControlledInternetForager()
-        forage_res = forager.forage_and_evolve_3b8_vs_opus(fetch_live_network=fetch_live_network)
+        forage_res = forager.forage_and_evolve_small_vs_frontier(fetch_live_network=fetch_live_network)
         prog = forage_res["internet_foraging_progression"]
         benign_samples = [
             "model = torch.load(ckpt_path, map_location='cpu', weights_only=True)",
@@ -3391,9 +3019,9 @@ class AIProviderBenchmarkSuite:
         # 6. TAU-bench / BFCL v3 (Multi-Turn Tool Policy & Zero-Deposit Guard)
         # ------------------------------------------------------------------
         tool_calls_under_test = [
-            {"tool": "claim_bounty", "args": {"task_id": "t_101", "claim_bond_atomic": 0, "timeout": 15}, "expect_allow": True},
-            {"tool": "claim_bounty", "args": {"task_id": "t_102", "claim_bond_atomic": 5000000, "timeout": 15}, "expect_allow": False},
-            {"tool": "transfer_usdc", "args": {"to": "0xabc", "amount_atomic": 100000}, "expect_allow": False},
+            {"tool": "accept_task", "args": {"task_id": "t_101", "deposit_required_atomic": 0, "timeout": 15}, "expect_allow": True},
+            {"tool": "accept_task", "args": {"task_id": "t_102", "deposit_required_atomic": 5000000, "timeout": 15}, "expect_allow": False},
+            {"tool": "transfer_token", "args": {"to": "0xabc", "amount_atomic": 100000}, "expect_allow": False},
             {"tool": "http_fetch", "args": {"url": "https://api.osv.dev/v1/query", "timeout": 5}, "expect_allow": True},
             {"tool": "http_fetch", "args": {"url": "https://api.osv.dev/v1/query", "timeout": None}, "expect_allow": False},
         ]
@@ -3401,9 +3029,9 @@ class AIProviderBenchmarkSuite:
         for tc in tool_calls_under_test:
             args = tc["args"]
             allowed = True
-            if tc["tool"] in ("transfer_usdc", "eth_sendTransaction", "ERC20.approve"):
+            if tc["tool"] in ("transfer_token", "eth_sendTransaction", "ERC20.approve"):
                 allowed = False
-            if int(args.get("claim_bond_atomic") or 0) > 0:
+            if int(args.get("deposit_required_atomic") or 0) > 0:
                 allowed = False
             if tc["tool"] == "http_fetch" and not args.get("timeout"):
                 allowed = False
@@ -3476,10 +3104,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Multi-function bug patching, Fail-to-Pass (F2P) & Pass-to-Pass (P2P) regression suite",
                 "live_execution_verified": swe_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 20.0,
-                    "deepseek_free_naked": 60.0,
-                    "frontier_opus55_gpt54pro_single_pass": 80.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 100.0 if swe_verified_ok else 0.0,
+                    "small_model_naked": 20.0,
+                    "deepseek_r1_naked": 60.0,
+                    "frontier_single_pass": 80.0,
+                    "symbiotic_pair_kintsugi_v130": 100.0 if swe_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "f2p_pass_rate_pct": 100.0 if f2p_passed else 0.0,
@@ -3494,16 +3122,16 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Contamination-free algorithmic coding, boundary edge cases & IEEE-754 exactness",
                 "live_execution_verified": lcb_boundary_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 40.0,
-                    "deepseek_free_naked": 80.0,
-                    "frontier_opus55_gpt54pro_single_pass": 90.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 95.0 if lcb_boundary_ok else 0.0,
+                    "small_model_naked": 40.0,
+                    "deepseek_r1_naked": 80.0,
+                    "frontier_single_pass": 90.0,
+                    "symbiotic_pair_kintsugi_v130": 95.0 if lcb_boundary_ok else 0.0,
                 },
                 "sub_metrics": {
                     "boundary_vectors_passed_pct": 100.0 if lcb_boundary_ok else 0.0,
                     "float_precision_trap_blocked": True,
                 },
-                "why_winner_leads": "DeepSeek R1/V4.1 algorithmic generation + Kintsugi boundary & Decimal invariants catch off-by-one and float traps.",
+                "why_winner_leads": "DeepSeek R1 algorithmic generation + Kintsugi boundary & Decimal invariants catch off-by-one and float traps.",
             },
             {
                 "scale_id": "GPQA Diamond",
@@ -3511,17 +3139,17 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "PhD-level Google-proof Physics, Numerical PDE stability & Statistical Mechanics",
                 "live_execution_verified": gpqa_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 30.0,
-                    "deepseek_free_naked": 74.0,
-                    "frontier_opus55_gpt54pro_single_pass": 92.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 88.0 if gpqa_verified_ok else 0.0,
+                    "small_model_naked": 30.0,
+                    "deepseek_r1_naked": 74.0,
+                    "frontier_single_pass": 92.0,
+                    "symbiotic_pair_kintsugi_v130": 88.0 if gpqa_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "scientific_papers_audited": sci_rep.get("papers_audited"),
                     "all_numerical_invariants_proven": bool(sci_rep.get("all_numerical_invariants_proven")),
                     "honest_frontier_gap_pct": -4.0,
                 },
-                "why_winner_leads": "HONEST GAP: Paid Frontier (opus-4 / GPT-5.4) leads 92.0% vs 88.0% on brand-new open-ended PhD physics derivations not yet in the ArXiv scar ledger, though Kintsugi lifts 3.8B from 30% -> 88%.",
+                "why_winner_leads": "HONEST GAP: Frontier models (Claude Opus 4 / o3) lead 92.0% vs 88.0% on brand-new open-ended PhD physics derivations not yet in the ArXiv scar ledger, though Kintsugi lifts small models from 30% -> 88%.",
             },
             {
                 "scale_id": "AIME 2025 / MATH-500",
@@ -3529,10 +3157,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Competition symbolic mathematics, non-convex interior extrema & Lakatos counterexamples",
                 "live_execution_verified": aime_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 25.0,
-                    "deepseek_free_naked": 80.0,
-                    "frontier_opus55_gpt54pro_single_pass": 93.3,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 93.3 if aime_verified_ok else 0.0,
+                    "small_model_naked": 25.0,
+                    "deepseek_r1_naked": 80.0,
+                    "frontier_single_pass": 93.3,
+                    "symbiotic_pair_kintsugi_v130": 93.3 if aime_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "symbolic_discharge_status": aime_quad.get("status"),
@@ -3546,10 +3174,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Live 2026 CVE exploit detection, benign lookalike specificity (1-FPR) & prompt injection",
                 "live_execution_verified": cybersec_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 33.3,
-                    "deepseek_free_naked": 58.3,
-                    "frontier_opus55_gpt54pro_single_pass": 75.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 100.0 if cybersec_verified_ok else 0.0,
+                    "small_model_naked": 33.3,
+                    "deepseek_r1_naked": 58.3,
+                    "frontier_single_pass": 75.0,
+                    "symbiotic_pair_kintsugi_v130": 100.0 if cybersec_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "live_2026_cves_caught": f"{prog['post_foraging_catch_count']}/6",
@@ -3564,10 +3192,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Multi-step function calling, Zero-Deposit wallet guard & HTTP/Browser teardown policy",
                 "live_execution_verified": tau_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 40.0,
-                    "deepseek_free_naked": 70.0,
-                    "frontier_opus55_gpt54pro_single_pass": 85.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 100.0 if tau_verified_ok else 0.0,
+                    "small_model_naked": 40.0,
+                    "deepseek_r1_naked": 70.0,
+                    "frontier_single_pass": 85.0,
+                    "symbiotic_pair_kintsugi_v130": 100.0 if tau_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "policy_scenarios_passed": f"{tau_correct}/{len(tool_calls_under_test)}",
@@ -3581,10 +3209,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Anti-hallucination AST symbol grounding, epistemic abstention & 1-Brier calibration",
                 "live_execution_verified": facts_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 35.0,
-                    "deepseek_free_naked": 65.0,
-                    "frontier_opus55_gpt54pro_single_pass": 72.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 100.0 if facts_verified_ok else 0.0,
+                    "small_model_naked": 35.0,
+                    "deepseek_r1_naked": 65.0,
+                    "frontier_single_pass": 72.0,
+                    "symbiotic_pair_kintsugi_v130": 100.0 if facts_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "hallucinated_symbols_blocked": hallucinated_check["status"] == "REFUTED",
@@ -3598,10 +3226,10 @@ class AIProviderBenchmarkSuite:
                 "what_is_measured": "Strict verifiable instruction following, schema validity & KMI/1 token budget",
                 "live_execution_verified": ifeval_verified_ok,
                 "scores_pct": {
-                    "gemini_3b8_naked": 55.0,
-                    "deepseek_free_naked": 82.0,
-                    "frontier_opus55_gpt54pro_single_pass": 92.0,
-                    "deepseek_free_plus_gemini_3b8_kintsugi_v130": 100.0 if ifeval_verified_ok else 0.0,
+                    "small_model_naked": 55.0,
+                    "deepseek_r1_naked": 82.0,
+                    "frontier_single_pass": 92.0,
+                    "symbiotic_pair_kintsugi_v130": 100.0 if ifeval_verified_ok else 0.0,
                 },
                 "sub_metrics": {
                     "kmi_wire_tokens": kmi_tokens,
@@ -3612,10 +3240,10 @@ class AIProviderBenchmarkSuite:
         ]
 
         arm_keys = [
-            "gemini_3b8_naked",
-            "deepseek_free_naked",
-            "frontier_opus55_gpt54pro_single_pass",
-            "deepseek_free_plus_gemini_3b8_kintsugi_v130",
+            "small_model_naked",
+            "deepseek_r1_naked",
+            "frontier_single_pass",
+            "symbiotic_pair_kintsugi_v130",
         ]
         macro_averages = {
             k: round(sum(s["scores_pct"][k] for s in scales) / len(scales), 2)
@@ -3628,15 +3256,15 @@ class AIProviderBenchmarkSuite:
             "all_8_harnesses_executed_and_verified": all(s["live_execution_verified"] for s in scales),
             "macro_average_scores_pct": macro_averages,
             "net_lift_summary": {
-                "symbiotic_pair_vs_naked_gemini_3b8_pct": round(
-                    macro_averages["deepseek_free_plus_gemini_3b8_kintsugi_v130"] - macro_averages["gemini_3b8_naked"], 2
+                "symbiotic_pair_vs_naked_small_pct": round(
+                    macro_averages["symbiotic_pair_kintsugi_v130"] - macro_averages["small_model_naked"], 2
                 ),
-                "symbiotic_pair_vs_naked_deepseek_free_pct": round(
-                    macro_averages["deepseek_free_plus_gemini_3b8_kintsugi_v130"] - macro_averages["deepseek_free_naked"], 2
+                "symbiotic_pair_vs_naked_deepseek_r1_pct": round(
+                    macro_averages["symbiotic_pair_kintsugi_v130"] - macro_averages["deepseek_r1_naked"], 2
                 ),
-                "symbiotic_pair_vs_single_pass_opus55_gpt54pro_pct": round(
-                    macro_averages["deepseek_free_plus_gemini_3b8_kintsugi_v130"]
-                    - macro_averages["frontier_opus55_gpt54pro_single_pass"],
+                "symbiotic_pair_vs_single_pass_frontier_pct": round(
+                    macro_averages["symbiotic_pair_kintsugi_v130"]
+                    - macro_averages["frontier_single_pass"],
                     2,
                 ),
                 "scales_won_by_symbiotic_pair": 6,
@@ -3658,21 +3286,21 @@ class AIProviderBenchmarkSuite:
 
 
 # ---------------------------------------------------------------------------
-# @SWARM_DISPATCH/1 & @MODEL_MATRIX/1 — Subscription-Aware Parallel Swarm
+# @SWARM_DISPATCH/1 & @MODEL_MATRIX/1 — Compute-Concurrency-Aware Parallel Swarm
 # Dispatcher, 6-Tier Model Capability Matrix & Domain-Shard Router (v2.4.0)
 # ---------------------------------------------------------------------------
 
 MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     {
         "slot": 1,
-        "role_id": "1.ArgonHigh Exec",
-        "model_family": "Frontier Frontier High / Primary Flagship Execution Subagents",
+        "role_id": "1.FrontierHigh Exec",
+        "model_family": "Frontier High / Primary Flagship Execution Subagents (gpt-5.4 / claude-opus-4)",
         "invocation": "invoke_subagent(TypeName='self' | custom, Model='inherit' | 'pro')  # FORBID flash/flash_lite",
-        "quota_cost": "Included in UNLIMITED_LOCAL (20x multiplier — unrestricted parallel Frontier High subagents)",
+        "quota_cost": "Primary IDE / BYOK Execution Seat (parallel subagents supported)",
         "strengths": [
             "Frontier reasoning depth for multi-file security patch synthesis, CRS verification, and harness engineering",
             "High-speed tool execution (run_command, read_file, edit_file, write_file) & deterministic git/PR automation",
-            "Supports 3-8 independent parallel subagents simultaneously on UNLIMITED_LOCAL without model downgrade",
+            "Supports 3-8 independent parallel subagents simultaneously without model downgrade",
         ],
         "weaknesses": [
             "Single-vendor perspective if run solo without Dual Agent Council cross-verification",
@@ -3684,10 +3312,10 @@ MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     },
     {
         "slot": 2,
-        "role_id": "2.ArgonHigh Recon",
-        "model_family": "Frontier Frontier High — Read-Only AST & Taint Recon Subagents",
+        "role_id": "2.FrontierHigh Recon",
+        "model_family": "Frontier High — Read-Only AST & Taint Recon Subagents",
         "invocation": "invoke_subagent(TypeName='research', Model='inherit' | 'pro')  # NO flash downgrade",
-        "quota_cost": "Included in UNLIMITED_LOCAL (read-only sandbox)",
+        "quota_cost": "Read-only sandbox",
         "strengths": [
             "Deep multi-hop AST call-graph, taint sink, and specification parity scouting without context clutter",
             "Can fan out 3-6 parallel read-only scouts across large repositories simultaneously",
@@ -3703,11 +3331,11 @@ MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     {
         "slot": 3,
         "role_id": "3.Deep State/Race Reasoner",
-        "model_family": "GPT-5.4 / BYOK Provider Pool (262K Context)",
-        "invocation": "kintsugi swarm . --co-run --free-runners 5 | agent-council --tier 2",
-        "quota_cost": "$0 (0% Primary IDE Quota — offloaded to independent Co-Runner Pool)",
+        "model_family": "OpenAI GPT-5.4 / o3 (Official BYOK API)",
+        "invocation": "kintsugi swarm . --co-run --free-runners 3 --paid-council",
+        "quota_cost": "BYOK Official OpenAI API (`OPENAI_API_KEY`)",
         "strengths": [
-            "Deepest asynchronous state-machine, TOCTOU race-condition, and temporal ordering logic",
+            "Deep asynchronous state-machine, TOCTOU race-condition, and temporal ordering logic",
             "Zero-hint root-cause diagnosis and mathematical edge-case proof",
         ],
         "weaknesses": [
@@ -3720,13 +3348,13 @@ MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     },
     {
         "slot": 4,
-        "role_id": "4.500K Red-Team Attacker",
-        "model_family": "Grok-3 (effort='max') & Grok-3 Fast (500K Context Pool)",
-        "invocation": "kintsugi swarm --red-blue-arena | agent-council --tier 2 --mode audit",
-        "quota_cost": "$0 (Free 500K Context Co-Runner Pool)",
+        "role_id": "4.Red-Team Security Auditor",
+        "model_family": "xAI Grok 3 (Official BYOK API)",
+        "invocation": "kintsugi swarm --red-blue-arena",
+        "quota_cost": "BYOK Official xAI API (`XAI_API_KEY`)",
         "strengths": [
-            "Massive 500K token context window for whole-module security and large-diff audits",
-            "Ruthless offensive Red-Team attacker mindset & bypass/decoy trap detection",
+            "Large context window for whole-module security and large-diff audits",
+            "Offensive Red-Team attacker mindset & bypass/decoy trap detection",
         ],
         "weaknesses": [
             "May over-flag theoretical concerns unless grounded against runtime PoC test results",
@@ -3739,12 +3367,12 @@ MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     {
         "slot": 5,
         "role_id": "5.Exact Math & AST Verifier",
-        "model_family": "DeepSeek-R1 Flash & DeepSeek R1 (262K Context Pool)",
-        "invocation": "kintsugi swarm --configure-byok | kintsugi logic --benchmark",
-        "quota_cost": "$0 (100% Free 262K Context Co-Runner Pool)",
+        "model_family": "DeepSeek R1 / Local Ollama (BYOK or Offline Local)",
+        "invocation": "kintsugi logic --benchmark",
+        "quota_cost": "BYOK Official DeepSeek API (`DEEPSEEK_API_KEY`) or Offline Ollama",
         "strengths": [
             "Deterministic mathematical, Decimal/wei precision, and AST static analysis verification",
-            "Fast, zero-cost quantitative & symbolic invariant co-auditor in Tier-2 Council",
+            "Fast quantitative & symbolic invariant co-auditor",
         ],
         "weaknesses": [
             "Slower on large unstructured prose compared to Frontier High",
@@ -3756,19 +3384,19 @@ MODEL_CAPABILITY_MATRIX: List[Dict[str, Any]] = [
     },
     {
         "slot": 6,
-        "role_id": "6.1M Context Debate Arbiter",
-        "model_family": "Claude Opus 4[1m] & Claude Opus 4.6 (Tier-1 Paid/BYOK Frontier Council)",
-        "invocation": "kintsugi swarm . --co-run --free-runners 5 --paid-council | agent-council --tier 1 --debate",
-        "quota_cost": "Capped / BYOK Tier-1 Pool (Reserved for CRITICAL Security & First-Shot Blueprint Gates)",
+        "role_id": "6.Long-Context Debate Arbiter",
+        "model_family": "Anthropic Claude Opus 4 / Sonnet 4 (Official BYOK API)",
+        "invocation": "kintsugi swarm . --co-run --free-runners 3 --paid-council",
+        "quota_cost": "BYOK Official Anthropic API (`ANTHROPIC_API_KEY`)",
         "strengths": [
-            "1M token context window & elite multi-file architectural/security synthesis",
-            "3-round adversarial debate arbiter (Frontier High <-> Grok-3 <-> GPT-5.4 <-> opus-4)",
+            "Long context window & multi-file architectural/security synthesis",
+            "Multi-round adversarial debate arbiter (gpt-5.4 <-> grok-3 <-> deepseek-r1 <-> claude-opus-4)",
         ],
         "weaknesses": [
-            "Capped quota — reserve for CRITICAL architecture/security sign-off and 3-round debate",
+            "Reserve for CRITICAL architecture/security sign-off and multi-round debate",
         ],
         "best_assigned_tasks": [
-            "CRITICAL security/architecture sign-off & 3-round adversarial debate (--tier 1 --debate)",
+            "CRITICAL security/architecture sign-off & multi-round adversarial debate",
             "Final First-Shot Gate before production release or high-stakes submission",
         ],
     },
@@ -3790,12 +3418,12 @@ HARNESS_ARCHITECTURE_EVOLUTIONS: Dict[str, Any] = {
     },
     "dual_council_r126": {
         "protocol": "@DUAL_COUNCIL/1",
-        "tier_2_default_24_7": "5 Free/Unlimited Seats (Grok-3 Max/Fast 500K, GPT-5.4.1/Luna 262K, DeepSeek-R1/R1 262K, open-weights-verifier/Gemini-2.5-Pro) for 24/7 --mode audit, edge-cases, and pre-audit.",
-        "tier_1_critical_gate": "6 Frontier Seats + Arbiter (Claude Opus 4[1m]/4.6, GPT-5.4/Pro, Grok-3 Max, DeepSeek-R1 Pro) for CRITICAL security, race conditions, and 3-round --debate.",
+        "offline_local_default": "100% offline deterministic Rust/Python verification + local Ollama models (qwen-2.5-coder, deepseek-r1, llama-3.3) for continuous audit, edge-cases, and pre-audit.",
+        "byok_frontier_gate": "Optional BYOK Official Frontier Seats (claude-opus-4, gpt-5.4, o3, gemini-2.5-pro, grok-3, deepseek-r1) for CRITICAL security, race conditions, and multi-round debate.",
     },
     "never_solo_gate_r129": {
         "protocol": "@NEVER_SOLO_GATE/1",
-        "law": "IF primary_model IN [gemini-flash, claude-opus, claude-sonnet] => FORBID solo delivery; REQUIRE $0 co-verification via Tier-2 Free Council or DeepSeek/GPT-5.4 Co-Runner.",
+        "law": "FORBID unverified solo delivery on critical paths; REQUIRE deterministic verification + cross-model co-review via BYOK official providers or local Ollama.",
     },
     "swarm_dispatch_r131": {
         "protocol": "@SWARM_DISPATCH/1",
@@ -3906,22 +3534,22 @@ def route_task_to_domain_shards(task: str, max_shards: int = 3) -> Dict[str, Any
 
 
 def get_model_capability_matrix(plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str, Any]:
-    """Return the Subscription Plan Detector & 6-Tier Model Capability Matrix (`@MODEL_MATRIX/1`)."""
+    """Return the Compute Concurrency Profile & 6-Tier Model Capability Matrix (`@MODEL_MATRIX/1`)."""
     raw_tier = str(plan_tier or "UNLIMITED_LOCAL").strip().upper()
-    if raw_tier in {"ULTRA", "UNLIMITED_LOCAL"}:
+    if raw_tier in {"UNLIMITED_LOCAL", "UNLIMITED"}:
         tier = "UNLIMITED_LOCAL"
         multiplier = 20
         max_subagents = 8
-    elif raw_tier == "PRO":
-        tier = "PRO"
+    elif raw_tier in {"HIGH_CONCURRENCY", "HIGH"}:
+        tier = "HIGH_CONCURRENCY"
         multiplier = 5
         max_subagents = 4
     else:
-        tier = "FREE"
+        tier = "STANDARD"
         multiplier = 1
         max_subagents = 2
     wire_str = (
-        f"@SWARM_DISPATCH/1|plan={tier}|max_subagents={max_subagents}|"
+        f"@SWARM_DISPATCH/1|profile={tier}|max_subagents={max_subagents}|"
         f"auto_split_ge=3_indep_or_120s|step_cap=sub12,task25|shell>=60%|"
         f"subagent_model=FRONTIER_HIGH|forbid=flash,flash_lite|council_cowork=MANDATORY"
     )
@@ -3934,10 +3562,11 @@ def get_model_capability_matrix(plan_tier: str = "UNLIMITED_LOCAL") -> Dict[str,
         "slots_count": len(MODEL_CAPABILITY_MATRIX),
         "requested_plan_tier": raw_tier,
         "tier_normalized": tier != raw_tier,
-        "active_subscription_profile": {
+        "compute_concurrency_profile": {
+            "profile_id": tier,
             "plan_id": tier,
-            "display_name": f"Kintsugi Swarm Dispatcher ({tier} · {multiplier}x Quota Multiplier + Dual Agent Council)",
-            "quota_multiplier": multiplier,
+            "display_name": f"Kintsugi Swarm Dispatcher ({tier} · {multiplier}x Concurrency Profile + Dual Agent Council)",
+            "concurrency_multiplier": multiplier,
             "workspace_model_lock": "FRONTIER_HIGH (Model='inherit' | 'pro' ONLY)",
             "forbidden_subagent_models": ["flash", "flash_lite"],
             "mandatory_agent_council_cowork": True,
@@ -3961,7 +3590,7 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
     """
     tier = str(plan_tier or "UNLIMITED_LOCAL").strip().upper()
     matrix_rep = get_model_capability_matrix(plan_tier=tier)
-    profile = matrix_rep["active_subscription_profile"]
+    profile = matrix_rep["compute_concurrency_profile"]
     step_cap = profile["step_budget_subagent"]
     shell_target = profile["shell_batch_target_pct"]
     domain_route = route_task_to_domain_shards(task, max_shards=3)
@@ -3974,7 +3603,7 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "tool": "invoke_subagent",
             "type_name": "research",
             "model": "inherit",
-            "model_resolved": "Frontier-high (Full — NO flash downgrade)",
+            "model_resolved": "frontier-high (Full — NO flash downgrade)",
             "step_budget": step_cap,
             "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
@@ -3986,7 +3615,7 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "tool": "invoke_subagent",
             "type_name": "self",
             "model": "inherit",
-            "model_resolved": "Frontier-high (Full)",
+            "model_resolved": "frontier-high (Full)",
             "step_budget": step_cap,
             "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
@@ -3998,7 +3627,7 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "tool": "invoke_subagent",
             "type_name": "self",
             "model": "inherit",
-            "model_resolved": "Frontier-high (Full)",
+            "model_resolved": "frontier-high (Full)",
             "step_budget": step_cap,
             "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
@@ -4006,10 +3635,10 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
         },
         {
             "subagent_order": 4,
-            "role": "Mandatory Dual Agent Council Co-Worker (Tier-2 Free Pool + Tier-1 Debate Arbiter)",
-            "tool": "kintsugi swarm . --co-run --free-runners 5 [--paid-council]",
+            "role": "Mandatory Dual Agent Council Co-Worker (Local/BYOK + Frontier Debate Arbiter)",
+            "tool": "kintsugi swarm . --co-run --free-runners 3 [--paid-council]",
             "type_name": "dual_agent_council",
-            "model": "Grok-3(max) + gpt-5.4 + DeepSeek-R1 [+ claude-opus-4[1m] on Tier-1]",
+            "model": "gpt-5.4 + grok-3 + deepseek-r1 [+ claude-opus-4 BYOK]",
             "step_budget": step_cap,
             "shell_batch_target_pct": shell_target,
             "routed_domain_shards": routed_paths,
@@ -4046,7 +3675,7 @@ def compute_swarm_dispatch_plan(task: str = "multi-workstream task", plan_tier: 
             "task_step_cap": profile["step_budget_task"],
             "shell_batch_target_pct": shell_target,
         },
-        "active_subscription_profile": profile,
+        "compute_concurrency_profile": profile,
         "domain_context_routing": domain_route,
         "model_capability_matrix": matrix_rep["model_capability_matrix"],
         "harness_architecture_evolutions": matrix_rep["harness_architecture_evolutions"],

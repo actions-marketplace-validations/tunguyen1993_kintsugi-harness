@@ -19,7 +19,7 @@ venv/
 .kintsugi/relay_outbox.jsonl
 .kintsugi/dlp_denylist.txt
 .kintsugi/metacognition_state.json
-.kintsugi/byok_provider_pool.json
+.kintsugi/*_pool.json
 .kintsugi/paid_frontier_council_keys.json
 .kintsugi/paid_council_pool.json
 .kintsugi/user_persona.json

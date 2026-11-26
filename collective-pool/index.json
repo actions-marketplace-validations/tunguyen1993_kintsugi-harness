@@ -146,6 +146,19 @@
       "KL-LEG-002",
       "KL-SEC-001"
     ],
+    "grok-frontier": [
+      "KL-BIZ-002",
+      "KL-MCP-005",
+      "KL-MCP-007",
+      "KL-PSY-001",
+      "KL-ZTR-001",
+      "KL-ZTR-003"
+    ],
+    "open-weights-frontier": [
+      "KL-HLT-001",
+      "KL-OPS-001",
+      "KL-OPS-003"
+    ],
     "openai-frontier": [
       "KL-API-002",
       "KL-CAP-002",
@@ -159,19 +172,6 @@
       "KL-MCP-006",
       "KL-ML-003",
       "KL-ZTR-002"
-    ],
-    "grok-frontier": [
-      "KL-BIZ-002",
-      "KL-MCP-005",
-      "KL-MCP-007",
-      "KL-PSY-001",
-      "KL-ZTR-001",
-      "KL-ZTR-003"
-    ],
-    "open-weights-frontier": [
-      "KL-HLT-001",
-      "KL-OPS-001",
-      "KL-OPS-003"
     ],
     "qwen-max": [
       "KL-FIN-001",
@@ -243,9 +243,7 @@
       "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
         "gpt-5.4",
-        "Grok-3",
-        "gpt-5.4",
-        "GPT-5.4-wm"
+        "grok-3"
       ],
       "reinforcement_count": 25,
       "source_repo": "local-episodic",
@@ -280,8 +278,7 @@
       "model_family": "openai-frontier",
       "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
-        "gpt-5.4",
-        "gpt-5.4-mini-wm"
+        "gpt-5.4"
       ],
       "reinforcement_count": 21,
       "source_repo": "local-episodic",
@@ -296,9 +293,9 @@
       "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
+        "grok-3",
         "deepseek-r1-0528"
       ],
       "reinforcement_count": 16,
@@ -314,12 +311,11 @@
       "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
-        "DeepSeek-R1",
-        "gpt-5.4",
-        "gpt-5.4-mini-wm"
+        "grok-3",
+        "deepseek-r1",
+        "gpt-5.4"
       ],
       "reinforcement_count": 22,
       "source_repo": "local-episodic",
@@ -406,9 +402,9 @@
       "domain_pillar": "life-and-business",
       "severity": "HIGH",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
+        "grok-3",
         "claude-opus-4"
       ],
       "reinforcement_count": 15,
@@ -427,7 +423,7 @@
       "synthesized_by_model": "deepseek-r1-0528",
       "endorsed_by_models": [
         "deepseek-r1-0528",
-        "Qwen-2.5-Coder"
+        "qwen-2.5-coder"
       ],
       "reinforcement_count": 13,
       "source_repo": "github:patrickjs/awesome-cursorrules/alpha-skills-quant-factor-research",
@@ -442,9 +438,9 @@
       "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "gemini-pro",
-      "synthesized_by_model": "Gemini-2.5-Pro",
+      "synthesized_by_model": "gemini-2.5-pro",
       "endorsed_by_models": [
-        "Gemini-2.5-Pro",
+        "gemini-2.5-pro",
         "deepseek-r1-0528"
       ],
       "reinforcement_count": 14,
@@ -460,9 +456,8 @@
       "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "openai-frontier",
-      "synthesized_by_model": "gpt-5.4-mini-wm",
+      "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
-        "gpt-5.4-mini-wm",
         "gpt-5.4"
       ],
       "reinforcement_count": 20,
@@ -517,7 +512,7 @@
       "synthesized_by_model": "deepseek-r1-0528",
       "endorsed_by_models": [
         "deepseek-r1-0528",
-        "meta-muse-spark"
+        "open-weights-frontier"
       ],
       "reinforcement_count": 15,
       "source_repo": "local-episodic",
@@ -532,9 +527,9 @@
       "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "open-weights-frontier",
-      "synthesized_by_model": "meta-muse-spark",
+      "synthesized_by_model": "open-weights-frontier",
       "endorsed_by_models": [
-        "meta-muse-spark",
+        "open-weights-frontier",
         "deepseek-r1-0528"
       ],
       "reinforcement_count": 15,
@@ -550,10 +545,10 @@
       "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "open-weights-frontier",
-      "synthesized_by_model": "meta-muse-spark",
+      "synthesized_by_model": "open-weights-frontier",
       "endorsed_by_models": [
-        "meta-muse-spark",
-        "Grok-3"
+        "open-weights-frontier",
+        "grok-3"
       ],
       "reinforcement_count": 17,
       "source_repo": "local-episodic",
@@ -590,7 +585,7 @@
       "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
         "gpt-5.4",
-        "Qwen-2.5-Coder"
+        "qwen-2.5-coder"
       ],
       "reinforcement_count": 20,
       "source_repo": "local-episodic",
@@ -608,7 +603,7 @@
       "synthesized_by_model": "claude-opus-4",
       "endorsed_by_models": [
         "claude-opus-4",
-        "Qwen-2.5-Coder"
+        "qwen-2.5-coder"
       ],
       "reinforcement_count": 13,
       "source_repo": "github:anthropics/skills/xlsx",
@@ -677,9 +672,9 @@
       "domain_pillar": "engineering",
       "severity": "HIGH",
       "model_family": "qwen-max",
-      "synthesized_by_model": "Qwen-2.5-Coder",
+      "synthesized_by_model": "qwen-2.5-coder",
       "endorsed_by_models": [
-        "Qwen-2.5-Coder",
+        "qwen-2.5-coder",
         "gpt-5.4"
       ],
       "reinforcement_count": 13,
@@ -698,7 +693,7 @@
       "synthesized_by_model": "claude-opus-4",
       "endorsed_by_models": [
         "claude-opus-4",
-        "Gemini-2.5-Pro"
+        "gemini-2.5-pro"
       ],
       "reinforcement_count": 12,
       "source_repo": "github:anthropics/skills/webapp-testing",
@@ -713,10 +708,10 @@
       "domain_pillar": "life-and-business",
       "severity": "HIGH",
       "model_family": "qwen-max",
-      "synthesized_by_model": "Qwen-2.5-Coder",
+      "synthesized_by_model": "qwen-2.5-coder",
       "endorsed_by_models": [
-        "Qwen-2.5-Coder",
-        "Grok-3"
+        "qwen-2.5-coder",
+        "grok-3"
       ],
       "reinforcement_count": 16,
       "source_repo": "local-episodic",
@@ -731,10 +726,10 @@
       "domain_pillar": "life-and-business",
       "severity": "HIGH",
       "model_family": "open-weights-frontier",
-      "synthesized_by_model": "meta-muse-spark",
+      "synthesized_by_model": "open-weights-frontier",
       "endorsed_by_models": [
-        "meta-muse-spark",
-        "Gemini-2.5-Pro"
+        "open-weights-frontier",
+        "gemini-2.5-pro"
       ],
       "reinforcement_count": 16,
       "source_repo": "local-episodic",
@@ -749,9 +744,9 @@
       "domain_pillar": "life-and-business",
       "severity": "CRITICAL",
       "model_family": "gemini-pro",
-      "synthesized_by_model": "Gemini-2.5-Pro",
+      "synthesized_by_model": "gemini-2.5-pro",
       "endorsed_by_models": [
-        "Gemini-2.5-Pro",
+        "gemini-2.5-pro",
         "deepseek-r1-0528"
       ],
       "reinforcement_count": 15,
@@ -788,7 +783,7 @@
       "synthesized_by_model": "claude-opus-4",
       "endorsed_by_models": [
         "claude-opus-4",
-        "Gemini-2.5-Pro"
+        "gemini-2.5-pro"
       ],
       "reinforcement_count": 14,
       "source_repo": "local-episodic",
@@ -803,10 +798,10 @@
       "domain_pillar": "life-and-business",
       "severity": "HIGH",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
-        "meta-muse-spark"
+        "grok-3",
+        "open-weights-frontier"
       ],
       "reinforcement_count": 21,
       "source_repo": "local-episodic",
@@ -841,8 +836,7 @@
       "model_family": "openai-frontier",
       "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
-        "gpt-5.4",
-        "gpt-5.4-mini-wm"
+        "gpt-5.4"
       ],
       "reinforcement_count": 19,
       "source_repo": "local-episodic",
@@ -859,8 +853,7 @@
       "model_family": "openai-frontier",
       "synthesized_by_model": "gpt-5.4",
       "endorsed_by_models": [
-        "gpt-5.4",
-        "gpt-5.4-mini-wm"
+        "gpt-5.4"
       ],
       "reinforcement_count": 18,
       "source_repo": "local-episodic",
@@ -893,9 +886,9 @@
       "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
+        "grok-3",
         "claude-opus-4"
       ],
       "reinforcement_count": 17,
@@ -911,9 +904,9 @@
       "domain_pillar": "engineering",
       "severity": "CRITICAL",
       "model_family": "grok-frontier",
-      "synthesized_by_model": "Grok-3",
+      "synthesized_by_model": "grok-3",
       "endorsed_by_models": [
-        "Grok-3",
+        "grok-3",
         "gpt-5.4"
       ],
       "reinforcement_count": 18,

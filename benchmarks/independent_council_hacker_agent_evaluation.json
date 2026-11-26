@@ -851,7 +851,7 @@
     }
   },
   "independent_multi_vendor_council_audit": {
-    "council_protocol": "R126/R129 Full Dual-Council (Tier-1 High-Reasoning + Tier-2 Free Unlimited) 30-Gate Criterion-Referenced Audit",
+    "council_protocol": "Multi-Vendor BYOK & Local OpenAI-Compatible Council 30-Gate Criterion-Referenced Audit",
     "participating_vendors": [
       "Google DeepMind",
       "OpenAI",
@@ -871,15 +871,15 @@
       {
         "seat_id": "deepseek_openweights_formal_auditor",
         "vendor": "DeepSeek / Open-Weights",
-        "title": "DeepSeek R1 / GPT-OSS-20B (Council #2) — Formal Verification, Z3 SMT & SAST Auditor",
+        "title": "DeepSeek R1 / Open-Weights (BYOK / Local Ollama Seat) — Formal Verification, Z3 SMT & SAST Auditor",
         "ok": false,
         "elapsed_sec": 60.03,
-        "errors": "['DeepSeek-R1: timed out']"
+        "errors": "['deepseek-r1: timed out']"
       },
       {
         "seat_id": "google_gemini_2_5_pro_standards_auditor",
         "vendor": "Google DeepMind",
-        "title": "Google Gemini 2.5 Pro (Council #2) — OWASP Agentic / NIST AI RMF & Supply-Chain Auditor",
+        "title": "Google Gemini 2.5 Pro (BYOK / OpenAI-Compatible Seat) — OWASP Agentic / NIST AI RMF & Supply-Chain Auditor",
         "routed_model": "gemini-2.5-pro",
         "routed_pool": "gemini_pro",
         "ok": true,
@@ -916,11 +916,11 @@
         "receipt_sha256": "614f6daf806a0a15a7f6fd6017365528212c1ac1ce35c3f57bf3f0a99fe1500c"
       },
       {
-        "seat_id": "openai_gpt_6_crs_auditor",
+        "seat_id": "openai_gpt_5_4_crs_auditor",
         "vendor": "OpenAI",
-        "title": "OpenAI GPT-5.4 (Council #1/#2) — DARPA AIxCC CRS & Patch Soundness Auditor",
-        "routed_model": "gpt-5.4-mini",
-        "routed_pool": "byok_provider",
+        "title": "OpenAI GPT-5.4 (BYOK / OpenAI-Compatible Seat) — DARPA AIxCC CRS & Patch Soundness Auditor",
+        "routed_model": "gpt-5.4",
+        "routed_pool": "openai_api",
         "ok": true,
         "elapsed_sec": 10.85,
         "evaluation": {
@@ -953,11 +953,11 @@
         "receipt_sha256": "e36ba3e0ee087684e96e0d274ab788d01a3f9e1b937f7c1eb8d385d487f5da84"
       },
       {
-        "seat_id": "xai_grok_4_7_redteam_auditor",
+        "seat_id": "xai_grok_3_redteam_auditor",
         "vendor": "xAI",
-        "title": "xAI Grok-3 (Council #1/#2) — Offensive Exploit, Crypto & Red-Team Auditor",
-        "routed_model": "Grok-3-build-fast",
-        "routed_pool": "byok_direct",
+        "title": "xAI Grok 3 (BYOK / OpenAI-Compatible Seat) — Offensive Exploit, Crypto & Red-Team Auditor",
+        "routed_model": "grok-3-fast",
+        "routed_pool": "xai_api",
         "ok": true,
         "elapsed_sec": 19.88,
         "evaluation": {

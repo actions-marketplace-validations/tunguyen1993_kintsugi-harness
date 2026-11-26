@@ -378,8 +378,8 @@
       "regex_pattern": "\\b(?:child_process\\.)?exec(?:Sync)?\\s*\\(\\s*`[^`]*\\$\\{[^}]+\\}",
       "ast_rule": null,
       "verified_by": [
-        "architect:Gemini-2.5-Pro",
-        "synthesizer:DeepSeek-R1",
+        "architect:gemini-2.5-pro",
+        "synthesizer:deepseek-r1",
         "critic:open-weights-verifier",
         "self-check"
       ],
@@ -412,7 +412,7 @@
       "ast_rule": null,
       "verified_by": [
         "architect:gpt-5.4",
-        "synthesizer:DeepSeek-R1",
+        "synthesizer:deepseek-r1",
         "critic:open-weights-verifier",
         "self-check"
       ],
@@ -444,7 +444,7 @@
       "ast_rule": "py_cors_wildcard_credentials",
       "verified_by": [
         "architect:gpt-5.4",
-        "synthesizer:DeepSeek-R1",
+        "synthesizer:deepseek-r1",
         "critic:open-weights-verifier",
         "self-check"
       ],
@@ -473,8 +473,8 @@
       "regex_pattern": "\\bhttp\\.(?:Get|Post|PostForm|Head)\\s*\\(",
       "ast_rule": null,
       "verified_by": [
-        "architect:Gemini-2.5-Pro",
-        "synthesizer:DeepSeek-R1",
+        "architect:gemini-2.5-pro",
+        "synthesizer:deepseek-r1",
         "critic:open-weights-verifier",
         "self-check"
       ],
@@ -678,7 +678,7 @@
       "ast_rule": null,
       "verified_by": [
         "evolved-crs-v2.4.0",
-        "GPT-5.4"
+        "gpt-5.4"
       ],
       "hits": 0,
       "created_at": "2026-11-21T14:53:59Z",
@@ -707,7 +707,7 @@
       "ast_rule": null,
       "verified_by": [
         "evolved-crs-v2.4.0",
-        "GPT-5.4"
+        "gpt-5.4"
       ],
       "hits": 0,
       "created_at": "2026-11-21T14:53:24Z",
@@ -974,10 +974,10 @@
         "playwright",
         "chrome",
         "ram",
-        "host-b",
+        "worker",
         "mac"
       ],
-      "root_cause": "@TRAP/1{guard:RX#30710329,fault:PUPPETEER_VIOLATION,origin:OP/1,tags:[puppeteer,playwright,chrome,ram,host-b]}",
+      "root_cause": "@TRAP/1{guard:RX#30710329,fault:PUPPETEER_VIOLATION,origin:OP/1,tags:[puppeteer,playwright,chrome,ram,worker]}",
       "bad_code": "emp_violation_009_unverified_call(unsafe=True)",
       "good_code": "emp_verified_009_safe_guard(unsafe=False)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_009_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
@@ -989,7 +989,7 @@
         "ast-shield"
       ],
       "hits": 1,
-      "created_at": "2026-04-06T00:00:44Z",
+      "created_at": "2026-04-06T00:00:35Z",
       "fingerprint": "41411955d03b219f"
     },
     {
@@ -1002,13 +1002,13 @@
       ],
       "tags": [
         "wallet",
-        "Exchange",
+        "exchange",
         "reporting",
         "usdc",
         "base",
         "empirical-cm"
       ],
-      "root_cause": "@TRAP/1{guard:RX#2680efad,fault:WALLET_VIOLATION,origin:OP/1,tags:[wallet,Exchange,reporting,usdc,base]}",
+      "root_cause": "@TRAP/1{guard:RX#2680efad,fault:WALLET_VIOLATION,origin:OP/1,tags:[wallet,exchange,reporting,usdc,base]}",
       "bad_code": "emp_violation_010_unverified_call(unsafe=True)",
       "good_code": "emp_verified_010_safe_guard(unsafe=False)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:emp_verified_010_safe_guard_unsafe_False,verify:DETERMINISTIC_PASS}",
@@ -1020,7 +1020,7 @@
         "ast-shield"
       ],
       "hits": 1,
-      "created_at": "2026-04-06T00:00:55Z",
+      "created_at": "2026-04-06T00:00:43Z",
       "fingerprint": "322dd858822a6ff4"
     },
     {
@@ -2552,21 +2552,21 @@
     },
     {
       "id": "KS-EMP-061",
-      "title": "@OP/1[ID:KS-EMP-061|SEV:HIGH|CAT:host-b|LANG:py|OP:git!push->GIT_TERMINAL_PROMPT=0]",
+      "title": "@OP/1[ID:KS-EMP-061|SEV:HIGH|CAT:devops|LANG:py|OP:git!push->GIT_TERMINAL_PROMPT=0]",
       "severity": "HIGH",
-      "category": "host-b",
+      "category": "devops",
       "languages": [
         "python"
       ],
       "tags": [
-        "host-b",
+        "ci-ops",
         "outbox",
         "windows_schtasks",
         "multi-pull-api-escrow",
         "multi_pull",
         "offline_resilience"
       ],
-      "root_cause": "@TRAP/1{guard:RX#bb7538b1,fault:PC2_VIOLATION,origin:OP/1,tags:[host-b,outbox,windows_schtasks,multi-pull-api-escrow,multi_pull]}",
+      "root_cause": "@TRAP/1{guard:RX#bb7538b1,fault:DEVOPS_VIOLATION,origin:OP/1,tags:[ci-ops,outbox,windows_schtasks,multi-pull-api-escrow,multi_pull]}",
       "bad_code": "subprocess.run([\"git\", \"push\"], env={\"GIT_TERMINAL_PROMPT\": \"1\"})",
       "good_code": "subprocess.run([\"git\", \"push\"], env={\"GIT_TERMINAL_PROMPT\": \"0\"}, timeout=30)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:subprocess.run_git_,_push_,_env_GIT_TERMINAL,verify:DETERMINISTIC_PASS}",
@@ -2578,7 +2578,7 @@
         "ast-shield"
       ],
       "hits": 1,
-      "created_at": "2026-04-06T00:00:39Z",
+      "created_at": "2026-04-06T00:00:15Z",
       "fingerprint": "37582272e7e7e792"
     },
     {
@@ -2655,23 +2655,23 @@
         "logic-evolution",
         "state-machine",
         "idempotency",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#1702b294,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,state-machine,idempotency,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#1702b294,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,state-machine,idempotency,multi-model-deepseek,kml:v1]}",
       "bad_code": "if order.status == 'PENDING':  # NON_ATOMIC_STATE_TRANSITION\n    order.status = 'PAID'\n     settle_ledger(order)\n",
       "good_code": "if atomic_compare_and_swap(order, expected='PENDING', target='PAID'):\n    settle_ledger(order)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_atomic_compare_and_swap_order,_expected_P,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*NON_ATOMIC_STATE_TRANSITION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:58:44Z",
+      "created_at": "2026-11-06T05:58:08Z",
       "fingerprint": "204f24f3c1ccaea8"
     },
     {
@@ -2686,23 +2686,23 @@
         "logic-evolution",
         "retry-idempotency",
         "duplicate-payout",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#de887c65,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,retry-idempotency,duplicate-payout,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#de887c65,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,retry-idempotency,duplicate-payout,multi-model-deepseek,kml:v1]}",
       "bad_code": "for attempt in range(max_retries):\n    resp = post_webhook(payload)  # UNKEYED_RETRY_SIDE_EFFECT\n",
       "good_code": "for attempt in range(max_retries):\n    resp = post_webhook(payload, idempotency_key= derive_idempotency_key(payload))\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:for_attempt_in_range_max_retries_:,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNKEYED_RETRY_SIDE_EFFECT\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:58:48Z",
+      "created_at": "2026-11-06T05:58:19Z",
       "fingerprint": "8fbafb3c85dc067c"
     },
     {
@@ -2717,23 +2717,23 @@
         "logic-evolution",
         "out-of-order-event",
         "monotonic-version",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#db2b2ff9,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,out-of-order-event,monotonic-version,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#db2b2ff9,fault:STATE-MACHINE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,out-of-order-event,monotonic-version,multi-model-deepseek,kml:v1]}",
       "bad_code": "def apply_event(entity, evt):\n    entity.balance = evt.new_balance  # STALE_EVENT_OVERWRITE_LOGIC\n",
       "good_code": "def apply_event(entity, evt):\n    if evt.sequence_id > entity.last_sequence_id:\n        entity.balance = evt.new_balance\n        entity.last_sequence_id = evt.sequence_id\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:def_apply_event_entity,_evt_:,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*STALE_EVENT_OVERWRITE_LOGIC\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:58:46Z",
+      "created_at": "2026-11-06T05:58:22Z",
       "fingerprint": "3434110ac9e90140"
     },
     {
@@ -2748,23 +2748,23 @@
         "logic-evolution",
         "asyncio-toctou",
         "await-interleaving",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#e3f29dd6,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,asyncio-toctou,await-interleaving,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#e3f29dd6,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,asyncio-toctou,await-interleaving,multi-model-deepseek,kml:v1]}",
       "bad_code": "if quota_remaining >= cost:\n    await verify_remote_policy(user_id)  # ASYNC_AWAIT_TOCTOU_INTERLEAVING\n    quota_remaining -= cost\n",
       "good_code": "async with quota_lock:\n    if quota_remaining >= cost:\n        await verify_remote_policy(user_id)\n        quota_remaining -= cost\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:async_with_quota_lock:,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*ASYNC_AWAIT_TOCTOU_INTERLEAVING\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:59:35Z",
+      "created_at": "2026-11-06T05:59:08Z",
       "fingerprint": "07bacf73780df5a1"
     },
     {
@@ -2779,23 +2779,23 @@
         "logic-evolution",
         "task-orphan",
         "background-task-gc",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#92fc4754,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,task-orphan,background-task-gc,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#92fc4754,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,task-orphan,background-task-gc,multi-model-deepseek,kml:v1]}",
       "bad_code": "asyncio.create_task(flush_audit_batch(records))  # UNREFERENCED_ASYNCIO_CREATE_TASK_GC\n",
       "good_code": "task = asyncio.create_task(flush_audit_batch(records))\nbackground_tasks.add(task)\ntask.add_done_callback(background_tasks.discard)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:task_asyncio.create_task_flush_audit_batch_r,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "^\\s*asyncio\\.create_task\\s*\\([^\\n]+\\)\\s*#\\s*UNREFERENCED_ASYNCIO_CREATE_TASK_GC\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:59:38Z",
+      "created_at": "2026-11-06T05:59:52Z",
       "fingerprint": "019d5e138d503712"
     },
     {
@@ -2810,23 +2810,23 @@
         "logic-evolution",
         "lock-order-deadlock",
         "canonical-lock-sort",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#516e9b11,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lock-order-deadlock,canonical-lock-sort,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#516e9b11,fault:CONCURRENCY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lock-order-deadlock,canonical-lock-sort,multi-model-deepseek,kml:v1]}",
       "bad_code": "with lock_map[src_id], lock_map[dst_id]:  # AB_BA_LOCK_INVERSION_DEADLOCK\n    transfer_units(src_id, dst_id, qty)\n",
       "good_code": "first_id, second_id = sorted((src_id, dst_id))\nwith lock_map[first_id], lock_map[second_id]:\n    transfer_units(src_id, dst_id, qty)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:first_id,_second_id_sorted_src_id,_dst_id,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*AB_BA_LOCK_INVERSION_DEADLOCK\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T05:59:11Z",
+      "created_at": "2026-11-06T05:59:07Z",
       "fingerprint": "bd1422d6aa487cff"
     },
     {
@@ -2841,23 +2841,23 @@
         "logic-evolution",
         "logsumexp",
         "softmax-overflow",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#6b45d960,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,logsumexp,softmax-overflow,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#6b45d960,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,logsumexp,softmax-overflow,multi-model-deepseek,kml:v1]}",
       "bad_code": "probs = [math.exp(z) / sum(math.exp(x) for x in logits) for z in logits]  # UNSHIFTED_EXP_SOFTMAX_OVERFLOW\n",
       "good_code": "m = max(logits)\nexps = [math.exp(z - m) for z in logits]\nz_sum = sum(exps)\nprobs = [e / z_sum for e in exps]\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:m_max_logits,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNSHIFTED_EXP_SOFTMAX_OVERFLOW\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T06:01:38Z",
+      "created_at": "2026-11-06T06:01:18Z",
       "fingerprint": "c68443c3c0a526fe"
     },
     {
@@ -2872,23 +2872,23 @@
         "logic-evolution",
         "kahan-summation",
         "catastrophic-cancellation",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#35fb0ebf,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,kahan-summation,catastrophic-cancellatio,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#35fb0ebf,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,kahan-summation,catastrophic-cancellatio,multi-model-deepseek,kml:v1]}",
       "bad_code": "var = (sum(x * x for x in xs) / n) - (sum(xs) / n) ** 2  # CATASTROPHIC_VARIANCE_CANCELLATION\n",
       "good_code": "mean = sum(xs) / n\nvar = sum((x - mean) ** 2 for x in xs) / n\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:mean_sum_xs_/_n,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*CATASTROPHIC_VARIANCE_CANCELLATION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T06:01:21Z",
+      "created_at": "2026-11-06T06:01:37Z",
       "fingerprint": "a86148e6ecc9cfcc"
     },
     {
@@ -2903,23 +2903,23 @@
         "logic-evolution",
         "integer-division-rounding",
         "basis-points",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#3225cdd4,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,integer-division-roundin,basis-points,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#3225cdd4,fault:NUMERICAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,integer-division-roundin,basis-points,multi-model-deepseek,kml:v1]}",
       "bad_code": "fee_units = (amount_units // 10000) * bps_rate  # PREMATURE_FLOOR_DIVISION_LOSS\n",
       "good_code": "fee_units = (amount_units * bps_rate) // 10000\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:fee_units_amount_units_bps_rate_//_10000,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*PREMATURE_FLOOR_DIVISION_LOSS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 11,
-      "created_at": "2026-11-06T06:01:54Z",
+      "created_at": "2026-11-06T06:01:19Z",
       "fingerprint": "5da5ffbf9360f58b"
     },
     {
@@ -2934,23 +2934,23 @@
         "logic-evolution",
         "cursor-pagination",
         "tie-breaker-key",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#fcbcb2ca,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cursor-pagination,tie-breaker-key,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#fcbcb2ca,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cursor-pagination,tie-breaker-key,multi-model-deepseek,kml:v1]}",
       "bad_code": "rows = db.query('SELECT * FROM events WHERE created_at > ? ORDER BY created_at LIMIT 100', [last_ts])  # NON_UNIQUE_TIMESTAMP_PAGINATION_SKIP\n",
       "good_code": "rows = db.query('SELECT * FROM events WHERE (created_at, id) > (?, ?) ORDER BY created_at, id LIMIT 100', [last_ts, last_id])\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:rows_db.query_SELECT_FROM_events_WHERE_creat,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*NON_UNIQUE_TIMESTAMP_PAGINATION_SKIP\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:03:30Z",
+      "created_at": "2026-11-06T06:03:45Z",
       "fingerprint": "230cf0357ce9c1f7"
     },
     {
@@ -2965,23 +2965,23 @@
         "logic-evolution",
         "binary-search-overflow",
         "interval-closure",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#3fd89db4,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,binary-search-overflow,interval-closure,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#3fd89db4,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,binary-search-overflow,interval-closure,multi-model-deepseek,kml:v1]}",
       "bad_code": "while lo < hi:\n    mid = (lo + hi) // 2\n    if check(mid):\n        lo = mid  # BINARY_SEARCH_INFINITE_BOUND_STALL\n    else:\n        hi = mid - 1\n",
       "good_code": "while lo < hi:\n    mid = (lo + hi + 1) // 2\n    if check(mid):\n        lo = mid\n    else:\n        hi = mid - 1\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:while_lo_hi:,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*BINARY_SEARCH_INFINITE_BOUND_STALL\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:03:31Z",
+      "created_at": "2026-11-06T06:03:04Z",
       "fingerprint": "1d1710060a49351d"
     },
     {
@@ -2996,23 +2996,23 @@
         "logic-evolution",
         "sliding-window",
         "half-open-interval",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#8a6ff049,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,sliding-window,half-open-interval,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#8a6ff049,fault:BOUNDARY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,sliding-window,half-open-interval,multi-model-deepseek,kml:v1]}",
       "bad_code": "chunks = [items[i : i + step + 1] for i in range(0, len(items), step)]  # OVERLAPPING_CHUNK_BOUNDARY_DUPLICATION\n",
       "good_code": "chunks = [items[i : i + step] for i in range(0, len(items), step)]\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:chunks_items_i_:_i_+_step_for_i_in_range_0,_,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*OVERLAPPING_CHUNK_BOUNDARY_DUPLICATION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:03:34Z",
+      "created_at": "2026-11-06T06:03:11Z",
       "fingerprint": "c77a2751ee536f99"
     },
     {
@@ -3027,23 +3027,23 @@
         "logic-evolution",
         "late-binding-closure",
         "lambda-capture",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#8c072a29,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,late-binding-closure,lambda-capture,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#8c072a29,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,late-binding-closure,lambda-capture,multi-model-deepseek,kml:v1]}",
       "bad_code": "handlers = [lambda evt: dispatch(evt, route_id) for route_id in routes]  # LATE_BINDING_LOOP_CLOSURE_CAPTURE\n",
       "good_code": "handlers = [lambda evt, r=route_id: dispatch(evt, r) for route_id in routes]\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:handlers_lambda_evt,_r_route_id:_dispatch_ev,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*LATE_BINDING_LOOP_CLOSURE_CAPTURE\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:05:45Z",
+      "created_at": "2026-11-06T06:05:31Z",
       "fingerprint": "5e1472f378d91828"
     },
     {
@@ -3058,23 +3058,23 @@
         "logic-evolution",
         "shallow-row-multiplication",
         "matrix-aliasing",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#eafd5c14,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,shallow-row-multiplicati,matrix-aliasing,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#eafd5c14,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,shallow-row-multiplicati,matrix-aliasing,multi-model-deepseek,kml:v1]}",
       "bad_code": "grid = [[0] * cols] * rows  # ALIASED_NESTED_LIST_MULTIPLICATION\n",
       "good_code": "grid = [[0] * cols for _ in range(rows)]\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:grid_0_cols_for___in_range_rows,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "\\[\\s*\\[[^\\]]+\\]\\s*\\*\\s*[A-Za-z0-9_]+\\s*\\]\\s*\\*\\s*[A-Za-z0-9_]+",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:05:45Z",
+      "created_at": "2026-11-06T06:05:29Z",
       "fingerprint": "34cfdb56d8bea8f6"
     },
     {
@@ -3089,23 +3089,23 @@
         "logic-evolution",
         "iterator-exhaustion",
         "single-pass-generator",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#a3222e51,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,iterator-exhaustion,single-pass-generator,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#a3222e51,fault:CLOSURE-ALIASING-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,iterator-exhaustion,single-pass-generator,multi-model-deepseek,kml:v1]}",
       "bad_code": "filtered = (x for x in data if x > 0)\ntotal = sum(filtered)\ncount = sum(1 for _ in filtered)  # EXHAUSTED_GENERATOR_SECOND_PASS\n",
       "good_code": "filtered = tuple(x for x in data if x > 0)\ntotal = sum(filtered)\ncount = len(filtered)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:filtered_tuple_x_for_x_in_data_if_x_0,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*EXHAUSTED_GENERATOR_SECOND_PASS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:05:01Z",
+      "created_at": "2026-11-06T06:05:55Z",
       "fingerprint": "e70a1f9d78c9be26"
     },
     {
@@ -3120,23 +3120,23 @@
         "logic-evolution",
         "lookahead-bias",
         "train-test-leakage",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#cf97d2a8,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lookahead-bias,train-test-leakage,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#cf97d2a8,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,lookahead-bias,train-test-leakage,multi-model-deepseek,kml:v1]}",
       "bad_code": "X_scaled = scaler.fit_transform(X_all)  # PRE_SPLIT_GLOBAL_NORMALIZATION_LEAK\nX_train, X_test = split_temporal(X_scaled)\n",
       "good_code": "X_train_raw, X_test_raw = split_temporal(X_all)\nX_train = scaler.fit_transform(X_train_raw)\nX_test = scaler.transform(X_test_raw)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:X_train_raw,_X_test_raw_split_temporal_X_all,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*PRE_SPLIT_GLOBAL_NORMALIZATION_LEAK\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:07:01Z",
+      "created_at": "2026-11-06T06:07:05Z",
       "fingerprint": "2f97b675fef06394"
     },
     {
@@ -3151,23 +3151,23 @@
         "logic-evolution",
         "monotonic-clock",
         "wall-clock-skew",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#5c12b927,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,monotonic-clock,wall-clock-skew,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#5c12b927,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,monotonic-clock,wall-clock-skew,multi-model-deepseek,kml:v1]}",
       "bad_code": "t_start = time.time()\nrun_step()\nelapsed_ms = (time.time() - t_start) * 1000.0  # WALL_CLOCK_NTP_BACKWARD_JUMP_BUG\n",
       "good_code": "t_start = time.monotonic()\nrun_step()\nelapsed_ms = (time.monotonic() - t_start) * 1000.0\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:t_start_time.monotonic,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*WALL_CLOCK_NTP_BACKWARD_JUMP_BUG\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:07:28Z",
+      "created_at": "2026-11-06T06:07:42Z",
       "fingerprint": "d4d7ed7baa3a0d58"
     },
     {
@@ -3182,23 +3182,23 @@
         "logic-evolution",
         "collider-conditioning",
         "pearl-do-calculus",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#00858a98,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,collider-conditioning,pearl-do-calculus,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#00858a98,fault:CAUSAL-TEMPORAL-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,collider-conditioning,pearl-do-calculus,multi-model-deepseek,kml:v1]}",
       "bad_code": "adj_set = pre_confounders | post_treatment_colliders  # POST_TREATMENT_COLLIDER_BIAS_CONDITIONING\n",
       "good_code": "adj_set = pre_confounders - descendants_of_treatment\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:adj_set_pre_confounders_-_descendants_of_tre,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*POST_TREATMENT_COLLIDER_BIAS_CONDITIONING\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:07:56Z",
+      "created_at": "2026-11-06T06:07:58Z",
       "fingerprint": "a3088db4077f1351"
     },
     {
@@ -3213,23 +3213,23 @@
         "logic-evolution",
         "timing-side-channel",
         "constant-time-compare",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#b40ad976,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,timing-side-channel,constant-time-compare,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#b40ad976,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,timing-side-channel,constant-time-compare,multi-model-deepseek,kml:v1]}",
       "bad_code": "if computed_hmac_hex == header_signature_hex:  # NON_CONSTANT_TIME_SIGNATURE_EQUALITY\n    allow_request()\n",
       "good_code": "if hmac.compare_digest(computed_hmac_hex, header_signature_hex):\n    allow_request()\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_hmac.compare_digest_computed_hmac_hex,_he,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*NON_CONSTANT_TIME_SIGNATURE_EQUALITY\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:09:47Z",
+      "created_at": "2026-11-06T06:09:32Z",
       "fingerprint": "85762c2b23a7c55d"
     },
     {
@@ -3244,23 +3244,23 @@
         "logic-evolution",
         "cross-tenant-auth",
         "audience-binding",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#4e3f56c3,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cross-tenant-auth,audience-binding,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#4e3f56c3,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,cross-tenant-auth,audience-binding,multi-model-deepseek,kml:v1]}",
       "bad_code": "if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts:  # MISSING_TENANT_SCOPE_BINDING_CHECK\n    return load_tenant_vault(req.tenant_id)\n",
       "good_code": "if jwt_claims.get('sub') and jwt_claims.get('exp') > now_ts and jwt_claims.get('tenant_id') == req.tenant_id:\n    return load_tenant_vault(req.tenant_id)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_jwt_claims.get_sub_and_jwt_claims.get_exp,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*MISSING_TENANT_SCOPE_BINDING_CHECK\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:09:29Z",
+      "created_at": "2026-11-06T06:09:50Z",
       "fingerprint": "dc015707cdaa1873"
     },
     {
@@ -3275,23 +3275,23 @@
         "logic-evolution",
         "hash-length-extension",
         "canonical-delimiter",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#0e5b679c,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,hash-length-extension,canonical-delimiter,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#0e5b679c,fault:CRYPTO-AUTH-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,hash-length-extension,canonical-delimiter,multi-model-deepseek,kml:v1]}",
       "bad_code": "digest = hashlib.sha256((role + resource + action).encode()).hexdigest()  # AMBIGUOUS_CONCATENATION_HASH_COLLISION\n",
       "good_code": "digest = hashlib.sha256(json.dumps([role, resource, action]).encode()).hexdigest()\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:digest_hashlib.sha256_json.dumps_role,_resou,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*AMBIGUOUS_CONCATENATION_HASH_COLLISION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:09:53Z",
+      "created_at": "2026-11-06T06:09:19Z",
       "fingerprint": "c5b2c40cda9fb807"
     },
     {
@@ -3306,23 +3306,23 @@
         "logic-evolution",
         "byzantine-quorum",
         "sybil-dedup",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#03cb86b7,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,byzantine-quorum,sybil-dedup,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#03cb86b7,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,byzantine-quorum,sybil-dedup,multi-model-deepseek,kml:v1]}",
       "bad_code": "if sum(1 for v in votes if v.approve) >= quorum_threshold:  # UNKEYED_DUPLICATE_VOTE_QUORUM_BYPASS\n    commit_block()\n",
       "good_code": "unique_approvers = {v.voter_id for v in votes if v.approve and v.voter_id inallowlisted_validators}\nif len(unique_approvers) >= quorum_threshold:\n    commit_block()\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:unique_approvers_v.voter_id_for_v_in_votes_i,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNKEYED_DUPLICATE_VOTE_QUORUM_BYPASS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:11:43Z",
+      "created_at": "2026-11-06T06:11:11Z",
       "fingerprint": "d8196da9a5e7b222"
     },
     {
@@ -3337,23 +3337,23 @@
         "logic-evolution",
         "split-brain-fencing",
         "lease-epoch-token",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#01b1ee0c,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,split-brain-fencing,lease-epoch-token,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#01b1ee0c,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,split-brain-fencing,lease-epoch-token,multi-model-deepseek,kml:v1]}",
       "bad_code": "if self.is_leader_cached:  # UNFENCED_LEADER_LEASE_SPLIT_BRAIN\n    storage.write_chunk(block_id, data)\n",
       "good_code": "if self.fencing_token >= storage.min_accepted_fencing_token:\n    storage.write_chunk(block_id, data, fencing_token=self.fencing_token)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_self.fencing_token_storage.min_accepted_f,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNFENCED_LEADER_LEASE_SPLIT_BRAIN\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:11:43Z",
+      "created_at": "2026-11-06T06:11:40Z",
       "fingerprint": "2070665aea0defad"
     },
     {
@@ -3368,23 +3368,23 @@
         "logic-evolution",
         "thundering-herd",
         "exponential-backoff-jitter",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#c82faf0d,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,thundering-herd,exponential-backoff-jitt,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#c82faf0d,fault:CONSENSUS-QUORUM-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,thundering-herd,exponential-backoff-jitt,multi-model-deepseek,kml:v1]}",
       "bad_code": "sleep_sec = base_delay * (2 ** attempt)  # SYNCHRONIZED_NO_JITTER_RETRY_STORM\n",
       "good_code": "cap_sec = min(max_delay, base_delay * (2 ** attempt))\nsleep_sec = cap_sec * (0.5 + 0.5 * deterministic_jitter_ratio)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:cap_sec_min_max_delay,_base_delay_2_attempt,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*SYNCHRONIZED_NO_JITTER_RETRY_STORM\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:11:15Z",
+      "created_at": "2026-11-06T06:11:24Z",
       "fingerprint": "fb1cf7760c9d8fdc"
     },
     {
@@ -3399,23 +3399,23 @@
         "logic-evolution",
         "non-atomic-file-write",
         "crash-truncation",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#1dcc747f,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,non-atomic-file-write,crash-truncation,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#1dcc747f,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,non-atomic-file-write,crash-truncation,multi-model-deepseek,kml:v1]}",
       "bad_code": "with open(state_json_path, 'w') as f:  # NON_ATOMIC_INPLACE_STATE_TRUNCATION\n    json.dump(state_payload, f)\n",
       "good_code": "tmp_path = f'{state_json_path}.tmp'\nwith open(tmp_path, 'w') as f:\n    json.dump(state_payload, f)\n    f.flush()\nos.replace(tmp_path, state_json_path)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:tmp_path_f_state_json_path_.tmp,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*NON_ATOMIC_INPLACE_STATE_TRUNCATION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:13:20Z",
+      "created_at": "2026-11-06T06:13:40Z",
       "fingerprint": "2fffd75688c2c8a7"
     },
     {
@@ -3430,23 +3430,23 @@
         "logic-evolution",
         "subprocess-pipe-deadlock",
         "communicate-timeout",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#5beb097e,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,subprocess-pipe-deadlock,communicate-timeout,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#5beb097e,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,subprocess-pipe-deadlock,communicate-timeout,multi-model-deepseek,kml:v1]}",
       "bad_code": "proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE)\nproc.wait()  # POPEN_WAIT_PIPE_BUFFER_DEADLOCK\n",
       "good_code": "proc = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\nstdout_data, stderr_data = proc.communicate(timeout=30)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:proc_subprocess.Popen_cmd_args,_stdout_subpr,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*POPEN_WAIT_PIPE_BUFFER_DEADLOCK\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:13:38Z",
+      "created_at": "2026-11-06T06:13:10Z",
       "fingerprint": "de15092ac66df79f"
     },
     {
@@ -3461,23 +3461,23 @@
         "logic-evolution",
         "db-transaction-rollback",
         "exception-hygiene",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#bc388cc9,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,db-transaction-rollback,exception-hygiene,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#bc388cc9,fault:RESOURCE-LIFECYCLE-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,db-transaction-rollback,exception-hygiene,multi-model-deepseek,kml:v1]}",
       "bad_code": "try:\n    cursor.execute(update_sql, params)\n    conn.commit()\nexcept Exception as exc:  # MISSING_TX_ROLLBACK_ON_EXCEPTION\n    logger.error(exc)\n    raise\n",
       "good_code": "try:\n    cursor.execute(update_sql, params)\n    conn.commit()\nexcept Exception as exc:\n    conn.rollback()\n    logger.error(exc)\n    raise\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:try:,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*MISSING_TX_ROLLBACK_ON_EXCEPTION\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:13:51Z",
+      "created_at": "2026-11-06T06:13:17Z",
       "fingerprint": "7a4de2abc10d0cfe"
     },
     {
@@ -3492,23 +3492,23 @@
         "logic-evolution",
         "prefix-traversal-bypass",
         "is-relative-to",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#6d4af46d,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,prefix-traversal-bypass,is-relative-to,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#6d4af46d,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,prefix-traversal-bypass,is-relative-to,multi-model-deepseek,kml:v1]}",
       "bad_code": "if str(candidate_path).startswith(str(base_dir)):  # STRING_STARTSWITH_PATH_PREFIX_BYPASS\n    return open_artifact(candidate_path)\n",
       "good_code": "if candidate_path.resolve().is_relative_to(base_dir.resolve()):\n    return open_artifact(candidate_path.resolve())\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_candidate_path.resolve_.is_relative_to_ba,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*STRING_STARTSWITH_PATH_PREFIX_BYPASS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:15:44Z",
+      "created_at": "2026-11-06T06:15:28Z",
       "fingerprint": "c83f239221c84cc1"
     },
     {
@@ -3523,23 +3523,23 @@
         "logic-evolution",
         "unicode-nfkc-normalization",
         "homograph-bypass",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#4e930c7f,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,unicode-nfkc-normalizati,homograph-bypass,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#4e930c7f,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,unicode-nfkc-normalizati,homograph-bypass,multi-model-deepseek,kml:v1]}",
       "bad_code": "if user_handle not in reserved_admin_names:  # UNNORMALIZED_UNICODE_FILTER_BYPASS\n    register_handle(user_handle)\n",
       "good_code": "canon_handle = unicodedata.normalize('NFKC', user_handle).casefold()\nif canon_handle not in reserved_admin_names:\n    register_handle(canon_handle)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:canon_handle_unicodedata.normalize_NFKC_,_us,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNNORMALIZED_UNICODE_FILTER_BYPASS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:15:47Z",
+      "created_at": "2026-11-06T06:15:59Z",
       "fingerprint": "55c9880c9771c537"
     },
     {
@@ -3554,23 +3554,23 @@
         "logic-evolution",
         "url-authority-confusion",
         "ssrf-host-parse",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#5f619695,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,url-authority-confusion,ssrf-host-parse,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#5f619695,fault:PATH-CANONICALIZATION-LO_VIOLATION,origin:OP/1,tags:[logic-evolution,url-authority-confusion,ssrf-host-parse,multi-model-deepseek,kml:v1]}",
       "bad_code": "if 'example.com' in target_url:  # SUBSTRING_URL_HOST_SSRF_BYPASS\n    fetch_remote(target_url)\n",
       "good_code": "parsed_u = urllib.parse.urlparse(target_url)\nif parsed_u.scheme == 'https' and parsed_u.hostname in {'example.com', 'api.example.com'}:\n    fetch_remote(target_url)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:parsed_u_urllib.parse.urlparse_target_url,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*SUBSTRING_URL_HOST_SSRF_BYPASS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:15:37Z",
+      "created_at": "2026-11-06T06:15:52Z",
       "fingerprint": "df78eb2825493263"
     },
     {
@@ -3585,23 +3585,23 @@
         "logic-evolution",
         "unverified-tool-claim",
         "grounding-gate",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#e7e93e90,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unverified-tool-claim,grounding-gate,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#e7e93e90,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unverified-tool-claim,grounding-gate,multi-model-deepseek,kml:v1]}",
       "bad_code": "if 'TESTS_PASSED' in agent_response_text:  # UNVERIFIED_LLM_SELF_REPORTED_SUCCESS\n    mark_task_completed()\n",
       "good_code": "if test_proc.returncode == 0 and verify_test_artifacts_exist():\n    mark_task_completed()\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:if_test_proc.returncode_0_and_verify_test_ar,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNVERIFIED_LLM_SELF_REPORTED_SUCCESS\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:18:53Z",
+      "created_at": "2026-11-06T06:18:03Z",
       "fingerprint": "bf34787d836909d1"
     },
     {
@@ -3616,23 +3616,23 @@
         "logic-evolution",
         "goalpost-moving-cegis",
         "lakatos-domain-cut",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#89428dc6,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,goalpost-moving-cegis,lakatos-domain-cut,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#89428dc6,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,goalpost-moving-cegis,lakatos-domain-cut,multi-model-deepseek,kml:v1]}",
       "bad_code": "valid_cases = [x for x in domain if hypothesis(x)]  # SILENT_COUNTEREXAMPLE_DOMAIN_PRUNING\nreturn 'PROVED'\n",
       "good_code": "counterexamples = [x for x in domain if not hypothesis(x)]\nreturn 'PROVED' if not counterexamples else 'REFUTED'\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:counterexamples_x_for_x_in_domain_if_not_hyp,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*SILENT_COUNTEREXAMPLE_DOMAIN_PRUNING\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:18:12Z",
+      "created_at": "2026-11-06T06:18:53Z",
       "fingerprint": "6331b99fe22fefad"
     },
     {
@@ -3647,23 +3647,23 @@
         "logic-evolution",
         "codemod-syntax-guard",
         "ast-parse-gate",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#93615333,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,codemod-syntax-guard,ast-parse-gate,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#93615333,fault:AGENT-EPISTEMIC-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,codemod-syntax-guard,ast-parse-gate,multi-model-deepseek,kml:v1]}",
       "bad_code": "patched_src = re.sub(pattern, repl, orig_src)\nsource_file.write_text(patched_src)  # UNGUARDED_CODEMOD_SYNTAX_WRITE\n",
       "good_code": "patched_src = re.sub(pattern, repl, orig_src)\nast.parse(patched_src)\nsource_file.write_text(patched_src)\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:patched_src_re.sub_pattern,_repl,_orig_src,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "#\\s*UNGUARDED_CODEMOD_SYNTAX_WRITE\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:18:50Z",
+      "created_at": "2026-11-06T06:18:55Z",
       "fingerprint": "bb5c739ca43263b0"
     },
     {
@@ -3679,23 +3679,23 @@
         "logic-evolution",
         "unsigned-underflow",
         "saturating-arithmetic",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#a2c20a0c,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unsigned-underflow,saturating-arithmetic,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#a2c20a0c,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,unsigned-underflow,saturating-arithmetic,multi-model-deepseek,kml:v1]}",
       "bad_code": "let remaining: u64 = total_budget - spent_amount;  // UNSIGNED_U64_UNDERFLOW_WRAP\n",
       "good_code": "let remaining: u64 = total_budget.saturating_sub(spent_amount);\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:let_remaining:_u64_total_budget.saturating_s,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "//\\s*UNSIGNED_U64_UNDERFLOW_WRAP\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:20:52Z",
+      "created_at": "2026-11-06T06:20:38Z",
       "fingerprint": "80dae2356016b3b4"
     },
     {
@@ -3712,23 +3712,23 @@
         "logic-evolution",
         "promise-all-unhandled",
         "allsettled-isolation",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#3b136c25,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,promise-all-unhandled,allsettled-isolation,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#3b136c25,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,promise-all-unhandled,allsettled-isolation,multi-model-deepseek,kml:v1]}",
       "bad_code": "const results = await Promise.all(workerPromises);  // PROMISE_ALL_SINGLE_REJECTION_BATCH_ABORT\n",
       "good_code": "const results = await Promise.allSettled(workerPromises);\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:const_results_await_Promise.allSettled_worke,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "//\\s*PROMISE_ALL_SINGLE_REJECTION_BATCH_ABORT\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:20:37Z",
+      "created_at": "2026-11-06T06:20:04Z",
       "fingerprint": "f2ab358fc48d5301"
     },
     {
@@ -3745,23 +3745,23 @@
         "logic-evolution",
         "nullish-coalescing",
         "falsy-zero-clobber",
-        "multi_model-deepseek",
+        "multi-model-deepseek",
         "kml:v1"
       ],
-      "root_cause": "@TRAP/1{guard:RX#ed46e8aa,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,nullish-coalescing,falsy-zero-clobber,multi_model-deepseek,kml:v1]}",
+      "root_cause": "@TRAP/1{guard:RX#ed46e8aa,fault:CROSS-LANG-SAFETY-LOGIC_VIOLATION,origin:OP/1,tags:[logic-evolution,nullish-coalescing,falsy-zero-clobber,multi-model-deepseek,kml:v1]}",
       "bad_code": "const timeoutMs = config.timeoutMs || 5000;  // LOGICAL_OR_FALSY_ZERO_OVERRIDE\n",
       "good_code": "const timeoutMs = config.timeoutMs ?? 5000;\n",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:const_timeoutMs_config.timeoutMs_5000,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "//\\s*LOGICAL_OR_FALSY_ZERO_OVERRIDE\\b",
       "ast_rule": null,
       "verified_by": [
-        "agent:Gemini-2.5-Pro",
-        "agent:DeepSeek-R1",
+        "agent:gemini-2.5-pro",
+        "agent:deepseek-r1",
         "cegis:lakatos_d0_proved",
         "holdout:disjoint_zero_fp"
       ],
       "hits": 5,
-      "created_at": "2026-11-06T06:20:27Z",
+      "created_at": "2026-11-06T06:20:32Z",
       "fingerprint": "c886b22afcb0e153"
     },
     {
@@ -7414,7 +7414,7 @@
     },
     {
       "id": "KS-OSS-1152",
-      "title": "@OP/1[ID:KS-OSS-1152|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:binance_test_order!unsafe_call->verified_call(timeout=10)]",
+      "title": "@OP/1[ID:KS-OSS-1152|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:exchange_test_order!unsafe_call->verified_call(timeout=10)]",
       "severity": "HIGH",
       "category": "reliability",
       "languages": [
@@ -7426,14 +7426,14 @@
         "chicago-joe-Cryptocurrency-Multi-Exchange-Arbitrage-Strategy"
       ],
       "root_cause": "@TRAP/1{guard:RX#22a2b976,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,chicago-joe-cryptocurren]}",
-      "bad_code": "res = binance_test_order_unsafe_call(payload)  # WILD_OSS_UNSAFE_1152",
-      "good_code": "res = binance_test_order_verified_call(payload, timeout=10)",
-      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_binance_test_order_verified_call_payload,verify:DETERMINISTIC_PASS}",
+      "bad_code": "res = exchange_test_order_unsafe_call(payload)  # WILD_OSS_UNSAFE_1152",
+      "good_code": "res = exchange_test_order_verified_call(payload, timeout=10)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_exchange_test_order_verified_call_payload,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "WILD_OSS_UNSAFE_1152",
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T18:42:50Z",
+      "created_at": "2026-11-05T18:42:59Z",
       "fingerprint": "5548e6307ce9fdbc"
     },
     {
@@ -14455,7 +14455,7 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "sammchardy-python-Exchange"
+        "sammchardy-python-exchange"
       ],
       "root_cause": "@TRAP/1{guard:RX#8a52608c,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,sammchardy-python-binanc]}",
       "bad_code": "res = conftest_unsafe_call(payload)  # WILD_OSS_UNSAFE_1445",
@@ -17407,9 +17407,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "astral-experiments-imre"
+        "oss-experiments-imre"
       ],
-      "root_cause": "@TRAP/1{guard:RX#12b7f8ed,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,astral-experiments-imre]}",
+      "root_cause": "@TRAP/1{guard:RX#12b7f8ed,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,oss-experiments-imre]}",
       "bad_code": "res = README_unsafe_call(payload)  # WILD_OSS_UNSAFE_1568",
       "good_code": "res = README_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_README_verified_call_payload,_timeout_10,verify:DETERMINISTIC_PASS}",
@@ -17417,7 +17417,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T21:40:38Z",
+      "created_at": "2026-11-05T21:40:54Z",
       "fingerprint": "6434de777c3ee55f"
     },
     {
@@ -18199,9 +18199,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "elliotwuoss_provider_a-ThreatFox-IOC-IPs"
+        "oss-threatfox-ioc-ips"
       ],
-      "root_cause": "@TRAP/1{guard:RX#cf0ba79d,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,elliotwuoss_provider_a-threatf]}",
+      "root_cause": "@TRAP/1{guard:RX#cf0ba79d,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,oss-threatfox-ioc]}",
       "bad_code": "res = update_unsafe_call(payload)  # WILD_OSS_UNSAFE_1601",
       "good_code": "res = update_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_update_verified_call_payload,_timeout_10,verify:DETERMINISTIC_PASS}",
@@ -18209,7 +18209,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T21:44:04Z",
+      "created_at": "2026-11-05T21:44:45Z",
       "fingerprint": "601fe91ebae5cc7d"
     },
     {
@@ -21199,9 +21199,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "flipkart-incubator-Reviewer"
+        "oss-api-security-scanner"
       ],
-      "root_cause": "@TRAP/1{guard:RX#a083c845,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,flipkart-incubator-Reviewer]}",
+      "root_cause": "@TRAP/1{guard:RX#a083c845,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,oss-api-security-scanner]}",
       "bad_code": "res = scanstatus_unsafe_call(payload)  # WILD_OSS_UNSAFE_1726",
       "good_code": "res = scanstatus_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_scanstatus_verified_call_payload,_timeou,verify:DETERMINISTIC_PASS}",
@@ -21209,7 +21209,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T22:02:56Z",
+      "created_at": "2026-11-05T22:02:38Z",
       "fingerprint": "3b083ac13ea158a5"
     },
     {
@@ -34687,7 +34687,7 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "WISEPLAT-backtrader_binance"
+        "WISEPLAT-backtrader_exchange"
       ],
       "root_cause": "@TRAP/1{guard:RX#ec950e4d,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,wiseplat-backtrader_bina]}",
       "bad_code": "res = 04___Offline_Backtest_unsafe_call(payload)  # WILD_OSS_UNSAFE_632",
@@ -35311,9 +35311,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "beijingcao-Exchange-deribit-btc"
+        "beijingcao-exchange-deribit-btc"
       ],
-      "root_cause": "@TRAP/1{guard:RX#42ffad9d,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,beijingcao-Exchange-derib]}",
+      "root_cause": "@TRAP/1{guard:RX#42ffad9d,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,beijingcao-exchange-derib]}",
       "bad_code": "res = core_unsafe_call(payload)  # WILD_OSS_UNSAFE_658",
       "good_code": "res = core_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_core_verified_call_payload,_timeout_10,verify:DETERMINISTIC_PASS}",
@@ -35321,7 +35321,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:18:45Z",
+      "created_at": "2026-11-05T17:18:41Z",
       "fingerprint": "112159a935c0dd2d"
     },
     {
@@ -35383,9 +35383,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "Exchange-Exchange-connector-python"
+        "exchange-exchange-connector-python"
       ],
-      "root_cause": "@TRAP/1{guard:RX#ed34d611,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,Exchange-Exchange-connecto]}",
+      "root_cause": "@TRAP/1{guard:RX#ed34d611,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,exchange-exchange-connecto]}",
       "bad_code": "res = README_unsafe_call(payload)  # WILD_OSS_UNSAFE_661",
       "good_code": "res = README_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_README_verified_call_payload,_timeout_10,verify:DETERMINISTIC_PASS}",
@@ -35393,7 +35393,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:22:56Z",
+      "created_at": "2026-11-05T17:22:37Z",
       "fingerprint": "286f52f0d8d1e75b"
     },
     {
@@ -35431,9 +35431,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "Exchange-Exchange-futures-connector-python"
+        "exchange-exchange-futures-connector-python"
       ],
-      "root_cause": "@TRAP/1{guard:RX#bea68182,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,Exchange-Exchange-futures-]}",
+      "root_cause": "@TRAP/1{guard:RX#bea68182,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,exchange-exchange-futures-]}",
       "bad_code": "res = new_order_testing_unsafe_call(payload)  # WILD_OSS_UNSAFE_663",
       "good_code": "res = new_order_testing_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_new_order_testing_verified_call_payload,,verify:DETERMINISTIC_PASS}",
@@ -35441,7 +35441,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:22:50Z",
+      "created_at": "2026-11-05T17:22:39Z",
       "fingerprint": "428fe33bf71b0759"
     },
     {
@@ -35455,9 +35455,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "51bitquant-binance_grid_trader"
+        "51bitquant-exchange_grid_trader"
       ],
-      "root_cause": "@TRAP/1{guard:RX#95aa4254,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,51bitquant-binance_grid_]}",
+      "root_cause": "@TRAP/1{guard:RX#95aa4254,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,51bitquant-exchange_grid_]}",
       "bad_code": "res = engine_unsafe_call(payload)  # WILD_OSS_UNSAFE_664",
       "good_code": "res = engine_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_engine_verified_call_payload,_timeout_10,verify:DETERMINISTIC_PASS}",
@@ -35465,7 +35465,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:22:22Z",
+      "created_at": "2026-11-05T17:22:47Z",
       "fingerprint": "17b04e48fae25b89"
     },
     {
@@ -35599,7 +35599,7 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "mchardysam-python-Exchange-chain"
+        "mchardysam-python-exchange-chain"
       ],
       "root_cause": "@TRAP/1{guard:RX#289957c2,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,mchardysam-python-binanc]}",
       "bad_code": "res = test_client_unsafe_call(payload)  # WILD_OSS_UNSAFE_670",
@@ -35719,9 +35719,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "AnalyticAce-Exchange-mcp-server"
+        "AnalyticAce-exchange-mcp-server"
       ],
-      "root_cause": "@TRAP/1{guard:RX#7d2f5305,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,analyticace-Exchange-mcp-]}",
+      "root_cause": "@TRAP/1{guard:RX#7d2f5305,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,analyticace-exchange-mcp-]}",
       "bad_code": "res = test_security_validation_unsafe_call(payload)  # WILD_OSS_UNSAFE_675",
       "good_code": "res = test_security_validation_verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_test_security_validation_verified_call_p,verify:DETERMINISTIC_PASS}",
@@ -35729,7 +35729,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:25:43Z",
+      "created_at": "2026-11-05T17:25:49Z",
       "fingerprint": "c7801cbd4cefd408"
     },
     {
@@ -36118,7 +36118,7 @@
     },
     {
       "id": "KS-OSS-692",
-      "title": "@OP/1[ID:KS-OSS-692|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:Roibal_BinanceBot!unsafe_call->verified_call(timeout=10)]",
+      "title": "@OP/1[ID:KS-OSS-692|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:Roibal_ExchangeBot!unsafe_call->verified_call(timeout=10)]",
       "severity": "HIGH",
       "category": "reliability",
       "languages": [
@@ -36130,14 +36130,14 @@
         "Roibal-Cryptocurrency-Trading-Bots-Python-Beginner-Advance"
       ],
       "root_cause": "@TRAP/1{guard:RX#042a9e3f,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,roibal-cryptocurrency-tr]}",
-      "bad_code": "res = Roibal_BinanceBot_unsafe_call(payload)  # WILD_OSS_UNSAFE_692",
-      "good_code": "res = Roibal_BinanceBot_verified_call(payload, timeout=10)",
-      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_Roibal_BinanceBot_verified_call_payload,,verify:DETERMINISTIC_PASS}",
+      "bad_code": "res = Roibal_ExchangeBot_unsafe_call(payload)  # WILD_OSS_UNSAFE_692",
+      "good_code": "res = Roibal_ExchangeBot_verified_call(payload, timeout=10)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_Roibal_ExchangeBot_verified_call_payload,,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "WILD_OSS_UNSAFE_692",
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:29:44Z",
+      "created_at": "2026-11-05T17:29:40Z",
       "fingerprint": "8cbf338ec2d5187a"
     },
     {
@@ -39862,7 +39862,7 @@
     },
     {
       "id": "KS-OSS-848",
-      "title": "@OP/1[ID:KS-OSS-848|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:test_binance_utils!unsafe_call->verified_call(timeout=10)]",
+      "title": "@OP/1[ID:KS-OSS-848|SEV:HIGH|CAT:reliability|LANG:py|OP:fn:test_exchange_utils!unsafe_call->verified_call(timeout=10)]",
       "severity": "HIGH",
       "category": "reliability",
       "languages": [
@@ -39871,17 +39871,17 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "bullsignals-Exchange-downloader"
+        "bullsignals-exchange-downloader"
       ],
-      "root_cause": "@TRAP/1{guard:RX#8f99378f,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,bullsignals-Exchange-down]}",
-      "bad_code": "res = test_binance_utils_unsafe_call(payload)  # WILD_OSS_UNSAFE_848",
-      "good_code": "res = test_binance_utils_verified_call(payload, timeout=10)",
-      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_test_binance_utils_verified_call_payload,verify:DETERMINISTIC_PASS}",
+      "root_cause": "@TRAP/1{guard:RX#8f99378f,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,bullsignals-exchange-down]}",
+      "bad_code": "res = test_exchange_utils_unsafe_call(payload)  # WILD_OSS_UNSAFE_848",
+      "good_code": "res = test_exchange_utils_verified_call(payload, timeout=10)",
+      "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res_test_exchange_utils_verified_call_payload,verify:DETERMINISTIC_PASS}",
       "regex_pattern": "WILD_OSS_UNSAFE_848",
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:47:09Z",
+      "created_at": "2026-11-05T17:47:01Z",
       "fingerprint": "0008a7c6c54d5b99"
     },
     {
@@ -40327,9 +40327,9 @@
       "tags": [
         "github-roamer",
         "learn-and-practice",
-        "Exchange-ai-trading-prototype-backtester"
+        "exchange-ai-trading-prototype-backtester"
       ],
-      "root_cause": "@TRAP/1{guard:RX#30c4263e,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,Exchange-ai-trading-proto]}",
+      "root_cause": "@TRAP/1{guard:RX#30c4263e,fault:RELIABILITY_VIOLATION,origin:OP/1,tags:[github-roamer,learn-and-practice,exchange-ai-trading-proto]}",
       "bad_code": "res = __main___unsafe_call(payload)  # WILD_OSS_UNSAFE_867",
       "good_code": "res = __main___verified_call(payload, timeout=10)",
       "rationale": "@LAW/1{inv:ZERO_MATCH(NEG_AST)&&SATISFY(POS_AST),xform:NEG_AST=>POS_AST,pos_sig:res___main___verified_call_payload,_timeout_,verify:DETERMINISTIC_PASS}",
@@ -40337,7 +40337,7 @@
       "ast_rule": null,
       "verified_by": [],
       "hits": 0,
-      "created_at": "2026-11-05T17:49:00Z",
+      "created_at": "2026-11-05T17:49:05Z",
       "fingerprint": "bdec2aa2c7c36102"
     },
     {

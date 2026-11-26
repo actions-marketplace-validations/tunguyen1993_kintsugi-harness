@@ -119,9 +119,8 @@ REDOS_PATHOLOGICAL_PROBES: Tuple[str, ...] = (
 OUTBOUND_DLP_SECRET_RE = re.compile(
     r"(?:"
     r"/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|C:\\Users\\[A-Za-z0-9._-]+|"
-    r"\.(?:enterprise-platform|oss_provider_b|codex|muse)\b|"
+    r"\.(?:internal-staging|local-agent-cache)\b|"
     r"\bsk-(?!proj-EXAMPLE_PLACEHOLDER)[A-Za-z0-9_-]{12,}\b|"
-    r"\btj_[A-Za-z0-9_-]{16,}\b|"
     r"\bgsk_(?!your_free_key)[A-Za-z0-9_-]{16,}\b|"
     r"\bxai-[A-Za-z0-9_-]{16,}\b|"
     r"\bhf_[A-Za-z0-9]{20,}\b|"
@@ -133,8 +132,7 @@ OUTBOUND_DLP_SECRET_RE = re.compile(
     r"\beyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{10,}\b|"
     r"\b0x[a-fA-F0-9]{40}\b|"
     r"\b0x[a-fA-F0-9]{64}\b|"
-    r"\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b|"
-    r"\b(?:124\.158\.6\.173|123\.16\.242\.204)\b|"
+    r"\b(?:192\.16[8]|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b|"
     r"[a-zA-Z0-9._%+-]+@(?!([a-zA-Z0-9-]+\.)*example\.(?:com|org|net)\b)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
     r")",
     re.IGNORECASE,
@@ -443,7 +441,7 @@ def resolve_safe_child_path(base_dir: Path, relative_path: str) -> Optional[Path
 
 # ---------------------------------------------------------------------------
 # Layer 7: Strict Outbound Egress Destination Whitelist
-# ("Chỉ được gửi lên kho public tự tiến hoá của GitHub — chặn mọi nguồn gửi ra ngoài khác")
+# ("Allow outbound sync strictly to the official public GitHub evolution repository — block all other egress targets")
 # ---------------------------------------------------------------------------
 ALLOWED_PUBLIC_EVOLUTION_REPO_SLUG = "tunguyen1993/kintsugi-harness"
 ALLOWED_OUTBOUND_GIT_REMOTES: Tuple[str, ...] = (
@@ -700,27 +698,30 @@ def sanitize_external_untrusted_text(text: Any, max_len: int = 120) -> str:
 
 def is_strictly_zero_bond(*args: Any) -> bool:
     """
-    Enforce exact `Decimal` zero-bond/fee verification (`CM-024` / `LA-01`):
+    Enforce exact `Decimal` zero-outbound/zero-deposit verification (`CM-024` / `LA-01`):
     Fail closed (`False`) on `NaN`, `Infinity`, negative values, booleans (`True`),
-    unparseable strings, or > 0 bonds.
+    unparseable strings, or > 0 deposits/fees/transfers.
     """
     if not args:
         return True
-    bond_keys = (
-        "claimBond",
+    policy_key_fragments = (
         "deposit_required",
-        "claim_bond_atomic",
-        "refundable_claim_bond",
-        "outbound_x402",
+        "tx_value_nonzero",
+        "unbounded_approval",
+        "zero_outbound_policy",
         "upfront_fee",
         "entry_fee",
         "staking_required",
+        "bond",
+        "outbound",
     )
     values_to_check = []
     for arg in args:
         if isinstance(arg, dict):
-            for k in bond_keys:
-                values_to_check.append(arg.get(k))
+            for k, v in arg.items():
+                kl = str(k).lower()
+                if any(frag in kl for frag in policy_key_fragments):
+                    values_to_check.append(v)
         else:
             values_to_check.append(arg)
     for val in values_to_check:
